@@ -1,0 +1,402 @@
+/* CodePrinter LESS File */
+.codeprinter {
+  display: inline-block;
+  margin: 5px;
+  padding: 0;
+  border-color: #c0c0c0;
+  border-width: 1px;
+  border-style: solid;
+  min-width: 50px;
+  min-height: 20px;
+  overflow: hidden;
+  position: relative;
+  top: 0;
+}
+.codeprinter .cp-wrapper {
+  display: inline-block;
+  vertical-align: top;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  position: relative;
+  z-index: 4;
+}
+.codeprinter .cp-textarea {
+  margin: 0;
+  padding: 5px 15px;
+  background-color: none;
+  white-space: nowrap;
+  border-width: 0;
+  color: rgba(0, 0, 0, 0);
+  font-family: Menlo;
+  font-size: 13px;
+  line-height: 18px;
+  resize: none;
+  outline: none;
+  z-index: 3;
+  opacity: 1;
+  overflow: auto;
+  white-space: pre;
+}
+.codeprinter .cp-overlay {
+  width: 100%;
+  height: auto;
+  margin: 0;
+  padding: 1px 15px;
+  pointer-events: none;
+  border-width: 0;
+  font-family: Menlo;
+  font-size: 13px;
+  z-index: 5;
+  overflow: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.codeprinter .cp-overlay pre {
+  width: 3000px;
+  height: auto;
+  margin: 0 0 0 -20px;
+  padding: 0 0 0 20px;
+  min-height: 18px;
+  line-height: 18px;
+  font-family: inherit;
+  font-size: inherit;
+}
+.codeprinter .cp-overlay pre.active {
+  background-color: rgba(230, 239, 255, 0.6);
+  -webkit-box-shadow: 0 0 2px #3399ff;
+  -moz-box-shadow: 0 0 2px #3399ff;
+  -ms-box-shadow: 0 0 2px #3399ff;
+  -o-box-shadow: 0 0 2px #3399ff;
+  box-shadow: 0 0 2px #3399ff;
+}
+.codeprinter .cp-counter {
+  display: inline-block;
+  vertical-align: top;
+  margin: 0;
+  padding: 5px 0;
+  background-image: -webkit-gradient(linear, left top, left bottom, from(#ededed), to(#fafafa));
+  background-image: -webkit-linear-gradient(right, #ededed, #fafafa);
+  background-image: -moz-linear-gradient(right, #ededed, #fafafa);
+  background-image: -ms-linear-gradient(right, #ededed, #fafafa);
+  background-image: -o-linear-gradient(right, #ededed, #fafafa);
+  background-image: linear-gradient(right, #ededed, #fafafa);
+  border-color: #c0c0c0;
+  border-width: 0 1px 0 0;
+  border-style: solid;
+  -webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -moz-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  min-width: 35px;
+  z-index: 6;
+  list-style-type: none;
+  overflow: hidden;
+  counter-reset: cw-counter;
+  top: 0;
+  bottom: 0;
+  left: 0;
+}
+.codeprinter .cp-counter li {
+  margin: 0;
+  padding: 0 7px;
+  text-align: right;
+  color: #999;
+  font-family: "Calibri";
+  font-size: 13px;
+  list-style-type: none;
+  counter-increment: cw-counter;
+}
+.codeprinter .cp-counter li::before {
+  content: counter(cw-counter);
+}
+.codeprinter .cp-counter li.active {
+  background-color: rgba(230, 239, 255, 0.6);
+  -webkit-box-shadow: 0 0 2px #3399ff;
+  -moz-box-shadow: 0 0 2px #3399ff;
+  -ms-box-shadow: 0 0 2px #3399ff;
+  -o-box-shadow: 0 0 2px #3399ff;
+  box-shadow: 0 0 2px #3399ff;
+  color: black;
+}
+.codeprinter .cp-infobar {
+  width: auto;
+  height: 14px;
+  margin: 0;
+  padding: 2px 5px;
+  background-image: -webkit-gradient(linear, left top, left bottom, from(#ededed), to(#fafafa));
+  background-image: -webkit-linear-gradient(bottom, #ededed, #fafafa);
+  background-image: -moz-linear-gradient(bottom, #ededed, #fafafa);
+  background-image: -ms-linear-gradient(bottom, #ededed, #fafafa);
+  background-image: -o-linear-gradient(bottom, #ededed, #fafafa);
+  background-image: linear-gradient(bottom, #ededed, #fafafa);
+  border-color: #c0c0c0;
+  border-width: 0 0 1px 0;
+  border-style: solid;
+  -webkit-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
+  -moz-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
+  -ms-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
+  -o-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
+  font-family: Verdana;
+  font-size: 10px;
+  color: #777;
+  position: relative;
+  z-index: 5;
+}
+.codeprinter .cp-infobar span {
+  margin: 0 15px;
+  padding: 0;
+}
+.codeprinter .cp-infobar span.countChars {
+  position: absolute;
+  right: 10px;
+}
+.codeprinter .cp-infobar span a {
+  margin: 0 5px;
+  padding: 0;
+}
+.codeprinter .cp-wrapper + .cp-infobar {
+  border-width: 1px 0 0 0;
+}
+.codeprinter .cp-textarea,
+.codeprinter .cp-overlay,
+.codeprinter .cp-counter {
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+.tab {
+  border-left: 1px dotted rgba(200, 200, 200, 0.9);
+  margin-left: -1px;
+}
+.html-tag {
+  color: #881280;
+}
+.html-declaration {
+  color: #236e25;
+}
+.html-prologue {
+  color: #236e25;
+}
+.html-attr {
+  color: #994500;
+}
+.html-value {
+  color: #1a1aa6;
+}
+.html-php {
+  color: red;
+  font-style: italic;
+}
+.html-comment,
+.html-comment * {
+  color: #a4a4a4 !important;
+}
+.css {
+  color: black;
+}
+.css-bracket {
+  color: #777;
+}
+.css-attr {
+  color: #236e25;
+}
+.css-value {
+  color: blue;
+}
+.css-number {
+  color: blue;
+  font-family: "PanicBold";
+}
+.css-hash {
+  color: #003f83;
+  font-family: "PanicItalic";
+}
+.css-variable {
+  color: #b60000;
+}
+.css-punctuation {
+  color: black;
+}
+.css-url {
+  color: maroon !important;
+}
+.css-string {
+  color: maroon !important;
+}
+.css-comment {
+  color: #a4a4a4 !important;
+  font-family: "PanicItalic";
+}
+.php {
+  color: black;
+}
+.php-fname {
+  color: #003369;
+}
+.php-bracket {
+  color: #b60000;
+}
+.php-keyword {
+  color: #881350;
+  font-family: "PanicBold";
+}
+.php-variable {
+  color: #825900;
+}
+.php-varinstring {
+  color: #c94b16;
+}
+.php-number {
+  color: #0000ff;
+  font-family: "PanicBold";
+}
+.php-string {
+  color: #eb7300 !important;
+}
+.php-comment,
+#php .comment * {
+  color: #a4a4a4 !important;
+}
+.js {
+  color: black;
+}
+.js-fname {
+  color: #003f83;
+}
+.js-curlybracket {
+  color: red;
+}
+.js-squarebracket {
+  color: green;
+}
+.js-roundbracket {
+  color: black;
+}
+.js-anglebracket {
+  color: blue;
+}
+.js-keyword {
+  color: #8959a8;
+  font-style: italic;
+  font-weight: bold;
+}
+.js-specials {
+  color: green;
+}
+.js-property {
+  color: navy;
+}
+.js-regex {
+  color: #c82829;
+}
+.js-escaped {
+  color: teal;
+}
+.js-number {
+  color: #f5871f;
+  font-weight: bold;
+}
+.js-hex {
+  color: purple;
+  font-style: italic;
+}
+.js-string,
+.js-string * {
+  color: maroon !important;
+}
+.js-comment,
+.js-comment * {
+  color: #a4a4a4 !important;
+}
+/* ########### */
+/* LESS MIXINS */
+.block {
+  display: block;
+}
+.inline {
+  display: inline;
+}
+.inline-block {
+  display: inline-block;
+}
+.box {
+  display: -webkit-box;
+  display: -moz-box;
+  display: -ms-flexbox;
+  display: box;
+}
+.hidden {
+  display: none;
+}
+.vertical-top {
+  vertical-align: top;
+}
+.vertical-middle {
+  vertical-align: middle;
+}
+.vertical-bottom {
+  vertical-align: bottom;
+}
+.align-left {
+  text-align: left;
+}
+.align-center {
+  text-align: center;
+}
+.align-right {
+  text-align: right;
+}
+.bold {
+  font-weight: bold;
+}
+.italic {
+  font-style: italic;
+}
+.text-muted {
+  color: #999999;
+}
+.text-warning {
+  color: #c09853;
+}
+.text-error {
+  color: #b94a48;
+}
+.text-info {
+  color: #3a87ad;
+}
+.text-success {
+  color: #468847;
+}
+.no-rounded {
+  border-radius: 0;
+}
+.mini-rounded {
+  border-radius: 2px;
+}
+.small-rounded {
+  border-radius: 4px;
+}
+.medium-rounded {
+  border-radius: 8px;
+}
+.large-rounded {
+  border-radius: 15px;
+}
+.xl-rounded {
+  border-radius: 20px;
+}
+.xxl-rounded {
+  border-radius: 30px;
+}
+.not-allowed {
+  cursor: not-allowed;
+}
+.non-events {
+  pointer-events: none;
+}
+.nowrap {
+  white-space: nowrap;
+}
