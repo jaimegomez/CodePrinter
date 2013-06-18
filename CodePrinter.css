@@ -1,4 +1,7 @@
-/* CodePrinter LESS File */
+/*  CodePrinter
+*   LESS(CSS) document
+*   version:     0.1.0
+*/
 .codeprinter {
   display: inline-block;
   margin: 5px;

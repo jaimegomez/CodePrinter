@@ -28,6 +28,8 @@
         return this;
     };
     
+    CodePrinter.version = '0.1.0';
+    
     CodePrinter.prototype = {}.extend({
         sizes: {},
         prepare: function() {
