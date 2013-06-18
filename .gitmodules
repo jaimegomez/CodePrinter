@@ -1,0 +1,3 @@
+[submodule "Selector.js"]
+	path = Selector.js
+	url = https://github.com/tsapeta/Selector.js.git
