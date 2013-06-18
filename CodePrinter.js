@@ -20,10 +20,10 @@
         this.mainElement = mainElement;
         this.wrapper = wrapper;
         this.overlay = overlay;
-        this.textarea = object.addClass('cp-textarea');
+        this.source = object.addClass('cp-source');
         
         this.prepare();
-        this.make();
+        this.print();
         
         return this;
     };
@@ -32,7 +32,7 @@
         sizes: {},
         prepare: function() {
             var self = this,
-                textarea = self.textarea,
+                source = self.source,
                 overlay = self.overlay,
                 options = self.options,
                 sizes = self.sizes,
@@ -45,8 +45,8 @@
             if (options.infobar) {
                 self.prepareInfobar();
             }
-        	
-        	self.measureSizes();
+            
+            self.measureSizes();
             
             self.mainElement.attr({ id: id });
             self.id = id;
@@ -57,9 +57,9 @@
                 self.counter.css({ position: 'absolute', width: self.counter.width() });
             }
             self.wrapper.css({ width: sizes.offsetWidth, height: sizes.offsetHeight });
-            overlay.inheritStyle(['width','height','line-height'], textarea);
-            overlay.add(textarea).css({ position: 'absolute', top: 0, left: sizes.counterWidth });
-            overlay.html(textarea.value());
+            overlay.inheritStyle(['width','height','line-height'], source);
+            overlay.add(source).css({ position: 'absolute', top: 0, left: sizes.counterWidth });
+            overlay.html(source.value());
         },
         prepareInfobar: function() {
             var self = this,
@@ -75,95 +75,92 @@
             
             infobar.html('<span class="mode">'+ self.options.mode +'</span><span class="options"><a href="">copy</a><a href="#" class="plaintext">plaintext</a></span><span class="countChars"></span>');
             infobar.find('a.plaintext').click(function() {
-			    var newWindow = window.open('', '_blank');
-			    newWindow.document.writeln('<pre>' + parseEntities(self.textarea.value()) + '</pre>');
+                var newWindow = window.open('', '_blank');
+                newWindow.document.writeln('<pre>' + parseEntities(self.source.value()) + '</pre>');
             });
             self.infobar = infobar;
         },
         measureSizes: function() {
             var sizes = this.sizes,
-                textarea = this.textarea;
+                source = this.source;
             
-            sizes.width = textarea.width();
-        	sizes.height = textarea.height();
-        	sizes.offsetWidth = textarea.offsetWidth();
-        	sizes.offsetHeight = textarea.offsetHeight();
-        	sizes.lineHeight = textarea.css('lineHeight');
+            sizes.width = source.width();
+            sizes.height = source.height();
+            sizes.offsetWidth = source.offsetWidth();
+            sizes.offsetHeight = source.offsetHeight();
+            sizes.lineHeight = source.css('lineHeight');
             sizes.infobarHeight = this.infobar ? this.infobar.offsetHeight() : 0;
             sizes.counterWidth = this.counter ? this.counter.offsetWidth() : 0;
         },
         getTextSize: function(text) {
             if (text == null) text = 'c';
-    		var h = 0, w = 0,
-    		    styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing', 'whiteSpace'],
-    		    tmpdiv = $.create('div');
-    		
-    		this.mainElement.append(tmpdiv.text(text));
-    		tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
-    		tmpdiv.inheritStyle(styles, this.textarea);
-    		h = tmpdiv.height(),
-    		w = tmpdiv.width();
-    		tmpdiv.remove();
-    		
-    		return { height: h, width: w };
+            var h = 0, w = 0,
+                styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing', 'whiteSpace'],
+                tmpdiv = $.create('div');
+            
+            this.mainElement.append(tmpdiv.text(text));
+            tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
+            tmpdiv.inheritStyle(styles, this.source);
+            h = tmpdiv.height(),
+            w = tmpdiv.width();
+            tmpdiv.remove();
+            
+            return { height: h, width: w };
         },
         reloadCounter: function() {
             if (this.counter) {
-    			var lines = this.parsed.length,
-    				liLength = this.counter.children('li').length,
-    				amp = lines - liLength;
+                var lines = this.parsed.length,
+                    liLength = this.counter.children('li').length,
+                    amp = lines - liLength;
     
-    			for( ; amp != 0; ) {
-    				if (amp < 0) {
-    					this.counter.children('li').last().remove();
-    					amp++;
-    				} else {
-    					this.counter.append($.create('li'));
-    					amp--;
-    				}
-    			}
-			}
-		},
-		reloadInfoBar: function() {
-			if (this.infobar) {
-				if (this.textarea.data('selected-words') == 0 || !this.textarea.data('selected-words')) {
-					this.infobar.children('span.countChars').html(this.value.length + ' characters, ' + this.parsed.length + ' lines');
-				} else {
-					this.infobar.children('span.countChars').html(this.textarea.data('selected-words') + ' characters selected');
-				}
-			}
-		},
-    	make: function(mode, line) {
-			var timestampStart = new Date();
-			if (!mode) {
-			    mode = this.options.mode;
+                for( ; amp != 0; ) {
+                    if (amp < 0) {
+                        this.counter.children('li').last().remove();
+                        amp++;
+                    } else {
+                        this.counter.append($.create('li'));
+                        amp--;
+                    }
+                }
+            }
+        },
+        reloadInfoBar: function() {
+            if (this.infobar) {
+                if (this.source.data('selected-words') == 0 || !this.source.data('selected-words')) {
+                    this.infobar.children('span.countChars').html(this.value.length + ' characters, ' + this.parsed.length + ' lines');
+                } else {
+                    this.infobar.children('span.countChars').html(this.source.data('selected-words') + ' characters selected');
+                }
+            }
+        },
+        getSourceValue: function() {
+            return this.source.html().replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
+        },
+        print: function(mode, line) {
+            if (!mode) {
+                mode = this.options.mode;
             }
             
-            var textarea = this.textarea,
-                overlay = this.overlay;
+            var source = this.source,
+                overlay = this.overlay,
+                value = this.getSourceValue();
             
-			this.textarea.value(textarea.value().replace(/\t/g, Array(this.options.tabWidth+1).join(' ')));
-			this.value = parseEntities(textarea.value());
-			
-			this.parsed = CodePrinter[mode].fn(this.value).split(/\n/g);
-			
-			//for(var line = 0; line < this.parsed.length; line++) {
-			//	line = this.SyntaxerModes[mode](line, this.parsed);
-			//}
-			overlay.html('');
-			
-			for (var j = 0; j < this.parsed.length; j++) {
-				if (this.options.showIndent) {
-					this.parsed[j] = indentGrid(this.parsed[j], this.options.tabWidth);
-				}
-				overlay.append($.create('pre').html(this.parsed[j]));
-			}
+            source.html(value);
+            this.value = value = parseEntities(value);
+            this.parsed = CodePrinter[mode].fn(value).split(/\n/g);
             
-			this.reloadCounter();
-			this.reloadInfoBar();
-			
-			$('div.time').html((new Date() - timestampStart)/1000+' s');
-		}
+            overlay.html('');
+            
+            for (var j = 0; j < this.parsed.length; j++) {
+                if (this.options.showIndent) {
+                    this.parsed[j] = indentGrid(this.parsed[j], this.options.tabWidth);
+                }
+                overlay.append($.create('pre').html(this.parsed[j]));
+            }
+            
+            this.reloadCounter();
+            this.reloadInfoBar();
+        }
     });
     
     CodePrinter.defaults = {
@@ -172,21 +169,20 @@
         counter: true,
         infobar: true,
         infobarOnTop: true,
-        activeLine: true,
         showIndent: true,
         randomIDLength: 7
     };
     
     function parseEntities(text) {
-		return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
-	};
-	function indentGrid(text, width) {
-		var pos = text.search(/[^\s]/);
-		if(pos == -1) pos = text.length;
-		var tmp = [ text.substring(0, pos), text.substr(pos) ];
-		tmp[0] = tmp[0].replace(new RegExp("(\\s{"+ width +"})", "g"), '<span class="tab">$1</span>');
-		return tmp[0] + tmp[1];
-	};
+        return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+    };
+    function indentGrid(text, width) {
+        var pos = text.search(/[^\s]/);
+        if(pos == -1) pos = text.length;
+        var tmp = [ text.substring(0, pos), text.substr(pos) ];
+        tmp[0] = tmp[0].replace(new RegExp("(\\s{"+ width +"})", "g"), '<span class="tab">$1</span>');
+        return tmp[0] + tmp[1];
+    };
     
     $.prototype.CodePrinter = function(opt) {
         var c;

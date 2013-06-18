@@ -21,7 +21,7 @@
   position: relative;
   z-index: 4;
 }
-.codeprinter .cp-textarea {
+.codeprinter .cp-source {
   margin: 0;
   padding: 5px 15px;
   background-color: none;
@@ -161,7 +161,7 @@
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
 }
-.codeprinter .cp-textarea,
+.codeprinter .cp-source,
 .codeprinter .cp-overlay,
 .codeprinter .cp-counter {
   padding-top: 5px;
