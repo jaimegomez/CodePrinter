@@ -5,8 +5,11 @@
 
 .codeprinter {
     @borderColor: rgb(192,192,192);
+    @paddingY: 5px;
+    @paddingX: 15px;
     
-    .inline-block;
+    .block;
+    .nowrap;
 	.margins(5px, 0);
 	.border(silver, 1px);
 	min-width:50px;
@@ -14,20 +17,26 @@
 	overflow:hidden;
 	position:relative; top:0;
 	
+	.cp-container {
+    	position:relative;
+	}
 	.cp-wrapper {
-    	.inline-block;
-    	.vertical-top;
-    	.margins(0, 0);
+	    .inline-block;
+	    .vertical-top;
+	    .size(auto, 100%);
+    	.margins(0, @paddingY 0);
         .background(transparent);
         position:relative;
 	    z-index:4;
+	    overflow:scroll;
 	}
 	.cp-source {
-	    .margins(0, 5px 15px);
+	    .block;
+	    .margins(-@paddingY 0, @paddingY @paddingX);
 	    .background(none);
 	    .nowrap;
 	    border-width:0;
-	    color:rgba(0,0,0,0);
+	    color:transparent;
         font-family:Menlo;
         font-size:13px;
 	    line-height:18px;
@@ -35,24 +44,26 @@
 	    outline:none;
     	z-index:3;
     	opacity:1;
-    	overflow:auto;
+    	overflow:visible;
         white-space:pre;
+        position:relative;
 	}
 	.cp-overlay {
-    	.size(100%, auto);
-    	.margins(0, 1px 15px);
+	    .block;
+    	.size(auto, auto);
+    	.margins(0, @paddingY @paddingX);
     	.non-events;
     	border-width:0;
     	font-family:Menlo;
     	font-size:13px;
     	z-index:5;
-    	overflow:hidden;
-    	position:absolute;
-    	top:0;
-    	left:0;
+    	overflow:visible;
+    	position:relative;
+    	top:0; right:0; bottom:0; left:0;
     	
     	pre {
-    	    .size(3000px, auto);
+    	    .block;
+    	    .size(auto, auto);
     	    .margins(0 0 0 -20px, 0 0 0 20px);
     	    min-height:18px;
     	    line-height:18px;
@@ -69,6 +80,7 @@
     	.inline-block;
     	.vertical-top;
     	.margins(0, 5px 0);
+    	.size(auto, auto);
     	.linear-gradient(right, rgb(237,237,237), rgb(250,250,250));
     	.border(@borderColor, 0 1px 0 0);
     	.shadow(0 0 10px rgba(0,0,0,0.25));
@@ -76,8 +88,7 @@
     	z-index:6;
     	list-style-type:none;
     	overflow:hidden;
-    	counter-reset:cw-counter;
-    	top:0; bottom:0; left:0;
+    	counter-reset:cp-counter;
     	
     	li {
     	    .margins(0, 0 7px);
@@ -86,10 +97,10 @@
         	font-family:"Calibri";
         	font-size:13px;
         	list-style-type:none;
-        	counter-increment:cw-counter;
+        	counter-increment:cp-counter;
         	
         	&::before {
-            	content:counter(cw-counter);
+            	content:counter(cp-counter);
         	}
         	&.active {
             	.background(rgba(230,239,255,0.6)); 
@@ -124,10 +135,6 @@
 	}
     .cp-wrapper + .cp-infobar {
         border-width:1px 0 0 0;
-    }
-    .cp-source, .cp-overlay, .cp-counter {
-        padding-top:5px;
-        padding-bottom:5px;
     }
 }
 
@@ -305,6 +312,9 @@
 .inline-block       { display:inline-block;     }
 .box                { display:-webkit-box; display:-moz-box; display:-ms-flexbox; display:box; }
 .hidden             { display:none;             }
+.table              { display:table;            }
+.table-cell         { display:table-cell;       }
+.table-row          { display:table-row;        }
 .vertical-top       { vertical-align:top;       }
 .vertical-middle    { vertical-align:middle;    }
 .vertical-bottom    { vertical-align:bottom;    }

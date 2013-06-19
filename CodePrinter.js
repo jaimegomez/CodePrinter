@@ -10,14 +10,17 @@
         this.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter')));
         
         var mainElement = $.create('div.codeprinter'),
+            container = $.create('div.cp-container'),
             wrapper = $.create('div.cp-wrapper'),
             overlay = $.create('div.cp-overlay');
         
         object.wrap(wrapper);
-        wrapper.wrap(mainElement);
+        wrapper.wrap(container);
+        container.wrap(mainElement);
         wrapper.append(overlay);
         
         this.mainElement = mainElement;
+        this.container = container;
         this.wrapper = wrapper;
         this.overlay = overlay;
         this.source = object.addClass('cp-source');
@@ -42,7 +45,7 @@
             
             if (options.counter) {
                 self.counter = $.create('ol.cp-counter');
-                self.wrapper.prepend(self.counter);
+                self.container.prepend(self.counter);
             }
             if (options.infobar) {
                 self.prepareInfobar();
@@ -55,13 +58,11 @@
             $.stylesheet.insert('#'+id+' .cp-overlay pre', 'min-height:'+sizes.lineHeight+'px;');
             $.stylesheet.insert('#'+id+' .cp-counter li', 'min-height:'+sizes.lineHeight+'px;');
             
-            if (self.counter) {
-                self.counter.css({ position: 'absolute', width: self.counter.width() });
-            }
-            self.wrapper.css({ width: sizes.offsetWidth, height: sizes.offsetHeight });
-            overlay.inheritStyle(['width','height','line-height'], source);
-            overlay.add(source).css({ position: 'absolute', top: 0, left: sizes.counterWidth });
+            self.wrapper.css({ width: self.mainElement.width() - self.wrapper.paddingWidth() - sizes.counterWidth });
+            overlay.inheritStyle(['line-height'], source);
             overlay.html(source.value());
+            overlay.css({ position: 'absolute' });
+            
             if (self.counter && options.scrollable) {
                 self.wrapper.on('scroll', function(e) {
                     self.counter.current().scrollTop = this.scrollTop;
