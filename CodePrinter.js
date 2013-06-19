@@ -62,6 +62,11 @@
             overlay.inheritStyle(['width','height','line-height'], source);
             overlay.add(source).css({ position: 'absolute', top: 0, left: sizes.counterWidth });
             overlay.html(source.value());
+            if (self.counter && options.scrollable) {
+                self.wrapper.on('scroll', function(e) {
+                    self.counter.current().scrollTop = this.scrollTop;
+                });
+            }
         },
         prepareInfobar: function() {
             var self = this,
