@@ -162,6 +162,10 @@
             
             this.reloadCounter();
             this.reloadInfoBar();
+            
+            if (this.options.scrollable && this.wrapper.height() > this.options.maxHeight) {
+                this.wrapper.add(this.source, this.counter).css({ height: this.options.maxHeight });
+            }
         }
     });
     
@@ -172,6 +176,8 @@
         infobar: true,
         infobarOnTop: true,
         showIndent: true,
+        scrollable: true,
+        maxHeight: 300,
         randomIDLength: 7
     };
     
