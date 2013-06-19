@@ -1,4 +1,8 @@
-/* CodePrinter JS File */
+/*  CodePrinter
+*   JavaScript document
+*
+*   version     0.1.1
+*/
 
 (function(window, $) {
     
@@ -31,7 +35,7 @@
         return this;
     };
     
-    CodePrinter.version = '0.1.0';
+    CodePrinter.version = '0.1.1';
     
     CodePrinter.prototype = {}.extend({
         sizes: {},
