@@ -1,9 +1,11 @@
 /*  CodePrinter
 *   LESS(CSS) document
-*   version:     0.1.0
+*
+*   version     0.1.1
 */
 .codeprinter {
-  display: inline-block;
+  display: block;
+  white-space: nowrap;
   margin: 5px;
   padding: 0;
   border-color: #c0c0c0;
@@ -15,22 +17,29 @@
   position: relative;
   top: 0;
 }
+.codeprinter .cp-container {
+  position: relative;
+}
 .codeprinter .cp-wrapper {
   display: inline-block;
   vertical-align: top;
+  width: auto;
+  height: 100%;
   margin: 0;
-  padding: 0;
+  padding: 5px 0;
   background-color: transparent;
   position: relative;
   z-index: 4;
+  overflow: scroll;
 }
 .codeprinter .cp-source {
-  margin: 0;
+  display: block;
+  margin: -5px 0;
   padding: 5px 15px;
   background-color: none;
   white-space: nowrap;
   border-width: 0;
-  color: rgba(0, 0, 0, 0);
+  color: transparent;
   font-family: Menlo;
   font-size: 13px;
   line-height: 18px;
@@ -38,26 +47,31 @@
   outline: none;
   z-index: 3;
   opacity: 1;
-  overflow: auto;
+  overflow: visible;
   white-space: pre;
+  position: relative;
 }
 .codeprinter .cp-overlay {
-  width: 100%;
+  display: block;
+  width: auto;
   height: auto;
   margin: 0;
-  padding: 1px 15px;
+  padding: 5px 15px;
   pointer-events: none;
   border-width: 0;
   font-family: Menlo;
   font-size: 13px;
   z-index: 5;
-  overflow: hidden;
-  position: absolute;
+  overflow: visible;
+  position: relative;
   top: 0;
+  right: 0;
+  bottom: 0;
   left: 0;
 }
 .codeprinter .cp-overlay pre {
-  width: 3000px;
+  display: block;
+  width: auto;
   height: auto;
   margin: 0 0 0 -20px;
   padding: 0 0 0 20px;
@@ -79,6 +93,8 @@
   vertical-align: top;
   margin: 0;
   padding: 5px 0;
+  width: auto;
+  height: auto;
   background-image: -webkit-gradient(linear, left top, left bottom, from(#ededed), to(#fafafa));
   background-image: -webkit-linear-gradient(right, #ededed, #fafafa);
   background-image: -moz-linear-gradient(right, #ededed, #fafafa);
@@ -97,10 +113,7 @@
   z-index: 6;
   list-style-type: none;
   overflow: hidden;
-  counter-reset: cw-counter;
-  top: 0;
-  bottom: 0;
-  left: 0;
+  counter-reset: cp-counter;
 }
 .codeprinter .cp-counter li {
   margin: 0;
@@ -110,10 +123,10 @@
   font-family: "Calibri";
   font-size: 13px;
   list-style-type: none;
-  counter-increment: cw-counter;
+  counter-increment: cp-counter;
 }
 .codeprinter .cp-counter li::before {
-  content: counter(cw-counter);
+  content: counter(cp-counter);
 }
 .codeprinter .cp-counter li.active {
   background-color: rgba(230, 239, 255, 0.6);
@@ -163,12 +176,6 @@
 }
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
-}
-.codeprinter .cp-source,
-.codeprinter .cp-overlay,
-.codeprinter .cp-counter {
-  padding-top: 5px;
-  padding-bottom: 5px;
 }
 .tab {
   border-left: 1px dotted rgba(200, 200, 200, 0.9);
@@ -333,6 +340,15 @@
 }
 .hidden {
   display: none;
+}
+.table {
+  display: table;
+}
+.table-cell {
+  display: table-cell;
+}
+.table-row {
+  display: table-row;
 }
 .vertical-top {
   vertical-align: top;
