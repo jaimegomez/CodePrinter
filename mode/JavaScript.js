@@ -27,13 +27,15 @@ CodePrinter.JavaScript = {
         function strtrim(from, to) {
             var indexFrom = text.indexOf(from), indexTo = 0, tmp;
             
-            if(from === to) {
-                var indexTo = text.indexOf(to, 1);
-                if(indexTo === -1) indexTo = text.length;
+            if (to === "\n") {
+                indexTo = text.indexOf(to) - 1;
+            } else if (from === to) {
+                indexTo = text.indexOf(to, 1);
+                if (indexTo === -1) indexTo = text.length;
             } else {
                 if(!to) to = from;
-                var indexTo = text.indexOf(to);
-                if(indexTo === -1) indexTo = indexFrom;
+                indexTo = text.indexOf(to);
+                if (indexTo === -1) indexTo = indexFrom;
             }
             
             tmp = [ text.substring(indexFrom, indexTo + to.length), text.substr(indexTo + to.length) ];
@@ -107,12 +109,12 @@ CodePrinter.JavaScript = {
                     text = '';
                 }
             } else if(chars.hasOwnProperty(found)) {
-                ret += strtrim(found, chars[found].end).wrap(chars[found].class);   
+                ret += strtrim(found, chars[found].end).wrap(chars[found].class);
             } else if(brackets.hasOwnProperty(found)) {
                 ret += strtrim(found).wrap(brackets[found]);
             } else {
                 ret += text.substring(0, found.length);
-                text = text.substr(found.length);   
+                text = text.substr(found.length);
             }
         }
         
