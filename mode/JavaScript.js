@@ -1,3 +1,9 @@
+/*  CodePrinter
+*   JavaScript Mode
+*   
+*   version     0.1.2
+*/
+
 CodePrinter.JavaScript = {
     name: "JavaScript",
     prefix: "js-",
