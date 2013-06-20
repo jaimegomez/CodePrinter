@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   JavaScript document
-*
-*   version     0.1.1
+*   
+*   version     0.1.2
 */
 
 (function(window, $) {
@@ -35,7 +35,7 @@
         return this;
     };
     
-    CodePrinter.version = '0.1.1';
+    CodePrinter.version = '0.1.2';
     
     CodePrinter.prototype = {}.extend({
         sizes: {},
@@ -62,6 +62,10 @@
             $.stylesheet.insert('#'+id+' .cp-overlay pre', 'min-height:'+sizes.lineHeight+'px;');
             $.stylesheet.insert('#'+id+' .cp-counter li', 'min-height:'+sizes.lineHeight+'px;');
             
+            if (options.width != 'auto') {
+                self.mainElement.css({ width: parseInt(options.width) });
+            }
+            
             self.wrapper.css({ width: self.mainElement.width() - self.wrapper.paddingWidth() - sizes.counterWidth });
             overlay.inheritStyle(['line-height'], source);
             overlay.html(source.value());
@@ -85,10 +89,21 @@
                 infobar.appendTo(self.mainElement);
             }
             
-            infobar.html('<span class="mode">'+ self.options.mode +'</span><span class="options"><a href="">copy</a><a href="#" class="plaintext">plaintext</a></span><span class="countChars"></span>');
-            infobar.find('a.plaintext').click(function() {
+            var mode = $.create('span.cp-mode', self.options.mode),
+                actions = $.create('span.cp-actions'),
+                plaintext = $.create('a.cp-plaintext', 'plaintext'),
+                reprint = $.create('a.cp-reprint', 'reprint'),
+                countChars = $.create('span.cp-countChars');
+            
+            actions.append(plaintext, reprint);
+            infobar.append(mode, actions, countChars);
+            
+            plaintext.click(function() {
                 var newWindow = window.open('', '_blank');
-                newWindow.document.writeln('<pre>' + parseEntities(self.source.value()) + '</pre>');
+                newWindow.document.writeln('<pre style="font-size:14px;">' + parseEntities(self.getSourceValue()) + '</pre>');
+            });
+            reprint.click(function() {
+                self.print();
             });
             self.infobar = infobar;
         },
@@ -148,7 +163,7 @@
         getSourceValue: function() {
             return this.source.html().replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
         },
-        print: function(mode, line) {
+        print: function(mode) {
             if (!mode) {
                 mode = this.options.mode;
             }
@@ -187,6 +202,7 @@
         infobarOnTop: true,
         showIndent: true,
         scrollable: true,
+        width: 'auto',
         maxHeight: 300,
         randomIDLength: 7
     };

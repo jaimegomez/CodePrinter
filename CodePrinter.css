@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
-*
-*   version     0.1.1
+*   
+*   version     0.1.2
 */
 .codeprinter {
   display: block;
@@ -27,7 +27,7 @@
   height: 100%;
   margin: 0;
   padding: 5px 0;
-  background-color: transparent;
+  background-color: #ffffff;
   position: relative;
   z-index: 4;
   overflow: scroll;
@@ -40,9 +40,6 @@
   white-space: nowrap;
   border-width: 0;
   color: transparent;
-  font-family: Menlo;
-  font-size: 13px;
-  line-height: 18px;
   resize: none;
   outline: none;
   z-index: 3;
@@ -59,8 +56,6 @@
   padding: 5px 15px;
   pointer-events: none;
   border-width: 0;
-  font-family: Menlo;
-  font-size: 13px;
   z-index: 5;
   overflow: visible;
   position: relative;
@@ -76,9 +71,6 @@
   margin: 0 0 0 -20px;
   padding: 0 0 0 20px;
   min-height: 18px;
-  line-height: 18px;
-  font-family: inherit;
-  font-size: inherit;
 }
 .codeprinter .cp-overlay pre.active {
   background-color: rgba(230, 239, 255, 0.6);
@@ -95,12 +87,12 @@
   padding: 5px 0;
   width: auto;
   height: auto;
-  background-image: -webkit-gradient(linear, left top, left bottom, from(#ededed), to(#fafafa));
-  background-image: -webkit-linear-gradient(right, #ededed, #fafafa);
-  background-image: -moz-linear-gradient(right, #ededed, #fafafa);
-  background-image: -ms-linear-gradient(right, #ededed, #fafafa);
-  background-image: -o-linear-gradient(right, #ededed, #fafafa);
-  background-image: linear-gradient(right, #ededed, #fafafa);
+  background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
+  background-image: -webkit-linear-gradient(right, #f0f0f0, #fafafa);
+  background-image: -moz-linear-gradient(right, #f0f0f0, #fafafa);
+  background-image: -ms-linear-gradient(right, #f0f0f0, #fafafa);
+  background-image: -o-linear-gradient(right, #f0f0f0, #fafafa);
+  background-image: linear-gradient(right, #f0f0f0, #fafafa);
   border-color: #c0c0c0;
   border-width: 0 1px 0 0;
   border-style: solid;
@@ -109,17 +101,23 @@
   -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
   -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -webkit-text-shadow: 1px -1px 0 #ffffff;
+  -moz-text-shadow: 1px -1px 0 #ffffff;
+  -ms-text-shadow: 1px -1px 0 #ffffff;
+  -o-text-shadow: 1px -1px 0 #ffffff;
+  text-shadow: 1px -1px 0 #ffffff;
   min-width: 35px;
   z-index: 6;
   list-style-type: none;
   overflow: hidden;
   counter-reset: cp-counter;
+  position: relative;
 }
 .codeprinter .cp-counter li {
   margin: 0;
   padding: 0 7px;
   text-align: right;
-  color: #999;
+  color: #777777;
   font-family: "Calibri";
   font-size: 13px;
   list-style-type: none;
@@ -142,12 +140,12 @@
   height: 14px;
   margin: 0;
   padding: 2px 5px;
-  background-image: -webkit-gradient(linear, left top, left bottom, from(#ededed), to(#fafafa));
-  background-image: -webkit-linear-gradient(bottom, #ededed, #fafafa);
-  background-image: -moz-linear-gradient(bottom, #ededed, #fafafa);
-  background-image: -ms-linear-gradient(bottom, #ededed, #fafafa);
-  background-image: -o-linear-gradient(bottom, #ededed, #fafafa);
-  background-image: linear-gradient(bottom, #ededed, #fafafa);
+  background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
+  background-image: -webkit-linear-gradient(bottom, #f0f0f0, #fafafa);
+  background-image: -moz-linear-gradient(bottom, #f0f0f0, #fafafa);
+  background-image: -ms-linear-gradient(bottom, #f0f0f0, #fafafa);
+  background-image: -o-linear-gradient(bottom, #f0f0f0, #fafafa);
+  background-image: linear-gradient(bottom, #f0f0f0, #fafafa);
   border-color: #c0c0c0;
   border-width: 0 0 1px 0;
   border-style: solid;
@@ -158,167 +156,184 @@
   box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
   font-family: Verdana;
   font-size: 10px;
-  color: #777;
+  color: #777777;
   position: relative;
-  z-index: 5;
+  z-index: 7;
 }
 .codeprinter .cp-infobar span {
   margin: 0 15px;
   padding: 0;
 }
-.codeprinter .cp-infobar span.countChars {
-  position: absolute;
-  right: 10px;
-}
-.codeprinter .cp-infobar span a {
-  margin: 0 5px;
+.codeprinter .cp-infobar a {
+  margin: 0 7px;
   padding: 0;
+  -webkit-transition: color 0.3s ease-in-out;
+  -moz-transition: color 0.3s ease-in-out;
+  -ms-transition: color 0.3s ease-in-out;
+  -o-transition: color 0.3s ease-in-out;
+  transition: color 0.3s ease-in-out;
+  color: inherit;
+}
+.codeprinter .cp-infobar a:hover {
+  color: #444444;
+  text-decoration: underline !important;
+}
+.codeprinter .cp-infobar .cp-countChars {
+  position: absolute;
+  right: 15px;
+}
+.codeprinter .cp-overlay pre,
+.codeprinter .cp-source,
+.codeprinter .cp-counter {
+  font-family: Menlo;
+  font-size: 13px;
+  line-height: 18px;
 }
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
 }
-.tab {
-  border-left: 1px dotted rgba(200, 200, 200, 0.9);
+.codeprinter .tab {
   margin-left: -1px;
+  border-left: 1px dotted #c8c8c8;
 }
-.html-tag {
+.codeprinter .html-tag {
   color: #881280;
 }
-.html-declaration {
+.codeprinter .html-declaration {
   color: #236e25;
 }
-.html-prologue {
+.codeprinter .html-prologue {
   color: #236e25;
 }
-.html-attr {
+.codeprinter .html-attr {
   color: #994500;
 }
-.html-value {
+.codeprinter .html-value {
   color: #1a1aa6;
 }
-.html-php {
+.codeprinter .html-php {
   color: red;
   font-style: italic;
 }
-.html-comment,
-.html-comment * {
+.codeprinter .html-comment,
+.codeprinter .html-comment * {
   color: #a4a4a4 !important;
 }
-.css {
+.codeprinter .css {
   color: black;
 }
-.css-bracket {
+.codeprinter .css-bracket {
   color: #777;
 }
-.css-attr {
+.codeprinter .css-attr {
   color: #236e25;
 }
-.css-value {
+.codeprinter .css-value {
   color: blue;
 }
-.css-number {
+.codeprinter .css-number {
   color: blue;
   font-family: "PanicBold";
 }
-.css-hash {
+.codeprinter .css-hash {
   color: #003f83;
   font-family: "PanicItalic";
 }
-.css-variable {
+.codeprinter .css-variable {
   color: #b60000;
 }
-.css-punctuation {
+.codeprinter .css-punctuation {
   color: black;
 }
-.css-url {
+.codeprinter .css-url {
   color: maroon !important;
 }
-.css-string {
+.codeprinter .css-string {
   color: maroon !important;
 }
-.css-comment {
+.codeprinter .css-comment {
   color: #a4a4a4 !important;
   font-family: "PanicItalic";
 }
-.php {
+.codeprinter .php {
   color: black;
 }
-.php-fname {
+.codeprinter .php-fname {
   color: #003369;
 }
-.php-bracket {
+.codeprinter .php-bracket {
   color: #b60000;
 }
-.php-keyword {
+.codeprinter .php-keyword {
   color: #881350;
   font-family: "PanicBold";
 }
-.php-variable {
+.codeprinter .php-variable {
   color: #825900;
 }
-.php-varinstring {
+.codeprinter .php-varinstring {
   color: #c94b16;
 }
-.php-number {
+.codeprinter .php-number {
   color: #0000ff;
   font-family: "PanicBold";
 }
-.php-string {
+.codeprinter .php-string {
   color: #eb7300 !important;
 }
-.php-comment,
-#php .comment * {
+.codeprinter .php-comment,
+.codeprinter #php .comment * {
   color: #a4a4a4 !important;
 }
-.js {
+.codeprinter .js {
   color: black;
 }
-.js-fname {
+.codeprinter .js-fname {
   color: #003f83;
 }
-.js-curlybracket {
+.codeprinter .js-curlybracket {
   color: red;
 }
-.js-squarebracket {
+.codeprinter .js-squarebracket {
   color: green;
 }
-.js-roundbracket {
+.codeprinter .js-roundbracket {
   color: black;
 }
-.js-anglebracket {
+.codeprinter .js-anglebracket {
   color: blue;
 }
-.js-keyword {
+.codeprinter .js-keyword {
   color: #8959a8;
   font-style: italic;
   font-weight: bold;
 }
-.js-specials {
+.codeprinter .js-specials {
   color: green;
 }
-.js-property {
+.codeprinter .js-property {
   color: navy;
 }
-.js-regex {
+.codeprinter .js-regex {
   color: #c82829;
 }
-.js-escaped {
+.codeprinter .js-escaped {
   color: teal;
 }
-.js-number {
+.codeprinter .js-number {
   color: #f5871f;
   font-weight: bold;
 }
-.js-hex {
+.codeprinter .js-hex {
   color: purple;
   font-style: italic;
 }
-.js-string,
-.js-string * {
+.codeprinter .js-string,
+.codeprinter .js-string * {
   color: maroon !important;
 }
-.js-comment,
-.js-comment * {
+.codeprinter .js-comment,
+.codeprinter .js-comment * {
   color: #a4a4a4 !important;
 }
 /* ########### */
