@@ -101,6 +101,11 @@
   -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
   -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -webkit-text-shadow: 1px -1px 0 #ffffff;
+  -moz-text-shadow: 1px -1px 0 #ffffff;
+  -ms-text-shadow: 1px -1px 0 #ffffff;
+  -o-text-shadow: 1px -1px 0 #ffffff;
+  text-shadow: 1px -1px 0 #ffffff;
   min-width: 35px;
   z-index: 6;
   list-style-type: none;
