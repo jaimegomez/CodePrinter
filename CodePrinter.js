@@ -62,6 +62,10 @@
             $.stylesheet.insert('#'+id+' .cp-overlay pre', 'min-height:'+sizes.lineHeight+'px;');
             $.stylesheet.insert('#'+id+' .cp-counter li', 'min-height:'+sizes.lineHeight+'px;');
             
+            if (options.width != 'auto') {
+                self.mainElement.css({ width: parseInt(options.width) });
+            }
+            
             self.wrapper.css({ width: self.mainElement.width() - self.wrapper.paddingWidth() - sizes.counterWidth });
             overlay.inheritStyle(['line-height'], source);
             overlay.html(source.value());
@@ -187,6 +191,7 @@
         infobarOnTop: true,
         showIndent: true,
         scrollable: true,
+        width: 'auto',
         maxHeight: 300,
         randomIDLength: 7
     };
