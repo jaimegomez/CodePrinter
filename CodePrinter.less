@@ -43,9 +43,6 @@
 	    .nowrap;
 	    border-width:0;
 	    color:transparent;
-        font-family:Menlo;
-        font-size:13px;
-	    line-height:18px;
 	    resize:none;
 	    outline:none;
     	z-index:3;
@@ -60,8 +57,6 @@
     	.margins(0, @paddingY @paddingX);
     	.non-events;
     	border-width:0;
-    	font-family:Menlo;
-    	font-size:13px;
     	z-index:5;
     	overflow:visible;
     	position:relative;
@@ -72,9 +67,6 @@
     	    .size(auto, auto);
     	    .margins(0 0 0 -20px, 0 0 0 20px);
     	    min-height:18px;
-    	    line-height:18px;
-    	    font-family:inherit;
-        	font-size:inherit;
         	
         	&.active {
             	.background(rgba(230,239,255,0.6)); 
@@ -139,6 +131,10 @@
             	.margins(0 5px);
         	}
     	}
+	.cp-overlay pre, .cp-source, .cp-counter {
+    	font-family:Menlo;
+        font-size:13px;
+	    line-height:18px;
 	}
     .cp-wrapper + .cp-infobar {
         border-width:1px 0 0 0;

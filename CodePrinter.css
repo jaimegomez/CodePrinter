@@ -40,9 +40,6 @@
   white-space: nowrap;
   border-width: 0;
   color: transparent;
-  font-family: Menlo;
-  font-size: 13px;
-  line-height: 18px;
   resize: none;
   outline: none;
   z-index: 3;
@@ -59,8 +56,6 @@
   padding: 5px 15px;
   pointer-events: none;
   border-width: 0;
-  font-family: Menlo;
-  font-size: 13px;
   z-index: 5;
   overflow: visible;
   position: relative;
@@ -76,9 +71,6 @@
   margin: 0 0 0 -20px;
   padding: 0 0 0 20px;
   min-height: 18px;
-  line-height: 18px;
-  font-family: inherit;
-  font-size: inherit;
 }
 .codeprinter .cp-overlay pre.active {
   background-color: rgba(230, 239, 255, 0.6);
@@ -173,6 +165,12 @@
 .codeprinter .cp-infobar span a {
   margin: 0 5px;
   padding: 0;
+.codeprinter .cp-overlay pre,
+.codeprinter .cp-source,
+.codeprinter .cp-counter {
+  font-family: Menlo;
+  font-size: 13px;
+  line-height: 18px;
 }
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
