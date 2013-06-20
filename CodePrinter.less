@@ -88,11 +88,11 @@
     	list-style-type:none;
     	overflow:hidden;
     	counter-reset:cp-counter;
+    	position:relative;
     	
     	li {
     	    .margins(0, 0 7px);
     	    .align-right;
-    	    color:#999;
     	    color:@textColor;
         	font-family:"Calibri";
         	font-size:13px;
@@ -119,19 +119,26 @@
     	font-size:10px;
     	color:@textColor;
     	position:relative;
-    	z-index:5;
+    	z-index:7;
     	
     	span {
         	.margins(0 15px);
-        	
-        	&.countChars {
-            	position:absolute; right:10px;
-        	}
-        	
-        	a {
-            	.margins(0 5px);
-        	}
     	}
+    	a {
+            .margins(0 7px, 0);
+            .transition(.3s, color);
+            color:inherit;
+            
+            &:hover {
+                color:(@textColor - #333);
+                text-decoration:underline !important;
+            }
+        }
+    	.cp-countChars {
+           	position:absolute; right:15px;
+        }
+	}
+	
 	.cp-overlay pre, .cp-source, .cp-counter {
     	font-family:Menlo;
         font-size:13px;

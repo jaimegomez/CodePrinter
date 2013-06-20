@@ -111,6 +111,7 @@
   list-style-type: none;
   overflow: hidden;
   counter-reset: cp-counter;
+  position: relative;
 }
 .codeprinter .cp-counter li {
   margin: 0;
@@ -157,19 +158,30 @@
   font-size: 10px;
   color: #777777;
   position: relative;
-  z-index: 5;
+  z-index: 7;
 }
 .codeprinter .cp-infobar span {
   margin: 0 15px;
   padding: 0;
 }
-.codeprinter .cp-infobar span.countChars {
-  position: absolute;
-  right: 10px;
-}
-.codeprinter .cp-infobar span a {
-  margin: 0 5px;
+.codeprinter .cp-infobar a {
+  margin: 0 7px;
   padding: 0;
+  -webkit-transition: color 0.3s ease-in-out;
+  -moz-transition: color 0.3s ease-in-out;
+  -ms-transition: color 0.3s ease-in-out;
+  -o-transition: color 0.3s ease-in-out;
+  transition: color 0.3s ease-in-out;
+  color: inherit;
+}
+.codeprinter .cp-infobar a:hover {
+  color: #444444;
+  text-decoration: underline !important;
+}
+.codeprinter .cp-infobar .cp-countChars {
+  position: absolute;
+  right: 15px;
+}
 .codeprinter .cp-overlay pre,
 .codeprinter .cp-source,
 .codeprinter .cp-counter {
