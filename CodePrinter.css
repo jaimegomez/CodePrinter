@@ -192,148 +192,148 @@
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
 }
-.tab {
-  border-left: 1px dotted rgba(200, 200, 200, 0.9);
+.codeprinter .tab {
   margin-left: -1px;
+  border-left: 1px dotted #c8c8c8;
 }
-.html-tag {
+.codeprinter .html-tag {
   color: #881280;
 }
-.html-declaration {
+.codeprinter .html-declaration {
   color: #236e25;
 }
-.html-prologue {
+.codeprinter .html-prologue {
   color: #236e25;
 }
-.html-attr {
+.codeprinter .html-attr {
   color: #994500;
 }
-.html-value {
+.codeprinter .html-value {
   color: #1a1aa6;
 }
-.html-php {
+.codeprinter .html-php {
   color: red;
   font-style: italic;
 }
-.html-comment,
-.html-comment * {
+.codeprinter .html-comment,
+.codeprinter .html-comment * {
   color: #a4a4a4 !important;
 }
-.css {
+.codeprinter .css {
   color: black;
 }
-.css-bracket {
+.codeprinter .css-bracket {
   color: #777;
 }
-.css-attr {
+.codeprinter .css-attr {
   color: #236e25;
 }
-.css-value {
+.codeprinter .css-value {
   color: blue;
 }
-.css-number {
+.codeprinter .css-number {
   color: blue;
   font-family: "PanicBold";
 }
-.css-hash {
+.codeprinter .css-hash {
   color: #003f83;
   font-family: "PanicItalic";
 }
-.css-variable {
+.codeprinter .css-variable {
   color: #b60000;
 }
-.css-punctuation {
+.codeprinter .css-punctuation {
   color: black;
 }
-.css-url {
+.codeprinter .css-url {
   color: maroon !important;
 }
-.css-string {
+.codeprinter .css-string {
   color: maroon !important;
 }
-.css-comment {
+.codeprinter .css-comment {
   color: #a4a4a4 !important;
   font-family: "PanicItalic";
 }
-.php {
+.codeprinter .php {
   color: black;
 }
-.php-fname {
+.codeprinter .php-fname {
   color: #003369;
 }
-.php-bracket {
+.codeprinter .php-bracket {
   color: #b60000;
 }
-.php-keyword {
+.codeprinter .php-keyword {
   color: #881350;
   font-family: "PanicBold";
 }
-.php-variable {
+.codeprinter .php-variable {
   color: #825900;
 }
-.php-varinstring {
+.codeprinter .php-varinstring {
   color: #c94b16;
 }
-.php-number {
+.codeprinter .php-number {
   color: #0000ff;
   font-family: "PanicBold";
 }
-.php-string {
+.codeprinter .php-string {
   color: #eb7300 !important;
 }
-.php-comment,
-#php .comment * {
+.codeprinter .php-comment,
+.codeprinter #php .comment * {
   color: #a4a4a4 !important;
 }
-.js {
+.codeprinter .js {
   color: black;
 }
-.js-fname {
+.codeprinter .js-fname {
   color: #003f83;
 }
-.js-curlybracket {
+.codeprinter .js-curlybracket {
   color: red;
 }
-.js-squarebracket {
+.codeprinter .js-squarebracket {
   color: green;
 }
-.js-roundbracket {
+.codeprinter .js-roundbracket {
   color: black;
 }
-.js-anglebracket {
+.codeprinter .js-anglebracket {
   color: blue;
 }
-.js-keyword {
+.codeprinter .js-keyword {
   color: #8959a8;
   font-style: italic;
   font-weight: bold;
 }
-.js-specials {
+.codeprinter .js-specials {
   color: green;
 }
-.js-property {
+.codeprinter .js-property {
   color: navy;
 }
-.js-regex {
+.codeprinter .js-regex {
   color: #c82829;
 }
-.js-escaped {
+.codeprinter .js-escaped {
   color: teal;
 }
-.js-number {
+.codeprinter .js-number {
   color: #f5871f;
   font-weight: bold;
 }
-.js-hex {
+.codeprinter .js-hex {
   color: purple;
   font-style: italic;
 }
-.js-string,
-.js-string * {
+.codeprinter .js-string,
+.codeprinter .js-string * {
   color: maroon !important;
 }
-.js-comment,
-.js-comment * {
+.codeprinter .js-comment,
+.codeprinter .js-comment * {
   color: #a4a4a4 !important;
 }
 /* ########### */
