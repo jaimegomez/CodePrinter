@@ -37,6 +37,20 @@
     
     CodePrinter.version = '0.1.2';
     
+    CodePrinter.defaults = {
+        mode: 'javascript',
+        theme: 'default',
+        tabWidth: 4,
+        counter: true,
+        infobar: true,
+        infobarOnTop: true,
+        showIndent: true,
+        scrollable: true,
+        width: 'auto',
+        maxHeight: 300,
+        randomIDLength: 7
+    };
+    
     CodePrinter.prototype = {}.extend({
         sizes: {},
         prepare: function() {
@@ -46,6 +60,8 @@
                 options = self.options,
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
+            
+            $.require('theme/'+(options.theme || 'default')+'.css');
             
             if (options.counter) {
                 self.counter = $.create('ol.cp-counter');
@@ -67,11 +83,11 @@
             }
             
             self.wrapper.css({ width: self.mainElement.width() - self.wrapper.paddingWidth() - sizes.counterWidth });
+            self.wrapper.add(source, self.counter).css({ height: options.maxHeight });
             overlay.inheritStyle(['line-height'], source);
-            overlay.html(source.value());
-            overlay.css({ position: 'absolute' });
+            overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
             
-            if (self.counter && options.scrollable) {
+            if (self.counter) {
                 self.wrapper.on('scroll', function(e) {
                     self.counter.current().scrollTop = this.scrollTop;
                 });
@@ -140,7 +156,7 @@
                     liLength = this.counter.children('li').length,
                     amp = lines - liLength;
     
-                for( ; amp != 0; ) {
+                while (amp != 0) {
                     if (amp < 0) {
                         this.counter.children('li').last().remove();
                         amp++;
@@ -187,25 +203,8 @@
             
             this.reloadCounter();
             this.reloadInfoBar();
-            
-            if (this.options.scrollable && this.wrapper.height() > this.options.maxHeight) {
-                this.wrapper.add(this.source, this.counter).css({ height: this.options.maxHeight });
-            }
         }
     });
-    
-    CodePrinter.defaults = {
-        mode: 'javascript',
-        tabWidth: 4,
-        counter: true,
-        infobar: true,
-        infobarOnTop: true,
-        showIndent: true,
-        scrollable: true,
-        width: 'auto',
-        maxHeight: 300,
-        randomIDLength: 7
-    };
     
     function parseEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
@@ -214,7 +213,7 @@
         var pos = text.search(/[^\s]/);
         if(pos == -1) pos = text.length;
         var tmp = [ text.substring(0, pos), text.substr(pos) ];
-        tmp[0] = tmp[0].replace(new RegExp("(\\s{"+ width +"})", "g"), '<span class="tab">$1</span>');
+        tmp[0] = tmp[0].replace(new RegExp("(\\s{"+ width +"})", "g"), '<span class="cp-tab">$1</span>');
         return tmp[0] + tmp[1];
     };
     
