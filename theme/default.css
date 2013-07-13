@@ -1,0 +1,22 @@
+/* CodePrinter - default theme */
+
+.cp-wrapper {
+	background:white !important;
+}
+
+.cp-javascript { color:black; }
+.cp-tab { border-left-color:rgb(200,200,200); }
+.cp-fname { color:#003f83; }
+.cp-curlybracket { color:red; }
+.cp-squarebracket { color:green; }
+.cp-roundbracket { color:black; }
+.cp-anglebracket { color:blue; }
+.cp-keyword { color:#8959a8; font-style:italic; font-weight:bold; }
+.cp-specials { color:green; }
+.cp-property { color:navy; }
+.cp-regex { color:#c82829; }
+.cp-escaped { color:teal; }
+.cp-number { color:#f5871f; font-weight:bold; }
+.cp-hex { color:purple; font-style:italic;cp
+.cp-string, .cp-string * { color:maroon !important; }
+.cp-comment, .cp-comment * { color:#a4a4a4 !important;cp
