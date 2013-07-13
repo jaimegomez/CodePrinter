@@ -12,7 +12,6 @@
     @gradientEndColor:      rgb(250,250,250);
     @paddingY:              5px;
     @paddingX:              15px;
-    @indentBorder:          1px dotted rgb(200,200,200);
     
     .block;
     .nowrap;
@@ -73,6 +72,11 @@
                 .shadow(0 0 2px rgb(51,153,255));
         	}
 	    }
+        .cp-tab {
+            margin-left:-1px;
+            border-left-width:1px;
+            border-left-style:dotted;
+        }
 	}
 	.cp-counter {
     	.inline-block;
@@ -147,56 +151,6 @@
     .cp-wrapper + .cp-infobar {
         border-width:1px 0 0 0;
     }
-    
-    .tab {
-        margin-left:-1px;
-        border-left:@indentBorder;
-    }
-    .html-tag { color:#881280; }
-    .html-declaration { color:#236e25; }
-    .html-prologue { color:#236e25; }
-    .html-attr { color:#994500; }
-    .html-value { color:#1a1aa6; }
-    .html-php { color:red; font-style:italic; }
-    .html-comment, .html-comment * { color:#a4a4a4 !important; }
-    
-    .css { color:black; }
-    .css-bracket { color:#777; }
-    .css-attr { color:#236e25; }
-    .css-value { color:blue; }
-    .css-number { color:blue; font-family:"PanicBold"; }
-    .css-hash { color:#003f83; font-family:"PanicItalic"; }
-    .css-variable { color:#b60000; }
-    .css-punctuation { color:black; }
-    .css-url { color:maroon !important; }
-    .css-string { color:maroon !important; }
-    .css-comment { color:#a4a4a4 !important; font-family:"PanicItalic"; }
-    
-    .php { color:black; }
-    .php-fname { color:#003369; }
-    .php-bracket { color:#b60000; }
-    .php-keyword { color:#881350; font-family:"PanicBold"; }
-    .php-variable { color:#825900; }
-    .php-varinstring { color:#c94b16; }
-    .php-number { color:#0000ff; font-family:"PanicBold"; }
-    .php-string { color:#eb7300 !important; }
-    .php-comment, #php .comment * { color:#a4a4a4 !important; }
-    
-    .js { color:black; }
-    .js-fname { color:#003f83; }
-    .js-curlybracket { color:red; }
-    .js-squarebracket { color:green; }
-    .js-roundbracket { color:black; }
-    .js-anglebracket { color:blue; }
-    .js-keyword { color:#8959a8; font-style:italic; font-weight:bold; }
-    .js-specials { color:green; }
-    .js-property { color:navy; }
-    .js-regex { color:#c82829; }
-    .js-escaped { color:teal; }
-    .js-number { color:#f5871f; font-weight:bold; }
-    .js-hex { color:purple; font-style:italic; }
-    .js-string, .js-string * { color:maroon !important; }
-    .js-comment, .js-comment * { color:#a4a4a4 !important; }
 }
 
 /* ########### */

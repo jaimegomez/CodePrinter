@@ -80,6 +80,11 @@
   -o-box-shadow: 0 0 2px #3399ff;
   box-shadow: 0 0 2px #3399ff;
 }
+.codeprinter .cp-overlay .cp-tab {
+  margin-left: -1px;
+  border-left-width: 1px;
+  border-left-style: dotted;
+}
 .codeprinter .cp-counter {
   display: inline-block;
   vertical-align: top;
@@ -191,150 +196,6 @@
 }
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
-}
-.codeprinter .tab {
-  margin-left: -1px;
-  border-left: 1px dotted #c8c8c8;
-}
-.codeprinter .html-tag {
-  color: #881280;
-}
-.codeprinter .html-declaration {
-  color: #236e25;
-}
-.codeprinter .html-prologue {
-  color: #236e25;
-}
-.codeprinter .html-attr {
-  color: #994500;
-}
-.codeprinter .html-value {
-  color: #1a1aa6;
-}
-.codeprinter .html-php {
-  color: red;
-  font-style: italic;
-}
-.codeprinter .html-comment,
-.codeprinter .html-comment * {
-  color: #a4a4a4 !important;
-}
-.codeprinter .css {
-  color: black;
-}
-.codeprinter .css-bracket {
-  color: #777;
-}
-.codeprinter .css-attr {
-  color: #236e25;
-}
-.codeprinter .css-value {
-  color: blue;
-}
-.codeprinter .css-number {
-  color: blue;
-  font-family: "PanicBold";
-}
-.codeprinter .css-hash {
-  color: #003f83;
-  font-family: "PanicItalic";
-}
-.codeprinter .css-variable {
-  color: #b60000;
-}
-.codeprinter .css-punctuation {
-  color: black;
-}
-.codeprinter .css-url {
-  color: maroon !important;
-}
-.codeprinter .css-string {
-  color: maroon !important;
-}
-.codeprinter .css-comment {
-  color: #a4a4a4 !important;
-  font-family: "PanicItalic";
-}
-.codeprinter .php {
-  color: black;
-}
-.codeprinter .php-fname {
-  color: #003369;
-}
-.codeprinter .php-bracket {
-  color: #b60000;
-}
-.codeprinter .php-keyword {
-  color: #881350;
-  font-family: "PanicBold";
-}
-.codeprinter .php-variable {
-  color: #825900;
-}
-.codeprinter .php-varinstring {
-  color: #c94b16;
-}
-.codeprinter .php-number {
-  color: #0000ff;
-  font-family: "PanicBold";
-}
-.codeprinter .php-string {
-  color: #eb7300 !important;
-}
-.codeprinter .php-comment,
-.codeprinter #php .comment * {
-  color: #a4a4a4 !important;
-}
-.codeprinter .js {
-  color: black;
-}
-.codeprinter .js-fname {
-  color: #003f83;
-}
-.codeprinter .js-curlybracket {
-  color: red;
-}
-.codeprinter .js-squarebracket {
-  color: green;
-}
-.codeprinter .js-roundbracket {
-  color: black;
-}
-.codeprinter .js-anglebracket {
-  color: blue;
-}
-.codeprinter .js-keyword {
-  color: #8959a8;
-  font-style: italic;
-  font-weight: bold;
-}
-.codeprinter .js-specials {
-  color: green;
-}
-.codeprinter .js-property {
-  color: navy;
-}
-.codeprinter .js-regex {
-  color: #c82829;
-}
-.codeprinter .js-escaped {
-  color: teal;
-}
-.codeprinter .js-number {
-  color: #f5871f;
-  font-weight: bold;
-}
-.codeprinter .js-hex {
-  color: purple;
-  font-style: italic;
-}
-.codeprinter .js-string,
-.codeprinter .js-string * {
-  color: maroon !important;
-}
-.codeprinter .js-comment,
-.codeprinter .js-comment * {
-  color: #a4a4a4 !important;
 }
 /* ########### */
 /* LESS MIXINS */
