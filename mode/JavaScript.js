@@ -6,7 +6,6 @@
 
 CodePrinter.JavaScript = {
     name: "JavaScript",
-    prefix: "js-",
     
     fn: function(text) {
         var parent = this;
@@ -23,7 +22,7 @@ CodePrinter.JavaScript = {
             if(tmp.length > 1) suffix += " multiliner";
             
             for(str in tmp) {
-                result += '<'+tag+' class="'+ parent.prefix + suffix +'">'+ tmp[str] +'</'+tag+'>';
+                result += '<'+tag+' class="cp-'+ suffix +'">'+ tmp[str] +'</'+tag+'>';
                 if(str != tmp.length-1) result += "\n";
             }
             
@@ -108,10 +107,10 @@ CodePrinter.JavaScript = {
                     pos2 = text.substr(1).search(pattern);
                 if(pos2 !== -1) {
                     var found2 = text.substr(1).match(pattern)[0];
-                    ret += text.substring(0, pos2 + found2.length + found.length).replace(/(\\.)/g, '<span class="js-escaped">$1</span>').wrap('regex');
+                    ret += text.substring(0, pos2 + found2.length + found.length).replace(/(\\.)/g, '<span class="cp-escaped">$1</span>').wrap('regex');
                     text = text.substr(pos2 + found2.length + found.length);
                 } else {
-                    ret += text.replace(/(\\.)/g, '<span class="js-escaped">$1</span>').wrap('regex');
+                    ret += text.replace(/(\\.)/g, '<span class="cp-escaped">$1</span>').wrap('regex');
                     text = '';
                 }
             } else if(chars.hasOwnProperty(found)) {
