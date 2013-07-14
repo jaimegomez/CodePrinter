@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   JavaScript document
 *   
-*   version     0.1.3
+*   version     0.1.4
 */
 
 (function(window, $) {
@@ -11,7 +11,7 @@
             return new CodePrinter(object, options);
         }
         
-        this.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter')));
+        this.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
         
         var mainElement = $.create('div.codeprinter'),
             container = $.create('div.cp-container'),
