@@ -59,10 +59,10 @@ CodePrinter.JavaScript = {
             operators = ['=','-','+','/','%','&lt;','&gt;','&','|'],
             search = /(\/\*|\/\/|\\|(\=|\()\s*\/|"|'|\{|\}|\(|\)|\[|\]|\=|\-|\+|\/|\%|\&lt;|\&gt;|\&|\||\$(?!\w)|\b[\w\d\-\_]+(?=(\(|\:))|\b(\d*\.?\d+)\b|\b(0x[\da-fA-F]+)\b|\b\w+\b)/,
             chars = { 
-                "//": { end: "\n", class: "comment" }, 
-                "/*": { end: "*/", class: "comment" },
-                "'": { end: "'", class: "string" },
-                '"': { end: '"', class: "string" }
+                "//": { end: "\n", cls: ['comment', 'line-comment'] }, 
+                "/*": { end: "*/", cls: ['comment', 'multiline-comment'] },
+                "'": { end: "'", cls: ['string', 'single-quote'] },
+                '"': { end: '"', cls: ['string', 'double-quote'] }
             },
             brackets = {
                 "{": "curly",
@@ -122,7 +122,7 @@ CodePrinter.JavaScript = {
                     text = '';
                 }
             } else if(chars.hasOwnProperty(found)) {
-                ret += strtrim(found, chars[found].end).wrap(chars[found].class);
+                ret += strtrim(found, chars[found].end).wrap(chars[found].cls);
             } else if(brackets.hasOwnProperty(found)) {
                 ret += strtrim(found).wrap(['bracket', brackets[found]+'bracket']);
             } else {
