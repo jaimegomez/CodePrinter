@@ -39,15 +39,16 @@
 	.cp-source {
 	    .block;
 	    .margins(-@paddingY 0, @paddingY @paddingX);
-	    .background(none);
-	    .nowrap;
-	    border-width:0;
-	    color:transparent;
+	    .background(transparent);
+        border-width:0;
+	    color:rgba(0,0,0,1);
 	    resize:none;
 	    outline:none;
     	z-index:3;
     	opacity:1;
-    	overflow:visible;
+    	overflow:visible !important;
+        overflow-x:visible !important;
+        overflow-y:visible !important;
         white-space:pre;
         position:relative;
 	}
@@ -131,11 +132,34 @@
     	font-family:Menlo;
         font-size:@fontSize;
 	    line-height:18px;
+        word-break:normal;
+        word-spacing:0px;
+        word-wrap:normal;
 	}
     .cp-wrapper + .cp-infobar {
         border-width:1px 0 0 0;
     }
 }
+
+    .cp-wrapper { background:white; }
+
+    .cp-tab { border-left-color:rgb(200,200,200); }
+    .cp-bracket { color:black; }
+    .cp-curlybracket { color:red; }
+    .cp-squarebracket { color:green; }
+    .cp-roundbracket { color:black; }
+    .cp-operator { color:#333; }
+    .cp-keyword { color:#8959a8; }
+    .cp-boolean { color:#f5871f; }
+    .cp-specials { color:green; }
+    .cp-numeric { color:#f5871f; }
+    .cp-hex { color:purple; }
+    .cp-fname { color:#003f83; }
+    .cp-property { color:navy; }
+    .cp-regex { color:#c82829; }
+    .cp-escaped { color:teal; }
+    .cp-string, .cp-string * { color:maroon !important; }
+    .cp-comment, .cp-comment * { color:#a4a4a4 !important; }
 
 .cp-wrapper {
     .background(@backgroundColor);
