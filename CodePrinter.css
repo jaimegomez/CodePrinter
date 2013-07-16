@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.1.4
+*   version     0.1.5
 */
 .codeprinter {
   display: block;
@@ -35,15 +35,16 @@
   display: block;
   margin: -5px 0;
   padding: 5px 15px;
-  background-color: none;
-  white-space: nowrap;
+  background-color: transparent;
   border-width: 0;
-  color: transparent;
+  color: #000000;
   resize: none;
   outline: none;
   z-index: 3;
   opacity: 1;
-  overflow: visible;
+  overflow: visible !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
   white-space: pre;
   position: relative;
 }
@@ -153,9 +154,68 @@
   font-family: Menlo;
   font-size: 12px;
   line-height: 18px;
+  word-break: normal;
+  word-spacing: 0px;
+  word-wrap: normal;
 }
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
+}
+.cp-wrapper {
+  background: white;
+}
+.cp-tab {
+  border-left-color: #c8c8c8;
+}
+.cp-bracket {
+  color: black;
+}
+.cp-curlybracket {
+  color: red;
+}
+.cp-squarebracket {
+  color: green;
+}
+.cp-roundbracket {
+  color: black;
+}
+.cp-operator {
+  color: #333;
+}
+.cp-keyword {
+  color: #8959a8;
+}
+.cp-boolean {
+  color: #f5871f;
+}
+.cp-specials {
+  color: green;
+}
+.cp-numeric {
+  color: #f5871f;
+}
+.cp-hex {
+  color: purple;
+}
+.cp-fname {
+  color: #003f83;
+}
+.cp-property {
+  color: navy;
+}
+.cp-regex {
+  color: #c82829;
+}
+.cp-escaped {
+  color: teal;
+}
+.cp-string,
+.cp-string * {
+  color: maroon !important;
+}
+.cp-comment,
+.cp-comment * {
+  color: #a4a4a4 !important;
 }
 .cp-wrapper {
   background-color: #ffffff;

@@ -1,8 +1,4 @@
-/*  CodePrinter
-*   JavaScript document
-*   
-*   version     0.1.4
-*/
+/* CodePrinter - Main JavaScript Document */
 
 (function(window, $) {
     
@@ -35,8 +31,9 @@
         return this;
     };
     
-    CodePrinter.version = '0.1.3';
+    CodePrinter.version = '0.1.5';
     
+    CodePrinter.Modes = {};
     CodePrinter.defaults = {
         mode: 'javascript',
         theme: 'default',
@@ -61,7 +58,10 @@
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
             
-            $.require('theme/'+(options.theme || 'default')+'.css');
+            if (typeof options.theme === 'string' && options.theme !== 'default') {
+                $.require('theme/'+options.theme+'.css');
+                self.mainElement.addClass('cp-'+options.theme.toLowerCase().replace(' ', '-'));
+            }
             
             if (options.counter) {
                 self.counter = $.create('ol.cp-counter');
@@ -83,12 +83,13 @@
             }
             
             self.wrapper.css({ width: self.mainElement.width() - self.wrapper.paddingWidth() - sizes.counterWidth });
-            self.wrapper.add(source, self.counter).css({ height: options.maxHeight });
+            self.wrapper.add(self.counter).css({ height: options.maxHeight });
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
+            self.adjustTextareaSize();
             
             if (self.counter) {
-                self.wrapper.on('scroll', function(e) {
+                self.wrapper.on('scroll', function() {
                     self.counter.current().scrollTop = this.scrollTop;
                 });
             }
@@ -176,6 +177,15 @@
                 }
             }
         },
+        adjustTextareaSize: function() {
+            var tx = this.source, item = tx.item();
+            if (tx.tag() === 'textarea') {
+                tx.width(0);
+                tx.width(item.scrollWidth);
+                tx.height(0);
+                tx.height(item.scrollHeight);
+            }
+        },
         getSourceValue: function() {
             return this.source.html().replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
         },
@@ -186,25 +196,107 @@
             
             var source = this.source,
                 overlay = this.overlay,
-                value = this.getSourceValue();
+                value = this.getSourceValue(),
+                parsed = '',
+                cpm;
             
             source.html(value);
-            this.value = value = parseEntities(value);
-            this.parsed = CodePrinter[mode].fn(value).split(/\n/g);
+            cpm = CodePrinter.getMode(mode);
+            parsed = cpm.parse(value);
             
             overlay.html('');
             
-            for (var j = 0; j < this.parsed.length; j++) {
+            for (var j = 0; j < parsed.length; j++) {
                 if (this.options.showIndent) {
-                    this.parsed[j] = indentGrid(this.parsed[j], this.options.tabWidth);
+                    parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                 }
-                overlay.append($.create('pre').html(this.parsed[j]));
+                overlay.append($.create('pre').html(parsed[j]));
             }
             
+            this.value = value;
+            this.parsed = parsed;
             this.reloadCounter();
             this.reloadInfoBar();
         }
     });
+    
+    CodePrinter.Mode = function() {
+        if (!(this instanceof CodePrinter.Mode)) {
+            return new CodePrinter.Mode(stream);
+        }
+        return this;
+    };
+    
+    CodePrinter.Mode.prototype = {
+        stream: '',
+        eaten: '',
+        wrap: function(suffix, tag) {
+            var result = '',
+                tmp = this.eaten.split(/\n/g);
+            
+            suffix = (suffix instanceof Array) ? suffix : [suffix];
+            tag = tag ? tag : 'span';
+            
+            for (var i = 0; i < suffix.length; i++) {
+                suffix[i] = 'cp-'+suffix[i];
+            }
+            
+            for (var i = 0; i < tmp.length; i++) {
+                result += '<'+tag+' class="'+suffix.join(' ')+'">'+ tmp[i] +'</'+tag+'>';
+                if (i !== tmp.length - 1) {
+                    result += "\n";
+                }
+            }
+            return result;
+        },
+        eat: function(from, to) {
+            var str = this.stream,
+                indexFrom = str.indexOf(from),
+                indexTo = 0;
+            
+            if (to === "\n") {
+                indexTo = str.indexOf(to) - 1;
+            } else if (from === to) {
+                indexTo = str.indexOf(to, 1);
+                if (indexTo === -1) indexTo = str.length;
+            } else {
+                if(!to) to = from;
+                indexTo = str.indexOf(to);
+                if (indexTo === -1) indexTo = indexFrom;
+            }
+            
+            this.eaten = str.substring(indexFrom, indexTo + to.length);
+            this.stream = str.substr(indexTo + to.length);
+            return this;
+        },
+        setStream: function(text) {
+            text = typeof text === 'string' ? text : '';
+            this.stream = text;
+            return this;
+        },
+        parse: function(stream) {
+            var p = this.setStream(stream).fn();
+            return typeof p === 'string' ? p.split(/\n/g) : '';
+        },
+        fn: function() {
+            return this.stream;
+        }
+    };
+    
+    $.each(['substr','substring','replace','search','match','split'], function(v) {
+        CodePrinter.Mode.prototype[v] = function() {
+            return this.stream[v].apply(this.stream, arguments);
+        };
+    });
+    
+    CodePrinter.defineMode = function(name, obj) {
+        if (name && obj) {
+            CodePrinter.Modes[name] = (new CodePrinter.Mode()).extend(obj);
+        }
+    };
+    CodePrinter.getMode = function(name) {
+        return CodePrinter.Modes[name] || (new CodePrinter.Mode());
+    };
     
     function parseEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
