@@ -86,12 +86,13 @@
             }
             
             self.wrapper.css({ width: self.mainElement.width() - self.wrapper.paddingWidth() - sizes.counterWidth });
-            self.wrapper.add(source, self.counter).css({ height: options.maxHeight });
+            self.wrapper.add(self.counter).css({ height: options.maxHeight });
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
+            self.adjustTextareaSize();
             
             if (self.counter) {
-                self.wrapper.on('scroll', function(e) {
+                self.wrapper.on('scroll', function() {
                     self.counter.current().scrollTop = this.scrollTop;
                 });
             }
@@ -177,6 +178,15 @@
                 } else {
                     this.infobar.children('span.countChars').html(this.source.data('selected-words') + ' characters selected');
                 }
+            }
+        },
+        adjustTextareaSize: function() {
+            var tx = this.source, item = tx.item();
+            if (tx.tag() === 'textarea') {
+                tx.width(0);
+                tx.width(item.scrollWidth);
+                tx.height(0);
+                tx.height(item.scrollHeight);
             }
         },
         getSourceValue: function() {
