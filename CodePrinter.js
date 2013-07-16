@@ -61,7 +61,10 @@
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
             
-            $.require('theme/'+(options.theme || 'default')+'.css');
+            if (typeof options.theme === 'string' && options.theme !== 'default') {
+                $.require('theme/'+options.theme+'.css');
+                self.mainElement.addClass('cp-'+options.theme.toLowerCase().replace(' ', '-'));
+            }
             
             if (options.counter) {
                 self.counter = $.create('ol.cp-counter');
