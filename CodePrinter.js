@@ -1,8 +1,4 @@
-/*  CodePrinter
-*   JavaScript document
-*   
-*   version     0.1.4
-*/
+/* CodePrinter - Main JavaScript Document */
 
 (function(window, $) {
     
@@ -35,7 +31,7 @@
         return this;
     };
     
-    CodePrinter.version = '0.1.3';
+    CodePrinter.version = '0.1.5';
     
     CodePrinter.Modes = {};
     CodePrinter.defaults = {
