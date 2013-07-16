@@ -200,21 +200,25 @@
             
             var source = this.source,
                 overlay = this.overlay,
-                value = this.getSourceValue();
+                value = this.getSourceValue(),
+                parsed = '',
+                cpm;
             
             source.html(value);
-            this.value = value = parseEntities(value);
-            this.parsed = CodePrinter[mode].fn(value).split(/\n/g);
+            cpm = CodePrinter.getMode(mode);
+            parsed = cpm.parse(value);
             
             overlay.html('');
             
-            for (var j = 0; j < this.parsed.length; j++) {
+            for (var j = 0; j < parsed.length; j++) {
                 if (this.options.showIndent) {
-                    this.parsed[j] = indentGrid(this.parsed[j], this.options.tabWidth);
+                    parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                 }
-                overlay.append($.create('pre').html(this.parsed[j]));
+                overlay.append($.create('pre').html(parsed[j]));
             }
             
+            this.value = value;
+            this.parsed = parsed;
             this.reloadCounter();
             this.reloadInfoBar();
         }
