@@ -111,9 +111,11 @@
                 actions = $.create('span.cp-actions'),
                 plaintext = $.create('a.cp-plaintext', 'plaintext'),
                 reprint = $.create('a.cp-reprint', 'reprint'),
+                scrolldown = $.create('a.cp-scrolldown', 'scroll down'),
+                scrollup = $.create('a.cp-scrollup', 'scroll up'),
                 countChars = $.create('span.cp-countChars');
             
-            actions.append(plaintext, reprint);
+            actions.append(plaintext, reprint, scrolldown, scrollup);
             infobar.append(mode, actions, countChars);
             
             plaintext.click(function() {
@@ -122,6 +124,13 @@
             });
             reprint.click(function() {
                 self.print();
+            });
+            scrolldown.click(function() {
+                var w = self.wrapper.item();
+                w.scrollTop = w.scrollHeight;
+            });
+            scrollup.click(function() {
+                self.wrapper.item().scrollTop = 0;
             });
             self.infobar = infobar;
         },
