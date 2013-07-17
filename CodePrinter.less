@@ -32,6 +32,7 @@
 	    .vertical-top;
 	    .size(auto, 100%);
     	.margins(0, @paddingY 0);
+        background:@backgroundColor;
         position:relative;
 	    z-index:4;
 	    overflow:scroll;
@@ -77,6 +78,10 @@
     	.vertical-top;
     	.margins(0, 5px 0);
     	.size(auto, auto);
+        .linear-gradient(right, @gradientStartColor, @gradientEndColor);
+        .border(@borderColor, 0 1px 0 0);
+        .shadow(0 0 10px rgba(0,0,0,0.25));
+        color:@textColor;
     	min-width:35px;
         z-index:6;
     	list-style-type:none;
@@ -139,49 +144,45 @@
     .cp-wrapper + .cp-infobar {
         border-width:1px 0 0 0;
     }
-}
-
-    .cp-wrapper { background:white; }
-
+    
+    .cp-activeLineNumber {
+        .background(rgba(230,239,255,0.6)); 
+        .shadow(0 0 2px rgb(51,153,255));
+        color:black;
+    }
+    .cp-activeLine {
+        .background(rgba(230,239,255,0.6)); 
+        .shadow(0 0 2px rgb(51,153,255));
+    }
+    .cp-tab {
+        margin-left:-1px;
+        border-left:@indentBorder;
+    }
+    
     .cp-tab { border-left-color:rgb(200,200,200); }
     .cp-bracket { color:black; }
     .cp-curlybracket { color:red; }
     .cp-squarebracket { color:green; }
     .cp-roundbracket { color:black; }
     .cp-operator { color:#333; }
+    .cp-variable { color:#1a19ff; }
     .cp-keyword { color:#8959a8; }
     .cp-boolean { color:#f5871f; }
+    .cp-empty-value { color:#f5871f; }
     .cp-specials { color:green; }
     .cp-numeric { color:#f5871f; }
     .cp-hex { color:purple; }
     .cp-fname { color:#003f83; }
     .cp-property { color:navy; }
-    .cp-regex { color:#c82829; }
+    .cp-regexp { color:#c82829; }
     .cp-escaped { color:teal; }
+    .cp-phptag { color:#FF0000; }
     .cp-string, .cp-string * { color:maroon !important; }
     .cp-comment, .cp-comment * { color:#a4a4a4 !important; }
-
-.cp-wrapper {
-    .background(@backgroundColor);
-}
-.cp-counter {
-    .linear-gradient(right, @gradientStartColor, @gradientEndColor);
-    .border(@borderColor, 0 1px 0 0);
-    .shadow(0 0 10px rgba(0,0,0,0.25));
-    color:@textColor;
-}
-.cp-activeLineNumber {
-    .background(rgba(230,239,255,0.6)); 
-    .shadow(0 0 2px rgb(51,153,255));
-    color:black;
-}
-.cp-activeLine {
-    .background(rgba(230,239,255,0.6)); 
-    .shadow(0 0 2px rgb(51,153,255));
-}
-.cp-tab {
-    margin-left:-1px;
-    border-left:@indentBorder;
+    
+    &.cps-default {
+        .cp-keyword, .cp-specials, .cp-boolean, .cp-empty-value { font-weight:bold; }
+    }
 }
 
 /* ########### */

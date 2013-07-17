@@ -27,6 +27,7 @@
   height: 100%;
   margin: 0;
   padding: 5px 0;
+  background: #ffffff;
   position: relative;
   z-index: 4;
   overflow: scroll;
@@ -81,6 +82,21 @@
   padding: 5px 0;
   width: auto;
   height: auto;
+  background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
+  background-image: -webkit-linear-gradient(right, #f0f0f0, #fafafa);
+  background-image: -moz-linear-gradient(right, #f0f0f0, #fafafa);
+  background-image: -ms-linear-gradient(right, #f0f0f0, #fafafa);
+  background-image: -o-linear-gradient(right, #f0f0f0, #fafafa);
+  background-image: linear-gradient(right, #f0f0f0, #fafafa);
+  border-color: #c0c0c0;
+  border-width: 0 1px 0 0;
+  border-style: solid;
+  -webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -moz-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  color: #777777;
   min-width: 35px;
   z-index: 6;
   list-style-type: none;
@@ -161,83 +177,7 @@
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
 }
-.cp-wrapper {
-  background: white;
-}
-.cp-tab {
-  border-left-color: #c8c8c8;
-}
-.cp-bracket {
-  color: black;
-}
-.cp-curlybracket {
-  color: red;
-}
-.cp-squarebracket {
-  color: green;
-}
-.cp-roundbracket {
-  color: black;
-}
-.cp-operator {
-  color: #333;
-}
-.cp-keyword {
-  color: #8959a8;
-}
-.cp-boolean {
-  color: #f5871f;
-}
-.cp-specials {
-  color: green;
-}
-.cp-numeric {
-  color: #f5871f;
-}
-.cp-hex {
-  color: purple;
-}
-.cp-fname {
-  color: #003f83;
-}
-.cp-property {
-  color: navy;
-}
-.cp-regex {
-  color: #c82829;
-}
-.cp-escaped {
-  color: teal;
-}
-.cp-string,
-.cp-string * {
-  color: maroon !important;
-}
-.cp-comment,
-.cp-comment * {
-  color: #a4a4a4 !important;
-}
-.cp-wrapper {
-  background-color: #ffffff;
-}
-.cp-counter {
-  background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
-  background-image: -webkit-linear-gradient(right, #f0f0f0, #fafafa);
-  background-image: -moz-linear-gradient(right, #f0f0f0, #fafafa);
-  background-image: -ms-linear-gradient(right, #f0f0f0, #fafafa);
-  background-image: -o-linear-gradient(right, #f0f0f0, #fafafa);
-  background-image: linear-gradient(right, #f0f0f0, #fafafa);
-  border-color: #c0c0c0;
-  border-width: 0 1px 0 0;
-  border-style: solid;
-  -webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -moz-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  color: #777777;
-}
-.cp-activeLineNumber {
+.codeprinter .cp-activeLineNumber {
   background-color: rgba(230, 239, 255, 0.6);
   -webkit-box-shadow: 0 0 2px #3399ff;
   -moz-box-shadow: 0 0 2px #3399ff;
@@ -246,7 +186,7 @@
   box-shadow: 0 0 2px #3399ff;
   color: black;
 }
-.cp-activeLine {
+.codeprinter .cp-activeLine {
   background-color: rgba(230, 239, 255, 0.6);
   -webkit-box-shadow: 0 0 2px #3399ff;
   -moz-box-shadow: 0 0 2px #3399ff;
@@ -254,9 +194,77 @@
   -o-box-shadow: 0 0 2px #3399ff;
   box-shadow: 0 0 2px #3399ff;
 }
-.cp-tab {
+.codeprinter .cp-tab {
   margin-left: -1px;
   border-left: 1px dotted #c8c8c8;
+}
+.codeprinter .cp-tab {
+  border-left-color: #c8c8c8;
+}
+.codeprinter .cp-bracket {
+  color: black;
+}
+.codeprinter .cp-curlybracket {
+  color: red;
+}
+.codeprinter .cp-squarebracket {
+  color: green;
+}
+.codeprinter .cp-roundbracket {
+  color: black;
+}
+.codeprinter .cp-operator {
+  color: #333;
+}
+.codeprinter .cp-variable {
+  color: #1a19ff;
+}
+.codeprinter .cp-keyword {
+  color: #8959a8;
+}
+.codeprinter .cp-boolean {
+  color: #f5871f;
+}
+.codeprinter .cp-empty-value {
+  color: #f5871f;
+}
+.codeprinter .cp-specials {
+  color: green;
+}
+.codeprinter .cp-numeric {
+  color: #f5871f;
+}
+.codeprinter .cp-hex {
+  color: purple;
+}
+.codeprinter .cp-fname {
+  color: #003f83;
+}
+.codeprinter .cp-property {
+  color: navy;
+}
+.codeprinter .cp-regexp {
+  color: #c82829;
+}
+.codeprinter .cp-escaped {
+  color: teal;
+}
+.codeprinter .cp-phptag {
+  color: #FF0000;
+}
+.codeprinter .cp-string,
+.codeprinter .cp-string * {
+  color: maroon !important;
+}
+.codeprinter .cp-comment,
+.codeprinter .cp-comment * {
+  color: #a4a4a4 !important;
+}
+.codeprinter.cps-default .cp-keyword,
+.codeprinter.cps-default .cp-specials,
+.codeprinter.cps-default .cp-boolean,
+.codeprinter.cps-default .cp-empty-value {
+  font-weight: bold;
 }
 /* ########### */
 /* LESS MIXINS */
