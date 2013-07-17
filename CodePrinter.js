@@ -228,6 +228,22 @@
     };
     
     CodePrinter.Mode.prototype = {
+        brackets: {
+            '{': 'curly',
+            '}': 'curly',
+            '[': 'square',
+            ']': 'square',
+            '(': 'round',
+            ')': 'round'
+        },
+        chars: { 
+            '//': { end: '\n', cls: ['comment', 'line-comment'] }, 
+            '/*': { end: '*/', cls: ['comment', 'multiline-comment'] },
+            "'": { end: "'", cls: ['string', 'single-quote'] },
+            '"': { end: '"', cls: ['string', 'double-quote'] }
+        },
+        operators: ['=','-','+','/','%','<','>','&','|'],
+        
         stream: '',
         eaten: '',
         wrap: function(suffix, tag) {
