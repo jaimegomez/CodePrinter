@@ -285,6 +285,14 @@
             this.stream = str.substr(indexTo + to.length);
             return this;
         },
+        tear: function(pos) {
+            var s = '';
+            if (!isNaN(pos)) {
+                s = this.stream.substring(0, pos);
+                this.stream = this.stream.substr(pos);
+            }
+            return s;
+        },
         setStream: function(text) {
             text = typeof text === 'string' ? text : '';
             this.stream = text;
