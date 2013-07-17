@@ -197,21 +197,30 @@
             
             var source = this.source,
                 overlay = this.overlay,
-                value = this.getSourceValue(),
-                parsed = '',
-                cpm;
+                value = decodeEntities(this.getSourceValue()),
+                pre = overlay.children('pre'),
+                parsed, cpm;
             
-            source.html(value);
             cpm = CodePrinter.getMode(mode);
             parsed = cpm.parse(value);
-            
-            overlay.html('');
             
             for (var j = 0; j < parsed.length; j++) {
                 if (this.options.showIndent) {
                     parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                 }
-                overlay.append($.create('pre').html(parsed[j]));
+                if (j < pre.length) {
+                    pre.eq(j).html(parsed[j]);
+                } else {
+                    var p = $.create('pre').html(parsed[j]);
+                    pre.push(p);
+                    overlay.append(p);
+                }
+            }
+            
+            if (parsed.length < pre.length) {
+                for (var i = parsed.length; i < pre.length; i++) {
+                    pre.eq(i).remove();
+                }
             }
             
             this.value = value;
