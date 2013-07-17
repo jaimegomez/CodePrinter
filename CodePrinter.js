@@ -251,7 +251,7 @@
             var result = '',
                 tmp = this.eaten.split(/\n/g);
             
-            suffix = (suffix instanceof Array) ? suffix : [suffix];
+            suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
             tag = tag ? tag : 'span';
             
             for (var i = 0; i < suffix.length; i++) {
