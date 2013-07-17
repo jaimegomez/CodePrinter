@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.1.5
+*   version     0.1.6
 */
 .codeprinter {
   display: block;
@@ -37,7 +37,7 @@
   padding: 5px 15px;
   background-color: transparent;
   border-width: 0;
-  color: #000000;
+  color: transparent;
   resize: none;
   outline: none;
   z-index: 3;

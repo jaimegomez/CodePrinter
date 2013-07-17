@@ -31,7 +31,7 @@
         return this;
     };
     
-    CodePrinter.version = '0.1.5';
+    CodePrinter.version = '0.1.6';
     
     CodePrinter.Modes = {};
     CodePrinter.defaults = {
@@ -87,6 +87,7 @@
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
             self.adjustTextareaSize();
+            source.html(this.getSourceValue());
             
             if (self.counter) {
                 self.wrapper.on('scroll', function() {
@@ -117,7 +118,7 @@
             
             plaintext.click(function() {
                 var newWindow = window.open('', '_blank');
-                newWindow.document.writeln('<pre style="font-size:14px;">' + parseEntities(self.getSourceValue()) + '</pre>');
+                newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(self.getSourceValue()) + '</pre>');
             });
             reprint.click(function() {
                 self.print();
@@ -196,21 +197,30 @@
             
             var source = this.source,
                 overlay = this.overlay,
-                value = this.getSourceValue(),
-                parsed = '',
-                cpm;
+                value = decodeEntities(this.getSourceValue()),
+                pre = overlay.children('pre'),
+                parsed, cpm;
             
-            source.html(value);
             cpm = CodePrinter.getMode(mode);
             parsed = cpm.parse(value);
-            
-            overlay.html('');
             
             for (var j = 0; j < parsed.length; j++) {
                 if (this.options.showIndent) {
                     parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                 }
-                overlay.append($.create('pre').html(parsed[j]));
+                if (j < pre.length) {
+                    pre.eq(j).html(parsed[j]);
+                } else {
+                    var p = $.create('pre').html(parsed[j]);
+                    pre.push(p);
+                    overlay.append(p);
+                }
+            }
+            
+            if (parsed.length < pre.length) {
+                for (var i = parsed.length; i < pre.length; i++) {
+                    pre.eq(i).remove();
+                }
             }
             
             this.value = value;
@@ -228,13 +238,29 @@
     };
     
     CodePrinter.Mode.prototype = {
+        brackets: {
+            '{': 'curly',
+            '}': 'curly',
+            '[': 'square',
+            ']': 'square',
+            '(': 'round',
+            ')': 'round'
+        },
+        chars: { 
+            '//': { end: '\n', cls: ['comment', 'line-comment'] }, 
+            '/*': { end: '*/', cls: ['comment', 'multiline-comment'] },
+            "'": { end: "'", cls: ['string', 'single-quote'] },
+            '"': { end: '"', cls: ['string', 'double-quote'] }
+        },
+        operators: ['=','-','+','/','%','<','>','&','|'],
+        
         stream: '',
         eaten: '',
         wrap: function(suffix, tag) {
             var result = '',
                 tmp = this.eaten.split(/\n/g);
             
-            suffix = (suffix instanceof Array) ? suffix : [suffix];
+            suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
             tag = tag ? tag : 'span';
             
             for (var i = 0; i < suffix.length; i++) {
@@ -242,7 +268,7 @@
             }
             
             for (var i = 0; i < tmp.length; i++) {
-                result += '<'+tag+' class="'+suffix.join(' ')+'">'+ tmp[i] +'</'+tag+'>';
+                result += '<'+tag+' class="'+suffix.join(' ')+'">'+ encodeEntities(tmp[i]) +'</'+tag+'>';
                 if (i !== tmp.length - 1) {
                     result += "\n";
                 }
@@ -269,6 +295,14 @@
             this.stream = str.substr(indexTo + to.length);
             return this;
         },
+        tear: function(pos) {
+            var s = '';
+            if (!isNaN(pos)) {
+                s = this.stream.substring(0, pos);
+                this.stream = this.stream.substr(pos);
+            }
+            return s;
+        },
         setStream: function(text) {
             text = typeof text === 'string' ? text : '';
             this.stream = text;
@@ -279,6 +313,9 @@
             return typeof p === 'string' ? p.split(/\n/g) : '';
         },
         fn: function() {
+            return this.stream;
+        },
+        toString: function() {
             return this.stream;
         }
     };
@@ -298,7 +335,10 @@
         return CodePrinter.Modes[name] || (new CodePrinter.Mode());
     };
     
-    function parseEntities(text) {
+    function decodeEntities(text) {
+        return $.create('div').html(text).text();
+    }
+    function encodeEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
     };
     function indentGrid(text, width) {
