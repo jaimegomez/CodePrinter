@@ -296,6 +296,9 @@
         },
         fn: function() {
             return this.stream;
+        },
+        toString: function() {
+            return this.stream;
         }
     };
     
