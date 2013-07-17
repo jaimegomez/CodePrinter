@@ -87,6 +87,7 @@
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
             self.adjustTextareaSize();
+            source.html(this.getSourceValue());
             
             if (self.counter) {
                 self.wrapper.on('scroll', function() {
