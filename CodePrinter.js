@@ -118,7 +118,7 @@
             
             plaintext.click(function() {
                 var newWindow = window.open('', '_blank');
-                newWindow.document.writeln('<pre style="font-size:14px;">' + parseEntities(self.getSourceValue()) + '</pre>');
+                newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(self.getSourceValue()) + '</pre>');
             });
             reprint.click(function() {
                 self.print();
@@ -259,7 +259,7 @@
             }
             
             for (var i = 0; i < tmp.length; i++) {
-                result += '<'+tag+' class="'+suffix.join(' ')+'">'+ tmp[i] +'</'+tag+'>';
+                result += '<'+tag+' class="'+suffix.join(' ')+'">'+ encodeEntities(tmp[i]) +'</'+tag+'>';
                 if (i !== tmp.length - 1) {
                     result += "\n";
                 }
@@ -326,7 +326,10 @@
         return CodePrinter.Modes[name] || (new CodePrinter.Mode());
     };
     
-    function parseEntities(text) {
+    function decodeEntities(text) {
+        return $.create('div').html(text).text();
+    }
+    function encodeEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
     };
     function indentGrid(text, width) {
