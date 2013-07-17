@@ -1,22 +1,22 @@
 /* CodePrinter - Oblivion theme */
 
-.cp-oblivion .cp-wrapper { background:#1E1E1E; color:#D8D8D8; }
-.cp-oblivion .cp-counter { background:#1E1E1E; color:#D0D0D0; border-left-color:#D0D0D0; }
-.cp-oblivion .cp-source::selection { background:black; }
+.cps-oblivion .cp-wrapper { background:#1E1E1E; color:#D8D8D8; }
+.cps-oblivion .cp-counter { background:#1E1E1E; color:#D0D0D0; border-left-color:#D0D0D0; }
+.cps-oblivion .cp-source::selection { background:black; }
 
-.cp-oblivion .cp-tab { border-left-color:#445544; }
-.cp-oblivion .cp-bracket { color:#D8D8D8; }
-.cp-oblivion .cp-operator { color:#FFFFFF; }
-.cp-oblivion .cp-variable { color:#79ABFF; }
-.cp-oblivion .cp-keyword { color:#D197D9; }
-.cp-oblivion .cp-boolean { color:#EFC090; }
-.cp-oblivion .cp-empty-value { color:#EFC090; }
-.cp-oblivion .cp-specials { color:#D25252; }
-.cp-oblivion .cp-numeric { color:#7FB347; }
-.cp-oblivion .cp-fname { color:#BED6FF; }
-.cp-oblivion .cp-property { color:#BED6FF; }
-.cp-oblivion .cp-regex { color:#EFC090; }
-.cp-oblivion .cp-escaped { color:#D25252; }
-.cp-oblivion .cp-phptag { color:#FF0000; }
-.cp-oblivion .cp-string, .cp-oblivion .cp-string * { color:#FFC600 !important; }
-.cp-oblivion .cp-comment, .cp-oblivion .cp-comment * { color:#C7DD0C !important; }
+.cps-oblivion .cp-tab { border-left-color:#445544; }
+.cps-oblivion .cp-bracket { color:#D8D8D8; }
+.cps-oblivion .cp-operator { color:#FFFFFF; }
+.cps-oblivion .cp-variable { color:#79ABFF; }
+.cps-oblivion .cp-keyword { color:#D197D9; }
+.cps-oblivion .cp-boolean { color:#EFC090; }
+.cps-oblivion .cp-empty-value { color:#EFC090; }
+.cps-oblivion .cp-specials { color:#D25252; }
+.cps-oblivion .cp-numeric { color:#7FB347; }
+.cps-oblivion .cp-fname { color:#BED6FF; }
+.cps-oblivion .cp-property { color:#BED6FF; }
+.cps-oblivion .cp-regexp { color:#EFC090; }
+.cps-oblivion .cp-escaped { color:#D25252; }
+.cps-oblivion .cp-phptag { color:#FF0000; }
+.cps-oblivion .cp-string, .cps-oblivion .cp-string * { color:#FFC600 !important; }
+.cps-oblivion .cp-comment, .cps-oblivion .cp-comment * { color:#C7DD0C !important; }
