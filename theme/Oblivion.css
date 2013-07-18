@@ -7,8 +7,9 @@
 .cps-oblivion .cp-tab { border-left-color:#445544; }
 .cps-oblivion .cp-bracket { color:#D8D8D8; }
 .cps-oblivion .cp-operator { color:#FFFFFF; }
-.cps-oblivion .cp-variable { color:#79ABFF; }
 .cps-oblivion .cp-keyword { color:#D197D9; }
+.cps-oblivion .cp-control { color:#D197D9; }
+.cps-oblivion .cp-variable { color:#79ABFF; }
 .cps-oblivion .cp-boolean { color:#EFC090; }
 .cps-oblivion .cp-empty-value { color:#EFC090; }
 .cps-oblivion .cp-specials { color:#D25252; }

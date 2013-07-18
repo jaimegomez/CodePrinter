@@ -5,14 +5,19 @@
 .cps-sublime .cp-source::selection { background-color:rgba(255,255,255,0.2); }
 
 .cps-sublime .cp-tab { border-left-color:#6A6A6A; }
-.cps-sublime .cp-fname { color:#52E3F6; }
 .cps-sublime .cp-bracket { color:#F9FAF4; }
 .cps-sublime .cp-operator { color:#FF007F; }
-.cps-sublime .cp-keyword { color:#FF007F; font-style:normal; font-weight:normal; }
-.cps-sublime .cp-specials { color:#A7EC21; }
-.cps-sublime .cp-property { color:#FFFFAA; }
-.cps-sublime .cp-regex { color:#ECE47E; }
-.cps-sublime .cp-escaped { color:#AE819B; }
-.cps-sublime .cp-numeric { color:#C48CFF; font-weight:normal; }
-.cps-sublime .cp-string, .cps-sublime .cp-string * { color:#ECE47E !important; }
+.cps-sublime .cp-keyword { color:#FF007F; }
+.cps-sublime .cp-control { color:#FF007F; }
+.cps-sublime .cp-variable { color:#52E3F6; font-style:italic; }
+.cps-sublime .cp-boolean { color:#888DFF; }
+.cps-sublime .cp-empty-value { color:#888DFF; }
+.cps-sublime .cp-specials { color:#52E3F6; font-style:italic; }
+.cps-sublime .cp-numeric { color:#C48CFF; }
+.cps-sublime .cp-fname { color:#B2DA16; }
+.cps-sublime .cp-property { color:#B2DA16; }
+.cps-sublime .cp-regexp { color:#E0D670; }
+.cps-sublime .cp-escaped { color:#888DFF; }
+.cps-sublime .cp-phptag { color:#FFFFFF; }
+.cps-sublime .cp-string, .cps-sublime .cp-string * { color:#E0D670 !important; }
 .cps-sublime .cp-comment, .cps-sublime .cp-comment * { color:#75705D !important; }
