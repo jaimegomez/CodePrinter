@@ -31,7 +31,7 @@
         return this;
     };
     
-    CodePrinter.version = '0.1.6';
+    CodePrinter.version = '0.1.7';
     
     CodePrinter.Modes = {};
     CodePrinter.defaults = {
@@ -60,8 +60,10 @@
             
             if (typeof options.theme === 'string' && options.theme !== 'default') {
                 $.require('theme/'+options.theme+'.css');
-                self.mainElement.addClass('cp-'+options.theme.toLowerCase().replace(' ', '-'));
+            } else {
+                options.theme = 'default';
             }
+            self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
             
             if (options.counter) {
                 self.counter = $.create('ol.cp-counter');
@@ -111,9 +113,11 @@
                 actions = $.create('span.cp-actions'),
                 plaintext = $.create('a.cp-plaintext', 'plaintext'),
                 reprint = $.create('a.cp-reprint', 'reprint'),
+                scrolldown = $.create('a.cp-scrolldown', 'scroll down'),
+                scrollup = $.create('a.cp-scrollup', 'scroll up'),
                 countChars = $.create('span.cp-countChars');
             
-            actions.append(plaintext, reprint);
+            actions.append(plaintext, reprint, scrolldown, scrollup);
             infobar.append(mode, actions, countChars);
             
             plaintext.click(function() {
@@ -122,6 +126,13 @@
             });
             reprint.click(function() {
                 self.print();
+            });
+            scrolldown.click(function() {
+                var w = self.wrapper.item();
+                w.scrollTop = w.scrollHeight;
+            });
+            scrollup.click(function() {
+                self.wrapper.item().scrollTop = 0;
             });
             self.infobar = infobar;
         },
@@ -252,7 +263,25 @@
             "'": { end: "'", cls: ['string', 'single-quote'] },
             '"': { end: '"', cls: ['string', 'double-quote'] }
         },
-        operators: ['=','-','+','/','%','<','>','&','|'],
+        punctuations: {
+            '.': 'dot',
+            ',': 'comma',
+            ':': 'colon',
+            ';': 'semicolon',
+            '?': 'question',
+            '!': 'exclamation'
+        },
+        operators: {
+            '=': 'equal',
+            '-': 'minus',
+            '+': 'plus',
+            '/': 'divider',
+            '%': 'percentage',
+            '<': 'lower',
+            '>': 'greater',
+            '&': 'ampersand',
+            '|': 'verticalbar'
+        },
         
         stream: '',
         eaten: '',
@@ -268,7 +297,7 @@
             }
             
             for (var i = 0; i < tmp.length; i++) {
-                result += '<'+tag+' class="'+suffix.join(' ')+'">'+ encodeEntities(tmp[i]) +'</'+tag+'>';
+                result += '<'+tag+' class="'+suffix.join(' ')+'">'+ tmp[i] +'</'+tag+'>';
                 if (i !== tmp.length - 1) {
                     result += "\n";
                 }
@@ -277,7 +306,7 @@
         },
         eat: function(from, to) {
             var str = this.stream,
-                indexFrom = str.indexOf(from),
+                indexFrom = from instanceof RegExp ? str.search(from) : str.indexOf(from),
                 indexTo = 0;
             
             if (to === "\n") {
@@ -287,11 +316,11 @@
                 if (indexTo === -1) indexTo = str.length;
             } else {
                 if(!to) to = from;
-                indexTo = str.indexOf(to);
+                indexTo = to instanceof RegExp ? str.search(to) : str.indexOf(to);
                 if (indexTo === -1) indexTo = indexFrom;
             }
             
-            this.eaten = str.substring(indexFrom, indexTo + to.length);
+            this.eaten = encodeEntities(str.substring(indexFrom, indexTo + to.length));
             this.stream = str.substr(indexTo + to.length);
             return this;
         },
