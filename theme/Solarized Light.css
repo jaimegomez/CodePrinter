@@ -1,0 +1,23 @@
+/* CodePrinter - Solarized Light theme */
+
+.cps-solarized-light .cp-wrapper { background:#FDF6E3; color:#657A81; }
+.cps-solarized-light .cp-counter { background:#FDF6E3; color:#586E75; border-left-color:#586E75; box-shadow:0 0 10px rgba(0,0,0,0.15); }
+.cps-solarized-light .cp-source::selection { background:#ECE7D5; }
+
+.cps-solarized-light .cp-tab { border-left-color:#445544; }
+.cps-solarized-light .cp-bracket { color:#657A81; }
+.cps-solarized-light .cp-operator { color:#000000; }
+.cps-solarized-light .cp-keyword { color:#B58900; }
+.cps-solarized-light .cp-control { color:#D30102; }
+.cps-solarized-light .cp-variable { color:#B58900; }
+.cps-solarized-light .cp-boolean { color:#B58900; font-weight:bold; }
+.cps-solarized-light .cp-empty-value { color:#B58900; font-weight:bold; }
+.cps-solarized-light .cp-specials { color:#D30102; font-style:italic; }
+.cps-solarized-light .cp-numeric { color:#2AA198; }
+.cps-solarized-light .cp-fname { color:#657A81; }
+.cps-solarized-light .cp-property { color:#333333; }
+.cps-solarized-light .cp-regexp { color:#2AA198; }
+.cps-solarized-light .cp-escaped { color:#D30102; }
+.cps-solarized-light .cp-phptag { color:#FF0000; }
+.cps-solarized-light .cp-string, .cps-solarized-light .cp-string * { color:#2AA198 !important; }
+.cps-solarized-light .cp-comment, .cps-solarized-light .cp-comment * { color:#93A1A1 !important; font-style:italic; }
