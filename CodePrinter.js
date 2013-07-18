@@ -261,7 +261,25 @@
             "'": { end: "'", cls: ['string', 'single-quote'] },
             '"': { end: '"', cls: ['string', 'double-quote'] }
         },
-        operators: ['=','-','+','/','%','<','>','&','|'],
+        punctuations: {
+            '.': 'dot',
+            ',': 'comma',
+            ':': 'colon',
+            ';': 'semicolon',
+            '?': 'question',
+            '!': 'exclamation'
+        },
+        operators: {
+            '=': 'equal',
+            '-': 'minus',
+            '+': 'plus',
+            '/': 'divider',
+            '%': 'percentage',
+            '<': 'lower',
+            '>': 'greater',
+            '&': 'ampersand',
+            '|': 'verticalbar'
+        },
         
         stream: '',
         eaten: '',
