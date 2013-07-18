@@ -4,7 +4,7 @@ CodePrinter.defineMode('PHP', {
 	controls: ['if','else','for','foreach','switch','case','while','do','elseif','try','catch','declare','endif','endfor','endforeach','endswitch','endwhile','enddeclare'],
 	keywords: ['abstract','and','array','as','break','callable','class','clone','const','continue','default','die','echo','exit','extends','final','function','global','goto','implements','include','include_once','instanceof','insteadof','interface','namespace','new','null','or','parent','print','private','protected','public','require','require_once','return','self','static','trait','use','var','xor'],
 	specials: ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__'],
-	regexp: /\/\*|\$[\w\d\_]+|\{|\}|\(|\)|\[|\]|\=|\-|\+|\/|\%|\b[\w\d\_]+(?=\()|\b(\d*\.?\d+)\b|\b(0x[\da-fA-F]+)\b|<\?(php)*|<|>|\&|\||\?>|\b\w+\b/g,
+	regexp: /\$[\w\d\_]+|\/\*|"|'|\{|\}|\(|\)|\[|\]|\=|\-|\+|\/|\%|\b[\w\d\_]+(?=\()|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|<\?(php)*|\?>|\.|\,|\:|\;|\?|\!|<|>|\&|\||\?>|\b\w+\b/g,
 	
 	fn: function() {
 		var ret = '',
@@ -17,8 +17,16 @@ CodePrinter.defineMode('PHP', {
             
             if (found[0] === '$') {
             	ret += this.eat(found).wrap(['variable'])
-            } else if (this.brackets.hasOwnProperty(found)) {
-            	ret += this.eat(found).wrap(['bracket', this.brackets[found]+'bracket']);
+            } else if (!isNaN(found)) {
+                if(/^0x[\da-fA-F]+$/.test(found)) {
+                    ret += this.eat(found).wrap(['numeric', 'hex']);
+                } else {
+                    if ((found+'').indexOf('.') === -1) {
+                        ret += this.eat(found).wrap(['numeric', 'int']);
+                    } else {
+                        ret += this.eat(found).wrap(['numeric', 'float']);
+                    }
+                }
             } else if (/^[\w\d\_]+$/i.test(found)) {
             	if (found == 'true' || found == 'false') {
             		ret += this.eat(found).wrap(['boolean', found.toLowerCase()]);
@@ -33,22 +41,16 @@ CodePrinter.defineMode('PHP', {
             	} else {
 	            	ret += this.eat(found).wrap(['word']);
 	            }
-            } else if (this.chars.hasOwnProperty(found)) {
-            	ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
-            } else if (this.operators.indexOf(found) !== -1) {
-            	ret += this.eat(found).wrap(['operator']);
-            } else if (!isNaN(found)) {
-                if(/^0x[\da-fA-F]+$/.test(found)) {
-                    ret += this.eat(found).wrap(['numeric', 'hex']);
-                } else {
-                	if ((found+'').indexOf('.') === -1) {
-                		ret += this.eat(found).wrap(['numeric', 'int']);
-                	} else {
-                    	ret += this.eat(found).wrap(['numeric', 'float']);
-                	}
-                }
             } else if (['<?php','<?','?>'].indexOf(found) !== -1) {
-            	ret += this.eat(found).wrap(['phptag', found == '?>' ? 'closetag' : 'opentag']);
+                ret += this.eat(found).wrap(['phptag', found == '?>' ? 'closetag' : 'opentag']);
+            } else if (this.punctuations.hasOwnProperty(found)) {
+                ret += this.eat(found).wrap(['punctuation', this.punctuations[found]]);
+            } else if (this.operators.hasOwnProperty(found)) {
+            	ret += this.eat(found).wrap(['operator', this.operators[found]]);
+            } else if (this.brackets.hasOwnProperty(found)) {
+                ret += this.eat(found).wrap(['bracket', this.brackets[found]+'bracket']);
+            } else if (this.chars.hasOwnProperty(found)) {
+                ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else {
             	ret += this.eat(found).wrap(['other']);
             }
