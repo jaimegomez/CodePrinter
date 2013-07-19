@@ -96,6 +96,11 @@
   -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
   -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
   color: #777777;
   min-width: 35px;
   z-index: 6;
@@ -136,6 +141,11 @@
   -ms-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
   -o-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
   box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
   font-family: Verdana;
   font-size: 10px;
   color: #777777;
