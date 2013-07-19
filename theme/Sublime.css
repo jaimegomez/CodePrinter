@@ -14,6 +14,7 @@
 .cps-sublime .cp-empty-value { color:#888DFF; }
 .cps-sublime .cp-specials { color:#52E3F6; font-style:italic; }
 .cps-sublime .cp-numeric { color:#C48CFF; }
+.cps-sublime .cp-hex { color:#888DFF; }
 .cps-sublime .cp-fname { color:#B2DA16; }
 .cps-sublime .cp-property { color:#B2DA16; }
 .cps-sublime .cp-regexp { color:#E0D670; }
