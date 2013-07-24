@@ -1,10 +1,10 @@
 /* CodePrinter - CSS Mode */
 
 CodePrinter.defineMode('CSS', {
-    keywords: ['white','black','transparent','green','yellow','red','blue','orange','pink','cyan','violet','brown','gray','silver','gold'],
-    regexp: /\.\w+|#\w+|\b[\w\-]+\s*\:|\b\w+\b|"|'|\{|\}|\:|\;|\/\*/,
-	values: /\;|#[0-9a-fA-F]{3,6}|\-?(\d+|\d*\.\d+)(px|em|rem|s|\%|\b)|\w+\s*\(|\b[\w\-]+\b|'|"|\n/,
-    units: /(px|%|em|rem|s|ms|in|pt)/,
+    keywords: ['white','black','transparent','green','yellow','red','blue','orange','pink','cyan','violet','brown','gray','silver','gold','aqua','lime','navy','indigo','teal','fuchsia','magenta','beige','azure','khaki','sienna','skyblue'],
+    regexp: /\b[\w\-]+\s*\:|\b[\w\s\.\#\:\*\+\-\<\>\~\&]+|\b\w+\b|"|'|\{|\}|\:|\;|\/\*/,
+	values: /\;|#[0-9a-fA-F]{3,6}|\-?(\d+|\d*\.\d+)[\w%]*|\w+\s*\(|\b[\w\-]+\b|'|"|\n/,
+    units: /(px|%|em|rem|s|ms|in|pt|cm|mm|pc)/,
     
 	fn: function() {
 		var ret = '',
@@ -50,13 +50,13 @@ CodePrinter.defineMode('CSS', {
                         ret += this.eat(found).wrap(['value']);
                     }
                 }
-            } else if (this.punctuations.hasOwnProperty(found)) {
-                ret += this.eat(found).wrap(['punctuation', this.punctuations[found]]);
             } else if (found[found.length-1] == ':') {
                 found = found.slice(0, -1).replace(/\s+$/g, '');
                 ret += this.eat(found).wrap(['property']);
-            } else if (/^[\w\s\.\#\:\*\+\-\~\<\>\&]+$/.test(found)) {
+            } else if (/^[\w\s\.\#\:\*\+\-\<\>\~\&]+$/.test(found)) {
                 ret += this.eat(found).wrap(['specials']);
+            } else if (this.punctuations.hasOwnProperty(found)) {
+                ret += this.eat(found).wrap(['punctuation', this.punctuations[found]]);
             } else if (this.chars.hasOwnProperty(found)) {
                 ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else if (this.brackets.hasOwnProperty(found)) {
