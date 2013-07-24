@@ -2,8 +2,9 @@
 
 CodePrinter.defineMode('PHP', {
 	controls: ['if','else','for','foreach','switch','case','while','do','elseif','try','catch','declare','endif','endfor','endforeach','endswitch','endwhile','enddeclare'],
-	keywords: ['abstract','and','array','as','break','callable','class','clone','const','continue','default','die','echo','exit','extends','final','function','global','goto','implements','include','include_once','instanceof','insteadof','interface','namespace','new','null','or','parent','print','private','protected','public','require','require_once','return','self','static','trait','use','var','xor'],
-	specials: ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__'],
+	keywords: ['abstract','and','array','as','break','callable','clone','const','continue','default','die','echo','exit','extends','final','global','goto','implements','include','include_once','instanceof','insteadof','namespace','new','null','or','print','private','protected','public','require','require_once','return','static','use','var','xor'],
+	specials: ['class','function','interface','trait','self','parent','super'],
+    constants: ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__'],
 	regexp: /\$[\w\d\_]+|\/\*|"|'|\{|\}|\(|\)|\[|\]|\=|\-|\+|\/|\%|\b[\w\d\_]+(?=\()|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|<\?(php)*|\?>|\.|\,|\:|\;|\?|\!|<|>|\&|\||\?>|\b\w+\b/g,
 	
 	fn: function() {
@@ -38,7 +39,9 @@ CodePrinter.defineMode('PHP', {
 	            	ret += this.eat(found).wrap(['special'])
 	            } else if (/^\s*\(/.test(this.substr(found.length))) {
             		ret += this.eat(found).wrap(['fname', found]);
-            	} else {
+            	} else if (this.constants.indexOf(found) !== -1) {
+                    ret += this.eat(found).wrap(['const', found.replace(/_/g, '')]);
+                } else {
 	            	ret += this.eat(found).wrap(['word']);
 	            }
             } else if (['<?php','<?','?>'].indexOf(found) !== -1) {
