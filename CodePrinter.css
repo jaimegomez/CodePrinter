@@ -208,11 +208,15 @@
   margin-left: -1px;
   border-left: 1px dotted #c8c8c8;
 }
+.codeprinter .cp-highlight {
+  box-shadow: 0 1px 0 black;
+}
 .codeprinter .cp-tab {
   border-left-color: #c8c8c8;
 }
 .codeprinter .cp-bracket {
   color: black;
+  pointer-events: all;
 }
 .codeprinter .cp-curlybracket {
   color: red;
