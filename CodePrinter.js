@@ -250,12 +250,12 @@
     
     CodePrinter.Mode.prototype = {
         brackets: {
-            '{': 'curly',
-            '}': 'curly',
-            '[': 'square',
-            ']': 'square',
-            '(': 'round',
-            ')': 'round'
+            '{': ['curly', 'open'],
+            '}': ['curly', 'close'],
+            '[': ['square', 'open'],
+            ']': ['square', 'close'],
+            '(': ['round', 'open'],
+            ')': ['round', 'close']
         },
         chars: { 
             '//': { end: '\n', cls: ['comment', 'line-comment'] }, 

@@ -6,7 +6,7 @@
 
 .cps-roboticket .cp-tab { border-left-color:#445544; }
 .cps-roboticket .cp-bracket { color:#B05A65; }
-.cps-roboticket .cp-curlybracket { font-weight:bold; }
+.cps-roboticket .cp-curly { font-weight:bold; }
 .cps-roboticket .cp-operator { color:#000000; }
 .cps-roboticket .cp-keyword { color:#295F94; }
 .cps-roboticket .cp-control { color:#295F94; font-weight:bold; }
