@@ -36,7 +36,7 @@ CodePrinter.defineMode('JavaScript', {
                 } else if (this.controls.indexOf(found) !== -1) {
                     ret += this.eat(found).wrap(['control', found]);  
                 } else if (this.specials.indexOf(found) !== -1) {
-                    ret += this.eat(found).wrap(['specials', found]);
+                    ret += this.eat(found).wrap(['special', found]);
                 } else if (this.keywords.indexOf(found) !== -1) {
                     ret += this.eat(found).wrap(['keyword', found]);
                 } else if (/^\s*\(/.test(this.substr(found.length))) {

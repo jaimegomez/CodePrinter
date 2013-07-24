@@ -35,7 +35,7 @@ CodePrinter.defineMode('PHP', {
 	            } else if (this.keywords.indexOf(found) !== -1) {
 	            	ret += this.eat(found).wrap(['keyword', found]);
 	            } else if (this.specials.indexOf(found) !== -1) {
-	            	ret += this.eat(found).wrap(['special', 'const-'+found.replace('__', '')])
+	            	ret += this.eat(found).wrap(['special'])
 	            } else if (/^\s*\(/.test(this.substr(found.length))) {
             		ret += this.eat(found).wrap(['fname', found]);
             	} else {

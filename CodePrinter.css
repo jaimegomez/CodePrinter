@@ -238,7 +238,7 @@
 .codeprinter .cp-empty-value {
   color: #f5871f;
 }
-.codeprinter .cp-specials {
+.codeprinter .cp-special {
   color: green;
 }
 .codeprinter .cp-numeric {

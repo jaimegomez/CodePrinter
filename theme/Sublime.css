@@ -12,7 +12,7 @@
 .cps-sublime .cp-variable { color:#52E3F6; font-style:italic; }
 .cps-sublime .cp-boolean { color:#888DFF; }
 .cps-sublime .cp-empty-value { color:#888DFF; }
-.cps-sublime .cp-specials { color:#52E3F6; font-style:italic; }
+.cps-sublime .cp-special { color:#52E3F6; font-style:italic; }
 .cps-sublime .cp-numeric { color:#C48CFF; }
 .cps-sublime .cp-hex { color:#888DFF; }
 .cps-sublime .cp-fname { color:#B2DA16; }

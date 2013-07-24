@@ -54,7 +54,7 @@ CodePrinter.defineMode('CSS', {
                 found = found.slice(0, -1).replace(/\s+$/g, '');
                 ret += this.eat(found).wrap(['property']);
             } else if (/^[\w\s\.\#\:\*\+\-\<\>\~\&]+$/.test(found)) {
-                ret += this.eat(found).wrap(['specials']);
+                ret += this.eat(found).wrap(['special']);
             } else if (this.punctuations.hasOwnProperty(found)) {
                 ret += this.eat(found).wrap(['punctuation', this.punctuations[found]]);
             } else if (this.chars.hasOwnProperty(found)) {
