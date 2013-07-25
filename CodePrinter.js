@@ -61,7 +61,7 @@
                 id = $.random(options.randomIDLength);
             
             if (typeof options.theme === 'string' && options.theme !== 'default') {
-                $.require('theme/'+options.theme+'.css');
+                self.requireStyle(options.theme);
             } else {
                 options.theme = 'default';
             }
@@ -291,6 +291,10 @@
             this.parsed = parsed;
             this.reloadCounter();
             this.reloadInfoBar();
+        },
+        requireStyle: function(style, callback) {
+            $.require(this.options.path+'theme/'+style+'.css', callback);
+        },
         requireMode: function(mode, callback) {
             $.require(this.options.path+'mode/'+mode+'.js', callback);
         }
