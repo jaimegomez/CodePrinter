@@ -35,6 +35,7 @@
     
     CodePrinter.Modes = {};
     CodePrinter.defaults = {
+        path: '',
         mode: 'javascript',
         theme: 'default',
         tabWidth: 4,
@@ -290,6 +291,8 @@
             this.parsed = parsed;
             this.reloadCounter();
             this.reloadInfoBar();
+        requireMode: function(mode, callback) {
+            $.require(this.options.path+'mode/'+mode+'.js', callback);
         }
     });
     
