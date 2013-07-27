@@ -263,34 +263,35 @@
                 overlay = this.overlay,
                 value = decodeEntities(this.getSourceValue()),
                 pre = overlay.children('pre'),
-                parsed, cpm;
+                parsed;
             
-            cpm = CodePrinter.getMode(mode);
-            parsed = cpm.parse(value);
-            
-            for (var j = 0; j < parsed.length; j++) {
-                if (this.options.showIndent) {
-                    parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
+            CodePrinter.requireMode(mode, function(ModeObject) {
+                parsed = ModeObject.parse(value);
+                
+                for (var j = 0; j < parsed.length; j++) {
+                    if (this.options.showIndent) {
+                        parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
+                    }
+                    if (j < pre.length) {
+                        pre.eq(j).html(parsed[j]);
+                    } else {
+                        var p = $.create('pre').html(parsed[j]);
+                        pre.push(p);
+                        overlay.append(p);
+                    }
                 }
-                if (j < pre.length) {
-                    pre.eq(j).html(parsed[j]);
-                } else {
-                    var p = $.create('pre').html(parsed[j]);
-                    pre.push(p);
-                    overlay.append(p);
+                
+                if (parsed.length < pre.length) {
+                    for (var i = parsed.length; i < pre.length; i++) {
+                        pre.eq(i).remove();
+                    }
                 }
-            }
-            
-            if (parsed.length < pre.length) {
-                for (var i = parsed.length; i < pre.length; i++) {
-                    pre.eq(i).remove();
-                }
-            }
-            
-            this.value = value;
-            this.parsed = parsed;
-            this.reloadCounter();
-            this.reloadInfoBar();
+                
+                this.value = value;
+                this.parsed = parsed;
+                this.reloadCounter();
+                this.reloadInfoBar();
+            }, this);
         },
         requireStyle: function(style, callback) {
             $.require(this.options.path+'theme/'+style+'.css', callback);
