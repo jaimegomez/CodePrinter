@@ -414,13 +414,17 @@
         };
     });
     
+    CodePrinter.requireMode = function(req, cb, del) {
+        return $.scripts.require('CodePrinter.'+req, cb, del);
+    };
     CodePrinter.defineMode = function(name, obj) {
-        if (name && obj) {
-            CodePrinter.Modes[name] = (new CodePrinter.Mode()).extend(obj);
-        }
+        $.scripts.define('CodePrinter.'+name, (new CodePrinter.Mode()).extend(obj));
     };
     CodePrinter.getMode = function(name) {
-        return CodePrinter.Modes[name] || (new CodePrinter.Mode());
+        return $.scripts.get('CodePrinter.'+name);
+    };
+    CodePrinter.hasMode = function(name) {
+        return $.scripts.has('CodePrinter.'+name);
     };
     
     function decodeEntities(text) {
