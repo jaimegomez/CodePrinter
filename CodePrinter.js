@@ -33,7 +33,7 @@
         return this;
     };
     
-    CodePrinter.version = '0.1.9';
+    CodePrinter.version = '0.2.0';
     
     CodePrinter.Modes = {};
     CodePrinter.defaults = {
