@@ -2,6 +2,8 @@
 
 (function(window, $) {
     
+    $.scripts.registerNamespace('CodePrinter', 'mode/');
+    
     var CodePrinter = function(object, options) {
         if (!(this instanceof CodePrinter)) {
             return new CodePrinter(object, options);
