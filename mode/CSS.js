@@ -54,13 +54,13 @@ CodePrinter.defineMode('CSS', {
                 found = found.slice(0, -1).replace(/\s+$/g, '');
                 ret += this.eat(found).wrap(['property']);
             } else if (/^[\w\s\.\#\:\*\+\-\<\>\~\&]+$/.test(found)) {
-                ret += this.eat(found).wrap(['specials']);
+                ret += this.eat(found).wrap(['special']);
             } else if (this.punctuations.hasOwnProperty(found)) {
                 ret += this.eat(found).wrap(['punctuation', this.punctuations[found]]);
             } else if (this.chars.hasOwnProperty(found)) {
                 ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else if (this.brackets.hasOwnProperty(found)) {
-                ret += this.eat(found).wrap(['bracket', this.brackets[found]+'bracket']);
+                ret += this.eat(found).wrap(['bracket'].concat(this.brackets[found]));
             } else {
             	ret += this.eat(found).wrap(['other']);
             }

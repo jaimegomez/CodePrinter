@@ -36,7 +36,7 @@ CodePrinter.defineMode('JavaScript', {
                 } else if (this.controls.indexOf(found) !== -1) {
                     ret += this.eat(found).wrap(['control', found]);  
                 } else if (this.specials.indexOf(found) !== -1) {
-                    ret += this.eat(found).wrap(['specials', found]);
+                    ret += this.eat(found).wrap(['special', found]);
                 } else if (this.keywords.indexOf(found) !== -1) {
                     ret += this.eat(found).wrap(['keyword', found]);
                 } else if (/^\s*\(/.test(this.substr(found.length))) {
@@ -52,7 +52,7 @@ CodePrinter.defineMode('JavaScript', {
                 } else if (this.operators.hasOwnProperty(found)) {
                     ret += this.eat(found).wrap(['operator', this.operators[found]]);
                 } else if (this.brackets.hasOwnProperty(found)) {
-                    ret += this.eat(found).wrap(['bracket', this.brackets[found]+'bracket']);
+                    ret += this.eat(found).wrap(['bracket'].concat(this.brackets[found]));
                 } else if (this.chars.hasOwnProperty(found)) {
                     ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
                 }

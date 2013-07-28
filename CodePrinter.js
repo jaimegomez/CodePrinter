@@ -2,6 +2,8 @@
 
 (function(window, $) {
     
+    $.scripts.registerNamespace('CodePrinter', 'mode/');
+    
     var CodePrinter = function(object, options) {
         if (!(this instanceof CodePrinter)) {
             return new CodePrinter(object, options);
@@ -31,10 +33,11 @@
         return this;
     };
     
-    CodePrinter.version = '0.1.9';
+    CodePrinter.version = '0.2.0';
     
     CodePrinter.Modes = {};
     CodePrinter.defaults = {
+        path: '',
         mode: 'javascript',
         theme: 'default',
         tabWidth: 4,
@@ -43,6 +46,7 @@
         infobarOnTop: true,
         showIndent: true,
         scrollable: true,
+        highlightBrackets: true,
         width: 'auto',
         maxHeight: 300,
         randomIDLength: 7
@@ -59,7 +63,7 @@
                 id = $.random(options.randomIDLength);
             
             if (typeof options.theme === 'string' && options.theme !== 'default') {
-                $.require('theme/'+options.theme+'.css');
+                self.requireStyle(options.theme);
             } else {
                 options.theme = 'default';
             }
@@ -94,6 +98,57 @@
             if (self.counter) {
                 self.wrapper.on('scroll', function() {
                     self.counter.current().scrollTop = this.scrollTop;
+                });
+            }
+            
+            if (options.highlightBrackets) {
+                overlay.delegate('click', '.cp-bracket', function() {
+                    overlay.find('.cp-highlight').removeClass('cp-highlight');
+                    
+                    var spans = overlay.find('span.cp-bracket'),
+                        cls = this.hasClass('cp-curly') ? 'cp-curly' : this.hasClass('cp-round') ? 'cp-round' : this.hasClass('cp-square') ? 'cp-square' : false,
+                        index = 0, j = 0, span;
+                    
+                    if (cls === false) {
+                        return false;
+                    }
+                    spans = spans.filter('.'+cls);
+                    
+                    index = spans.indexOf(this);
+                    if (index === -1) {
+                        return false;
+                    }
+                    
+                    if (this.hasClass('cp-open')) {
+                        for (var i = index+1; i < spans.length; i++) {
+                            span = spans.eq(i);
+                            if (span.hasClass('cp-close')) {
+                                if (j === 0) {
+                                    span.addClass('cp-highlight');
+                                    break;
+                                } else {
+                                    j--;
+                                }
+                            } else {
+                                j++;
+                            }
+                        }
+                    } else {
+                        for (var i = index-1; i >= 0; i--) {
+                            span = spans.eq(i);
+                            if (span.hasClass('cp-open')) {
+                                if (j === 0) {
+                                    span.addClass('cp-highlight');
+                                    break;
+                                } else {
+                                    j--;
+                                }
+                            } else {
+                                j++;
+                            }
+                        }
+                    }
+                    this.addClass('cp-highlight');
                 });
             }
         },
@@ -210,34 +265,41 @@
                 overlay = this.overlay,
                 value = decodeEntities(this.getSourceValue()),
                 pre = overlay.children('pre'),
-                parsed, cpm;
+                parsed;
             
-            cpm = CodePrinter.getMode(mode);
-            parsed = cpm.parse(value);
-            
-            for (var j = 0; j < parsed.length; j++) {
-                if (this.options.showIndent) {
-                    parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
+            CodePrinter.requireMode(mode, function(ModeObject) {
+                parsed = ModeObject.parse(value);
+                
+                for (var j = 0; j < parsed.length; j++) {
+                    if (this.options.showIndent) {
+                        parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
+                    }
+                    if (j < pre.length) {
+                        pre.eq(j).html(parsed[j]);
+                    } else {
+                        var p = $.create('pre').html(parsed[j]);
+                        pre.push(p);
+                        overlay.append(p);
+                    }
                 }
-                if (j < pre.length) {
-                    pre.eq(j).html(parsed[j]);
-                } else {
-                    var p = $.create('pre').html(parsed[j]);
-                    pre.push(p);
-                    overlay.append(p);
+                
+                if (parsed.length < pre.length) {
+                    for (var i = parsed.length; i < pre.length; i++) {
+                        pre.eq(i).remove();
+                    }
                 }
-            }
-            
-            if (parsed.length < pre.length) {
-                for (var i = parsed.length; i < pre.length; i++) {
-                    pre.eq(i).remove();
-                }
-            }
-            
-            this.value = value;
-            this.parsed = parsed;
-            this.reloadCounter();
-            this.reloadInfoBar();
+                
+                this.value = value;
+                this.parsed = parsed;
+                this.reloadCounter();
+                this.reloadInfoBar();
+            }, this);
+        },
+        requireStyle: function(style, callback) {
+            $.require(this.options.path+'theme/'+style+'.css', callback);
+        },
+        requireMode: function(mode, callback) {
+            $.require(this.options.path+'mode/'+mode+'.js', callback);
         }
     });
     
@@ -250,12 +312,12 @@
     
     CodePrinter.Mode.prototype = {
         brackets: {
-            '{': 'curly',
-            '}': 'curly',
-            '[': 'square',
-            ']': 'square',
-            '(': 'round',
-            ')': 'round'
+            '{': ['curly', 'open'],
+            '}': ['curly', 'close'],
+            '[': ['square', 'open'],
+            ']': ['square', 'close'],
+            '(': ['round', 'open'],
+            ')': ['round', 'close']
         },
         chars: { 
             '//': { end: '\n', cls: ['comment', 'line-comment'] }, 
@@ -355,13 +417,17 @@
         };
     });
     
+    CodePrinter.requireMode = function(req, cb, del) {
+        return $.scripts.require('CodePrinter.'+req, cb, del);
+    };
     CodePrinter.defineMode = function(name, obj) {
-        if (name && obj) {
-            CodePrinter.Modes[name] = (new CodePrinter.Mode()).extend(obj);
-        }
+        $.scripts.define('CodePrinter.'+name, (new CodePrinter.Mode()).extend(obj));
     };
     CodePrinter.getMode = function(name) {
-        return CodePrinter.Modes[name] || (new CodePrinter.Mode());
+        return $.scripts.get('CodePrinter.'+name);
+    };
+    CodePrinter.hasMode = function(name) {
+        return $.scripts.has('CodePrinter.'+name);
     };
     
     function decodeEntities(text) {

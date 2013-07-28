@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.1.9
+*   version     0.2.0
 */
 .codeprinter {
   display: block;
@@ -208,11 +208,15 @@
   margin-left: -1px;
   border-left: 1px dotted #c8c8c8;
 }
+.codeprinter .cp-highlight {
+  box-shadow: 0 1px 0 black;
+}
 .codeprinter .cp-tab {
   border-left-color: #c8c8c8;
 }
 .codeprinter .cp-bracket {
   color: black;
+  pointer-events: all;
 }
 .codeprinter .cp-curlybracket {
   color: red;
@@ -238,7 +242,7 @@
 .codeprinter .cp-empty-value {
   color: #f5871f;
 }
-.codeprinter .cp-specials {
+.codeprinter .cp-special {
   color: green;
 }
 .codeprinter .cp-numeric {

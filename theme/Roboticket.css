@@ -6,14 +6,14 @@
 
 .cps-roboticket .cp-tab { border-left-color:#445544; }
 .cps-roboticket .cp-bracket { color:#B05A65; }
-.cps-roboticket .cp-curlybracket { font-weight:bold; }
+.cps-roboticket .cp-curly { font-weight:bold; }
 .cps-roboticket .cp-operator { color:#000000; }
 .cps-roboticket .cp-keyword { color:#295F94; }
 .cps-roboticket .cp-control { color:#295F94; font-weight:bold; }
 .cps-roboticket .cp-variable { color:#55AA55; }
 .cps-roboticket .cp-boolean { color:#0A0B0C; font-weight:bold; }
 .cps-roboticket .cp-empty-value { color:#0A0B0C; font-weight:bold; }
-.cps-roboticket .cp-specials { color:#AB2525; font-style:italic; }
+.cps-roboticket .cp-special { color:#AB2525; font-style:italic; }
 .cps-roboticket .cp-numeric { color:#AF0F91; }
 .cps-roboticket .cp-fname { color:#BC5A65; font-weight:bold; }
 .cps-roboticket .cp-property { color:#566874; }
