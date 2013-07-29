@@ -185,6 +185,7 @@
             }
             
             self.measureSizes();
+            self.activeLine = {};
             
             self.mainElement.attr({ id: id });
             self.id = id;
@@ -287,6 +288,18 @@
                 tx.width(item.scrollWidth);
                 tx.height(0);
                 tx.height(item.scrollHeight);
+            }
+        },
+        unselectLine: function() {
+            if (this.activeLine.pre) {
+                this.activeLine.pre.add(this.activeLine.li).removeClass('cp-activeLine');
+            }
+        },
+        selectLine: function(l) {
+            this.unselectLine();
+            this.activeLine.pre = this.overlay.children().eq(l).addClass('cp-activeLine');
+            if (this.counter) {
+                this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
             }
         },
         getSourceValue: function() {
