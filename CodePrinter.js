@@ -52,6 +52,114 @@
         randomIDLength: 7
     };
     
+    var Counter = function(cp) {
+        var self = this;
+        self.element = $.create('ol.cp-counter');
+        self.list = $([]);
+        cp.container.prepend(this.element);
+        
+        cp.wrapper.on('scroll', function() {
+            self.element.current().scrollTop = this.scrollTop;
+        });
+        
+        this.element.delegate('mousedown', 'li', function() {
+            var index = self.list.indexOf(this);
+            cp.selectLine(index);
+        });
+        
+        return this;
+    };
+    Counter.prototype = {
+        reload: function(lines) {
+            var amp = !isNaN(lines) ? lines - this.list.length : 0;
+            
+            while (amp != 0) {
+                if (amp < 0) {
+                    this.decrease();
+                    amp++;
+                } else {
+                    this.increase();
+                    amp--;
+                }
+            }
+        },
+        increase: function() {
+            var li = $.create('li');
+            this.list.push(li.item());
+            this.element.append(li);
+        },
+        decrease: function() {
+            this.list.get(0).remove(true);
+        }
+    };
+    
+    var InfoBar = function(cp) {
+        var mode = $.create('span.cp-mode').html(cp.options.mode),
+            act = $.create('span.cp-actions'),
+            ch = $.create('span.cp-characters');
+        
+        this.element = $.create('div.cp-infobar').append(mode, act, ch);
+        this.element.actions = act;
+        this.element.characters = ch;
+        
+        if (cp.options.infobarOnTop) {
+            this.element.prependTo(cp.mainElement);
+        } else {
+            this.element.appendTo(cp.mainElement);
+        }
+        
+        this.actions = {
+            plaintext: {
+                func: function() {
+                    var newWindow = window.open('', '_blank');
+                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(self.getSourceValue()) + '</pre>');
+                }
+            },
+            reprint: {
+                func: function() {
+                    self.print();
+                }
+            },
+            scrollup: {
+                func: function() {
+                    self.wrapper.item().scrollTop = 0;
+                },
+                text: 'scroll up'
+            },
+            scrolldown: {
+                func: function() {
+                    var w = self.wrapper.item();
+                    w.scrollTop = w.scrollHeight;
+                },
+                text: 'scroll down'
+            }
+        };
+        
+        for (var k in this.actions) {
+            this.addAction(k, this.actions[k].func, this.actions[k].text);
+        }
+        
+        return this;
+    };
+    InfoBar.prototype = {
+        reload: function(a, b, c) {
+            var html = (a && b) ? a+' characters, '+b+' lines' : a ? a+' selected characters' : '';
+            this.element.characters.html(html);
+        },
+        addAction: function(name, func, text) {
+            if (this.actions[name] && this.actions[name].element) {
+                this.actions[name].element.off('click', this.actions[name].func);
+            }
+            var el = $.create('a.cp-'+name, typeof text === 'string' ? text : name);
+            el.on('click', func).appendTo(this.element.actions);
+            this.actions[name] = {
+                func: func,
+                element: el
+            };
+            return el;
+        }
+    };
+    
     CodePrinter.prototype = {}.extend({
         sizes: {},
         prepare: function() {
@@ -70,11 +178,10 @@
             self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
             
             if (options.counter) {
-                self.counter = $.create('ol.cp-counter');
-                self.container.prepend(self.counter);
+                self.counter = new Counter(self);
             }
             if (options.infobar) {
-                self.prepareInfobar();
+                self.infobar = new InfoBar(self);
             }
             
             self.measureSizes();
@@ -89,17 +196,11 @@
             }
             
             self.wrapper.css({ width: self.mainElement.width() - self.wrapper.paddingWidth() - sizes.counterWidth });
-            self.wrapper.add(self.counter).css({ height: options.maxHeight });
+            self.wrapper.add(self.counter.element).css({ height: options.maxHeight });
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
             self.adjustTextareaSize();
             source.html(this.getSourceValue());
-            
-            if (self.counter) {
-                self.wrapper.on('scroll', function() {
-                    self.counter.current().scrollTop = this.scrollTop;
-                });
-            }
             
             if (options.highlightBrackets) {
                 overlay.delegate('click', '.cp-bracket', function() {
@@ -152,45 +253,6 @@
                 });
             }
         },
-        prepareInfobar: function() {
-            var self = this,
-                infobar = self.infobar;
-                
-            infobar = infobar || $.create('div.cp-infobar');
-            
-            if (self.options.infobarOnTop) {
-                infobar.prependTo(self.mainElement);
-            } else {
-                infobar.appendTo(self.mainElement);
-            }
-            
-            var mode = $.create('span.cp-mode', self.options.mode),
-                actions = $.create('span.cp-actions'),
-                plaintext = $.create('a.cp-plaintext', 'plaintext'),
-                reprint = $.create('a.cp-reprint', 'reprint'),
-                scrolldown = $.create('a.cp-scrolldown', 'scroll down'),
-                scrollup = $.create('a.cp-scrollup', 'scroll up'),
-                countChars = $.create('span.cp-countChars');
-            
-            actions.append(plaintext, reprint, scrolldown, scrollup);
-            infobar.append(mode, actions, countChars);
-            
-            plaintext.click(function() {
-                var newWindow = window.open('', '_blank');
-                newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(self.getSourceValue()) + '</pre>');
-            });
-            reprint.click(function() {
-                self.print();
-            });
-            scrolldown.click(function() {
-                var w = self.wrapper.item();
-                w.scrollTop = w.scrollHeight;
-            });
-            scrollup.click(function() {
-                self.wrapper.item().scrollTop = 0;
-            });
-            self.infobar = infobar;
-        },
         measureSizes: function() {
             var sizes = this.sizes,
                 source = this.source;
@@ -200,8 +262,8 @@
             sizes.offsetWidth = source.offsetWidth();
             sizes.offsetHeight = source.offsetHeight();
             sizes.lineHeight = source.css('lineHeight');
-            sizes.infobarHeight = this.infobar ? this.infobar.offsetHeight() : 0;
-            sizes.counterWidth = this.counter ? this.counter.offsetWidth() : 0;
+            sizes.infobarHeight = this.infobar ? this.infobar.element.offsetHeight() : 0;
+            sizes.counterWidth = this.counter ? this.counter.element.offsetWidth() : 0;
         },
         getTextSize: function(text) {
             if (text == null) text = 'c';
@@ -217,32 +279,6 @@
             tmpdiv.remove();
             
             return { height: h, width: w };
-        },
-        reloadCounter: function() {
-            if (this.counter) {
-                var lines = this.parsed.length,
-                    liLength = this.counter.children('li').length,
-                    amp = lines - liLength;
-    
-                while (amp != 0) {
-                    if (amp < 0) {
-                        this.counter.children('li').last().remove();
-                        amp++;
-                    } else {
-                        this.counter.append($.create('li'));
-                        amp--;
-                    }
-                }
-            }
-        },
-        reloadInfoBar: function() {
-            if (this.infobar) {
-                if (this.source.data('selected-words') == 0 || !this.source.data('selected-words')) {
-                    this.infobar.children('span.countChars').html(this.value.length + ' characters, ' + this.parsed.length + ' lines');
-                } else {
-                    this.infobar.children('span.countChars').html(this.source.data('selected-words') + ' characters selected');
-                }
-            }
         },
         adjustTextareaSize: function() {
             var tx = this.source, item = tx.item();
@@ -291,8 +327,8 @@
                 
                 this.value = value;
                 this.parsed = parsed;
-                this.reloadCounter();
-                this.reloadInfoBar();
+                this.counter.reload(j);
+                this.infobar.reload(value.length, j);
             }, this);
         },
         requireStyle: function(style, callback) {
