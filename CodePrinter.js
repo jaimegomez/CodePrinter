@@ -314,12 +314,12 @@
                 overlay = this.overlay,
                 value = decodeEntities(this.getSourceValue()),
                 pre = overlay.children('pre'),
-                parsed;
+                parsed, j = -1;
             
             CodePrinter.requireMode(mode, function(ModeObject) {
                 parsed = ModeObject.parse(value);
                 
-                for (var j = 0; j < parsed.length; j++) {
+                while (parsed[++j] != null) {
                     if (this.options.showIndent) {
                         parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                     }
@@ -338,6 +338,7 @@
                     }
                 }
                 
+                this.lines = j;
                 this.value = value;
                 this.parsed = parsed;
                 this.counter.reload(j);
