@@ -5,7 +5,7 @@ CodePrinter.defineMode('JavaScript', {
     keywords: ['this','return','new','continue','break','instanceof','typeof','case','try','catch','debugger','default','delete','finally','in','throw','void','with'],
     specials: ['window','document','console','arguments','function','Object','Array','String','Number','Function','Math','JSON','RegExp','Node','HTMLElement','Boolean','$','jQuery','Selector'],
     
-    regexp: /\/\*|\/\/|\\|"|'|\/(.*)\/[gimy]{0,4}|\{|\}|\(|\)|\[|\]|\=|\-|\+|\/|\%|<|>|\&|\||\.|\,|\:|\;|\?|\!|\$(?!\w)|\b[\w\d\-\_]+(?=(\(|\:))|\b(\d*\.?\d+)\b|\b(0x[\da-fA-F]+)\b|\b\w+\b/,
+    regexp: /\/\*|\/\/|'|"|{|}|\(|\)|\[|\]|=|-|\+|\/(.*)\/[gimy]{0,4}|\/|%|<|>|&|\||\.|,|:|;|\?|!|\$(?!\w)|\b[\w\d\-\_]+(?=(\(|\:))|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b/,
     
     fn: function() {
         var ret = '',
@@ -55,6 +55,8 @@ CodePrinter.defineMode('JavaScript', {
                     ret += this.eat(found).wrap(['bracket'].concat(this.brackets[found]));
                 } else if (this.chars.hasOwnProperty(found)) {
                     ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
+                } else {
+                    ret += this.eat(found).wrap(['other']);
                 }
             } else if (found == "\\") {
                 ret += this.eat(found+this.substring(0, 2)).wrap('escaped');

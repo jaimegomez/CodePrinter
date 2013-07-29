@@ -2,9 +2,9 @@
 
 CodePrinter.defineMode('CSS', {
     keywords: ['white','black','transparent','green','yellow','red','blue','orange','pink','cyan','violet','brown','gray','silver','gold','aqua','lime','navy','indigo','teal','fuchsia','magenta','beige','azure','khaki','sienna','skyblue'],
-    regexp: /\b[\w\-]+\s*\:|\b[\w\s\.\#\:\*\+\-\<\>\~\&]+|\b\w+\b|"|'|\{|\}|\:|\;|\/\*/,
+    regexp: /[\w\-]+\s*:|\b[\w\s\.#:\*\+-<>~&\(\)]+|\w+|"|'|{|}|:|;|\/\*/,
 	values: /\;|#[0-9a-fA-F]{3,6}|\-?(\d+|\d*\.\d+)[\w%]*|\w+\s*\(|\b[\w\-]+\b|'|"|\n/,
-    units: /(px|%|em|rem|s|ms|in|pt|cm|mm|pc)/,
+    units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
     
 	fn: function() {
 		var ret = '',

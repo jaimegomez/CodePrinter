@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.2.0
+*   version     0.2.1
 */
 .codeprinter {
   display: block;
@@ -21,11 +21,10 @@
   position: relative;
 }
 .codeprinter .cp-wrapper {
-  display: inline-block;
-  vertical-align: top;
+  display: block;
   width: auto;
   height: 100%;
-  margin: 0;
+  margin: 0 0 0 35px;
   padding: 5px 0;
   background: #ffffff;
   position: relative;
@@ -54,7 +53,7 @@
   width: auto;
   height: auto;
   margin: 0;
-  padding: 5px 15px;
+  padding: 5px 0;
   pointer-events: none;
   border-width: 0;
   color: inherit;
@@ -70,8 +69,8 @@
   display: block;
   width: auto;
   height: auto;
-  margin: 0 0 0 -20px;
-  padding: 0 0 0 20px;
+  margin: 0;
+  padding: 0 15px;
   min-height: 18px;
   color: inherit;
 }
@@ -107,7 +106,7 @@
   list-style-type: none;
   overflow: hidden;
   counter-reset: cp-counter;
-  position: relative;
+  position: absolute;
 }
 .codeprinter .cp-counter li {
   margin: 0;
@@ -124,7 +123,7 @@
 }
 .codeprinter .cp-infobar {
   width: auto;
-  height: 14px;
+  height: 12px;
   margin: 0;
   padding: 2px 5px;
   background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
@@ -147,17 +146,18 @@
   -o-user-select: none;
   user-select: none;
   font-family: Verdana;
-  font-size: 10px;
+  font-size: 9px;
   color: #777777;
   position: relative;
   z-index: 7;
+  overflow: hidden;
 }
 .codeprinter .cp-infobar span {
-  margin: 0 15px;
+  margin: 0 8px;
   padding: 0;
 }
 .codeprinter .cp-infobar a {
-  margin: 0 7px;
+  margin: 0 5px;
   padding: 0;
   -webkit-transition: color 0.3s ease-in-out;
   -moz-transition: color 0.3s ease-in-out;
@@ -169,10 +169,6 @@
 .codeprinter .cp-infobar a:hover {
   color: #444444;
   text-decoration: underline !important;
-}
-.codeprinter .cp-infobar .cp-countChars {
-  position: absolute;
-  right: 15px;
 }
 .codeprinter .cp-overlay pre,
 .codeprinter .cp-source,
@@ -187,22 +183,18 @@
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
 }
-.codeprinter .cp-activeLineNumber {
-  background-color: rgba(230, 239, 255, 0.6);
-  -webkit-box-shadow: 0 0 2px #3399ff;
-  -moz-box-shadow: 0 0 2px #3399ff;
-  -ms-box-shadow: 0 0 2px #3399ff;
-  -o-box-shadow: 0 0 2px #3399ff;
-  box-shadow: 0 0 2px #3399ff;
-  color: black;
-}
 .codeprinter .cp-activeLine {
   background-color: rgba(230, 239, 255, 0.6);
-  -webkit-box-shadow: 0 0 2px #3399ff;
-  -moz-box-shadow: 0 0 2px #3399ff;
-  -ms-box-shadow: 0 0 2px #3399ff;
-  -o-box-shadow: 0 0 2px #3399ff;
-  box-shadow: 0 0 2px #3399ff;
+  -webkit-box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+  -moz-box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+  -ms-box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+  -o-box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+  box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+  -webkit-transition: all 0.2s ease-in-out;
+  -moz-transition: all 0.2s ease-in-out;
+  -ms-transition: all 0.2s ease-in-out;
+  -o-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
 }
 .codeprinter .cp-tab {
   margin-left: -1px;
