@@ -195,7 +195,6 @@
                 self.mainElement.css({ width: parseInt(options.width) });
             }
             
-            self.wrapper.css({ width: self.mainElement.width() - self.wrapper.paddingWidth() - sizes.counterWidth });
             self.wrapper.add(self.counter.element).css({ height: options.maxHeight });
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
