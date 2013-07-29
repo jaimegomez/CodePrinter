@@ -3,9 +3,9 @@
 CodePrinter.defineMode('PHP', {
 	controls: ['if','else','for','foreach','switch','case','while','do','elseif','try','catch','declare','endif','endfor','endforeach','endswitch','endwhile','enddeclare'],
 	keywords: ['abstract','and','array','as','break','callable','clone','const','continue','default','die','echo','exit','extends','final','global','goto','implements','include','include_once','instanceof','insteadof','namespace','new','null','or','print','private','protected','public','require','require_once','return','static','use','var','xor'],
-	specials: ['class','function','interface','trait','self','parent','super'],
+    specials: ['class','function','interface','trait','self','parent','super'],
     constants: ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__'],
-	regexp: /\$[\w\d\_]+|\/\*|"|'|\{|\}|\(|\)|\[|\]|\=|\-|\+|\/|\%|\b[\w\d\_]+(?=\()|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|<\?(php)*|\?>|\.|\,|\:|\;|\?|\!|<|>|\&|\||\?>|\b\w+\b/g,
+	regexp: /\$[\w\d\_]+|\/\*|"|'|{|}|\(|\)|\[|\]|=|-|\+|\/|%|\b[\w\d\_]+(?=\()|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\?>|<\?php|<\?=?|\.|,|:|;|\?|!|<|>|&|\||\b\w+\b/g,
 	
 	fn: function() {
 		var ret = '',
@@ -44,7 +44,7 @@ CodePrinter.defineMode('PHP', {
                 } else {
 	            	ret += this.eat(found).wrap(['word']);
 	            }
-            } else if (['<?php','<?','?>'].indexOf(found) !== -1) {
+            } else if (['?>','<?php','<?=','<?'].indexOf(found) !== -1) {
                 ret += this.eat(found).wrap(['phptag', found == '?>' ? 'closetag' : 'opentag']);
             } else if (this.punctuations.hasOwnProperty(found)) {
                 ret += this.eat(found).wrap(['punctuation', this.punctuations[found]]);
