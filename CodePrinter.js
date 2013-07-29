@@ -35,7 +35,6 @@
     
     CodePrinter.version = '0.2.0';
     
-    CodePrinter.Modes = {};
     CodePrinter.defaults = {
         path: '',
         mode: 'javascript',
