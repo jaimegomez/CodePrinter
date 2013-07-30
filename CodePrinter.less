@@ -12,6 +12,7 @@
 @paddingY:              5px;
 @paddingX:              15px;
 @fontSize:              12px;
+@lineTransition:        .2s;
 @indentBorder:          1px dotted rgb(200,200,200);
     
 .codeprinter {
@@ -68,6 +69,7 @@
     	    .block;
     	    .size(auto, auto);
     	    .margins(0, 0 @paddingX);
+            .transition(@lineTransition);
     	    min-height:18px;
             color:inherit;
 	    }
@@ -92,6 +94,7 @@
     	li {
     	    .margins(0, 0 7px);
     	    .align-right;
+            .transition(@lineTransition);
     	    color:inherit;
         	font-family:inherit;
         	font-size:inherit;
@@ -145,9 +148,8 @@
     }
     
     .cp-activeLine {
-        .background(rgba(230,239,255,0.6)); 
-        .shadow(0 0 1px 1px rgba(51,153,255,0.5));
-        .transition(.2s);
+        background:rgba(230,239,255,0.6);
+        box-shadow:0 0 1px 1px rgba(51,153,255,0.5);
     }
     .cp-tab {
         margin-left:-1px;
