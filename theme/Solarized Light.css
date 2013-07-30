@@ -3,6 +3,7 @@
 .cps-solarized-light .cp-wrapper { background:#FDF6E3; color:#657A81; }
 .cps-solarized-light .cp-counter { background:#FDF6E3; color:#586E75; border-left-color:#586E75; box-shadow:0 0 10px rgba(0,0,0,0.15); }
 .cps-solarized-light .cp-source::selection { background:#ECE7D5; }
+.cps-solarized-light .cp-activeLine { background:rgba(255,255,0,0.3); box-shadow:0 0 1px 1px rgba(255,165,0,0.8); }
 
 .cps-solarized-light .cp-tab { border-left-color:#445544; }
 .cps-solarized-light .cp-bracket { color:#657A81; }

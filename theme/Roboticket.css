@@ -3,6 +3,7 @@
 .cps-roboticket .cp-wrapper { background:#F5F5F5; color:#585858; }
 .cps-roboticket .cp-counter { background:#F5F5F5; color:#AFBFCF; border-left-color:#AFBFCF; }
 .cps-roboticket .cp-source::selection { background:#BDD8F2; }
+.cps-roboticket .cp-activeLine { background:rgba(132,152,255,0.15); box-shadow:0 0 1px 1px rgba(69,69,255,0.6); color:#405060 !important; }
 
 .cps-roboticket .cp-tab { border-left-color:#445544; }
 .cps-roboticket .cp-bracket { color:#B05A65; }
