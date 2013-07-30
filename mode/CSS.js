@@ -60,7 +60,7 @@ CodePrinter.defineMode('CSS', {
             } else if (this.chars.hasOwnProperty(found)) {
                 ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else if (this.brackets.hasOwnProperty(found)) {
-                ret += this.eat(found).wrap(['bracket'].concat(this.brackets[found]));
+                ret += this.eat(found).wrap(this.brackets[found]);
             } else {
             	ret += this.eat(found).wrap(['other']);
             }

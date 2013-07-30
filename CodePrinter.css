@@ -210,14 +210,11 @@
   color: black;
   pointer-events: all;
 }
-.codeprinter .cp-curlybracket {
+.codeprinter .cp-bracket-curly {
   color: red;
 }
-.codeprinter .cp-squarebracket {
+.codeprinter .cp-bracket-square {
   color: green;
-}
-.codeprinter .cp-roundbracket {
-  color: black;
 }
 .codeprinter .cp-operator {
   color: #333;

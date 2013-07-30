@@ -360,12 +360,12 @@
     
     CodePrinter.Mode.prototype = {
         brackets: {
-            '{': ['curly', 'open'],
-            '}': ['curly', 'close'],
-            '[': ['square', 'open'],
-            ']': ['square', 'close'],
-            '(': ['round', 'open'],
-            ')': ['round', 'close']
+            '{': ['bracket', 'bracket-curly', 'bracket-open'],
+            '}': ['bracket', 'bracket-curly', 'bracket-close'],
+            '[': ['bracket', 'bracket-square', 'bracket-open'],
+            ']': ['bracket', 'bracket-square', 'bracket-close'],
+            '(': ['bracket', 'bracket-round', 'bracket-open'],
+            ')': ['bracket', 'bracket-round', 'bracket-close']
         },
         chars: { 
             '//': { end: '\n', cls: ['comment', 'line-comment'] }, 

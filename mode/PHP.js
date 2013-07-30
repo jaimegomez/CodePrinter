@@ -51,7 +51,7 @@ CodePrinter.defineMode('PHP', {
             } else if (this.operators.hasOwnProperty(found)) {
             	ret += this.eat(found).wrap(['operator', this.operators[found]]);
             } else if (this.brackets.hasOwnProperty(found)) {
-                ret += this.eat(found).wrap(['bracket'].concat(this.brackets[found]));
+                ret += this.eat(found).wrap(this.brackets[found]);
             } else if (this.chars.hasOwnProperty(found)) {
                 ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else {
