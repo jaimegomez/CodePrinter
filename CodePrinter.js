@@ -111,23 +111,23 @@
             plaintext: {
                 func: function() {
                     var newWindow = window.open('', '_blank');
-                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(self.getSourceValue()) + '</pre>');
+                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(cp.getSourceValue()) + '</pre>');
                 }
             },
             reprint: {
                 func: function() {
-                    self.print();
+                    cp.print();
                 }
             },
             scrollup: {
                 func: function() {
-                    self.wrapper.item().scrollTop = 0;
+                    cp.wrapper.item().scrollTop = 0;
                 },
                 text: 'scroll up'
             },
             scrolldown: {
                 func: function() {
-                    var w = self.wrapper.item();
+                    var w = cp.wrapper.item();
                     w.scrollTop = w.scrollHeight;
                 },
                 text: 'scroll down'
@@ -353,7 +353,7 @@
     
     CodePrinter.Mode = function() {
         if (!(this instanceof CodePrinter.Mode)) {
-            return new CodePrinter.Mode(stream);
+            return new CodePrinter.Mode();
         }
         return this;
     };
