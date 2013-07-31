@@ -4,6 +4,7 @@
 .cps-oblivion .cp-counter { background:#1E1E1E; color:#D0D0D0; border-left-color:#D0D0D0; }
 .cps-oblivion .cp-source::selection { background:black; }
 .cps-oblivion .cp-highlight { box-shadow:0 1px 0 white; }
+.cps-oblivion .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 
 .cps-oblivion .cp-tab { border-left-color:#445544; }
 .cps-oblivion .cp-bracket { color:#D8D8D8; }

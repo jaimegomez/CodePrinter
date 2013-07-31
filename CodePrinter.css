@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.2.1
+*   version     0.2.2
 */
 .codeprinter {
   display: block;
@@ -71,6 +71,11 @@
   height: auto;
   margin: 0;
   padding: 0 15px;
+  -webkit-transition: all 0.2s ease-in-out;
+  -moz-transition: all 0.2s ease-in-out;
+  -ms-transition: all 0.2s ease-in-out;
+  -o-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
   min-height: 18px;
   color: inherit;
 }
@@ -112,6 +117,11 @@
   margin: 0;
   padding: 0 7px;
   text-align: right;
+  -webkit-transition: all 0.2s ease-in-out;
+  -moz-transition: all 0.2s ease-in-out;
+  -ms-transition: all 0.2s ease-in-out;
+  -o-transition: all 0.2s ease-in-out;
+  transition: all 0.2s ease-in-out;
   color: inherit;
   font-family: inherit;
   font-size: inherit;
@@ -184,17 +194,8 @@
   border-width: 1px 0 0 0;
 }
 .codeprinter .cp-activeLine {
-  background-color: rgba(230, 239, 255, 0.6);
-  -webkit-box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
-  -moz-box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
-  -ms-box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
-  -o-box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+  background: rgba(230, 239, 255, 0.6);
   box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
-  -webkit-transition: all 0.2s ease-in-out;
-  -moz-transition: all 0.2s ease-in-out;
-  -ms-transition: all 0.2s ease-in-out;
-  -o-transition: all 0.2s ease-in-out;
-  transition: all 0.2s ease-in-out;
 }
 .codeprinter .cp-tab {
   margin-left: -1px;
@@ -210,14 +211,11 @@
   color: black;
   pointer-events: all;
 }
-.codeprinter .cp-curlybracket {
+.codeprinter .cp-bracket-curly {
   color: red;
 }
-.codeprinter .cp-squarebracket {
+.codeprinter .cp-bracket-square {
   color: green;
-}
-.codeprinter .cp-roundbracket {
-  color: black;
 }
 .codeprinter .cp-operator {
   color: #333;
