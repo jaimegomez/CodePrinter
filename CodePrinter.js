@@ -351,6 +351,79 @@
         }
     });
     
+    var Stream = function(string) {
+        if (!(this instanceof Stream)) {
+            return new Stream(string);
+        }
+        return this.init(string);
+    };
+    Stream.prototype = {
+        init: function(str) {
+            this.base = str;
+            this.eaten = '';
+            this.final = '';
+            return this;
+        },
+        eat: function(from, to) {
+            var str = this.base,
+                indexFrom = from instanceof RegExp ? str.search(from) : str.indexOf(from),
+                indexTo = 0;
+            
+            if (to === "\n") {
+                indexTo = str.indexOf(to) - 1;
+            } else if (from === to) {
+                indexTo = str.indexOf(to, 1);
+                if (indexTo === -1) indexTo = str.length;
+            } else {
+                if(!to) to = from;
+                indexTo = to instanceof RegExp ? str.search(to) : str.indexOf(to);
+                if (indexTo === -1) indexTo = indexFrom;
+            }
+            
+            this.eaten = encodeEntities(str.substring(indexFrom, indexTo + to.length));
+            this.base = str.substr(indexTo + to.length);
+            return this;
+        },
+        wrap: function(suffix, tag) {
+            var result = '',
+                tmp = this.eaten.split(/\n/g);
+            
+            suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
+            tag = tag ? tag : 'span';
+            
+            for (var i = 0; i < suffix.length; i++) {
+                suffix[i] = 'cp-'+suffix[i];
+            }
+            
+            for (var i = 0; i < tmp.length; i++) {
+                result = result + '<'+tag+' class="'+suffix.join(' ')+'">';
+                result = result + tmp[i] +'</'+tag+'>';
+                if (i !== tmp.length - 1) {
+                    result = result + "\n";
+                }
+            }
+            return this.final = this.final + result;
+        },
+        tear: function(pos) {
+            var s = '';
+            if (!isNaN(pos)) {
+                s = this.base.substring(0, pos);
+                this.final = this.final + s;
+                this.base = this.base.substr(pos);
+            }
+            return s;
+        },
+        toString: function() {
+            return this.final;
+        }
+    };
+    
+    $.each(['substr','substring','replace','search','match','split'], function(v) {
+        Stream.prototype[v] = function() {
+            return this.base[v].apply(this.base, arguments);
+        };
+    });
+    
     CodePrinter.Mode = function() {
         if (!(this instanceof CodePrinter.Mode)) {
             return new CodePrinter.Mode();
@@ -393,77 +466,25 @@
             '|': 'verticalbar'
         },
         
-        stream: '',
-        eaten: '',
-        wrap: function(suffix, tag) {
-            var result = '',
-                tmp = this.eaten.split(/\n/g);
-            
-            suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
-            tag = tag ? tag : 'span';
-            
-            for (var i = 0; i < suffix.length; i++) {
-                suffix[i] = 'cp-'+suffix[i];
+        setStream: function(str) {
+            if (typeof str === 'string') {
+                str = new Stream(str);
             }
-            
-            for (var i = 0; i < tmp.length; i++) {
-                result += '<'+tag+' class="'+suffix.join(' ')+'">'+ tmp[i] +'</'+tag+'>';
-                if (i !== tmp.length - 1) {
-                    result += "\n";
-                }
+            if (str instanceof Stream) {
+                this.stream = str;
             }
-            return result;
-        },
-        eat: function(from, to) {
-            var str = this.stream,
-                indexFrom = from instanceof RegExp ? str.search(from) : str.indexOf(from),
-                indexTo = 0;
-            
-            if (to === "\n") {
-                indexTo = str.indexOf(to) - 1;
-            } else if (from === to) {
-                indexTo = str.indexOf(to, 1);
-                if (indexTo === -1) indexTo = str.length;
-            } else {
-                if(!to) to = from;
-                indexTo = to instanceof RegExp ? str.search(to) : str.indexOf(to);
-                if (indexTo === -1) indexTo = indexFrom;
-            }
-            
-            this.eaten = encodeEntities(str.substring(indexFrom, indexTo + to.length));
-            this.stream = str.substr(indexTo + to.length);
             return this;
         },
-        tear: function(pos) {
-            var s = '';
-            if (!isNaN(pos)) {
-                s = this.stream.substring(0, pos);
-                this.stream = this.stream.substr(pos);
-            }
-            return s;
+        parse: function(str) {
+            str = typeof str === 'string' ? new Stream(str) : str instanceof Stream ? str : this.stream != null ? this.stream : new Stream('');
+            var p = this.fn(str);
+            return p instanceof Stream ? p.final.split(/\n/g) : typeof p === 'string' ? p.split(/\n/g) : '';
         },
-        setStream: function(text) {
-            text = typeof text === 'string' ? text : '';
-            this.stream = text;
-            return this;
-        },
-        parse: function(stream) {
-            var p = this.setStream(stream).fn();
-            return typeof p === 'string' ? p.split(/\n/g) : '';
-        },
-        fn: function() {
-            return this.stream;
-        },
-        toString: function() {
-            return this.stream;
+        fn: function(stream) {
+            stream = stream || this.stream;
+            return stream.final;
         }
     };
-    
-    $.each(['substr','substring','replace','search','match','split'], function(v) {
-        CodePrinter.Mode.prototype[v] = function() {
-            return this.stream[v].apply(this.stream, arguments);
-        };
-    });
     
     CodePrinter.requireMode = function(req, cb, del) {
         return $.scripts.require('CodePrinter.'+req, cb, del);

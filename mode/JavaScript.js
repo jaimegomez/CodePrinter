@@ -7,68 +7,68 @@ CodePrinter.defineMode('JavaScript', {
     
     regexp: /\/\*|\/\/|'|"|{|}|\(|\)|\[|\]|=|-|\+|\/(.*)\/[gimy]{0,4}|\/|%|<|>|&|\||\.|,|:|;|\?|!|\$(?!\w)|\b[\w\d\-\_]+(?=(\(|\:))|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b/,
     
-    fn: function() {
-        var ret = '',
-            pos, found;
+    fn: function(stream) {
+        var pos, found;
+        stream = stream || this.stream;
         
-        while ((pos = this.search(this.regexp)) !== -1) {
-            found = this.match(this.regexp)[0];
+        while ((pos = stream.search(this.regexp)) !== -1) {
+            found = stream.match(this.regexp)[0];
             
-            ret += this.tear(pos);
+            stream.tear(pos);
             
             if (!isNaN(found)) {
                 if (/^0x[\da-fA-F]+$/.test(found)) {
-                    ret += this.eat(found).wrap(['numeric', 'hex']);
+                    stream.eat(found).wrap(['numeric', 'hex']);
                 } else {
                     if ((found+'').indexOf('.') === -1) {
-                        ret += this.eat(found).wrap(['numeric', 'int']);
+                        stream.eat(found).wrap(['numeric', 'int']);
                     } else {
-                        ret += this.eat(found).wrap(['numeric', 'float']);
+                        stream.eat(found).wrap(['numeric', 'float']);
                     }
                 }
             } else if (/^([\w\d\-\_]+|\$)$/i.test(found)) {
                 if (found == 'true' || found == 'false') {
-                    ret += this.eat(found).wrap(['boolean', found]);
+                    stream.eat(found).wrap(['boolean', found]);
                 } else if (found == 'var') {
-                    ret += this.eat(found).wrap(['variable']);
+                    stream.eat(found).wrap(['variable']);
                 } else if (found == 'null' || found == 'undefined') {
-                    ret += this.eat(found).wrap(['empty-value', found]);
+                    stream.eat(found).wrap(['empty-value', found]);
                 } else if (this.controls.indexOf(found) !== -1) {
-                    ret += this.eat(found).wrap(['control', found]);  
+                    stream.eat(found).wrap(['control', found]);  
                 } else if (this.specials.indexOf(found) !== -1) {
-                    ret += this.eat(found).wrap(['special', found]);
+                    stream.eat(found).wrap(['special', found]);
                 } else if (this.keywords.indexOf(found) !== -1) {
-                    ret += this.eat(found).wrap(['keyword', found]);
-                } else if (/^\s*\(/.test(this.substr(found.length))) {
-                    ret += this.eat(found).wrap('fname');
-                } else if (/^\s*\:/.test(this.substr(found.length))) {
-                    ret += this.eat(found).wrap('property');
+                    stream.eat(found).wrap(['keyword', found]);
+                } else if (/^\s*\(/.test(stream.substr(found.length))) {
+                    stream.eat(found).wrap('fname');
+                } else if (/^\s*\:/.test(stream.substr(found.length))) {
+                    stream.eat(found).wrap('property');
                 } else {
-                    ret += this.eat(found).wrap('word');
+                    stream.eat(found).wrap('word');
                 } 
             } else if (/^[^\w\d\s]+$/.test(found)) {
                 if (this.punctuations.hasOwnProperty(found)) {
-                    ret += this.eat(found).wrap(['punctuation', this.punctuations[found]]);
+                    stream.eat(found).wrap(['punctuation', this.punctuations[found]]);
                 } else if (this.operators.hasOwnProperty(found)) {
-                    ret += this.eat(found).wrap(['operator', this.operators[found]]);
+                    stream.eat(found).wrap(['operator', this.operators[found]]);
                 } else if (this.brackets.hasOwnProperty(found)) {
-                    ret += this.eat(found).wrap(this.brackets[found]);
+                    stream.eat(found).wrap(this.brackets[found]);
                 } else if (this.chars.hasOwnProperty(found)) {
-                    ret += this.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
+                    stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
                 } else {
-                    ret += this.eat(found).wrap(['other']);
+                    stream.eat(found).wrap(['other']);
                 }
             } else if (found == "\\") {
-                ret += this.eat(found+this.substring(0, 2)).wrap('escaped');
+                stream.eat(found+stream.substring(0, 2)).wrap('escaped');
             } else if (found[0] == '/') {
-                this.eat(found);
-                this.eaten = this.eaten.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="cp-regexp">');
-                ret += this.wrap('regexp');
+                stream.eat(found);
+                stream.eaten = stream.eaten.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="cp-regexp">');
+                stream.wrap('regexp');
             } else {
-                ret += this.eat(found).wrap(['other']);
+                stream.eat(found).wrap(['other']);
             }
         }
         
-        return ret + this;
+        return stream;
     }
 });
