@@ -98,7 +98,7 @@
             
             self.wrapper.add(self.counter.element).css({ height: options.maxHeight });
             overlay.inheritStyle(['line-height'], source);
-            overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
+            overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase());
             self.adjustTextareaSize();
             source.html(this.getSourceValue());
             
