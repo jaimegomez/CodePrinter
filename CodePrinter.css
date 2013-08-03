@@ -239,6 +239,9 @@
 .codeprinter .cp-keyword {
   color: #8959a8;
 }
+.codeprinter .cp-control {
+  color: #8959a8;
+}
 .codeprinter .cp-boolean {
   color: #f5871f;
 }
