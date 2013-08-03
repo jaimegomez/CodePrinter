@@ -9,28 +9,29 @@
             return new CodePrinter(object, options);
         }
         
-        this.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
-        
-        var mainElement = $.create('div.codeprinter'),
+        var self = this,
+            mainElement = $.create('div.codeprinter'),
             container = $.create('div.cp-container'),
             wrapper = $.create('div.cp-wrapper'),
             overlay = $.create('div.cp-overlay');
+        
+        self.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
         
         object.wrap(wrapper);
         wrapper.wrap(container);
         container.wrap(mainElement);
         wrapper.append(overlay);
         
-        this.mainElement = mainElement;
-        this.container = container;
-        this.wrapper = wrapper;
-        this.overlay = overlay;
-        this.source = object.addClass('cp-source');
+        self.mainElement = mainElement;
+        self.container = container;
+        self.wrapper = wrapper;
+        self.overlay = overlay;
+        self.source = object.addClass('cp-source');
         
-        this.prepare();
-        this.print();
+        self.prepare();
+        self.print();
         
-        return this;
+        return self;
     };
     
     CodePrinter.version = '0.2.2';
@@ -40,123 +41,17 @@
         mode: 'javascript',
         theme: 'default',
         tabWidth: 4,
+        fontSize: 12,
+        lineHeight: 16,
         counter: true,
         infobar: true,
         infobarOnTop: true,
         showIndent: true,
         scrollable: true,
-        highlightBrackets: true,
+        highlightBrackets: false,
         width: 'auto',
         maxHeight: 300,
         randomIDLength: 7
-    };
-    
-    var Counter = function(cp) {
-        var self = this;
-        self.element = $.create('ol.cp-counter');
-        self.list = $([]);
-        cp.container.prepend(this.element);
-        
-        cp.wrapper.on('scroll', function() {
-            self.element.current().scrollTop = this.scrollTop;
-        });
-        
-        this.element.delegate('mousedown', 'li', function() {
-            var index = self.list.indexOf(this);
-            cp.selectLine(index);
-        });
-        
-        return this;
-    };
-    Counter.prototype = {
-        reload: function(lines) {
-            var amp = !isNaN(lines) ? lines - this.list.length : 0;
-            
-            while (amp != 0) {
-                if (amp < 0) {
-                    this.decrease();
-                    amp++;
-                } else {
-                    this.increase();
-                    amp--;
-                }
-            }
-        },
-        increase: function() {
-            var li = $.create('li');
-            this.list.push(li.item());
-            this.element.append(li);
-        },
-        decrease: function() {
-            this.list.get(0).remove(true);
-        }
-    };
-    
-    var InfoBar = function(cp) {
-        var mode = $.create('span.cp-mode').html(cp.options.mode),
-            act = $.create('span.cp-actions'),
-            ch = $.create('span.cp-characters');
-        
-        this.element = $.create('div.cp-infobar').append(mode, act, ch);
-        this.element.actions = act;
-        this.element.characters = ch;
-        
-        if (cp.options.infobarOnTop) {
-            this.element.prependTo(cp.mainElement);
-        } else {
-            this.element.appendTo(cp.mainElement);
-        }
-        
-        this.actions = {
-            plaintext: {
-                func: function() {
-                    var newWindow = window.open('', '_blank');
-                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(cp.getSourceValue()) + '</pre>');
-                }
-            },
-            reprint: {
-                func: function() {
-                    cp.print();
-                }
-            },
-            scrollup: {
-                func: function() {
-                    cp.wrapper.item().scrollTop = 0;
-                },
-                text: 'scroll up'
-            },
-            scrolldown: {
-                func: function() {
-                    var w = cp.wrapper.item();
-                    w.scrollTop = w.scrollHeight;
-                },
-                text: 'scroll down'
-            }
-        };
-        
-        for (var k in this.actions) {
-            this.addAction(k, this.actions[k].func, this.actions[k].text);
-        }
-        
-        return this;
-    };
-    InfoBar.prototype = {
-        reload: function(a, b, c) {
-            var html = (a && b) ? a+' characters, '+b+' lines' : a ? a+' selected characters' : '';
-            this.element.characters.html(html);
-        },
-        addAction: function(name, func, text) {
-            if (this.actions[name] && this.actions[name].element) {
-                this.actions[name].element.off('click', this.actions[name].func);
-            }
-            var el = $.create('a.cp-'+name, typeof text === 'string' ? text : name);
-            el.on('click', func).appendTo(this.element.actions);
-            this.actions[name] = {
-                func: func,
-                element: el
-            };
-            return el;
-        }
     };
     
     CodePrinter.prototype = {}.extend({
@@ -188,8 +83,14 @@
             
             self.mainElement.attr({ id: id });
             self.id = id;
-            $.stylesheet.insert('#'+id+' .cp-overlay pre', 'min-height:'+sizes.lineHeight+'px;');
-            $.stylesheet.insert('#'+id+' .cp-counter li', 'min-height:'+sizes.lineHeight+'px;');
+            
+            if (options.fontSize != 12 && options.fontSize > 0) {
+                overlay.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) });
+            }
+            
+            if (options.lineHeight != 16 && options.lineHeight > 0) {
+                $.stylesheet.insert('#'+id+' .cp-overlay pre, #'+id+' .cp-counter, #'+id+' .cp-source', 'line-height:'+options.lineHeight+'px;');
+            }
             
             if (options.width != 'auto') {
                 self.mainElement.css({ width: parseInt(options.width) });
@@ -322,9 +223,9 @@
                         parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                     }
                     if (j < pre.length) {
-                        pre.eq(j).html(parsed[j]);
+                        pre.eq(j).html(parsed[j] || ' ');
                     } else {
-                        var p = $.create('pre').html(parsed[j]);
+                        var p = $.create('pre').html(parsed[j] || ' ');
                         pre.push(p);
                         overlay.append(p);
                     }
@@ -339,8 +240,12 @@
                 this.lines = j;
                 this.value = value;
                 this.parsed = parsed;
-                this.counter.reload(j);
-                this.infobar.reload(value.length, j);
+                if (this.counter) {
+                    this.counter.reload(j);
+                }
+                if (this.infobar) {
+                    this.infobar.reload(value.length, j);
+                }
             }, this);
         },
         requireStyle: function(style, callback) {
@@ -350,6 +255,114 @@
             $.require(this.options.path+'mode/'+mode+'.js', callback);
         }
     });
+    
+    var Counter = function(cp) {
+        var self = this;
+        self.element = $.create('ol.cp-counter');
+        self.list = $([]);
+        cp.container.prepend(this.element);
+        
+        cp.wrapper.on('scroll', function() {
+            self.element.current().scrollTop = this.scrollTop;
+        });
+        
+        this.element.delegate('mousedown', 'li', function() {
+            var index = self.list.indexOf(this);
+            cp.selectLine(index);
+        });
+        
+        return this;
+    };
+    Counter.prototype = {
+        reload: function(lines) {
+            var amp = !isNaN(lines) ? lines - this.list.length : 0;
+            
+            while (amp != 0) {
+                if (amp < 0) {
+                    this.decrease();
+                    amp++;
+                } else {
+                    this.increase();
+                    amp--;
+                }
+            }
+        },
+        increase: function() {
+            var li = $.create('li');
+            this.list.push(li.item());
+            this.element.append(li);
+        },
+        decrease: function() {
+            this.list.get(0).remove(true);
+        }
+    };
+    
+    var InfoBar = function(cp) {
+        var mode = $.create('span.cp-mode').html(cp.options.mode),
+            act = $.create('span.cp-actions'),
+            ch = $.create('span.cp-characters');
+        
+        this.element = $.create('div.cp-infobar').append(mode, act, ch);
+        this.element.actions = act;
+        this.element.characters = ch;
+        
+        if (cp.options.infobarOnTop) {
+            this.element.prependTo(cp.mainElement);
+        } else {
+            this.element.appendTo(cp.mainElement);
+        }
+        
+        this.actions = {
+            plaintext: {
+                func: function() {
+                    var newWindow = window.open('', '_blank');
+                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(cp.getSourceValue()) + '</pre>');
+                }
+            },
+            reprint: {
+                func: function() {
+                    cp.print();
+                }
+            },
+            scrollup: {
+                func: function() {
+                    cp.wrapper.item().scrollTop = 0;
+                },
+                text: 'scroll up'
+            },
+            scrolldown: {
+                func: function() {
+                    var w = cp.wrapper.item();
+                    w.scrollTop = w.scrollHeight;
+                },
+                text: 'scroll down'
+            }
+        };
+        
+        for (var k in this.actions) {
+            this.addAction(k, this.actions[k].func, this.actions[k].text);
+        }
+        
+        return this;
+    };
+    InfoBar.prototype = {
+        reload: function(a, b, c) {
+            var html = (a && b) ? a+' characters, '+b+' lines' : a ? a+' selected characters' : '';
+            this.element.characters.html(html);
+        },
+        addAction: function(name, func, text) {
+            if (this.actions[name] && this.actions[name].element) {
+                this.actions[name].element.off('click', this.actions[name].func);
+            }
+            var el = $.create('a.cp-'+name, typeof text === 'string' ? text : name);
+            el.on('click', func).appendTo(this.element.actions);
+            this.actions[name] = {
+                func: func,
+                element: el
+            };
+            return el;
+        }
+    };
     
     var Stream = function(string) {
         if (!(this instanceof Stream)) {

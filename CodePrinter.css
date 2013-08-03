@@ -76,7 +76,6 @@
   -ms-transition: all 0.2s ease-in-out;
   -o-transition: all 0.2s ease-in-out;
   transition: all 0.2s ease-in-out;
-  min-height: 18px;
   color: inherit;
 }
 .codeprinter .cp-counter {
@@ -180,15 +179,27 @@
   color: #444444;
   text-decoration: underline !important;
 }
-.codeprinter .cp-overlay pre,
+.codeprinter .cp-overlay,
 .codeprinter .cp-source,
 .codeprinter .cp-counter {
-  font-family: Menlo;
+  font-family: Menlo, Monaco, monospace, Courier;
   font-size: 12px;
-  line-height: 18px;
   word-break: normal;
   word-spacing: 0px;
   word-wrap: normal;
+}
+.codeprinter .cp-overlay pre,
+.codeprinter .cp-source,
+.codeprinter .cp-counter {
+  line-height: 16px;
+}
+.codeprinter .cp-overlay pre,
+.codeprinter .cp-counter li {
+  font-family: inherit;
+  font-size: inherit;
+  word-break: inherit;
+  word-spacing: inherit;
+  word-wrap: inherit;
 }
 .codeprinter .cp-wrapper + .cp-infobar {
   border-width: 1px 0 0 0;
@@ -198,7 +209,9 @@
   box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
 }
 .codeprinter .cp-tab {
-  margin-left: -1px;
+  margin: 0 0 0 -1px;
+  padding: 0;
+  border-color: transparent;
   border-left: 1px dotted #c8c8c8;
 }
 .codeprinter .cp-highlight {

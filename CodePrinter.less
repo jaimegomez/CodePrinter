@@ -11,7 +11,9 @@
 @gradientEndColor:      rgb(250,250,250);
 @paddingY:              5px;
 @paddingX:              15px;
+@font:                  Menlo, Monaco, monospace, Courier;
 @fontSize:              12px;
+@lineHeight:            16px;
 @lineTransition:        .2s;
 @indentBorder:          1px dotted rgb(200,200,200);
     
@@ -70,7 +72,6 @@
     	    .size(auto, auto);
     	    .margins(0, 0 @paddingX);
             .transition(@lineTransition);
-    	    min-height:18px;
             color:inherit;
 	    }
 	}
@@ -135,14 +136,23 @@
         }
 	}
 	
-	.cp-overlay pre, .cp-source, .cp-counter {
-    	font-family:Menlo;
+	.cp-overlay, .cp-source, .cp-counter {
+    	font-family:@font;
         font-size:@fontSize;
-	    line-height:18px;
         word-break:normal;
         word-spacing:0px;
         word-wrap:normal;
 	}
+    .cp-overlay pre, .cp-source, .cp-counter {
+        line-height:@lineHeight;
+    }
+    .cp-overlay pre, .cp-counter li {
+        font-family:inherit;
+        font-size:inherit;
+        word-break:inherit;
+        word-spacing:inherit;
+        word-wrap:inherit;
+    }
     .cp-wrapper + .cp-infobar {
         border-width:1px 0 0 0;
     }
@@ -152,7 +162,8 @@
         box-shadow:0 0 1px 1px rgba(51,153,255,0.5);
     }
     .cp-tab {
-        margin-left:-1px;
+        .margins(0 0 0 -1px, 0);
+        border-color:transparent;
         border-left:@indentBorder;
     }
     
