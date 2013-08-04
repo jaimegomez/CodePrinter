@@ -49,6 +49,7 @@
         showIndent: true,
         scrollable: true,
         highlightBrackets: false,
+        blinkCaret: true,
         width: 'auto',
         maxHeight: 300,
         randomIDLength: 7
@@ -168,6 +169,7 @@
                 focus: function() {
                     var a = true;
                     caret.element.show();
+                    if (self.options.blinkCaret) {
                         this.interval = setInterval(function() {
                             if (a) {
                                 caret.element.hide();
@@ -177,6 +179,7 @@
                                 a = true;
                             }
                         }, 400);
+                    }
                 },
                 blur: function() {
                     if (this.interval) {
