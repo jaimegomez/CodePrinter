@@ -102,6 +102,10 @@
             self.adjustTextareaSize();
             source.html(this.getSourceValue());
             
+            if (source.tag() === 'textarea') {
+                self.prepareWriter();
+            }
+            
             if (options.highlightBrackets) {
                 overlay.delegate('click', '.cp-bracket', function() {
                     overlay.find('.cp-highlight').removeClass('cp-highlight');
@@ -152,6 +156,43 @@
                     this.addClass('cp-highlight');
                 });
             }
+        },
+        prepareWriter: function() {
+            var self = this,
+                caret = new Caret(self);
+            
+            self.source.on({
+                click: function() {
+                    caret.reload();
+                },
+                focus: function() {
+                    var a = true;
+                    caret.element.show();
+                        this.interval = setInterval(function() {
+                            if (a) {
+                                caret.element.hide();
+                                a = false;
+                            } else {
+                                caret.element.show();
+                                a = true;
+                            }
+                        }, 400);
+                },
+                blur: function() {
+                    if (this.interval) {
+                        this.interval = clearInterval(this.interval);
+                    }
+                    caret.element.hide();
+                },
+                keyup: function() {
+                    self.print();
+                    caret.reload();
+                }
+            });
+            
+            self.caret = caret;
+            self.isWritable = true;
+            self.extend(Writer);
         },
         measureSizes: function() {
             var sizes = this.sizes,
@@ -255,6 +296,102 @@
             $.require(this.options.path+'mode/'+mode+'.js', callback);
         }
     });
+    
+    var Writer = {
+        getTextSize: function(text) {
+            if (text == null) text = 'c';
+            var h = 0, w = 0,
+                styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing'],
+                tmpdiv = $.create('div');
+            
+            this.mainElement.append(tmpdiv.text(text));
+            tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
+            tmpdiv.inheritStyle(styles, this.source);
+            h = tmpdiv.height(),
+            w = tmpdiv.width();
+            tmpdiv.remove();
+            
+            return { height: h, width: w };
+        },
+        getCurrentLine: function() {
+            var ta = this.source.item();
+            if (ta.setSelectionRange) {
+                var sS = ta.selectionStart,
+                    sE = ta.selectionEnd,
+                    text = ta.value.substring(0, sS),
+                    end = ta.value.substr(sE).search(/\n/),
+                    start = -1, line = 0, textLine;
+                
+                if (text.match(/\n/g)) {
+                    var line = text.match(/\n/g).length,
+                        start = text.search(/\n[^\n]*$/g);
+                    
+                    if (start != -1) {
+                        text = text.substr(start);
+                    }
+                    text = text.replace(/\n/g,'');
+                }
+                textLine = ta.value.substring(start+1, sE+end);
+                
+                return { line: line, textBeforeCursor: text, textAtLine: textLine };
+            }
+            return { line: 0, textBeforeCursor: '', textAtLine: '' };
+        },
+        getTextAtLine: function(line) {
+            var array = this.getSourceValue().split('\n');
+            return array[line];
+        },
+        getCursorPosition: function() {
+            var source = this.source, cL, tsize,
+                y = 0,
+                x = 0,
+                h = 0;
+            
+            source.focus();
+            cL = this.getCurrentLine();
+            tsize = this.getTextSize(cL.textBeforeCursor);
+            x = tsize.width + source.total('paddingLeft', 'borderLeftWidth') - source.scrollLeft();
+            y = cL.line * (this.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth') - source.scrollTop();
+            h = tsize.height;
+            return { x: parseInt(x), y: parseInt(y), height: parseInt(h) };
+        }
+    };
+    
+    var Caret = function(cp) {
+        this.element = $.create('div.cp-caret');
+        this.root = cp;
+        cp.wrapper.append(this.element);
+        
+        return this;
+    };
+    Caret.prototype = {
+        reload: function() {
+            var root = this.root,
+                pos = this.getPosition();
+            
+            this.element.show().css({ left: pos.x, top: pos.y - 1, height: root.sizes.lineHeight + 2 });
+            
+            if (pos.x + 30 > root.source.width()) {
+                root.source.item().scrollLeft += 100;
+            }
+            if (pos.y + 30 > root.source.height()) {
+                root.source.item().scrollTop += 100;
+            }
+        },
+        getPosition: function() {
+            var root = this.root,
+                source = root.source,
+                y = 0, x = 0, h = 0, cL, tsize;
+            
+            source.focus();
+            cL = root.getCurrentLine();
+            tsize = root.getTextSize(cL.textBeforeCursor);
+            x = tsize.width + source.total('paddingLeft', 'borderLeftWidth') - source.scrollLeft();
+            y = cL.line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth') - source.scrollTop();
+            h = tsize.height;
+            return { x: parseInt(x), y: parseInt(y), height: parseInt(h) };
+        }
+    };
     
     var Counter = function(cp) {
         var self = this;
