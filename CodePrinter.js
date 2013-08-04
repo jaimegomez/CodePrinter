@@ -246,7 +246,8 @@
             }
         },
         getSourceValue: function() {
-            return this.source.html().replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
+            var value = this.isWritable ? this.source.value() : this.source.html();
+            return value.replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
         },
         print: function(mode) {
             if (!mode) {
