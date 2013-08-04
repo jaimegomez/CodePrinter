@@ -179,6 +179,18 @@
   color: #444444;
   text-decoration: underline !important;
 }
+.codeprinter .cp-caret {
+  width: 1px;
+  height: 10px;
+  background-color: #000000;
+  -webkit-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  -moz-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  -ms-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  -o-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  position: absolute;
+  z-index: 10;
+}
 .codeprinter .cp-overlay,
 .codeprinter .cp-source,
 .codeprinter .cp-counter {
