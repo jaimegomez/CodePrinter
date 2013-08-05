@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.2.2
+*   version     0.2.3
 */
 .codeprinter {
   display: block;
@@ -36,6 +36,11 @@
   margin: -5px 0;
   padding: 5px 15px;
   background-color: transparent;
+  -webkit-box-sizing: content-box;
+  -moz-box-sizing: content-box;
+  -ms-box-sizing: content-box;
+  -o-box-sizing: content-box;
+  box-sizing: content-box;
   border-width: 0;
   color: transparent;
   resize: none;
@@ -81,8 +86,8 @@
 .codeprinter .cp-counter {
   display: inline-block;
   vertical-align: top;
-  margin: 0;
-  padding: 5px 0;
+  margin: 0 0 -50000px;
+  padding: 5px 0 50000px;
   width: auto;
   height: auto;
   background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
