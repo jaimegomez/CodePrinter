@@ -9,47 +9,253 @@
             return new CodePrinter(object, options);
         }
         
-        this.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
-        
-        var mainElement = $.create('div.codeprinter'),
+        var self = this,
+            mainElement = $.create('div.codeprinter'),
             container = $.create('div.cp-container'),
             wrapper = $.create('div.cp-wrapper'),
             overlay = $.create('div.cp-overlay');
+        
+        self.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
         
         object.wrap(wrapper);
         wrapper.wrap(container);
         container.wrap(mainElement);
         wrapper.append(overlay);
         
-        this.mainElement = mainElement;
-        this.container = container;
-        this.wrapper = wrapper;
-        this.overlay = overlay;
-        this.source = object.addClass('cp-source');
+        self.mainElement = mainElement;
+        self.container = container;
+        self.wrapper = wrapper;
+        self.overlay = overlay;
+        self.source = object.addClass('cp-source');
         
-        this.prepare();
-        this.print();
+        self.prepare();
+        self.print();
         
-        return this;
+        return self;
     };
     
-    CodePrinter.version = '0.2.2';
+    CodePrinter.version = '0.2.3';
     
     CodePrinter.defaults = {
         path: '',
         mode: 'javascript',
         theme: 'default',
         tabWidth: 4,
+        fontSize: 12,
+        lineHeight: 16,
         counter: true,
         infobar: true,
         infobarOnTop: true,
         showIndent: true,
         scrollable: true,
-        highlightBrackets: true,
+        highlightBrackets: false,
         width: 'auto',
-        maxHeight: 300,
+        maxHeight: null,
         randomIDLength: 7
     };
+    
+    CodePrinter.prototype = {}.extend({
+        sizes: {},
+        prepare: function() {
+            var self = this,
+                source = self.source,
+                overlay = self.overlay,
+                options = self.options,
+                sizes = self.sizes,
+                id = $.random(options.randomIDLength);
+            
+            if (typeof options.theme === 'string' && options.theme !== 'default') {
+                self.requireStyle(options.theme);
+            } else {
+                options.theme = 'default';
+            }
+            self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
+            
+            if (options.counter) {
+                self.counter = new Counter(self);
+            }
+            if (options.infobar) {
+                self.infobar = new InfoBar(self);
+            }
+            
+            self.measureSizes();
+            self.activeLine = {};
+            
+            self.mainElement.attr({ id: id });
+            self.id = id;
+            
+            if (options.fontSize != 12 && options.fontSize > 0) {
+                overlay.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) });
+            }
+            if (options.lineHeight != 16 && options.lineHeight > 0) {
+                id = '#'+id+' .cp-';
+                $.stylesheet.insert(id+'overlay pre, '+id+'counter, '+id+'source', 'line-height:'+options.lineHeight+'px;');
+            }
+            if (options.width != 'auto') {
+                self.mainElement.css({ width: parseInt(options.width) });
+            }
+            if (options.maxHeight > 0) {
+                self.wrapper.add(self.counter.element).css({ height: parseInt(options.maxHeight) });
+            }
+            
+            overlay.inheritStyle(['line-height'], source);
+            overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase());
+            source.html(this.getSourceValue());
+            self.adjustTextareaSize();
+            
+            if (options.highlightBrackets) {
+                overlay.delegate('click', '.cp-bracket', function() {
+                    overlay.find('.cp-highlight').removeClass('cp-highlight');
+                    
+                    var spans = overlay.find('span.cp-bracket'),
+                        cls = this.hasClass('cp-curly') ? 'cp-curly' : this.hasClass('cp-round') ? 'cp-round' : this.hasClass('cp-square') ? 'cp-square' : false,
+                        index = 0, j = 0, span;
+                    
+                    if (cls === false) {
+                        return false;
+                    }
+                    spans = spans.filter('.'+cls);
+                    
+                    index = spans.indexOf(this);
+                    if (index === -1) {
+                        return false;
+                    }
+                    
+                    if (this.hasClass('cp-open')) {
+                        for (var i = index+1; i < spans.length; i++) {
+                            span = spans.eq(i);
+                            if (span.hasClass('cp-close')) {
+                                if (j === 0) {
+                                    span.addClass('cp-highlight');
+                                    break;
+                                } else {
+                                    j--;
+                                }
+                            } else {
+                                j++;
+                            }
+                        }
+                    } else {
+                        for (var i = index-1; i >= 0; i--) {
+                            span = spans.eq(i);
+                            if (span.hasClass('cp-open')) {
+                                if (j === 0) {
+                                    span.addClass('cp-highlight');
+                                    break;
+                                } else {
+                                    j--;
+                                }
+                            } else {
+                                j++;
+                            }
+                        }
+                    }
+                    this.addClass('cp-highlight');
+                });
+            }
+        },
+        measureSizes: function() {
+            var sizes = this.sizes,
+                source = this.source;
+            
+            sizes.width = source.width();
+            sizes.height = source.height();
+            sizes.offsetWidth = source.offsetWidth();
+            sizes.offsetHeight = source.offsetHeight();
+            sizes.lineHeight = source.css('lineHeight');
+            sizes.infobarHeight = this.infobar ? this.infobar.element.offsetHeight() : 0;
+            sizes.counterWidth = this.counter ? this.counter.element.offsetWidth() : 0;
+        },
+        getTextSize: function(text) {
+            if (text == null) text = 'c';
+            var h = 0, w = 0,
+                styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing', 'whiteSpace'],
+                tmpdiv = $.create('div');
+            
+            this.mainElement.append(tmpdiv.text(text));
+            tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
+            tmpdiv.inheritStyle(styles, this.source);
+            h = tmpdiv.height(),
+            w = tmpdiv.width();
+            tmpdiv.remove();
+            
+            return { height: h, width: w };
+        },
+        adjustTextareaSize: function() {
+            var tx = this.source, item = tx.item();
+            if (tx.tag() === 'textarea') {
+                tx.width(0);
+                tx.width(item.scrollWidth - tx.paddingWidth());
+                tx.height(0);
+                tx.height(item.scrollHeight - tx.paddingHeight());
+            }
+        },
+        unselectLine: function() {
+            if (this.activeLine.pre) {
+                this.activeLine.pre.add(this.activeLine.li).removeClass('cp-activeLine');
+            }
+        },
+        selectLine: function(l) {
+            this.unselectLine();
+            this.activeLine.pre = this.overlay.children().eq(l).addClass('cp-activeLine');
+            if (this.counter) {
+                this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
+            }
+        },
+        getSourceValue: function() {
+            return this.source.html().replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
+        },
+        print: function(mode) {
+            if (!mode) {
+                mode = this.options.mode;
+            }
+            
+            var source = this.source,
+                overlay = this.overlay,
+                value = decodeEntities(this.getSourceValue()),
+                pre = overlay.children('pre'),
+                parsed, j = -1;
+            
+            CodePrinter.requireMode(mode, function(ModeObject) {
+                parsed = ModeObject.parse(value);
+                
+                while (parsed[++j] != null) {
+                    if (this.options.showIndent) {
+                        parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
+                    }
+                    if (j < pre.length) {
+                        pre.eq(j).html(parsed[j] || ' ');
+                    } else {
+                        var p = $.create('pre').html(parsed[j] || ' ');
+                        pre.push(p);
+                        overlay.append(p);
+                    }
+                }
+                
+                if (parsed.length < pre.length) {
+                    for (var i = parsed.length; i < pre.length; i++) {
+                        pre.eq(i).remove();
+                    }
+                }
+                
+                this.lines = j;
+                this.value = value;
+                this.parsed = parsed;
+                if (this.counter) {
+                    this.counter.reload(j);
+                }
+                if (this.infobar) {
+                    this.infobar.reload(value.length, j);
+                }
+            }, this);
+        },
+        requireStyle: function(style, callback) {
+            $.require(this.options.path+'theme/'+style+'.css', callback);
+        },
+        requireMode: function(mode, callback) {
+            $.require(this.options.path+'mode/'+mode+'.js', callback);
+        }
+    });
     
     var Counter = function(cp) {
         var self = this;
@@ -159,198 +365,6 @@
         }
     };
     
-    CodePrinter.prototype = {}.extend({
-        sizes: {},
-        prepare: function() {
-            var self = this,
-                source = self.source,
-                overlay = self.overlay,
-                options = self.options,
-                sizes = self.sizes,
-                id = $.random(options.randomIDLength);
-            
-            if (typeof options.theme === 'string' && options.theme !== 'default') {
-                self.requireStyle(options.theme);
-            } else {
-                options.theme = 'default';
-            }
-            self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
-            
-            if (options.counter) {
-                self.counter = new Counter(self);
-            }
-            if (options.infobar) {
-                self.infobar = new InfoBar(self);
-            }
-            
-            self.measureSizes();
-            self.activeLine = {};
-            
-            self.mainElement.attr({ id: id });
-            self.id = id;
-            $.stylesheet.insert('#'+id+' .cp-overlay pre', 'min-height:'+sizes.lineHeight+'px;');
-            $.stylesheet.insert('#'+id+' .cp-counter li', 'min-height:'+sizes.lineHeight+'px;');
-            
-            if (options.width != 'auto') {
-                self.mainElement.css({ width: parseInt(options.width) });
-            }
-            
-            self.wrapper.add(self.counter.element).css({ height: options.maxHeight });
-            overlay.inheritStyle(['line-height'], source);
-            overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase()).html(source.value());
-            self.adjustTextareaSize();
-            source.html(this.getSourceValue());
-            
-            if (options.highlightBrackets) {
-                overlay.delegate('click', '.cp-bracket', function() {
-                    overlay.find('.cp-highlight').removeClass('cp-highlight');
-                    
-                    var spans = overlay.find('span.cp-bracket'),
-                        cls = this.hasClass('cp-curly') ? 'cp-curly' : this.hasClass('cp-round') ? 'cp-round' : this.hasClass('cp-square') ? 'cp-square' : false,
-                        index = 0, j = 0, span;
-                    
-                    if (cls === false) {
-                        return false;
-                    }
-                    spans = spans.filter('.'+cls);
-                    
-                    index = spans.indexOf(this);
-                    if (index === -1) {
-                        return false;
-                    }
-                    
-                    if (this.hasClass('cp-open')) {
-                        for (var i = index+1; i < spans.length; i++) {
-                            span = spans.eq(i);
-                            if (span.hasClass('cp-close')) {
-                                if (j === 0) {
-                                    span.addClass('cp-highlight');
-                                    break;
-                                } else {
-                                    j--;
-                                }
-                            } else {
-                                j++;
-                            }
-                        }
-                    } else {
-                        for (var i = index-1; i >= 0; i--) {
-                            span = spans.eq(i);
-                            if (span.hasClass('cp-open')) {
-                                if (j === 0) {
-                                    span.addClass('cp-highlight');
-                                    break;
-                                } else {
-                                    j--;
-                                }
-                            } else {
-                                j++;
-                            }
-                        }
-                    }
-                    this.addClass('cp-highlight');
-                });
-            }
-        },
-        measureSizes: function() {
-            var sizes = this.sizes,
-                source = this.source;
-            
-            sizes.width = source.width();
-            sizes.height = source.height();
-            sizes.offsetWidth = source.offsetWidth();
-            sizes.offsetHeight = source.offsetHeight();
-            sizes.lineHeight = source.css('lineHeight');
-            sizes.infobarHeight = this.infobar ? this.infobar.element.offsetHeight() : 0;
-            sizes.counterWidth = this.counter ? this.counter.element.offsetWidth() : 0;
-        },
-        getTextSize: function(text) {
-            if (text == null) text = 'c';
-            var h = 0, w = 0,
-                styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing', 'whiteSpace'],
-                tmpdiv = $.create('div');
-            
-            this.mainElement.append(tmpdiv.text(text));
-            tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
-            tmpdiv.inheritStyle(styles, this.source);
-            h = tmpdiv.height(),
-            w = tmpdiv.width();
-            tmpdiv.remove();
-            
-            return { height: h, width: w };
-        },
-        adjustTextareaSize: function() {
-            var tx = this.source, item = tx.item();
-            if (tx.tag() === 'textarea') {
-                tx.width(0);
-                tx.width(item.scrollWidth);
-                tx.height(0);
-                tx.height(item.scrollHeight);
-            }
-        },
-        unselectLine: function() {
-            if (this.activeLine.pre) {
-                this.activeLine.pre.add(this.activeLine.li).removeClass('cp-activeLine');
-            }
-        },
-        selectLine: function(l) {
-            this.unselectLine();
-            this.activeLine.pre = this.overlay.children().eq(l).addClass('cp-activeLine');
-            if (this.counter) {
-                this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
-            }
-        },
-        getSourceValue: function() {
-            return this.source.html().replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
-        },
-        print: function(mode) {
-            if (!mode) {
-                mode = this.options.mode;
-            }
-            
-            var source = this.source,
-                overlay = this.overlay,
-                value = decodeEntities(this.getSourceValue()),
-                pre = overlay.children('pre'),
-                parsed, j = -1;
-            
-            CodePrinter.requireMode(mode, function(ModeObject) {
-                parsed = ModeObject.parse(value);
-                
-                while (parsed[++j] != null) {
-                    if (this.options.showIndent) {
-                        parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
-                    }
-                    if (j < pre.length) {
-                        pre.eq(j).html(parsed[j]);
-                    } else {
-                        var p = $.create('pre').html(parsed[j]);
-                        pre.push(p);
-                        overlay.append(p);
-                    }
-                }
-                
-                if (parsed.length < pre.length) {
-                    for (var i = parsed.length; i < pre.length; i++) {
-                        pre.eq(i).remove();
-                    }
-                }
-                
-                this.lines = j;
-                this.value = value;
-                this.parsed = parsed;
-                this.counter.reload(j);
-                this.infobar.reload(value.length, j);
-            }, this);
-        },
-        requireStyle: function(style, callback) {
-            $.require(this.options.path+'theme/'+style+'.css', callback);
-        },
-        requireMode: function(mode, callback) {
-            $.require(this.options.path+'mode/'+mode+'.js', callback);
-        }
-    });
-    
     var Stream = function(string) {
         if (!(this instanceof Stream)) {
             return new Stream(string);
@@ -414,7 +428,7 @@
             return s;
         },
         toString: function() {
-            return this.final;
+            return this.final + this.base;
         }
     };
     
@@ -478,7 +492,7 @@
         parse: function(str) {
             str = typeof str === 'string' ? new Stream(str) : str instanceof Stream ? str : this.stream != null ? this.stream : new Stream('');
             var p = this.fn(str);
-            return p instanceof Stream ? p.final.split(/\n/g) : typeof p === 'string' ? p.split(/\n/g) : '';
+            return p instanceof Stream ? p.toString().split(/\n/g) : typeof p === 'string' ? p.split(/\n/g) : '';
         },
         fn: function(stream) {
             stream = stream || this.stream;

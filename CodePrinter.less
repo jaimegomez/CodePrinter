@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.2.2
+*   version     0.2.3
 */
 
 @backgroundColor:       rgb(255,255,255);
@@ -11,7 +11,9 @@
 @gradientEndColor:      rgb(250,250,250);
 @paddingY:              5px;
 @paddingX:              15px;
+@font:                  Menlo, Monaco, monospace, Courier;
 @fontSize:              12px;
+@lineHeight:            16px;
 @lineTransition:        .2s;
 @indentBorder:          1px dotted rgb(200,200,200);
     
@@ -41,6 +43,7 @@
 	    .block;
 	    .margins(-@paddingY 0, @paddingY @paddingX);
 	    .background(transparent);
+        .sizing(content-box);
         border-width:0;
 	    color:transparent;
 	    resize:none;
@@ -70,14 +73,13 @@
     	    .size(auto, auto);
     	    .margins(0, 0 @paddingX);
             .transition(@lineTransition);
-    	    min-height:18px;
             color:inherit;
 	    }
 	}
 	.cp-counter {
     	.inline-block;
     	.vertical-top;
-    	.margins(0, 5px 0);
+    	.margins(0 0 -50000px, 5px 0 50000px);
     	.size(auto, auto);
         .linear-gradient(right, @gradientStartColor, @gradientEndColor);
         .border(@borderColor, 0 1px 0 0);
@@ -135,14 +137,23 @@
         }
 	}
 	
-	.cp-overlay pre, .cp-source, .cp-counter {
-    	font-family:Menlo;
+	.cp-overlay, .cp-source, .cp-counter {
+    	font-family:@font;
         font-size:@fontSize;
-	    line-height:18px;
         word-break:normal;
         word-spacing:0px;
         word-wrap:normal;
 	}
+    .cp-overlay pre, .cp-source, .cp-counter {
+        line-height:@lineHeight;
+    }
+    .cp-overlay pre, .cp-counter li {
+        font-family:inherit;
+        font-size:inherit;
+        word-break:inherit;
+        word-spacing:inherit;
+        word-wrap:inherit;
+    }
     .cp-wrapper + .cp-infobar {
         border-width:1px 0 0 0;
     }
@@ -152,7 +163,8 @@
         box-shadow:0 0 1px 1px rgba(51,153,255,0.5);
     }
     .cp-tab {
-        margin-left:-1px;
+        .margins(0 0 0 -1px, 0);
+        border-color:transparent;
         border-left:@indentBorder;
     }
     
@@ -164,6 +176,7 @@
     .cp-operator { color:#333; }
     .cp-variable { color:#1a19ff; }
     .cp-keyword { color:#8959a8; }
+    .cp-control { color:#8959a8; }
     .cp-boolean { color:#f5871f; }
     .cp-empty-value { color:#f5871f; }
     .cp-special { color:green; }
