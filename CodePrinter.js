@@ -102,9 +102,9 @@
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase());
             source.html(this.getSourceValue());
-            self.adjustTextareaSize();
             
             if (source.tag() === 'textarea') {
+                self.adjustTextarea();
                 self.prepareWriter();
             }
             
@@ -225,14 +225,12 @@
             
             return { height: h, width: w };
         },
-        adjustTextareaSize: function() {
+        adjustTextarea: function() {
             var tx = this.source, item = tx.item();
-            if (tx.tag() === 'textarea') {
-                tx.width(0);
-                tx.width(item.scrollWidth - tx.paddingWidth());
-                tx.height(0);
-                tx.height(item.scrollHeight - tx.paddingHeight());
-            }
+            tx.width(0);
+            tx.width(item.scrollWidth - tx.paddingWidth());
+            tx.height(0);
+            tx.height(item.scrollHeight - tx.paddingHeight());
         },
         unselectLine: function() {
             if (this.activeLine.pre) {
