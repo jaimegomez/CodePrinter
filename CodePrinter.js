@@ -34,7 +34,7 @@
         return self;
     };
     
-    CodePrinter.version = '0.2.2';
+    CodePrinter.version = '0.2.3';
     
     CodePrinter.defaults = {
         path: '',
