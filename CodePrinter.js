@@ -87,11 +87,10 @@
             if (options.fontSize != 12 && options.fontSize > 0) {
                 overlay.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) });
             }
-            
             if (options.lineHeight != 16 && options.lineHeight > 0) {
-                $.stylesheet.insert('#'+id+' .cp-overlay pre, #'+id+' .cp-counter, #'+id+' .cp-source', 'line-height:'+options.lineHeight+'px;');
+                id = '#'+id+' .cp-';
+                $.stylesheet.insert(id+'overlay pre, '+id+'counter, '+id+'source', 'line-height:'+options.lineHeight+'px;');
             }
-            
             if (options.width != 'auto') {
                 self.mainElement.css({ width: parseInt(options.width) });
             }
@@ -101,8 +100,8 @@
             
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase());
-            self.adjustTextareaSize();
             source.html(this.getSourceValue());
+            self.adjustTextareaSize();
             
             if (options.highlightBrackets) {
                 overlay.delegate('click', '.cp-bracket', function() {
@@ -186,9 +185,9 @@
             var tx = this.source, item = tx.item();
             if (tx.tag() === 'textarea') {
                 tx.width(0);
-                tx.width(item.scrollWidth);
+                tx.width(item.scrollWidth - tx.paddingWidth());
                 tx.height(0);
-                tx.height(item.scrollHeight);
+                tx.height(item.scrollHeight - tx.paddingHeight());
             }
         },
         unselectLine: function() {
@@ -429,7 +428,7 @@
             return s;
         },
         toString: function() {
-            return this.final;
+            return this.final + this.base;
         }
     };
     
@@ -493,7 +492,7 @@
         parse: function(str) {
             str = typeof str === 'string' ? new Stream(str) : str instanceof Stream ? str : this.stream != null ? this.stream : new Stream('');
             var p = this.fn(str);
-            return p instanceof Stream ? p.final.split(/\n/g) : typeof p === 'string' ? p.split(/\n/g) : '';
+            return p instanceof Stream ? p.toString().split(/\n/g) : typeof p === 'string' ? p.split(/\n/g) : '';
         },
         fn: function(stream) {
             stream = stream || this.stream;
