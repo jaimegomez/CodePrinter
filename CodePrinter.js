@@ -50,7 +50,7 @@
         scrollable: true,
         highlightBrackets: false,
         width: 'auto',
-        maxHeight: 300,
+        maxHeight: null,
         randomIDLength: 7
     };
     
@@ -95,8 +95,10 @@
             if (options.width != 'auto') {
                 self.mainElement.css({ width: parseInt(options.width) });
             }
+            if (options.maxHeight > 0) {
+                self.wrapper.add(self.counter.element).css({ height: parseInt(options.maxHeight) });
+            }
             
-            self.wrapper.add(self.counter.element).css({ height: options.maxHeight });
             overlay.inheritStyle(['line-height'], source);
             overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase());
             self.adjustTextareaSize();
