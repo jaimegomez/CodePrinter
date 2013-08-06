@@ -42,11 +42,12 @@
         fontSize: 12,
         lineHeight: 16,
         counter: true,
-        infobar: true,
+        infobar: false,
         infobarOnTop: true,
         showIndent: true,
         scrollable: true,
         highlightBrackets: false,
+        highlightCurrentLine: true,
         blinkCaret: true,
         autoScroll: true,
         width: 'auto',
@@ -184,8 +185,36 @@
                         this.interval = clearInterval(this.interval);
                     }
                     caret.element.hide();
+                    self.unselectLine();
                 },
-                keyup: function() {
+                keydown: function(e) {
+                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
+                    switch (k) {
+                        case 8:
+                            var cL = self.getCurrentLine();
+                            if (cL.textBeforeCursor === '') {
+                                self.overlay.remove(cL.line);
+                            }
+                            break;
+                        case 9:
+                            self.addBeforeCursor(Array(self.options.tabWidth+1).join(' '));
+                            return e.cancel();
+                    }
+                },
+                keyup: function(e) {
+                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
+                    switch (k) {
+                        case 13:
+                            self.overlay.insert(self.getCurrentLine().line);
+                            break;
+                        case 37:
+                        case 38:
+                        case 39:
+                        case 40:
+                            caret.reload();
+                            return true;
+                    }
+                    self.adjust();
                     self.print();
                     caret.reload();
                 }
@@ -346,21 +375,9 @@
             var array = this.getSourceValue().split('\n');
             return array[line];
         },
-        getCursorPosition: function() {
-            var source = this.source, cL, tsize,
-                y = 0,
-                x = 0,
-                h = 0;
         addBeforeCursor: function(text) {
             var source = this.source.item();
             
-            source.focus();
-            cL = this.getCurrentLine();
-            tsize = this.getTextSize(cL.textBeforeCursor);
-            x = tsize.width + source.total('paddingLeft', 'borderLeftWidth') - source.scrollLeft();
-            y = cL.line * (this.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth') - source.scrollTop();
-            h = tsize.height;
-            return { x: parseInt(x), y: parseInt(y), height: parseInt(h) };
             if (source.setSelectionRange) {
                 var s = source.selectionStart,
                     e = source.selectionEnd;
@@ -386,27 +403,40 @@
             var root = this.root,
                 pos = this.getPosition();
             
-            this.element.show().css({ left: pos.x, top: pos.y - 1, height: root.sizes.lineHeight + 2 });
+            this.element.show().css({ left: pos.x, top: pos.y, height: root.sizes.lineHeight });
             
-            if (pos.x + 30 > root.source.width()) {
-                root.source.item().scrollLeft += 100;
+            if (root.options.highlightCurrentLine) {
+                root.selectLine(pos.line);
             }
-            if (pos.y + 30 > root.source.height()) {
-                root.source.item().scrollTop += 100;
+            if (root.options.autoScroll) {
+                var wrapper = root.wrapper.item();
+                
+                if (pos.x - 30 < wrapper.scrollLeft) {
+                    wrapper.scrollLeft -= 30;
+                } else if (pos.x + 30 > wrapper.clientWidth) {
+                    wrapper.scrollLeft += 30;
+                }
+                if (pos.y - 30 < wrapper.scrollTop) {
+                    wrapper.scrollTop -= 30;
+                } else if (pos.y + 30 > wrapper.clientHeight) {
+                    wrapper.scrollTop += 30;
+                }
             }
         },
         getPosition: function() {
             var root = this.root,
                 source = root.source,
-                y = 0, x = 0, h = 0, cL, tsize;
+                y = 0, x = 0, cL, tsize;
             
             source.focus();
             cL = root.getCurrentLine();
             tsize = root.getTextSize(cL.textBeforeCursor);
-            x = tsize.width + source.total('paddingLeft', 'borderLeftWidth') - source.scrollLeft();
-            y = cL.line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth') - source.scrollTop();
-            h = tsize.height;
-            return { x: parseInt(x), y: parseInt(y), height: parseInt(h) };
+            x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
+            y = cL.line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
+            return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: cL.line };
+        }
+    };
+    
     var Overlay = function(cp) {
         this.element = $.create('div.cp-overlay');
         this.lines = $([]);
@@ -699,7 +729,7 @@
     
     function decodeEntities(text) {
         return $.create('div').html(text).text();
-    }
+    };
     function encodeEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
     };
