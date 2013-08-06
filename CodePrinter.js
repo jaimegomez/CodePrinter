@@ -12,21 +12,19 @@
         var self = this,
             mainElement = $.create('div.codeprinter'),
             container = $.create('div.cp-container'),
-            wrapper = $.create('div.cp-wrapper'),
-            overlay = $.create('div.cp-overlay');
+            wrapper = $.create('div.cp-wrapper');
         
         self.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
         
         object.wrap(wrapper);
         wrapper.wrap(container);
         container.wrap(mainElement);
-        wrapper.append(overlay);
         
         self.mainElement = mainElement;
         self.container = container;
         self.wrapper = wrapper;
-        self.overlay = overlay;
         self.source = object.addClass('cp-source');
+        self.overlay = new Overlay(self);
         
         self.prepare();
         self.print();
@@ -34,7 +32,7 @@
         return self;
     };
     
-    CodePrinter.version = '0.2.3';
+    CodePrinter.version = '0.3.0';
     
     CodePrinter.defaults = {
         path: '',
@@ -44,13 +42,16 @@
         fontSize: 12,
         lineHeight: 16,
         counter: true,
-        infobar: true,
+        infobar: false,
         infobarOnTop: true,
         showIndent: true,
         scrollable: true,
         highlightBrackets: false,
+        highlightCurrentLine: true,
+        blinkCaret: true,
+        autoScroll: true,
         width: 'auto',
-        maxHeight: null,
+        height: 'auto',
         randomIDLength: 7
     };
     
@@ -59,7 +60,7 @@
         prepare: function() {
             var self = this,
                 source = self.source,
-                overlay = self.overlay,
+                overlay = self.overlay.element,
                 options = self.options,
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
@@ -91,17 +92,19 @@
                 id = '#'+id+' .cp-';
                 $.stylesheet.insert(id+'overlay pre, '+id+'counter, '+id+'source', 'line-height:'+options.lineHeight+'px;');
             }
-            if (options.width != 'auto') {
+            if (options.width > 0) {
                 self.mainElement.css({ width: parseInt(options.width) });
             }
-            if (options.maxHeight > 0) {
-                self.wrapper.add(self.counter.element).css({ height: parseInt(options.maxHeight) });
+            if (options.height > 0) {
+                self.container.css({ height: parseInt(options.height) });
+            }
+            if (source.tag() === 'textarea') {
+                self.prepareWriter();
             }
             
-            overlay.inheritStyle(['line-height'], source);
-            overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase());
-            source.html(this.getSourceValue());
-            self.adjustTextareaSize();
+            overlay.addClass('cp-'+options.mode.toLowerCase());
+            source.html(encodeEntities(this.getSourceValue()));
+            self.adjust();
             
             if (options.highlightBrackets) {
                 overlay.delegate('click', '.cp-bracket', function() {
@@ -154,6 +157,73 @@
                 });
             }
         },
+        prepareWriter: function() {
+            var self = this,
+                caret = new Caret(self);
+            
+            self.source.on({
+                click: function() {
+                    caret.reload();
+                },
+                focus: function() {
+                    var a = true;
+                    caret.element.show();
+                    if (self.options.blinkCaret) {
+                        this.interval = setInterval(function() {
+                            if (a) {
+                                caret.element.hide();
+                                a = false;
+                            } else {
+                                caret.element.show();
+                                a = true;
+                            }
+                        }, 400);
+                    }
+                },
+                blur: function() {
+                    if (this.interval) {
+                        this.interval = clearInterval(this.interval);
+                    }
+                    caret.element.hide();
+                    self.unselectLine();
+                },
+                keydown: function(e) {
+                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
+                    switch (k) {
+                        case 8:
+                            var cL = self.getCurrentLine();
+                            if (cL.textBeforeCursor === '') {
+                                self.overlay.remove(cL.line);
+                            }
+                            break;
+                        case 9:
+                            self.addBeforeCursor(Array(self.options.tabWidth+1).join(' '));
+                            return e.cancel();
+                    }
+                },
+                keyup: function(e) {
+                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
+                    switch (k) {
+                        case 13:
+                            self.overlay.insert(self.getCurrentLine().line);
+                            break;
+                        case 37:
+                        case 38:
+                        case 39:
+                        case 40:
+                            caret.reload();
+                            return true;
+                    }
+                    self.adjust();
+                    self.print();
+                    caret.reload();
+                }
+            });
+            
+            self.caret = caret;
+            self.isWritable = true;
+            self.extend(Writer);
+        },
         measureSizes: function() {
             var sizes = this.sizes,
                 source = this.source;
@@ -181,13 +251,18 @@
             
             return { height: h, width: w };
         },
-        adjustTextareaSize: function() {
-            var tx = this.source, item = tx.item();
-            if (tx.tag() === 'textarea') {
-                tx.width(0);
-                tx.width(item.scrollWidth - tx.paddingWidth());
-                tx.height(0);
-                tx.height(item.scrollHeight - tx.paddingHeight());
+        adjust: function() {
+            if (this.isWritable) {
+                var wrapper = this.wrapper,
+                    source = this.source,
+                    sW, sH, wW, wH;
+                
+                source.css({ width: 0, height: 0 });
+                sW = source.scrollWidth() - source.paddingWidth()/2;
+                sH = source.scrollHeight() - source.paddingHeight();
+                wW = wrapper.clientWidth() - source.paddingWidth();
+                wH = wrapper.clientHeight() - source.paddingHeight();
+                source.css({ width: sW < wW ? wW : sW, height: sH < wH ? wH : sH });
             }
         },
         unselectLine: function() {
@@ -197,13 +272,14 @@
         },
         selectLine: function(l) {
             this.unselectLine();
-            this.activeLine.pre = this.overlay.children().eq(l).addClass('cp-activeLine');
+            this.activeLine.pre = this.overlay.lines.eq(l).addClass('cp-activeLine');
             if (this.counter) {
                 this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
             }
         },
         getSourceValue: function() {
-            return this.source.html().replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
+            var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
+            return value.replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
         },
         print: function(mode) {
             if (!mode) {
@@ -212,8 +288,8 @@
             
             var source = this.source,
                 overlay = this.overlay,
-                value = decodeEntities(this.getSourceValue()),
-                pre = overlay.children('pre'),
+                value = this.getSourceValue(),
+                pre = overlay.lines,
                 parsed, j = -1;
             
             CodePrinter.requireMode(mode, function(ModeObject) {
@@ -224,17 +300,15 @@
                         parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                     }
                     if (j < pre.length) {
-                        pre.eq(j).html(parsed[j] || ' ');
+                        overlay.set(j, parsed[j]);
                     } else {
-                        var p = $.create('pre').html(parsed[j] || ' ');
-                        pre.push(p);
-                        overlay.append(p);
+                        overlay.insert(j, parsed[j]);
                     }
                 }
                 
                 if (parsed.length < pre.length) {
                     for (var i = parsed.length; i < pre.length; i++) {
-                        pre.eq(i).remove();
+                        overlay.remove(i);
                     }
                 }
                 
@@ -256,6 +330,146 @@
             $.require(this.options.path+'mode/'+mode+'.js', callback);
         }
     });
+    
+    var Writer = {
+        getTextSize: function(text) {
+            if (text == null) text = 'c';
+            var h = 0, w = 0,
+                styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing'],
+                tmpdiv = $.create('div');
+            
+            this.mainElement.append(tmpdiv.text(text));
+            tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
+            tmpdiv.inheritStyle(styles, this.source);
+            h = tmpdiv.height(),
+            w = tmpdiv.width();
+            tmpdiv.remove();
+            
+            return { height: h, width: w };
+        },
+        getCurrentLine: function() {
+            var ta = this.source.item();
+            if (ta.setSelectionRange) {
+                var sS = ta.selectionStart,
+                    sE = ta.selectionEnd,
+                    text = ta.value.substring(0, sS),
+                    end = ta.value.substr(sE).search(/\n/),
+                    start = -1, line = 0, textLine;
+                
+                if (text.match(/\n/g)) {
+                    var line = text.match(/\n/g).length,
+                        start = text.search(/\n[^\n]*$/g);
+                    
+                    if (start != -1) {
+                        text = text.substr(start);
+                    }
+                    text = text.replace(/\n/g,'');
+                }
+                textLine = ta.value.substring(start+1, sE+end);
+                
+                return { line: line, textBeforeCursor: text, textAtLine: textLine };
+            }
+            return { line: 0, textBeforeCursor: '', textAtLine: '' };
+        },
+        getTextAtLine: function(line) {
+            var array = this.getSourceValue().split('\n');
+            return array[line];
+        },
+        addBeforeCursor: function(text) {
+            var source = this.source.item();
+            
+            if (source.setSelectionRange) {
+                var s = source.selectionStart,
+                    e = source.selectionEnd;
+                
+                source.value = source.value.substring(0, s) + text + source.value.substr(e);
+                source.setSelectionRange(s + text.length, s + text.length);
+                source.focus();
+            } else if (this.createTextRange) {
+                document.selection.createRange().text = text;
+            }
+        }
+    };
+    
+    var Caret = function(cp) {
+        this.element = $.create('div.cp-caret');
+        this.root = cp;
+        cp.wrapper.append(this.element);
+        
+        return this;
+    };
+    Caret.prototype = {
+        reload: function() {
+            var root = this.root,
+                pos = this.getPosition();
+            
+            this.element.show().css({ left: pos.x, top: pos.y, height: root.sizes.lineHeight });
+            
+            if (root.options.highlightCurrentLine) {
+                root.selectLine(pos.line);
+            }
+            if (root.options.autoScroll) {
+                var wrapper = root.wrapper.item();
+                
+                if (pos.x - 30 < wrapper.scrollLeft) {
+                    wrapper.scrollLeft -= 30;
+                } else if (pos.x + 30 > wrapper.clientWidth) {
+                    wrapper.scrollLeft += 30;
+                }
+                if (pos.y - 30 < wrapper.scrollTop) {
+                    wrapper.scrollTop -= 30;
+                } else if (pos.y + 30 > wrapper.clientHeight) {
+                    wrapper.scrollTop += 30;
+                }
+            }
+        },
+        getPosition: function() {
+            var root = this.root,
+                source = root.source,
+                y = 0, x = 0, cL, tsize;
+            
+            source.focus();
+            cL = root.getCurrentLine();
+            tsize = root.getTextSize(cL.textBeforeCursor);
+            x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
+            y = cL.line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
+            return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: cL.line };
+        }
+    };
+    
+    var Overlay = function(cp) {
+        this.element = $.create('div.cp-overlay');
+        this.lines = $([]);
+        this.root = cp;
+        cp.wrapper.append(this.element);
+        
+        return this;
+    };
+    Overlay.prototype = {
+        set: function(eq, content) {
+            if (typeof eq === 'number' && typeof content === 'string') {
+                this.lines.eq(eq).html(content || ' ');
+            }
+        },
+        insert: function(eq, content) {
+            var pre = $.create('pre', content || ' ');
+            if (typeof eq === 'number' && eq > 0) {
+                eq = parseInt(Math.min(eq, this.lines.length));
+                this.lines.eq(eq-1).after(pre);
+                this.lines.splice(eq, 0, pre.item());
+            } else {
+                this.lines.push(pre.item());
+                this.element.append(pre);
+            }
+            if (this.root.counter) {
+                this.root.counter.increase();
+            }
+        },
+        remove: function(eq) {
+            this.lines.get(eq || 0).remove(true);
+            this.root.counter.decrease();
+        }
+    };
     
     var Counter = function(cp) {
         var self = this;
@@ -515,7 +729,7 @@
     
     function decodeEntities(text) {
         return $.create('div').html(text).text();
-    }
+    };
     function encodeEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
     };
