@@ -12,21 +12,19 @@
         var self = this,
             mainElement = $.create('div.codeprinter'),
             container = $.create('div.cp-container'),
-            wrapper = $.create('div.cp-wrapper'),
-            overlay = $.create('div.cp-overlay');
+            wrapper = $.create('div.cp-wrapper');
         
         self.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
         
         object.wrap(wrapper);
         wrapper.wrap(container);
         container.wrap(mainElement);
-        wrapper.append(overlay);
         
         self.mainElement = mainElement;
         self.container = container;
         self.wrapper = wrapper;
-        self.overlay = overlay;
         self.source = object.addClass('cp-source');
+        self.overlay = new Overlay(self);
         
         self.prepare();
         self.print();
@@ -61,7 +59,7 @@
         prepare: function() {
             var self = this,
                 source = self.source,
-                overlay = self.overlay,
+                overlay = self.overlay.element,
                 options = self.options,
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
@@ -245,7 +243,7 @@
         },
         selectLine: function(l) {
             this.unselectLine();
-            this.activeLine.pre = this.overlay.children().eq(l).addClass('cp-activeLine');
+            this.activeLine.pre = this.overlay.lines.eq(l).addClass('cp-activeLine');
             if (this.counter) {
                 this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
             }
@@ -261,8 +259,8 @@
             
             var source = this.source,
                 overlay = this.overlay,
-                value = decodeEntities(this.getSourceValue()),
-                pre = overlay.children('pre'),
+                value = this.getSourceValue(),
+                pre = overlay.lines,
                 parsed, j = -1;
             
             CodePrinter.requireMode(mode, function(ModeObject) {
@@ -273,17 +271,15 @@
                         parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                     }
                     if (j < pre.length) {
-                        pre.eq(j).html(parsed[j] || ' ');
+                        overlay.set(j, parsed[j]);
                     } else {
-                        var p = $.create('pre').html(parsed[j] || ' ');
-                        pre.push(p);
-                        overlay.append(p);
+                        overlay.insert(j, parsed[j]);
                     }
                 }
                 
                 if (parsed.length < pre.length) {
                     for (var i = parsed.length; i < pre.length; i++) {
-                        pre.eq(i).remove();
+                        overlay.remove(i);
                     }
                 }
                 
@@ -399,6 +395,37 @@
             y = cL.line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth') - source.scrollTop();
             h = tsize.height;
             return { x: parseInt(x), y: parseInt(y), height: parseInt(h) };
+    var Overlay = function(cp) {
+        this.element = $.create('div.cp-overlay');
+        this.lines = $([]);
+        this.root = cp;
+        cp.wrapper.append(this.element);
+        
+        return this;
+    };
+    Overlay.prototype = {
+        set: function(eq, content) {
+            if (typeof eq === 'number' && typeof content === 'string') {
+                this.lines.eq(eq).html(content || ' ');
+            }
+        },
+        insert: function(eq, content) {
+            var pre = $.create('pre', content || ' ');
+            if (typeof eq === 'number' && eq > 0) {
+                eq = parseInt(Math.min(eq, this.lines.length));
+                this.lines.eq(eq-1).after(pre);
+                this.lines.splice(eq, 0, pre.item());
+            } else {
+                this.lines.push(pre.item());
+                this.element.append(pre);
+            }
+            if (this.root.counter) {
+                this.root.counter.increase();
+            }
+        },
+        remove: function(eq) {
+            this.lines.get(eq || 0).remove(true);
+            this.root.counter.decrease();
         }
     };
     
