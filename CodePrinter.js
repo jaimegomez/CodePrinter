@@ -351,6 +351,8 @@
                 y = 0,
                 x = 0,
                 h = 0;
+        addBeforeCursor: function(text) {
+            var source = this.source.item();
             
             source.focus();
             cL = this.getCurrentLine();
@@ -359,6 +361,16 @@
             y = cL.line * (this.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth') - source.scrollTop();
             h = tsize.height;
             return { x: parseInt(x), y: parseInt(y), height: parseInt(h) };
+            if (source.setSelectionRange) {
+                var s = source.selectionStart,
+                    e = source.selectionEnd;
+                
+                source.value = source.value.substring(0, s) + text + source.value.substr(e);
+                source.setSelectionRange(s + text.length, s + text.length);
+                source.focus();
+            } else if (this.createTextRange) {
+                document.selection.createRange().text = text;
+            }
         }
     };
     
