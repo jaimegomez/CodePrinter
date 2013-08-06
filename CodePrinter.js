@@ -50,8 +50,9 @@
         scrollable: true,
         highlightBrackets: false,
         blinkCaret: true,
+        autoScroll: true,
         width: 'auto',
-        maxHeight: null,
+        height: 'auto',
         randomIDLength: 7
     };
     
@@ -92,21 +93,19 @@
                 id = '#'+id+' .cp-';
                 $.stylesheet.insert(id+'overlay pre, '+id+'counter, '+id+'source', 'line-height:'+options.lineHeight+'px;');
             }
-            if (options.width != 'auto') {
+            if (options.width > 0) {
                 self.mainElement.css({ width: parseInt(options.width) });
             }
-            if (options.maxHeight > 0) {
-                self.wrapper.add(self.counter.element).css({ height: parseInt(options.maxHeight) });
+            if (options.height > 0) {
+                self.container.css({ height: parseInt(options.height) });
             }
-            
-            overlay.inheritStyle(['line-height'], source);
-            overlay.css({ position: 'absolute' }).addClass('cp-'+options.mode.toLowerCase());
-            source.html(this.getSourceValue());
-            
             if (source.tag() === 'textarea') {
-                self.adjustTextarea();
                 self.prepareWriter();
             }
+            
+            overlay.addClass('cp-'+options.mode.toLowerCase());
+            source.html(encodeEntities(this.getSourceValue()));
+            self.adjust();
             
             if (options.highlightBrackets) {
                 overlay.delegate('click', '.cp-bracket', function() {
@@ -225,12 +224,19 @@
             
             return { height: h, width: w };
         },
-        adjustTextarea: function() {
-            var tx = this.source, item = tx.item();
-            tx.width(0);
-            tx.width(item.scrollWidth - tx.paddingWidth());
-            tx.height(0);
-            tx.height(item.scrollHeight - tx.paddingHeight());
+        adjust: function() {
+            if (this.isWritable) {
+                var wrapper = this.wrapper,
+                    source = this.source,
+                    sW, sH, wW, wH;
+                
+                source.css({ width: 0, height: 0 });
+                sW = source.scrollWidth() - source.paddingWidth()/2;
+                sH = source.scrollHeight() - source.paddingHeight();
+                wW = wrapper.clientWidth() - source.paddingWidth();
+                wH = wrapper.clientHeight() - source.paddingHeight();
+                source.css({ width: sW < wW ? wW : sW, height: sH < wH ? wH : sH });
+            }
         },
         unselectLine: function() {
             if (this.activeLine.pre) {

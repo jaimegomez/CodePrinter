@@ -34,16 +34,20 @@
 	    .block;
 	    .size(auto, 100%);
     	.margins(0 0 0 35px, @paddingY 0);
+        .sizing(border-box);
         background:@backgroundColor;
+        border:none;
         position:relative;
 	    z-index:4;
 	    overflow:scroll;
+        overflow-x:scroll;
+        overflow-y:scroll;
 	}
 	.cp-source {
 	    .block;
 	    .margins(-@paddingY 0, @paddingY @paddingX);
-	    .background(transparent);
         .sizing(content-box);
+        background:none;
         border-width:0;
 	    color:transparent;
 	    resize:none;
@@ -65,13 +69,13 @@
         color:inherit;
     	z-index:5;
     	overflow:visible;
-    	position:relative;
+    	position:absolute;
     	top:0; right:0; bottom:0; left:0;
     	
     	pre {
     	    .block;
     	    .size(auto, auto);
-    	    .margins(0, 0 @paddingX);
+    	    .margins(0, 0 0 0 @paddingX);
             .transition(@lineTransition);
             color:inherit;
 	    }
@@ -79,7 +83,7 @@
 	.cp-counter {
     	.inline-block;
     	.vertical-top;
-    	.margins(0 0 -50000px, 5px 0 50000px);
+    	.margins(0, @paddingY 0 30px);
     	.size(auto, auto);
         .linear-gradient(right, @gradientStartColor, @gradientEndColor);
         .border(@borderColor, 0 1px 0 0);
@@ -92,6 +96,7 @@
     	overflow:hidden;
     	counter-reset:cp-counter;
     	position:absolute;
+        top:0; left:0; bottom:0;
     	
     	li {
     	    .margins(0, 0 7px);
@@ -123,7 +128,7 @@
         overflow:hidden;
     	
     	span {
-        	.margins(0 8px);
+        	.margins(0 5px);
     	}
     	a {
             .margins(0 5px, 0);
@@ -140,7 +145,7 @@
         .size(1px, 10px);
         .background(black);
         .shadow(0 0 2px rgba(0,0,0,0.5));
-        position:absolute;
+        .position(absolute, -50px, 0, 0, 0);
         z-index:10;
     }
 	
