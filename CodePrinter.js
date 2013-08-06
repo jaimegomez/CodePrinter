@@ -249,7 +249,7 @@
             }
         },
         getSourceValue: function() {
-            var value = this.isWritable ? this.source.value() : this.source.html();
+            var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
             return value.replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
         },
         print: function(mode) {
