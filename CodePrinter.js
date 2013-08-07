@@ -1,6 +1,6 @@
 /* CodePrinter - Main JavaScript Document */
 
-(function(window, $) {
+window.CodePrinter = (function($) {
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
@@ -753,5 +753,5 @@
         return this;
     };
     
-    window.CodePrinter = CodePrinter;
-})(window, Selector);
+    return CodePrinter;    
+})(Selector);
