@@ -354,6 +354,18 @@ window.CodePrinter = (function($) {
             var array = this.getSourceValue().split('\n');
             return array[line];
         },
+        textBeforeCursor: function(all) {
+            var ta = this.source.item(),
+                v = '';
+            
+            if (ta.setSelectionRange) {
+                v = ta.value.substring(0, ta.selectionStart);
+                if (!all) {
+                    v = v.substring(v.lastIndexOf('\n'));
+                }
+            }
+            return v;
+        },
         addBeforeCursor: function(text) {
             var source = this.source.item();
             
@@ -408,8 +420,8 @@ window.CodePrinter = (function($) {
                 y = 0, x = 0, line, tsize;
             
             source.focus();
-            tsize = root.getTextSize(cL.textBeforeCursor);
             line = root.getCurrentLine();
+            tsize = root.getTextSize(root.textBeforeCursor());
             x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
             y = line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
             return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: line };
