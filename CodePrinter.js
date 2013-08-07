@@ -367,15 +367,15 @@ window.CodePrinter = (function($) {
             return v;
         },
         addBeforeCursor: function(text) {
-            var source = this.source.item();
+            var ta = this.source.item();
             
-            if (source.setSelectionRange) {
-                var s = source.selectionStart,
-                    e = source.selectionEnd;
+            if (ta.setSelectionRange) {
+                var s = ta.selectionStart,
+                    e = ta.selectionEnd;
                 
-                source.value = source.value.substring(0, s) + text + source.value.substr(e);
-                source.setSelectionRange(s + text.length, s + text.length);
-                source.focus();
+                ta.value = ta.value.substring(0, s) + text + ta.value.substr(e);
+                ta.setSelectionRange(s + text.length, s + text.length);
+                ta.focus();
             } else if (this.createTextRange) {
                 document.selection.createRange().text = text;
             }
