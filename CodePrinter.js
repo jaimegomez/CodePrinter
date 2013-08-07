@@ -379,6 +379,34 @@ window.CodePrinter = (function($) {
             } else if (this.createTextRange) {
                 document.selection.createRange().text = text;
             }
+        removeBeforeCursor: function(text) {
+            var ta = this.source.item();
+            
+            if (ta.setSelectionRange) {
+                var s = ta.selectionStart,
+                    e = ta.selectionEnd,
+                    v = ta.value.substring(0, s),
+                    d = v.length - text.length,
+                    t = 1;
+                
+                if (typeof text === 'string' && v.lastIndexOf(text) === d) {
+                    ta.value = v.substring(0, d) + ta.value.substr(e);
+                    ta.setSelectionRange(s - text.length, s - text.length);
+                } else if (typeof text === 'number') {
+                    ta.value = v.substring(0, s - text) + ta.value.substr(e);
+                    ta.setSelectionRange(s - text, s - text);
+                } else {
+                    t = 0;
+                }
+                
+                if (t) {
+                    ta.focus();
+                    this.print();
+                    this.caret.reload();
+                    return true;
+                }
+            }
+            return false;
         }
     };
     
