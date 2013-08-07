@@ -348,28 +348,7 @@ window.CodePrinter = (function($) {
             return { height: h, width: w };
         },
         getCurrentLine: function() {
-            var ta = this.source.item();
-            if (ta.setSelectionRange) {
-                var sS = ta.selectionStart,
-                    sE = ta.selectionEnd,
-                    text = ta.value.substring(0, sS),
-                    end = ta.value.substr(sE).search(/\n/),
-                    start = -1, line = 0, textLine;
-                
-                if (text.match(/\n/g)) {
-                    var line = text.match(/\n/g).length,
-                        start = text.search(/\n[^\n]*$/g);
-                    
-                    if (start != -1) {
-                        text = text.substr(start);
-                    }
-                    text = text.replace(/\n/g,'');
-                }
-                textLine = ta.value.substring(start+1, sE+end);
-                
-                return { line: line, textBeforeCursor: text, textAtLine: textLine };
-            }
-            return { line: 0, textBeforeCursor: '', textAtLine: '' };
+            return this.textBeforeCursor(true).split('\n').length - 1;
         },
         getTextAtLine: function(line) {
             var array = this.getSourceValue().split('\n');
@@ -426,14 +405,14 @@ window.CodePrinter = (function($) {
         getPosition: function() {
             var root = this.root,
                 source = root.source,
-                y = 0, x = 0, cL, tsize;
+                y = 0, x = 0, line, tsize;
             
             source.focus();
-            cL = root.getCurrentLine();
             tsize = root.getTextSize(cL.textBeforeCursor);
+            line = root.getCurrentLine();
             x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
-            y = cL.line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
-            return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: cL.line };
+            y = line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
+            return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: line };
         }
     };
     
