@@ -346,55 +346,87 @@ window.CodePrinter = (function($) {
         },
         textBeforeCursor: function(all) {
             var ta = this.source.item(),
-                v = '';
-            
-            if (ta.setSelectionRange) {
                 v = ta.value.substring(0, ta.selectionStart);
-                if (!all) {
-                    v = v.substring(v.lastIndexOf('\n'));
-                }
+            
+            if (!all) {
+                return v.substring(v.lastIndexOf('\n')+1);
+            }
+            return v;
+        },
+        textAfterCursor: function(all) {
+            var ta = this.source.item(),
+                v = ta.value.substr(ta.selectionStart);
+            
+            if (!all) {
+                return v.substring(0, v.indexOf('\n'));
             }
             return v;
         },
         addBeforeCursor: function(text) {
-            var ta = this.source.item();
-            
-            if (ta.setSelectionRange) {
-                var s = ta.selectionStart,
-                    e = ta.selectionEnd;
+            var ta = this.source.item(),
+                s = ta.selectionStart,
+                e = ta.selectionEnd;
                 
-                ta.value = ta.value.substring(0, s) + text + ta.value.substr(e);
-                ta.setSelectionRange(s + text.length, s + text.length);
-                ta.focus();
-            } else if (this.createTextRange) {
-                document.selection.createRange().text = text;
-            }
+            ta.value = ta.value.substring(0, s) + text + ta.value.substr(e);
+            ta.setSelectionRange(s + text.length, s + text.length);
+            ta.focus();
+            this.print();
+            this.caret.reload();
+        },
         removeBeforeCursor: function(text) {
-            var ta = this.source.item();
+            var ta = this.source.item(),
+                s = ta.selectionStart,
+                e = ta.selectionEnd,
+                v = ta.value.substring(0, e),
+                d = v.length - text.length,
+                t = 1;
             
-            if (ta.setSelectionRange) {
-                var s = ta.selectionStart,
-                    e = ta.selectionEnd,
-                    v = ta.value.substring(0, s),
-                    d = v.length - text.length,
-                    t = 1;
-                
-                if (typeof text === 'string' && v.lastIndexOf(text) === d) {
-                    ta.value = v.substring(0, d) + ta.value.substr(e);
-                    ta.setSelectionRange(s - text.length, s - text.length);
-                } else if (typeof text === 'number') {
-                    ta.value = v.substring(0, s - text) + ta.value.substr(e);
-                    ta.setSelectionRange(s - text, s - text);
-                } else {
-                    t = 0;
-                }
-                
-                if (t) {
-                    ta.focus();
-                    this.print();
-                    this.caret.reload();
-                    return true;
-                }
+            if (s !== e) {
+                text = ta.value.substring(s, e);
+                d = v.length - text.length;
+            }
+            
+            if (typeof text === 'string' && v.lastIndexOf(text) === d) {
+                ta.value = v.substring(0, d) + ta.value.substr(e);
+                ta.setSelectionRange(e - text.length, e - text.length);
+            } else if (typeof text === 'number') {
+                ta.value = v.substring(0, s - text) + ta.value.substr(s);
+                ta.setSelectionRange(s - text, s - text);
+            } else {
+                t = 0;
+            }
+            
+            if (t) {
+                ta.focus();
+                this.print();
+                this.caret.reload();
+                return true;
+            }
+            return false;
+        },
+        removeAfterCursor: function(text) {
+            var ta = this.source.item(),
+                s = ta.selectionStart,
+                v = ta.value.substr(s),
+                t = 1;
+            
+            if (s !== ta.selectionEnd) {
+                text = ta.value.substring(s, ta.selectionEnd);
+            }
+            if (typeof text === 'string' && v.indexOf(text) === 0) {
+                ta.value = ta.value.substring(0, s) + v.substr(text.length);
+            } else if (typeof text === 'number') {
+                ta.value = ta.value.substring(0, s) + v.substr(text);
+            } else {
+                t = 0;
+            }
+            
+            if (t) {
+                ta.setSelectionRange(s, s);
+                ta.focus();
+                this.print();
+                this.caret.reload();
+                return true;
             }
             return false;
         },
