@@ -50,6 +50,7 @@ window.CodePrinter = (function($) {
         highlightCurrentLine: true,
         blinkCaret: true,
         autoScroll: true,
+        indentNewLines: true,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
@@ -311,6 +312,7 @@ window.CodePrinter = (function($) {
                 if (this.infobar) {
                     this.infobar.reload(value.length, j);
                 }
+                this.adjust();
             }, this);
         },
         requireStyle: function(style, callback) {
