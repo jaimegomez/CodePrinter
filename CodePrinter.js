@@ -1,6 +1,6 @@
 /* CodePrinter - Main JavaScript Document */
 
-(function(window, $) {
+window.CodePrinter = (function($) {
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
@@ -32,7 +32,7 @@
         return self;
     };
     
-    CodePrinter.version = '0.3.0';
+    CodePrinter.version = '0.3.1';
     
     CodePrinter.defaults = {
         path: '',
@@ -50,6 +50,7 @@
         highlightCurrentLine: true,
         blinkCaret: true,
         autoScroll: true,
+        indentNewLines: true,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
@@ -189,35 +190,25 @@
                 },
                 keydown: function(e) {
                     var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
-                    switch (k) {
-                        case 8:
-                            var cL = self.getCurrentLine();
-                            if (cL.textBeforeCursor === '') {
-                                self.overlay.remove(cL.line);
-                            }
-                            break;
-                        case 9:
-                            self.addBeforeCursor(Array(self.options.tabWidth+1).join(' '));
-                            return e.cancel();
-                    }
-                },
-                keyup: function(e) {
-                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
-                    switch (k) {
-                        case 13:
-                            self.overlay.insert(self.getCurrentLine().line);
-                            break;
-                        case 37:
-                        case 38:
-                        case 39:
-                        case 40:
+                    setTimeout(function() {
+                        if (k >= 37 && k <= 40) {
                             caret.reload();
                             return true;
-                    }
-                    self.adjust();
-                    self.print();
-                    caret.reload();
-                }
+                        }
+                        if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                            return e.cancel();
+                        }
+                    }, 1);
+                    return keyDownEvent.touch.call(this, k, self, e);
+                },
+                keypress: function(e) {
+                    var k = e.charCode ? e.charCode : e.keyCode,
+                        ch = String.fromCharCode(k);
+                    
+                    self.addBeforeCursor(ch);
+                    keyPressEvent.touch.call(this, k, self, e);
+                    return e.cancel();
+                },
             });
             
             self.caret = caret;
@@ -279,7 +270,7 @@
         },
         getSourceValue: function() {
             var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
-            return value.replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
+            return value.replace(/\t/g, this.tabString());
         },
         print: function(mode) {
             if (!mode) {
@@ -321,6 +312,7 @@
                 if (this.infobar) {
                     this.infobar.reload(value.length, j);
                 }
+                this.adjust();
             }, this);
         },
         requireStyle: function(style, callback) {
@@ -328,6 +320,9 @@
         },
         requireMode: function(mode, callback) {
             $.require(this.options.path+'mode/'+mode+'.js', callback);
+        },
+        tabString: function() {
+            return Array(this.options.tabWidth+1).join(' ');
         }
     });
     
@@ -348,46 +343,103 @@
             return { height: h, width: w };
         },
         getCurrentLine: function() {
-            var ta = this.source.item();
-            if (ta.setSelectionRange) {
-                var sS = ta.selectionStart,
-                    sE = ta.selectionEnd,
-                    text = ta.value.substring(0, sS),
-                    end = ta.value.substr(sE).search(/\n/),
-                    start = -1, line = 0, textLine;
-                
-                if (text.match(/\n/g)) {
-                    var line = text.match(/\n/g).length,
-                        start = text.search(/\n[^\n]*$/g);
-                    
-                    if (start != -1) {
-                        text = text.substr(start);
-                    }
-                    text = text.replace(/\n/g,'');
-                }
-                textLine = ta.value.substring(start+1, sE+end);
-                
-                return { line: line, textBeforeCursor: text, textAtLine: textLine };
-            }
-            return { line: 0, textBeforeCursor: '', textAtLine: '' };
+            return this.textBeforeCursor(true).split('\n').length - 1;
         },
         getTextAtLine: function(line) {
             var array = this.getSourceValue().split('\n');
             return array[line];
         },
-        addBeforeCursor: function(text) {
-            var source = this.source.item();
+        textBeforeCursor: function(all) {
+            var ta = this.source.item(),
+                v = ta.value.substring(0, ta.selectionStart);
             
-            if (source.setSelectionRange) {
-                var s = source.selectionStart,
-                    e = source.selectionEnd;
-                
-                source.value = source.value.substring(0, s) + text + source.value.substr(e);
-                source.setSelectionRange(s + text.length, s + text.length);
-                source.focus();
-            } else if (this.createTextRange) {
-                document.selection.createRange().text = text;
+            if (!all) {
+                return v.substring(v.lastIndexOf('\n')+1);
             }
+            return v;
+        },
+        textAfterCursor: function(all) {
+            var ta = this.source.item(),
+                v = ta.value.substr(ta.selectionStart);
+            
+            if (!all) {
+                return v.substring(0, v.indexOf('\n'));
+            }
+            return v;
+        },
+        addBeforeCursor: function(text) {
+            var ta = this.source.item(),
+                s = ta.selectionStart,
+                e = ta.selectionEnd;
+                
+            ta.value = ta.value.substring(0, s) + text + ta.value.substr(e);
+            ta.setSelectionRange(s + text.length, s + text.length);
+            ta.focus();
+            this.print();
+            this.caret.reload();
+        },
+        removeBeforeCursor: function(text) {
+            var ta = this.source.item(),
+                s = ta.selectionStart,
+                e = ta.selectionEnd,
+                v = ta.value.substring(0, e),
+                d = v.length - text.length,
+                t = 1;
+            
+            if (s !== e) {
+                text = ta.value.substring(s, e);
+                d = v.length - text.length;
+            }
+            
+            if (typeof text === 'string' && v.lastIndexOf(text) === d) {
+                ta.value = v.substring(0, d) + ta.value.substr(e);
+                ta.setSelectionRange(e - text.length, e - text.length);
+            } else if (typeof text === 'number') {
+                ta.value = v.substring(0, s - text) + ta.value.substr(s);
+                ta.setSelectionRange(s - text, s - text);
+            } else {
+                t = 0;
+            }
+            
+            if (t) {
+                ta.focus();
+                this.print();
+                this.caret.reload();
+                return true;
+            }
+            return false;
+        },
+        removeAfterCursor: function(text) {
+            var ta = this.source.item(),
+                s = ta.selectionStart,
+                v = ta.value.substr(s),
+                t = 1;
+            
+            if (s !== ta.selectionEnd) {
+                text = ta.value.substring(s, ta.selectionEnd);
+            }
+            if (typeof text === 'string' && v.indexOf(text) === 0) {
+                ta.value = ta.value.substring(0, s) + v.substr(text.length);
+            } else if (typeof text === 'number') {
+                ta.value = ta.value.substring(0, s) + v.substr(text);
+            } else {
+                t = 0;
+            }
+            
+            if (t) {
+                ta.setSelectionRange(s, s);
+                ta.focus();
+                this.print();
+                this.caret.reload();
+                return true;
+            }
+            return false;
+        },
+        registerInputAction: function(code, fn, onpress) {
+            if (typeof code === 'number' && fn instanceof Function) {
+                onpress !== true ? keyDownEvent[code] = fn : keyPressEvent[code] = fn;
+            }
+            return keyPressEvent;
         }
     };
     
@@ -426,14 +478,14 @@
         getPosition: function() {
             var root = this.root,
                 source = root.source,
-                y = 0, x = 0, cL, tsize;
+                y = 0, x = 0, line, tsize;
             
             source.focus();
-            cL = root.getCurrentLine();
-            tsize = root.getTextSize(cL.textBeforeCursor);
+            line = root.getCurrentLine();
+            tsize = root.getTextSize(root.textBeforeCursor());
             x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
-            y = cL.line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
-            return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: cL.line };
+            y = line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
+            return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: line };
         }
     };
     
@@ -714,6 +766,58 @@
         }
     };
     
+    var keyDownEvent = {
+        touch: function(code, self, event) {
+            if (keyDownEvent[code]) {
+                return keyDownEvent[code].call(this, self, event);
+            }
+        },
+        8: function(self, event) {
+            var t = self.textBeforeCursor(),
+                m = t.match(/ +$/),
+                r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
+            
+            self.removeBeforeCursor(r);
+            self.print();
+            self.caret.reload();
+            return event.cancel();
+        },
+        9: function(self, event) {
+            self.addBeforeCursor(self.tabString());
+            event.cancel();
+        },
+        13: function(self, event) {
+            var t = self.textBeforeCursor().match(/^ +/),
+                a = '\n' + (self.options.indentNewLines && t && t[0] ? t[0] : '');
+            
+            self.addBeforeCursor(a);
+            self.adjust();
+            self.caret.reload();
+            return event.cancel();
+        },
+        27: function(self, event) {
+            return event.cancel();
+        },
+        46: function(self, event) {
+            var t = self.textAfterCursor(),
+                m = t.match(/^ +/),
+                r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
+            
+            self.removeAfterCursor(r);
+            self.print();
+            self.caret.reload();
+            return event.cancel();
+        }
+    };
+    
+    var keyPressEvent = {
+        touch: function(code, self, event) {
+            if (keyPressEvent[code]) {
+                return keyPressEvent[code].call(this, self, event);
+            }
+        }
+    };
+    
     CodePrinter.requireMode = function(req, cb, del) {
         return $.scripts.require('CodePrinter.'+req, cb, del);
     };
@@ -753,5 +857,5 @@
         return this;
     };
     
-    window.CodePrinter = CodePrinter;
-})(window, Selector);
+    return CodePrinter;    
+})(Selector);
