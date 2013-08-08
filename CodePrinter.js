@@ -189,35 +189,25 @@ window.CodePrinter = (function($) {
                 },
                 keydown: function(e) {
                     var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
-                    switch (k) {
-                        case 8:
-                            var cL = self.getCurrentLine();
-                            if (cL.textBeforeCursor === '') {
-                                self.overlay.remove(cL.line);
-                            }
-                            break;
-                        case 9:
-                            self.addBeforeCursor(Array(self.options.tabWidth+1).join(' '));
-                            return e.cancel();
-                    }
-                },
-                keyup: function(e) {
-                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
-                    switch (k) {
-                        case 13:
-                            self.overlay.insert(self.getCurrentLine().line);
-                            break;
-                        case 37:
-                        case 38:
-                        case 39:
-                        case 40:
+                    setTimeout(function() {
+                        if (k >= 37 && k <= 40) {
                             caret.reload();
                             return true;
-                    }
-                    self.adjust();
-                    self.print();
-                    caret.reload();
-                }
+                        }
+                        if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                            return e.cancel();
+                        }
+                    }, 1);
+                    return keyDownEvent.touch.call(this, k, self, e);
+                },
+                keypress: function(e) {
+                    var k = e.charCode ? e.charCode : e.keyCode,
+                        ch = String.fromCharCode(k);
+                    
+                    self.addBeforeCursor(ch);
+                    keyPressEvent.touch.call(this, k, self, e);
+                    return e.cancel();
+                },
             });
             
             self.caret = caret;
@@ -730,6 +720,58 @@ window.CodePrinter = (function($) {
         fn: function(stream) {
             stream = stream || this.stream;
             return stream.final;
+        }
+    };
+    
+    var keyDownEvent = {
+        touch: function(code, self, event) {
+            if (keyDownEvent[code]) {
+                return keyDownEvent[code].call(this, self, event);
+            }
+        },
+        8: function(self, event) {
+            var t = self.textBeforeCursor(),
+                m = t.match(/ +$/),
+                r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
+            
+            self.removeBeforeCursor(r);
+            self.print();
+            self.caret.reload();
+            return event.cancel();
+        },
+        9: function(self, event) {
+            self.addBeforeCursor(self.tabString());
+            event.cancel();
+        },
+        13: function(self, event) {
+            var t = self.textBeforeCursor().match(/^ +/),
+                a = '\n' + (self.options.indentNewLines && t && t[0] ? t[0] : '');
+            
+            self.addBeforeCursor(a);
+            self.adjust();
+            self.caret.reload();
+            return event.cancel();
+        },
+        27: function(self, event) {
+            return event.cancel();
+        },
+        46: function(self, event) {
+            var t = self.textAfterCursor(),
+                m = t.match(/^ +/),
+                r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
+            
+            self.removeAfterCursor(r);
+            self.print();
+            self.caret.reload();
+            return event.cancel();
+        }
+    };
+    
+    var keyPressEvent = {
+        touch: function(code, self, event) {
+            if (keyPressEvent[code]) {
+                return keyPressEvent[code].call(this, self, event);
+            }
         }
     };
     
