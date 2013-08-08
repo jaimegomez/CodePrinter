@@ -397,6 +397,12 @@ window.CodePrinter = (function($) {
                 }
             }
             return false;
+        },
+        registerInputAction: function(code, fn, onpress) {
+            if (typeof code === 'number' && fn instanceof Function) {
+                onpress !== true ? keyDownEvent[code] = fn : keyPressEvent[code] = fn;
+            }
+            return keyPressEvent;
         }
     };
     
