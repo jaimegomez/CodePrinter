@@ -270,7 +270,7 @@ window.CodePrinter = (function($) {
         },
         getSourceValue: function() {
             var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
-            return value.replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
+            return value.replace(/\t/g, this.tabString());
         },
         print: function(mode) {
             if (!mode) {
@@ -320,6 +320,9 @@ window.CodePrinter = (function($) {
         },
         requireMode: function(mode, callback) {
             $.require(this.options.path+'mode/'+mode+'.js', callback);
+        },
+        tabString: function() {
+            return Array(this.options.tabWidth+1).join(' ');
         }
     });
     
