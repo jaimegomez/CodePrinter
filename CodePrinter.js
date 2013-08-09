@@ -367,15 +367,23 @@ window.CodePrinter = (function($) {
             }
             return v;
         },
-        addBeforeCursor: function(text) {
+        insertText: function(text, mv) {
             var ta = this.source.item(),
+                v = ta.value,
                 s = ta.selectionStart,
                 e = ta.selectionEnd;
-                
-            ta.value = ta.value.substring(0, s) + text + ta.value.substr(e);
-            ta.setSelectionRange(s + text.length, s + text.length);
-            ta.focus();
-            this.print();
+            
+            mv = typeof mv === 'number' ? mv : 0;
+            
+            if (mv <= 0) {
+                v = v.substring(0, s + mv) + text + v.substring(s + mv, s) + v.substr(e);
+                s = s + text.length;
+            } else {
+                --mv;
+                v = v.substring(0, s) + v.substring(e, e + mv) + text + v.substr(e + mv);
+            }
+            ta.value = v;
+            ta.setSelectionRange(s, s);
             this.caret.reload();
         },
         removeBeforeCursor: function(text) {
@@ -786,15 +794,14 @@ window.CodePrinter = (function($) {
             return event.cancel();
         },
         9: function(self, event) {
-            self.addBeforeCursor(self.tabString());
+            self.insertText(self.tabString());
             event.cancel();
         },
         13: function(self, event) {
             var t = self.textBeforeCursor().match(/^ +/),
                 a = '\n' + (self.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            self.addBeforeCursor(a);
-            self.adjust();
+            self.insertText(a);
             self.update();
             return event.cancel();
         },
