@@ -205,8 +205,8 @@ window.CodePrinter = (function($) {
                     var k = e.charCode ? e.charCode : e.keyCode,
                         ch = String.fromCharCode(k);
                     
-                    self.addBeforeCursor(ch);
-                    keyPressEvent.touch.call(this, k, self, e);
+                    keyPressEvent.touch.call(this, k, self, e, ch) !== false ? self.insertText(ch) : null;
+                    self.print();
                     return e.cancel();
                 },
             });
