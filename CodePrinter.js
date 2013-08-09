@@ -41,7 +41,7 @@ window.CodePrinter = (function($) {
         tabWidth: 4,
         fontSize: 12,
         lineHeight: 16,
-        counter: true,
+        lineNumbers: true,
         infobar: false,
         infobarOnTop: true,
         showIndent: true,
@@ -74,9 +74,9 @@ window.CodePrinter = (function($) {
             }
             self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
             
-            if (options.counter) {
-                self.counter = new Counter(self);
-            }
+            self.counter = new Counter(self);
+            options.lineNumbers ? self.counter.show() : self.counter.hide();
+            
             if (options.infobar) {
                 self.infobar = new InfoBar(self);
             }
@@ -226,7 +226,6 @@ window.CodePrinter = (function($) {
             sizes.offsetHeight = source.offsetHeight();
             sizes.lineHeight = source.css('lineHeight');
             sizes.infobarHeight = this.infobar ? this.infobar.element.offsetHeight() : 0;
-            sizes.counterWidth = this.counter ? this.counter.element.offsetWidth() : 0;
         },
         getTextSize: function(text) {
             if (text == null) text = 'c';
@@ -265,9 +264,7 @@ window.CodePrinter = (function($) {
         selectLine: function(l) {
             this.unselectLine();
             this.activeLine.pre = this.overlay.lines.eq(l).addClass('cp-activeLine');
-            if (this.counter) {
-                this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
-            }
+            this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
         },
         getSourceValue: function() {
             var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
@@ -307,9 +304,7 @@ window.CodePrinter = (function($) {
                 this.lines = j;
                 this.value = value;
                 this.parsed = parsed;
-                if (this.counter) {
-                    this.counter.reload(j);
-                }
+                this.counter.reload(j);
                 if (this.infobar) {
                     this.infobar.reload(value.length, j);
                 }
@@ -540,6 +535,7 @@ window.CodePrinter = (function($) {
         var self = this;
         self.element = $.create('ol.cp-counter');
         self.list = $([]);
+        self.root = cp;
         cp.container.prepend(this.element);
         
         cp.wrapper.on('scroll', function() {
@@ -574,6 +570,14 @@ window.CodePrinter = (function($) {
         },
         decrease: function() {
             this.list.get(0).remove(true);
+        },
+        show: function() {
+            this.element.show();
+            this.root.wrapper.css({ marginLeft: this.element.offsetWidth() });
+        },
+        hide: function() {
+            this.element.hide();
+            this.root.wrapper.css({ marginLeft: 0 });
         }
     };
     
