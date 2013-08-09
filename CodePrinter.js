@@ -440,6 +440,10 @@ window.CodePrinter = (function($) {
                 onpress !== true ? keyDownEvent[code] = fn : keyPressEvent[code] = fn;
             }
             return keyPressEvent;
+        },
+        update: function() {
+            this.print();
+            this.caret.reload();
         }
     };
     
@@ -778,8 +782,7 @@ window.CodePrinter = (function($) {
                 r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
             
             self.removeBeforeCursor(r);
-            self.print();
-            self.caret.reload();
+            self.update();
             return event.cancel();
         },
         9: function(self, event) {
@@ -792,7 +795,7 @@ window.CodePrinter = (function($) {
             
             self.addBeforeCursor(a);
             self.adjust();
-            self.caret.reload();
+            self.update();
             return event.cancel();
         },
         27: function(self, event) {
@@ -804,8 +807,7 @@ window.CodePrinter = (function($) {
                 r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
             
             self.removeAfterCursor(r);
-            self.print();
-            self.caret.reload();
+            self.update();
             return event.cancel();
         }
     };
