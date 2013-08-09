@@ -51,6 +51,7 @@ window.CodePrinter = (function($) {
         blinkCaret: true,
         autoScroll: true,
         indentNewLines: true,
+        insertClosingBrackets: true,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
@@ -824,6 +825,15 @@ window.CodePrinter = (function($) {
             if (keyPressEvent[code]) {
                 return keyPressEvent[code].call(this, self, event);
             }
+        },
+        40: function(self) {
+            self.options.insertClosingBrackets ? self.insertText(')', 1) : null;
+        },
+        91: function(self) {
+            self.options.insertClosingBrackets ? self.insertText(']', 1) : null;
+        },
+        123: function(self) {
+            self.options.insertClosingBrackets ? self.insertText('}', 1) : null;
         }
     };
     
