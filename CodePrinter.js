@@ -77,9 +77,8 @@ window.CodePrinter = (function($) {
             self.counter = new Counter(self);
             options.lineNumbers ? self.counter.show() : self.counter.hide();
             
-            if (options.infobar) {
-                self.infobar = new InfoBar(self);
-            }
+            self.infobar = new InfoBar(self);
+            options.infobar ? self.infobar.show() : self.infobar.hide();
             
             self.measureSizes();
             self.activeLine = {};
@@ -225,7 +224,6 @@ window.CodePrinter = (function($) {
             sizes.offsetWidth = source.offsetWidth();
             sizes.offsetHeight = source.offsetHeight();
             sizes.lineHeight = source.css('lineHeight');
-            sizes.infobarHeight = this.infobar ? this.infobar.element.offsetHeight() : 0;
         },
         getTextSize: function(text) {
             if (text == null) text = 'c';
@@ -305,9 +303,7 @@ window.CodePrinter = (function($) {
                 this.value = value;
                 this.parsed = parsed;
                 this.counter.reload(j);
-                if (this.infobar) {
-                    this.infobar.reload(value.length, j);
-                }
+                this.infobar.reload(value.length, j);
                 this.adjust();
             }, this);
         },
@@ -645,6 +641,12 @@ window.CodePrinter = (function($) {
                 element: el
             };
             return el;
+        },
+        show: function() {
+            this.element.show();
+        },
+        hide: function() {
+            this.element.hide();
         }
     };
     
