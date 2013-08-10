@@ -32,16 +32,17 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.3.1';
+    CodePrinter.version = '0.3.2';
     
     CodePrinter.defaults = {
         path: '',
         mode: 'javascript',
         theme: 'default',
+        caretStyle: 'vertical',
         tabWidth: 4,
         fontSize: 12,
         lineHeight: 16,
-        counter: true,
+        lineNumbers: true,
         infobar: false,
         infobarOnTop: true,
         showIndent: true,
@@ -51,6 +52,7 @@ window.CodePrinter = (function($) {
         blinkCaret: true,
         autoScroll: true,
         indentNewLines: true,
+        insertClosingBrackets: true,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
@@ -73,12 +75,11 @@ window.CodePrinter = (function($) {
             }
             self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
             
-            if (options.counter) {
-                self.counter = new Counter(self);
-            }
-            if (options.infobar) {
-                self.infobar = new InfoBar(self);
-            }
+            self.counter = new Counter(self);
+            options.lineNumbers ? self.counter.show() : self.counter.hide();
+            
+            self.infobar = new InfoBar(self);
+            options.infobar ? self.infobar.show() : self.infobar.hide();
             
             self.measureSizes();
             self.activeLine = {};
@@ -162,6 +163,23 @@ window.CodePrinter = (function($) {
             var self = this,
                 caret = new Caret(self);
             
+            caret.on({
+                reloaded: function(e) {
+                    if (self.options.autoScroll) {
+                        var wrapper = self.wrapper.item(),
+                            x = e.position.x, y = e.position.y;
+                        
+                        x - 30 < wrapper.scrollLeft ? wrapper.scrollLeft -= 50 : x + 30 > wrapper.clientWidth + wrapper.scrollLeft ? wrapper.scrollLeft += 50 : null;
+                        y - 30 < wrapper.scrollTop ? wrapper.scrollTop -= 50 : y + 30 > wrapper.clientHeight + wrapper.scrollTop ? wrapper.scrollTop += 50 : null;
+                    }
+                },
+                'line.changed': function(e) {
+                    if (self.options.highlightCurrentLine) {
+                        self.selectLine(e.current);
+                    }
+                }
+            });
+            
             self.source.on({
                 click: function() {
                     caret.reload();
@@ -205,8 +223,8 @@ window.CodePrinter = (function($) {
                     var k = e.charCode ? e.charCode : e.keyCode,
                         ch = String.fromCharCode(k);
                     
-                    self.addBeforeCursor(ch);
-                    keyPressEvent.touch.call(this, k, self, e);
+                    keyPressEvent.touch.call(this, k, self, e, ch) !== false ? self.insertText(ch) : null;
+                    self.print();
                     return e.cancel();
                 },
             });
@@ -224,8 +242,6 @@ window.CodePrinter = (function($) {
             sizes.offsetWidth = source.offsetWidth();
             sizes.offsetHeight = source.offsetHeight();
             sizes.lineHeight = source.css('lineHeight');
-            sizes.infobarHeight = this.infobar ? this.infobar.element.offsetHeight() : 0;
-            sizes.counterWidth = this.counter ? this.counter.element.offsetWidth() : 0;
         },
         getTextSize: function(text) {
             if (text == null) text = 'c';
@@ -264,9 +280,7 @@ window.CodePrinter = (function($) {
         selectLine: function(l) {
             this.unselectLine();
             this.activeLine.pre = this.overlay.lines.eq(l).addClass('cp-activeLine');
-            if (this.counter) {
-                this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
-            }
+            this.activeLine.li = this.counter.list.eq(l).addClass('cp-activeLine');
         },
         getSourceValue: function() {
             var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
@@ -306,12 +320,8 @@ window.CodePrinter = (function($) {
                 this.lines = j;
                 this.value = value;
                 this.parsed = parsed;
-                if (this.counter) {
-                    this.counter.reload(j);
-                }
-                if (this.infobar) {
-                    this.infobar.reload(value.length, j);
-                }
+                this.counter.reload(j);
+                this.infobar.reload(value.length, j);
                 this.adjust();
             }, this);
         },
@@ -367,15 +377,23 @@ window.CodePrinter = (function($) {
             }
             return v;
         },
-        addBeforeCursor: function(text) {
+        insertText: function(text, mv) {
             var ta = this.source.item(),
+                v = ta.value,
                 s = ta.selectionStart,
                 e = ta.selectionEnd;
-                
-            ta.value = ta.value.substring(0, s) + text + ta.value.substr(e);
-            ta.setSelectionRange(s + text.length, s + text.length);
-            ta.focus();
-            this.print();
+            
+            mv = typeof mv === 'number' ? mv : 0;
+            
+            if (mv <= 0) {
+                v = v.substring(0, s + mv) + text + v.substring(s + mv, s) + v.substr(e);
+                s = s + text.length;
+            } else {
+                --mv;
+                v = v.substring(0, s) + v.substring(e, e + mv) + text + v.substr(e + mv);
+            }
+            ta.value = v;
+            ta.setSelectionRange(s, s);
             this.caret.reload();
         },
         removeBeforeCursor: function(text) {
@@ -440,52 +458,60 @@ window.CodePrinter = (function($) {
                 onpress !== true ? keyDownEvent[code] = fn : keyPressEvent[code] = fn;
             }
             return keyPressEvent;
+        },
+        update: function() {
+            this.print();
+            this.caret.reload();
         }
     };
     
     var Caret = function(cp) {
-        this.element = $.create('div.cp-caret');
+        this.element = $.create('div.cp-caret').addClass('cp-caret-'+cp.options.caretStyle);
         this.root = cp;
         cp.wrapper.append(this.element);
         
         return this;
     };
+    Caret.styles = {
+        underline: function(css, pos) {
+            css.width = pos.width+2;
+            css.top = css.top + pos.height;
+            css.left = css.left - 1;
+            return css;
+        },
+        block: function(css, pos) {
+            css.width = pos.width;
+            css.height = pos.height;
+            return css;
+        }
+    };
     Caret.prototype = {
         reload: function() {
             var root = this.root,
-                pos = this.getPosition();
+                stl = root.options.caretStyle,
+                pos = this.getPosition(),
+                css = { left: pos.x, top: pos.y };
             
-            this.element.show().css({ left: pos.x, top: pos.y, height: root.sizes.lineHeight });
+            Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(root, css, pos) : css.height = pos.height;
+            this.element.show().css(css);
             
-            if (root.options.highlightCurrentLine) {
-                root.selectLine(pos.line);
-            }
-            if (root.options.autoScroll) {
-                var wrapper = root.wrapper.item();
-                
-                if (pos.x - 30 < wrapper.scrollLeft) {
-                    wrapper.scrollLeft -= 30;
-                } else if (pos.x + 30 > wrapper.clientWidth) {
-                    wrapper.scrollLeft += 30;
-                }
-                if (pos.y - 30 < wrapper.scrollTop) {
-                    wrapper.scrollTop -= 30;
-                } else if (pos.y + 30 > wrapper.clientHeight) {
-                    wrapper.scrollTop += 30;
-                }
-            }
+            this.line != pos.line ? this.emit('line.changed', { last: this.line, current: pos.line }) : null;
+            this.line = pos.line;
+            
+            this.emit('reloaded', { position: pos });
         },
         getPosition: function() {
             var root = this.root,
                 source = root.source,
+                text = root.textBeforeCursor(),
                 y = 0, x = 0, line, tsize;
             
             source.focus();
             line = root.getCurrentLine();
-            tsize = root.getTextSize(root.textBeforeCursor());
+            tsize = root.getTextSize(text);
             x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
             y = line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
-            return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: line };
+            return { x: parseInt(x), y: parseInt(y), width: parseInt(root.getTextSize(text.charAt(text.length-1)).width), height: parseInt(tsize.height), line: line };
         }
     };
     
@@ -527,6 +553,7 @@ window.CodePrinter = (function($) {
         var self = this;
         self.element = $.create('ol.cp-counter');
         self.list = $([]);
+        self.root = cp;
         cp.container.prepend(this.element);
         
         cp.wrapper.on('scroll', function() {
@@ -561,6 +588,14 @@ window.CodePrinter = (function($) {
         },
         decrease: function() {
             this.list.get(0).remove(true);
+        },
+        show: function() {
+            this.element.show();
+            this.root.wrapper.css({ marginLeft: this.element.offsetWidth() });
+        },
+        hide: function() {
+            this.element.hide();
+            this.root.wrapper.css({ marginLeft: 0 });
         }
     };
     
@@ -628,6 +663,12 @@ window.CodePrinter = (function($) {
                 element: el
             };
             return el;
+        },
+        show: function() {
+            this.element.show();
+        },
+        hide: function() {
+            this.element.hide();
         }
     };
     
@@ -778,21 +819,19 @@ window.CodePrinter = (function($) {
                 r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
             
             self.removeBeforeCursor(r);
-            self.print();
-            self.caret.reload();
+            self.update();
             return event.cancel();
         },
         9: function(self, event) {
-            self.addBeforeCursor(self.tabString());
+            self.insertText(self.tabString());
             event.cancel();
         },
         13: function(self, event) {
             var t = self.textBeforeCursor().match(/^ +/),
                 a = '\n' + (self.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            self.addBeforeCursor(a);
-            self.adjust();
-            self.caret.reload();
+            self.insertText(a);
+            self.update();
             return event.cancel();
         },
         27: function(self, event) {
@@ -804,8 +843,7 @@ window.CodePrinter = (function($) {
                 r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
             
             self.removeAfterCursor(r);
-            self.print();
-            self.caret.reload();
+            self.update();
             return event.cancel();
         }
     };
@@ -815,6 +853,15 @@ window.CodePrinter = (function($) {
             if (keyPressEvent[code]) {
                 return keyPressEvent[code].call(this, self, event);
             }
+        },
+        40: function(self) {
+            self.options.insertClosingBrackets ? self.insertText(')', 1) : null;
+        },
+        91: function(self) {
+            self.options.insertClosingBrackets ? self.insertText(']', 1) : null;
+        },
+        123: function(self) {
+            self.options.insertClosingBrackets ? self.insertText('}', 1) : null;
         }
     };
     
