@@ -162,6 +162,23 @@ window.CodePrinter = (function($) {
             var self = this,
                 caret = new Caret(self);
             
+            caret.on({
+                reloaded: function(e) {
+                    if (self.options.autoScroll) {
+                        var wrapper = self.wrapper.item(),
+                            x = e.position.x, y = e.position.y;
+                        
+                        x - 30 < wrapper.scrollLeft ? wrapper.scrollLeft -= 50 : x + 30 > wrapper.clientWidth + wrapper.scrollLeft ? wrapper.scrollLeft += 50 : null;
+                        y - 30 < wrapper.scrollTop ? wrapper.scrollTop -= 50 : y + 30 > wrapper.clientHeight + wrapper.scrollTop ? wrapper.scrollTop += 50 : null;
+                    }
+                },
+                'line.changed': function(e) {
+                    if (self.options.highlightCurrentLine) {
+                        self.selectLine(e.current);
+                    }
+                }
+            });
+            
             self.source.on({
                 click: function() {
                     caret.reload();
@@ -461,23 +478,10 @@ window.CodePrinter = (function($) {
             
             this.element.show().css({ left: pos.x, top: pos.y, height: root.sizes.lineHeight });
             
-            if (root.options.highlightCurrentLine) {
-                root.selectLine(pos.line);
-            }
-            if (root.options.autoScroll) {
-                var wrapper = root.wrapper.item();
-                
-                if (pos.x - 30 < wrapper.scrollLeft) {
-                    wrapper.scrollLeft -= 30;
-                } else if (pos.x + 30 > wrapper.clientWidth) {
-                    wrapper.scrollLeft += 30;
-                }
-                if (pos.y - 30 < wrapper.scrollTop) {
-                    wrapper.scrollTop -= 30;
-                } else if (pos.y + 30 > wrapper.clientHeight) {
-                    wrapper.scrollTop += 30;
-                }
-            }
+            this.line != pos.line ? this.emit('line.changed', { last: this.line, current: pos.line }) : null;
+            this.line = pos.line;
+            
+            this.emit('reloaded', { position: pos });
         },
         getPosition: function() {
             var root = this.root,
