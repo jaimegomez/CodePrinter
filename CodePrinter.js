@@ -38,6 +38,7 @@ window.CodePrinter = (function($) {
         path: '',
         mode: 'javascript',
         theme: 'default',
+        caretStyle: 'vertical',
         tabWidth: 4,
         fontSize: 12,
         lineHeight: 16,
@@ -465,18 +466,34 @@ window.CodePrinter = (function($) {
     };
     
     var Caret = function(cp) {
-        this.element = $.create('div.cp-caret');
+        this.element = $.create('div.cp-caret').addClass('cp-caret-'+cp.options.caretStyle);
         this.root = cp;
         cp.wrapper.append(this.element);
         
         return this;
     };
+    Caret.styles = {
+        underline: function(css, pos) {
+            css.width = pos.width+2;
+            css.top = css.top + pos.height;
+            css.left = css.left - 1;
+            return css;
+        },
+        block: function(css, pos) {
+            css.width = pos.width;
+            css.height = pos.height;
+            return css;
+        }
+    };
     Caret.prototype = {
         reload: function() {
             var root = this.root,
-                pos = this.getPosition();
+                stl = root.options.caretStyle,
+                pos = this.getPosition(),
+                css = { left: pos.x, top: pos.y };
             
-            this.element.show().css({ left: pos.x, top: pos.y, height: root.sizes.lineHeight });
+            Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(root, css, pos) : css.height = pos.height;
+            this.element.show().css(css);
             
             this.line != pos.line ? this.emit('line.changed', { last: this.line, current: pos.line }) : null;
             this.line = pos.line;
@@ -486,14 +503,15 @@ window.CodePrinter = (function($) {
         getPosition: function() {
             var root = this.root,
                 source = root.source,
+                text = root.textBeforeCursor(),
                 y = 0, x = 0, line, tsize;
             
             source.focus();
             line = root.getCurrentLine();
-            tsize = root.getTextSize(root.textBeforeCursor());
+            tsize = root.getTextSize(text);
             x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
             y = line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
-            return { x: parseInt(x), y: parseInt(y), height: parseInt(tsize.height), line: line };
+            return { x: parseInt(x), y: parseInt(y), width: parseInt(root.getTextSize(text.charAt(text.length-1)).width), height: parseInt(tsize.height), line: line };
         }
     };
     
