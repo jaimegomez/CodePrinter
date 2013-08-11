@@ -10,9 +10,9 @@ window.CodePrinter = (function($) {
         }
         
         var self = this,
-            mainElement = $.create('div.codeprinter'),
-            container = $.create('div.cp-container'),
-            wrapper = $.create('div.cp-wrapper');
+            mainElement = $(document.createElement('div')).addClass('codeprinter'),
+            container = $(document.createElement('div')).addClass('cp-container'),
+            wrapper = $(document.createElement('div')).addClass('cp-wrapper');
         
         self.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
         
@@ -247,7 +247,7 @@ window.CodePrinter = (function($) {
             if (text == null) text = 'c';
             var h = 0, w = 0,
                 styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing', 'whiteSpace'],
-                tmpdiv = $.create('div');
+                tmpdiv = $(document.createElement('div'));
             
             this.mainElement.append(tmpdiv.text(text));
             tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
@@ -337,21 +337,6 @@ window.CodePrinter = (function($) {
     });
     
     var Writer = {
-        getTextSize: function(text) {
-            if (text == null) text = 'c';
-            var h = 0, w = 0,
-                styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing'],
-                tmpdiv = $.create('div');
-            
-            this.mainElement.append(tmpdiv.text(text));
-            tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
-            tmpdiv.inheritStyle(styles, this.source);
-            h = tmpdiv.height(),
-            w = tmpdiv.width();
-            tmpdiv.remove();
-            
-            return { height: h, width: w };
-        },
         getCurrentLine: function() {
             return this.textBeforeCursor(true).split('\n').length - 1;
         },
@@ -466,7 +451,7 @@ window.CodePrinter = (function($) {
     };
     
     var Caret = function(cp) {
-        this.element = $.create('div.cp-caret').addClass('cp-caret-'+cp.options.caretStyle);
+        this.element = $(document.createElement('div')).addClass('cp-caret cp-caret-'+cp.options.caretStyle);
         this.root = cp;
         cp.wrapper.append(this.element);
         
@@ -516,7 +501,7 @@ window.CodePrinter = (function($) {
     };
     
     var Overlay = function(cp) {
-        this.element = $.create('div.cp-overlay');
+        this.element = $(document.createElement('div')).addClass('cp-overlay');
         this.lines = $([]);
         this.root = cp;
         cp.wrapper.append(this.element);
@@ -530,13 +515,15 @@ window.CodePrinter = (function($) {
             }
         },
         insert: function(eq, content) {
-            var pre = $.create('pre', content || ' ');
+            var pre = document.createElement('pre');
+            pre.innerHTML = content || ' ';
+            
             if (typeof eq === 'number' && eq > 0) {
                 eq = parseInt(Math.min(eq, this.lines.length));
-                this.lines.eq(eq-1).after(pre);
-                this.lines.splice(eq, 0, pre.item());
+                this.lines.eq(-1).after(pre);
+                this.lines.splice(this.lines.length, 0, pre);
             } else {
-                this.lines.push(pre.item());
+                this.lines.push(pre);
                 this.element.append(pre);
             }
             if (this.root.counter) {
@@ -551,7 +538,7 @@ window.CodePrinter = (function($) {
     
     var Counter = function(cp) {
         var self = this;
-        self.element = $.create('ol.cp-counter');
+        self.element = $(document.createElement('ol')).addClass('cp-counter');
         self.list = $([]);
         self.root = cp;
         cp.container.prepend(this.element);
@@ -582,7 +569,7 @@ window.CodePrinter = (function($) {
             }
         },
         increase: function() {
-            var li = $.create('li');
+            var li = $(document.createElement('li'));
             this.list.push(li.item());
             this.element.append(li);
         },
@@ -600,11 +587,11 @@ window.CodePrinter = (function($) {
     };
     
     var InfoBar = function(cp) {
-        var mode = $.create('span.cp-mode').html(cp.options.mode),
-            act = $.create('span.cp-actions'),
-            ch = $.create('span.cp-characters');
+        var mode = $(document.createElement('span')).addClass('cp-mode').html(cp.options.mode),
+            act = $(document.createElement('span')).addClass('cp-actions'),
+            ch = $(document.createElement('span')).addClass('cp-characters');
         
-        this.element = $.create('div.cp-infobar').append(mode, act, ch);
+        this.element = $(document.createElement('div')).addClass('cp-infobar').append(mode, act, ch);
         this.element.actions = act;
         this.element.characters = ch;
         
@@ -656,7 +643,7 @@ window.CodePrinter = (function($) {
             if (this.actions[name] && this.actions[name].element) {
                 this.actions[name].element.off('click', this.actions[name].func);
             }
-            var el = $.create('a.cp-'+name, typeof text === 'string' ? text : name);
+            var el = $(document.createElement('a')).addClass('cp-'+name).html(typeof text === 'string' ? text : name);
             el.on('click', func).appendTo(this.element.actions);
             this.actions[name] = {
                 func: func,
@@ -879,7 +866,9 @@ window.CodePrinter = (function($) {
     };
     
     function decodeEntities(text) {
-        return $.create('div').html(text).text();
+        var d = document.createElement('div');
+        d.innerHTML = text;
+        return d.innerText || d.textContent;
     };
     function encodeEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
