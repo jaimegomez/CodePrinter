@@ -291,24 +291,19 @@ window.CodePrinter = (function($) {
                 mode = this.options.mode;
             }
             
-            var source = this.source,
-                overlay = this.overlay,
-                value = this.getSourceValue(),
-                pre = overlay.lines,
-                parsed, j = -1;
-            
             CodePrinter.requireMode(mode, function(ModeObject) {
+                var overlay = this.overlay,
+                    value = this.getSourceValue(),
+                    pre = overlay.lines,
+                    parsed, j = -1;
+                
                 parsed = ModeObject.parse(value);
                 
                 while (parsed[++j] != null) {
                     if (this.options.showIndent) {
                         parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
                     }
-                    if (j < pre.length) {
-                        overlay.set(j, parsed[j]);
-                    } else {
-                        overlay.insert(j, parsed[j]);
-                    }
+                    overlay.set(j, parsed[j]);
                 }
                 
                 if (parsed.length < pre.length) {
@@ -510,9 +505,7 @@ window.CodePrinter = (function($) {
     };
     Overlay.prototype = {
         set: function(eq, content) {
-            if (typeof eq === 'number' && typeof content === 'string') {
-                this.lines.eq(eq).html(content || ' ');
-            }
+            eq < this.lines.length ? this.lines.eq(eq).html(content || ' ') : this.insert(this.lines.length, content || ' ');
         },
         insert: function(eq, content) {
             var pre = document.createElement('pre');
