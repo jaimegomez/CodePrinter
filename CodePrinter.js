@@ -163,6 +163,9 @@ window.CodePrinter = (function($) {
             var self = this,
                 caret = new Caret(self);
             
+            self.shortcuts = {
+            };
+            
             caret.on({
                 reloaded: function(e) {
                     if (self.options.autoScroll) {
@@ -208,15 +211,19 @@ window.CodePrinter = (function($) {
                 },
                 keydown: function(e) {
                     var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
-                    setTimeout(function() {
-                        if (k >= 37 && k <= 40) {
+                    if (e.ctrlKey && self.shortcuts[k]) {
+                        self.shortcuts[k].call(self, e, this);
+                        return e.cancel();
+                    }
+                    if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                        return e.cancel();
+                    }
+                    if (k >= 37 && k <= 40) {
+                        setTimeout(function() {
                             caret.reload();
-                            return true;
-                        }
-                        if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
-                            return e.cancel();
-                        }
-                    }, 1);
+                        }, 1);
+                        return true;
+                    }
                     return keyDownEvent.touch.call(this, k, self, e);
                 },
                 keypress: function(e) {
