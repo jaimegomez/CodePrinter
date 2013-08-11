@@ -164,6 +164,9 @@ window.CodePrinter = (function($) {
                 caret = new Caret(self);
             
             self.shortcuts = {
+                78: function() {
+                    this.counter.element.item().style.display == 'none' ? this.counter.show() : this.counter.hide();
+                }
             };
             
             caret.on({
