@@ -643,24 +643,6 @@ window.CodePrinter = (function($) {
                     var newWindow = window.open('', '_blank');
                     newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(cp.getSourceValue()) + '</pre>');
                 }
-            },
-            reprint: {
-                func: function() {
-                    cp.print();
-                }
-            },
-            scrollup: {
-                func: function() {
-                    cp.wrapper.item().scrollTop = 0;
-                },
-                text: 'scroll up'
-            },
-            scrolldown: {
-                func: function() {
-                    var w = cp.wrapper.item();
-                    w.scrollTop = w.scrollHeight;
-                },
-                text: 'scroll down'
             }
         };
         
