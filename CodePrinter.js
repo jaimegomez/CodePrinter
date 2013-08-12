@@ -53,6 +53,7 @@ window.CodePrinter = (function($) {
         autoScroll: true,
         indentNewLines: true,
         insertClosingBrackets: true,
+        shortcuts: true,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
@@ -217,7 +218,7 @@ window.CodePrinter = (function($) {
                 },
                 keydown: function(e) {
                     var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
-                    if (e.ctrlKey && self.shortcuts[k]) {
+                    if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
                         self.shortcuts[k].call(self, e, this);
                         return e.cancel();
                     }
@@ -239,7 +240,7 @@ window.CodePrinter = (function($) {
                     keyPressEvent.touch.call(this, k, self, e, ch) !== false ? self.insertText(ch) : null;
                     self.print();
                     return e.cancel();
-                },
+                }
             });
             
             self.caret = caret;
