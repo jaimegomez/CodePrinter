@@ -165,6 +165,22 @@ window.CodePrinter = (function($) {
                 caret = new Caret(self);
             
             self.shortcuts = {
+                37: function() {
+                    this.wrapper.item().scrollLeft = 0;
+                },
+                38: function() {
+                    this.wrapper.item().scrollTop = 0;
+                    this.caret.moveTo(0);
+                },
+                39: function() {
+                    var w = this.wrapper.item();
+                    w.scrollLeft = w.scrollWidth;
+                },
+                40: function() {
+                    var w = this.wrapper.item();
+                    w.scrollTop = w.scrollHeight;
+                    this.caret.moveTo(-1);
+                },
                 73: function() {
                     this.infobar.element.item().style.display == 'none' ? this.infobar.show() : this.infobar.hide();
                 },
