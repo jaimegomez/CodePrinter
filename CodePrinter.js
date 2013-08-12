@@ -277,15 +277,16 @@ window.CodePrinter = (function($) {
             sizes.lineHeight = source.css('lineHeight');
         },
         getTextSize: function(text) {
-            if (text == null) text = 'c';
-            var h = 0, w = 0,
+            var tx = text || 'C',
+                h = 0, w = 0,
                 styles = ['fontSize','fontStyle','fontWeight','fontFamily','textTransform', 'letterSpacing', 'whiteSpace'],
                 tmpdiv = $(document.createElement('div'));
             
-            this.mainElement.append(tmpdiv.text(text));
+            this.mainElement.append(tmpdiv.text(tx));
             tmpdiv.css({ whiteSpace: 'pre', position: 'absolute', left: -1000, top: -1000, display: 'inline-block' });
             tmpdiv.inheritStyle(styles, this.source);
-            h = tmpdiv.height(),
+            h = tmpdiv.height();
+            tmpdiv.text(text);
             w = tmpdiv.width();
             tmpdiv.remove();
             
