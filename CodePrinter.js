@@ -170,6 +170,9 @@ window.CodePrinter = (function($) {
                 },
                 78: function() {
                     this.counter.element.item().style.display == 'none' ? this.counter.show() : this.counter.hide();
+                },
+                82: function() {
+                    this.print();
                 }
             };
             
