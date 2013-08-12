@@ -509,6 +509,15 @@ window.CodePrinter = (function($) {
             x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
             y = line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
             return { x: parseInt(x), y: parseInt(y), width: parseInt(root.getTextSize(text.charAt(text.length-1)).width), height: parseInt(tsize.height), line: line };
+        },
+        moveTo: function(pos, len) {
+            var l = this.root.value.length;
+            pos = (pos || 0) % (l + 1);
+            while (pos < 0) {
+                pos = pos + (l + 1);
+            }
+            this.root.source.item().setSelectionRange(pos, pos + (len || 0));
+            this.reload();
         }
     };
     
