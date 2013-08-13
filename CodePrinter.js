@@ -164,6 +164,8 @@ window.CodePrinter = (function($) {
             var self = this,
                 caret = new Caret(self);
             
+            self.keydownMap = new keydownMap;
+            self.keypressMap = new keypressMap;
             self.shortcuts = new shortcuts;
             
             caret.on({
@@ -224,13 +226,13 @@ window.CodePrinter = (function($) {
                         }, 1);
                         return true;
                     }
-                    return keyDownEvent.touch.call(this, k, self, e);
+                    return self.keydownMap.touch(k, self, e);
                 },
                 keypress: function(e) {
                     var k = e.charCode ? e.charCode : e.keyCode,
                         ch = String.fromCharCode(k);
                     
-                    keyPressEvent.touch.call(this, k, self, e, ch) !== false ? self.insertText(ch) : null;
+                    self.keypressMap.touch(e, self, ch) !== false ? self.insertText(ch) : null;
                     self.print();
                     return e.cancel();
                 }
@@ -786,58 +788,66 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var keyDownEvent = {
+    var keydownMap = function() {};
+    keydownMap.prototype = {
         touch: function(code, self, event) {
-            if (keyDownEvent[code]) {
-                return keyDownEvent[code].call(this, self, event);
+            if (this[code]) {
+                return this[code].call(self, event, code);
             }
         },
-        8: function(self, event) {
-            var t = self.textBeforeCursor(),
+        8: function(e) {
+            var t = this.textBeforeCursor(),
                 m = t.match(/ +$/),
-                r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
+                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            self.removeBeforeCursor(r);
-            self.update();
-            return event.cancel();
+            this.removeBeforeCursor(r);
+            this.update();
+            return e.cancel();
         },
-        9: function(self, event) {
-            self.insertText(self.tabString());
-            event.cancel();
+        9: function(e) {
+            this.insertText(this.tabString());
+            return e.cancel();
         },
-        13: function(self, event) {
-            var t = self.textBeforeCursor().match(/^ +/),
-                a = '\n' + (self.options.indentNewLines && t && t[0] ? t[0] : '');
+        13: function(e) {
+            var t = this.textBeforeCursor().match(/^ +/),
+                a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            self.insertText(a);
-            self.update();
-            return event.cancel();
+            this.insertText(a);
+            this.update();
+            return e.cancel();
         },
-        27: function(self, event) {
-            return event.cancel();
+        27: function(e) {
+            return e.cancel();
         },
-        46: function(self, event) {
-            var t = self.textAfterCursor(),
+        46: function(e) {
+            var t = this.textAfterCursor(),
                 m = t.match(/^ +/),
-                r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
+                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            self.removeAfterCursor(r);
-            self.update();
-            return event.cancel();
+            this.removeAfterCursor(r);
+            this.update();
+            return e.cancel();
         }
     };
     
-    var keyPressEvent = {
+    var keypressMap = function() {};
+    keypressMap.prototype = {
         touch: function(code, self, event) {
-            if (keyPressEvent[code]) {
-                return keyPressEvent[code].call(this, self, event);
+            if (this[code]) {
+                return this[code].call(self, event, code);
             }
         },
-        40: function(self) {
-            self.options.insertClosingBrackets ? self.insertText(')', 1) : null;
+        40: function() {
+            this.options.insertClosingBrackets ? this.insertText(')', 1) : null;
         },
-        91: function(self) {
-            self.options.insertClosingBrackets ? self.insertText(']', 1) : null;
+        91: function() {
+            this.options.insertClosingBrackets ? this.insertText(']', 1) : null;
+        },
+        123: function() {
+            this.options.insertClosingBrackets ? this.insertText('}', 1) : null;
+        }
+    };
+    
     var shortcuts = function() {};
     shortcuts.prototype = {
         37: function() {
