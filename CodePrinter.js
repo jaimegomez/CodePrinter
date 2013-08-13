@@ -443,11 +443,20 @@ window.CodePrinter = (function($) {
             }
             return false;
         },
-        registerInputAction: function(code, fn, onpress) {
-            if (typeof code === 'number' && fn instanceof Function) {
-                onpress !== true ? keyDownEvent[code] = fn : keyPressEvent[code] = fn;
-            }
-            return keyPressEvent;
+        registerKeydown: function(arg) {
+            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
+            this.keydownMap.extend(arg);
+            return this;
+        },
+        registerKeypress: function(arg) {
+            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
+            this.keypressMap.extend(arg);
+            return this;
+        },
+        registerShortcut: function(arg) {
+            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
+            this.shortcuts.extend(arg);
+            return this;
         },
         update: function() {
             this.print();
