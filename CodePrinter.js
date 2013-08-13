@@ -32,7 +32,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.3.3';
+    CodePrinter.version = '0.3.4';
     
     CodePrinter.defaults = {
         path: '',
@@ -164,33 +164,9 @@ window.CodePrinter = (function($) {
             var self = this,
                 caret = new Caret(self);
             
-            self.shortcuts = {
-                37: function() {
-                    this.wrapper.item().scrollLeft = 0;
-                },
-                38: function() {
-                    this.wrapper.item().scrollTop = 0;
-                    this.caret.moveTo(0);
-                },
-                39: function() {
-                    var w = this.wrapper.item();
-                    w.scrollLeft = w.scrollWidth;
-                },
-                40: function() {
-                    var w = this.wrapper.item();
-                    w.scrollTop = w.scrollHeight;
-                    this.caret.moveTo(-1);
-                },
-                73: function() {
-                    this.infobar.element.item().style.display == 'none' ? this.infobar.show() : this.infobar.hide();
-                },
-                78: function() {
-                    this.counter.element.item().style.display == 'none' ? this.counter.show() : this.counter.hide();
-                },
-                82: function() {
-                    this.print();
-                }
-            };
+            self.keydownMap = new keydownMap;
+            self.keypressMap = new keypressMap;
+            self.shortcuts = new shortcuts;
             
             caret.on({
                 reloaded: function(e) {
@@ -250,13 +226,13 @@ window.CodePrinter = (function($) {
                         }, 1);
                         return true;
                     }
-                    return keyDownEvent.touch.call(this, k, self, e);
+                    return self.keydownMap.touch(k, self, e);
                 },
                 keypress: function(e) {
                     var k = e.charCode ? e.charCode : e.keyCode,
                         ch = String.fromCharCode(k);
                     
-                    keyPressEvent.touch.call(this, k, self, e, ch) !== false ? self.insertText(ch) : null;
+                    self.keypressMap.touch(e, self, ch) !== false ? self.insertText(ch) : null;
                     self.print();
                     return e.cancel();
                 }
@@ -377,19 +353,13 @@ window.CodePrinter = (function($) {
             var ta = this.source.item(),
                 v = ta.value.substring(0, ta.selectionStart);
             
-            if (!all) {
-                return v.substring(v.lastIndexOf('\n')+1);
-            }
-            return v;
+            return (typeof all === 'number' ? v.substr(v.length - all) : all !== true ? v.substring(v.lastIndexOf('\n')+1) : v);
         },
         textAfterCursor: function(all) {
             var ta = this.source.item(),
                 v = ta.value.substr(ta.selectionStart);
             
-            if (!all) {
-                return v.substring(0, v.indexOf('\n'));
-            }
-            return v;
+            return (typeof all === 'number' ? v.substring(0, all) : all !== true ? v.substring(0, v.indexOf('\n')) : v);
         },
         insertText: function(text, mv) {
             var ta = this.source.item(),
@@ -467,11 +437,20 @@ window.CodePrinter = (function($) {
             }
             return false;
         },
-        registerInputAction: function(code, fn, onpress) {
-            if (typeof code === 'number' && fn instanceof Function) {
-                onpress !== true ? keyDownEvent[code] = fn : keyPressEvent[code] = fn;
-            }
-            return keyPressEvent;
+        registerKeydown: function(arg) {
+            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
+            this.keydownMap.extend(arg);
+            return this;
+        },
+        registerKeypress: function(arg) {
+            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
+            this.keypressMap.extend(arg);
+            return this;
+        },
+        registerShortcut: function(arg) {
+            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
+            this.shortcuts.extend(arg);
+            return this;
         },
         update: function() {
             this.print();
@@ -488,14 +467,15 @@ window.CodePrinter = (function($) {
     };
     Caret.styles = {
         underline: function(css, pos) {
-            css.width = pos.width+2;
-            css.top = css.top + pos.height;
+            css.width = this.getTextSize(this.textBeforeCursor(1)).width + 2;
+            css.height = 1;
+            css.top = css.top + this.sizes.lineHeight - 1;
             css.left = css.left - 1;
             return css;
         },
         block: function(css, pos) {
-            css.width = pos.width;
-            css.height = pos.height;
+            css.width = this.getTextSize(this.textBeforeCursor(1)).width;
+            css.height = this.sizes.lineHeight;
             return css;
         }
     };
@@ -506,7 +486,7 @@ window.CodePrinter = (function($) {
                 pos = this.getPosition(),
                 css = { left: pos.x, top: pos.y };
             
-            Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(root, css, pos) : css.height = pos.height;
+            Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(root, css, pos) : css.height = root.sizes.lineHeight;
             this.element.show().css(css);
             
             this.line != pos.line ? this.emit('line.changed', { last: this.line, current: pos.line }) : null;
@@ -517,15 +497,14 @@ window.CodePrinter = (function($) {
         getPosition: function() {
             var root = this.root,
                 source = root.source,
-                text = root.textBeforeCursor(),
                 y = 0, x = 0, line, tsize;
             
             source.focus();
             line = root.getCurrentLine();
-            tsize = root.getTextSize(text);
+            tsize = root.getTextSize(root.textBeforeCursor());
             x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
             y = line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
-            return { x: parseInt(x), y: parseInt(y), width: parseInt(root.getTextSize(text.charAt(text.length-1)).width), height: parseInt(tsize.height), line: line };
+            return { x: parseInt(x), y: parseInt(y), line: line };
         },
         moveTo: function(pos, len) {
             var l = this.root.value.length;
@@ -812,61 +791,92 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var keyDownEvent = {
+    var keydownMap = function() {};
+    keydownMap.prototype = {
         touch: function(code, self, event) {
-            if (keyDownEvent[code]) {
-                return keyDownEvent[code].call(this, self, event);
+            if (this[code]) {
+                return this[code].call(self, event, code);
             }
         },
-        8: function(self, event) {
-            var t = self.textBeforeCursor(),
+        8: function(e) {
+            var t = this.textBeforeCursor(),
                 m = t.match(/ +$/),
-                r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
+                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            self.removeBeforeCursor(r);
-            self.update();
-            return event.cancel();
+            this.removeBeforeCursor(r);
+            this.update();
+            return e.cancel();
         },
-        9: function(self, event) {
-            self.insertText(self.tabString());
-            event.cancel();
+        9: function(e) {
+            this.insertText(this.tabString());
+            return e.cancel();
         },
-        13: function(self, event) {
-            var t = self.textBeforeCursor().match(/^ +/),
-                a = '\n' + (self.options.indentNewLines && t && t[0] ? t[0] : '');
+        13: function(e) {
+            var t = this.textBeforeCursor().match(/^ +/),
+                a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            self.insertText(a);
-            self.update();
-            return event.cancel();
+            this.insertText(a);
+            this.update();
+            return e.cancel();
         },
-        27: function(self, event) {
-            return event.cancel();
+        27: function(e) {
+            return e.cancel();
         },
-        46: function(self, event) {
-            var t = self.textAfterCursor(),
+        46: function(e) {
+            var t = this.textAfterCursor(),
                 m = t.match(/^ +/),
-                r = m && m[0] && m[0].length % self.options.tabWidth === 0 ? self.tabString() : 1;
+                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            self.removeAfterCursor(r);
-            self.update();
-            return event.cancel();
+            this.removeAfterCursor(r);
+            this.update();
+            return e.cancel();
         }
     };
     
-    var keyPressEvent = {
+    var keypressMap = function() {};
+    keypressMap.prototype = {
         touch: function(code, self, event) {
-            if (keyPressEvent[code]) {
-                return keyPressEvent[code].call(this, self, event);
+            if (this[code]) {
+                return this[code].call(self, event, code);
             }
         },
-        40: function(self) {
-            self.options.insertClosingBrackets ? self.insertText(')', 1) : null;
+        40: function() {
+            this.options.insertClosingBrackets ? this.insertText(')', 1) : null;
         },
-        91: function(self) {
-            self.options.insertClosingBrackets ? self.insertText(']', 1) : null;
+        91: function() {
+            this.options.insertClosingBrackets ? this.insertText(']', 1) : null;
         },
-        123: function(self) {
-            self.options.insertClosingBrackets ? self.insertText('}', 1) : null;
+        123: function() {
+            this.options.insertClosingBrackets ? this.insertText('}', 1) : null;
+        }
+    };
+    
+    var shortcuts = function() {};
+    shortcuts.prototype = {
+        37: function() {
+            this.wrapper.item().scrollLeft = 0;
+        },
+        38: function() {
+            this.wrapper.item().scrollTop = 0;
+            this.caret.moveTo(0);
+        },
+        39: function() {
+            var w = this.wrapper.item();
+            w.scrollLeft = w.scrollWidth;
+        },
+        40: function() {
+            var w = this.wrapper.item();
+            w.scrollTop = w.scrollHeight;
+            this.caret.moveTo(-1);
+        },
+        73: function() {
+            this.infobar.element.item().style.display == 'none' ? this.infobar.show() : this.infobar.hide();
+        },
+        78: function() {
+            this.counter.element.item().style.display == 'none' ? this.counter.show() : this.counter.hide();
+        },
+        82: function() {
+            this.print();
         }
     };
     
