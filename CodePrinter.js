@@ -353,19 +353,13 @@ window.CodePrinter = (function($) {
             var ta = this.source.item(),
                 v = ta.value.substring(0, ta.selectionStart);
             
-            if (!all) {
-                return v.substring(v.lastIndexOf('\n')+1);
-            }
-            return v;
+            return (typeof all === 'number' ? v.substr(v.length - all) : all !== true ? v.substring(v.lastIndexOf('\n')+1) : v);
         },
         textAfterCursor: function(all) {
             var ta = this.source.item(),
                 v = ta.value.substr(ta.selectionStart);
             
-            if (!all) {
-                return v.substring(0, v.indexOf('\n'));
-            }
-            return v;
+            return (typeof all === 'number' ? v.substring(0, all) : all !== true ? v.substring(0, v.indexOf('\n')) : v);
         },
         insertText: function(text, mv) {
             var ta = this.source.item(),
