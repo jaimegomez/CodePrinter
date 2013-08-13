@@ -467,14 +467,15 @@ window.CodePrinter = (function($) {
     };
     Caret.styles = {
         underline: function(css, pos) {
-            css.width = pos.width+2;
-            css.top = css.top + pos.height;
+            css.width = this.getTextSize(this.textBeforeCursor(1)).width + 2;
+            css.height = 1;
+            css.top = css.top + this.sizes.lineHeight - 1;
             css.left = css.left - 1;
             return css;
         },
         block: function(css, pos) {
-            css.width = pos.width;
-            css.height = pos.height;
+            css.width = this.getTextSize(this.textBeforeCursor(1)).width;
+            css.height = this.sizes.lineHeight;
             return css;
         }
     };
@@ -485,7 +486,7 @@ window.CodePrinter = (function($) {
                 pos = this.getPosition(),
                 css = { left: pos.x, top: pos.y };
             
-            Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(root, css, pos) : css.height = pos.height;
+            Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(root, css, pos) : css.height = root.sizes.lineHeight;
             this.element.show().css(css);
             
             this.line != pos.line ? this.emit('line.changed', { last: this.line, current: pos.line }) : null;
@@ -496,15 +497,14 @@ window.CodePrinter = (function($) {
         getPosition: function() {
             var root = this.root,
                 source = root.source,
-                text = root.textBeforeCursor(),
                 y = 0, x = 0, line, tsize;
             
             source.focus();
             line = root.getCurrentLine();
-            tsize = root.getTextSize(text);
+            tsize = root.getTextSize(root.textBeforeCursor());
             x = tsize.width + source.total('paddingLeft', 'borderLeftWidth');
             y = line * (root.sizes.lineHeight) + source.total('paddingTop', 'borderTopWidth');
-            return { x: parseInt(x), y: parseInt(y), width: parseInt(root.getTextSize(text.charAt(text.length-1)).width), height: parseInt(tsize.height), line: line };
+            return { x: parseInt(x), y: parseInt(y), line: line };
         },
         moveTo: function(pos, len) {
             var l = this.root.value.length;
