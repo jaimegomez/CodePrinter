@@ -164,33 +164,7 @@ window.CodePrinter = (function($) {
             var self = this,
                 caret = new Caret(self);
             
-            self.shortcuts = {
-                37: function() {
-                    this.wrapper.item().scrollLeft = 0;
-                },
-                38: function() {
-                    this.wrapper.item().scrollTop = 0;
-                    this.caret.moveTo(0);
-                },
-                39: function() {
-                    var w = this.wrapper.item();
-                    w.scrollLeft = w.scrollWidth;
-                },
-                40: function() {
-                    var w = this.wrapper.item();
-                    w.scrollTop = w.scrollHeight;
-                    this.caret.moveTo(-1);
-                },
-                73: function() {
-                    this.infobar.element.item().style.display == 'none' ? this.infobar.show() : this.infobar.hide();
-                },
-                78: function() {
-                    this.counter.element.item().style.display == 'none' ? this.counter.show() : this.counter.hide();
-                },
-                82: function() {
-                    this.print();
-                }
-            };
+            self.shortcuts = new shortcuts;
             
             caret.on({
                 reloaded: function(e) {
@@ -864,9 +838,32 @@ window.CodePrinter = (function($) {
         },
         91: function(self) {
             self.options.insertClosingBrackets ? self.insertText(']', 1) : null;
+    var shortcuts = function() {};
+    shortcuts.prototype = {
+        37: function() {
+            this.wrapper.item().scrollLeft = 0;
         },
-        123: function(self) {
-            self.options.insertClosingBrackets ? self.insertText('}', 1) : null;
+        38: function() {
+            this.wrapper.item().scrollTop = 0;
+            this.caret.moveTo(0);
+        },
+        39: function() {
+            var w = this.wrapper.item();
+            w.scrollLeft = w.scrollWidth;
+        },
+        40: function() {
+            var w = this.wrapper.item();
+            w.scrollTop = w.scrollHeight;
+            this.caret.moveTo(-1);
+        },
+        73: function() {
+            this.infobar.element.item().style.display == 'none' ? this.infobar.show() : this.infobar.hide();
+        },
+        78: function() {
+            this.counter.element.item().style.display == 'none' ? this.counter.show() : this.counter.hide();
+        },
+        82: function() {
+            this.print();
         }
     };
     
