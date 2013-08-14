@@ -61,6 +61,7 @@ window.CodePrinter = (function($) {
     
     CodePrinter.prototype = {}.extend({
         sizes: {},
+        isFullscreen: false,
         prepare: function() {
             var self = this,
                 source = self.source,
@@ -455,6 +456,27 @@ window.CodePrinter = (function($) {
         update: function() {
             this.print();
             this.caret.reload();
+        },
+        enterFullscreen: function() {
+            if (! this.isFullscreen) {
+                var main = this.mainElement,
+                    b = document.body;
+                this.tempnode = document.createTextNode('');
+                main.addClass('cp-fullscreen').css({ margin: [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ') });
+                main.after(this.tempnode).appendTo(document.body);
+                this.source.focus();
+                this.isFullscreen = true;
+            }
+        },
+        exitFullscreen: function() {
+            if (this.isFullscreen && this.tempnode) {
+                var tmp = this.tempnode;
+                this.mainElement.removeClass('cp-fullscreen').css({ margin: null }).insertBefore(tmp);
+                tmp.parentNode.removeChild(tmp);
+                delete this.tempnode;
+                this.source.focus();
+                this.isFullscreen = false;
+            }
         }
     };
     
