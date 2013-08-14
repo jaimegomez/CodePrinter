@@ -891,6 +891,11 @@ window.CodePrinter = (function($) {
             w.scrollTop = w.scrollHeight;
             this.caret.moveTo(-1);
         },
+        70: function(e) {
+            if (e.shiftKey) {
+                this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
+            }
+        },
         73: function() {
             this.infobar.element.item().style.display == 'none' ? this.infobar.show() : this.infobar.hide();
         },
