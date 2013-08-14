@@ -33,7 +33,7 @@
 	.cp-wrapper {
 	    .block;
 	    .size(auto, 100%);
-    	.margins(0 0 0 35px, @paddingY 0);
+    	.margins(0 0 0 35px, 0 0);
         .sizing(border-box);
         background:@backgroundColor;
         border:none;
@@ -47,10 +47,12 @@
 	}
 	.cp-source {
 	    .block;
-	    .margins(-@paddingY 0, @paddingY @paddingX);
-        .sizing(content-box);
+	    .margins(0, @paddingY @paddingX);
+        .sizing(border-box);
         background:none;
         border-width:0;
+        min-width:100%;
+        min-height:100%;
 	    color:transparent;
 	    resize:none;
 	    outline:none;
@@ -206,6 +208,16 @@
     
     &.cps-default {
         .cp-keyword, .cp-specials, .cp-boolean, .cp-empty-value { font-weight:bold; }
+    }
+    
+    &.cp-fullscreen {
+        .block !important;
+        .position(absolute, 0, 0, 0, 0);
+        z-index:100;
+        
+        .cp-container {
+            height:100%;
+        }
     }
 }
 

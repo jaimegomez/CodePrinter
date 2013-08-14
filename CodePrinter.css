@@ -25,7 +25,7 @@
   width: auto;
   height: 100%;
   margin: 0 0 0 35px;
-  padding: 5px 0;
+  padding: 0 0;
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
   -ms-box-sizing: border-box;
@@ -43,15 +43,17 @@
 }
 .codeprinter .cp-source {
   display: block;
-  margin: -5px 0;
+  margin: 0;
   padding: 5px 15px;
-  -webkit-box-sizing: content-box;
-  -moz-box-sizing: content-box;
-  -ms-box-sizing: content-box;
-  -o-box-sizing: content-box;
-  box-sizing: content-box;
+  -webkit-box-sizing: border-box;
+  -moz-box-sizing: border-box;
+  -ms-box-sizing: border-box;
+  -o-box-sizing: border-box;
+  box-sizing: border-box;
   background: none;
   border-width: 0;
+  min-width: 100%;
+  min-height: 100%;
   color: transparent;
   resize: none;
   outline: none;
@@ -319,6 +321,18 @@
 .codeprinter.cps-default .cp-boolean,
 .codeprinter.cps-default .cp-empty-value {
   font-weight: bold;
+}
+.codeprinter.cp-fullscreen {
+  display: block;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+}
+.codeprinter.cp-fullscreen .cp-container {
+  height: 100%;
 }
 /* ########### */
 /* LESS MIXINS */

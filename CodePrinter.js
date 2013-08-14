@@ -276,11 +276,9 @@ window.CodePrinter = (function($) {
                     sW, sH, wW, wH;
                 
                 source.css({ width: 0, height: 0 });
-                sW = source.scrollWidth() - source.paddingWidth()/2;
-                sH = source.scrollHeight() - source.paddingHeight();
-                wW = wrapper.clientWidth() - source.paddingWidth();
-                wH = wrapper.clientHeight() - source.paddingHeight();
-                source.css({ width: sW < wW ? wW : sW, height: sH < wH ? wH : sH });
+                sW = source.scrollWidth() + source.css('paddingRight');
+                sH = source.scrollHeight();
+                source.css({ width: sW < wrapper.clientWidth() ? null : sW, height: sH < wrapper.clientHeight() ? null : sH });
             }
         },
         unselectLine: function() {
