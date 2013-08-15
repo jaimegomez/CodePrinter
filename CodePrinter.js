@@ -233,7 +233,7 @@ window.CodePrinter = (function($) {
                     var k = e.charCode ? e.charCode : e.keyCode,
                         ch = String.fromCharCode(k);
                     
-                    self.keypressMap.touch(e, self, ch) !== false ? self.insertText(ch) : null;
+                    self.keypressMap.touch(k, self, e) !== false ? self.insertText(ch) : null;
                     self.print();
                     return e.cancel();
                 }
