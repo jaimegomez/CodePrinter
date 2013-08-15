@@ -299,13 +299,17 @@ window.CodePrinter = (function($) {
             if (!mode) {
                 mode = this.options.mode;
             }
-            
+            var h = CodePrinter.hasMode(mode);
             CodePrinter.requireMode(mode, function(ModeObject) {
                 var overlay = this.overlay,
                     value = this.getSourceValue(),
                     pre = overlay.lines,
                     parsed, j = -1;
                 
+                if (h === false) {
+                    ModeObject.keydownMap ? this.keydownMap.extend(ModeObject.keydownMap) : null;
+                    ModeObject.keypressMap ? this.keypressMap.extend(ModeObject.keypressMap) : null;
+                }
                 parsed = ModeObject.parse(value);
                 
                 while (parsed[++j] != null) {
