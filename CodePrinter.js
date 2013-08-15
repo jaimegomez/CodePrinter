@@ -865,6 +865,12 @@ window.CodePrinter = (function($) {
                 return this[code].call(self, event, code);
             }
         },
+        34: function() {
+            this.textBeforeCursor(1) != '"' ? this.insertText('"', 1) : 0;
+        },
+        39: function() {
+            this.textBeforeCursor(1) != "'" ? this.insertText("'", 1) : 0;
+        },
         40: function() {
             this.options.insertClosingBrackets ? this.insertText(')', 1) : null;
         },
