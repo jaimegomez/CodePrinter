@@ -839,7 +839,8 @@ window.CodePrinter = (function($) {
             var t = this.textBeforeCursor().match(/^ +/),
                 a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            this.insertText(a);
+            this.textBeforeCursor(1) == '{' ? this.insertText(a + this.tabString()) : this.insertText(a);
+            this.textAfterCursor(1) == '}' ? this.insertText(a, 1) : null;
             this.update();
             return e.cancel();
         },
