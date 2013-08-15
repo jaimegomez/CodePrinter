@@ -192,7 +192,7 @@
     .cp-operator { color:#333; }
     .cp-variable { color:#1a19ff; }
     .cp-keyword { color:#8959a8; }
-    .cp-control { color:#8959a8; }
+    .cp-control { color:#881350; }
     .cp-boolean { color:#f5871f; }
     .cp-empty-value { color:#f5871f; }
     .cp-special { color:green; }
@@ -207,7 +207,8 @@
     .cp-comment, .cp-comment * { color:#a4a4a4 !important; }
     
     &.cps-default {
-        .cp-keyword, .cp-specials, .cp-boolean, .cp-empty-value { font-weight:bold; }
+        .cp-keyword, .cp-control, .cp-special, .cp-boolean, .cp-empty-value, .cp-phptag { font-weight:bold; }
+        .cp-special, .cp-comment { font-style:italic; }
     }
     
     &.cp-fullscreen {

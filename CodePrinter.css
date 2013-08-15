@@ -276,7 +276,7 @@
   color: #8959a8;
 }
 .codeprinter .cp-control {
-  color: #8959a8;
+  color: #881350;
 }
 .codeprinter .cp-boolean {
   color: #f5871f;
@@ -317,10 +317,16 @@
   color: #a4a4a4 !important;
 }
 .codeprinter.cps-default .cp-keyword,
-.codeprinter.cps-default .cp-specials,
+.codeprinter.cps-default .cp-control,
+.codeprinter.cps-default .cp-special,
 .codeprinter.cps-default .cp-boolean,
-.codeprinter.cps-default .cp-empty-value {
+.codeprinter.cps-default .cp-empty-value,
+.codeprinter.cps-default .cp-phptag {
   font-weight: bold;
+}
+.codeprinter.cps-default .cp-special,
+.codeprinter.cps-default .cp-comment {
+  font-style: italic;
 }
 .codeprinter.cp-fullscreen {
   display: block;
