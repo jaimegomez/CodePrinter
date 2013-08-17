@@ -145,6 +145,32 @@
             }
         }
 	}
+    .cp-finder-bar {
+        .block;
+        .margins(0, 0);
+        .linear-gradient(top, @gradientStartColor, @gradientEndColor);
+        .border(@borderColor, 1px 0 0 0);
+        .shadow(0 0 10px rgba(0,0,0,0.25));
+        position:relative;
+        z-index:12;
+        
+        .cp-finder-input {
+            .size(auto, 18px);
+            .margins(0, 2px 5px);
+            border-width:0;
+            min-width:50%;
+            outline:none;
+        }
+        .cp-finder-button {
+            .margins(0, 3px 5px);
+            background:none;
+            border-width:0;
+        }
+        .cp-finder-input, .cp-finder-button {
+            .inline-block;
+            .vertical-top;
+        }
+    }
     .cp-caret {
         .size(1px, 10px);
         .background(black);

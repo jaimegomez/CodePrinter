@@ -199,6 +199,47 @@
   color: #444444;
   text-decoration: underline !important;
 }
+.codeprinter .cp-finder-bar {
+  display: block;
+  margin: 0;
+  padding: 0;
+  background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
+  background-image: -webkit-linear-gradient(top, #f0f0f0, #fafafa);
+  background-image: -moz-linear-gradient(top, #f0f0f0, #fafafa);
+  background-image: -ms-linear-gradient(top, #f0f0f0, #fafafa);
+  background-image: -o-linear-gradient(top, #f0f0f0, #fafafa);
+  background-image: linear-gradient(top, #f0f0f0, #fafafa);
+  border-color: #c0c0c0;
+  border-width: 1px 0 0 0;
+  border-style: solid;
+  -webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -moz-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  position: relative;
+  z-index: 12;
+}
+.codeprinter .cp-finder-bar .cp-finder-input {
+  width: auto;
+  height: 18px;
+  margin: 0;
+  padding: 2px 5px;
+  border-width: 0;
+  min-width: 50%;
+  outline: none;
+}
+.codeprinter .cp-finder-bar .cp-finder-button {
+  margin: 0;
+  padding: 3px 5px;
+  background: none;
+  border-width: 0;
+}
+.codeprinter .cp-finder-bar .cp-finder-input,
+.codeprinter .cp-finder-bar .cp-finder-button {
+  display: inline-block;
+  vertical-align: top;
+}
 .codeprinter .cp-caret {
   width: 1px;
   height: 10px;
