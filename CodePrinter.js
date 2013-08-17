@@ -680,6 +680,32 @@ window.CodePrinter = (function($) {
         }
     };
     
+    var Finder = function(cp) {
+        var findbutton = $(document.createElement('button')).addClass('cp-finder-button').html('Find');
+        this.input = $(document.createElement('input')).addClass('cp-finder-input').attr({ type: 'text' });
+        this.bar = $(document.createElement('div')).addClass('cp-finder-bar').append(this.input, findbutton);
+        cp.mainElement.append(this.bar);
+        
+        this.root = cp;
+        this.open();
+        
+        return this;
+    };
+    Finder.prototype = {
+        isClosed: false,
+        open: function() {
+            this.isClosed = false;
+            this.bar.show();
+            var ch = this.bar.clientHeight();
+            this.root.container.css({ height: this.root.container.clientHeight() - ch });
+        },
+        close: function() {
+            this.isClosed = true;
+            this.bar.hide();
+            this.root.container.css({ height: null });
+        }
+    };
+    
     var Stream = function(string) {
         if (!(this instanceof Stream)) {
             return new Stream(string);
@@ -903,6 +929,8 @@ window.CodePrinter = (function($) {
         70: function(e) {
             if (e.shiftKey) {
                 this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
+            } else {
+                this.finder ? this.finder.isClosed ? this.finder.open() : this.finder.close() : this.finder = new Finder(this);
             }
         },
         73: function() {
