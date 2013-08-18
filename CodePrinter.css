@@ -201,6 +201,8 @@
 }
 .codeprinter .cp-finder-bar {
   display: block;
+  width: 100%;
+  height: auto;
   margin: 0;
   padding: 0;
   background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));

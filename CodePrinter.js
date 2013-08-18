@@ -681,9 +681,11 @@ window.CodePrinter = (function($) {
     };
     
     var Finder = function(cp) {
-        var findbutton = $(document.createElement('button')).addClass('cp-finder-button').html('Find');
+        var findbutton = $(document.createElement('button')).addClass('cp-finder-button').html('Find'),
+            findprev = $(document.createElement('button')).addClass('cp-finder-button').html('Find Prev');
+        
         this.input = $(document.createElement('input')).addClass('cp-finder-input').attr({ type: 'text' });
-        this.bar = $(document.createElement('div')).addClass('cp-finder-bar').append(this.input, findbutton);
+        this.bar = $(document.createElement('div')).addClass('cp-finder-bar').append(findbutton, findprev, this.input);
         cp.mainElement.append(this.bar);
         
         this.root = cp;
