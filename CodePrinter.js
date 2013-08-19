@@ -70,11 +70,7 @@ window.CodePrinter = (function($) {
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
             
-            if (typeof options.theme === 'string' && options.theme !== 'default') {
-                self.requireStyle(options.theme);
-            } else {
-                options.theme = 'default';
-            }
+            typeof options.theme === 'string' && options.theme !== 'default' ? self.requireStyle(options.theme) : options.theme = 'default';
             self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
             
             self.counter = new Counter(self);
@@ -89,22 +85,11 @@ window.CodePrinter = (function($) {
             self.mainElement.attr({ id: id });
             self.id = id;
             
-            if (options.fontSize != 12 && options.fontSize > 0) {
-                overlay.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) });
-            }
-            if (options.lineHeight != 16 && options.lineHeight > 0) {
-                id = '#'+id+' .cp-';
-                $.stylesheet.insert(id+'overlay pre, '+id+'counter, '+id+'source', 'line-height:'+options.lineHeight+'px;');
-            }
-            if (options.width > 0) {
-                self.mainElement.css({ width: parseInt(options.width) });
-            }
-            if (options.height > 0) {
-                self.container.css({ height: parseInt(options.height) });
-            }
-            if (source.tag() === 'textarea') {
-                self.prepareWriter();
-            }
+            options.fontSize != 12 && options.fontSize > 0 ? overlay.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) }) : 0;
+            options.lineHeight != 16 && options.lineHeight > 0 ? id = '#'+id+' .cp-' && $.stylesheet.insert(id+'overlay pre, '+id+'counter, '+id+'source', 'line-height:'+options.lineHeight+'px;') : 0;
+            options.width > 0 ? self.mainElement.css({ width: parseInt(options.width) }) : 0;
+            options.height > 0 ? self.container.css({ height: parseInt(options.height) }) : 0;
+            source.tag() === 'textarea' ? self.prepareWriter() : 0;
             
             overlay.addClass('cp-'+options.mode.toLowerCase());
             source.html(encodeEntities(this.getSourceValue()));
@@ -335,9 +320,6 @@ window.CodePrinter = (function($) {
         },
         requireStyle: function(style, callback) {
             $.require(this.options.path+'theme/'+style+'.css', callback);
-        },
-        requireMode: function(mode, callback) {
-            $.require(this.options.path+'mode/'+mode+'.js', callback);
         },
         tabString: function() {
             return Array(this.options.tabWidth+1).join(' ');
@@ -598,13 +580,7 @@ window.CodePrinter = (function($) {
             var amp = !isNaN(lines) ? lines - this.list.length : 0;
             
             while (amp != 0) {
-                if (amp < 0) {
-                    this.decrease();
-                    amp++;
-                } else {
-                    this.increase();
-                    amp--;
-                }
+                amp < 0 ? this.decrease() && amp++ : this.increase() && amp--;
             }
         },
         increase: function() {
@@ -634,11 +610,7 @@ window.CodePrinter = (function($) {
         this.element.actions = act;
         this.element.characters = ch;
         
-        if (cp.options.infobarOnTop) {
-            this.element.prependTo(cp.mainElement);
-        } else {
-            this.element.appendTo(cp.mainElement);
-        }
+        cp.options.infobarOnTop ? this.element.prependTo(cp.mainElement) : this.element.appendTo(cp.mainElement);
         
         this.actions = {
             plaintext: {
@@ -698,13 +670,13 @@ window.CodePrinter = (function($) {
                 indexFrom = from instanceof RegExp ? str.search(from) : str.indexOf(from),
                 indexTo = 0;
             
-            if (to === "\n") {
+            if (to === '\n') {
                 indexTo = str.indexOf(to) - 1;
             } else if (from === to) {
                 indexTo = str.indexOf(to, 1);
                 if (indexTo === -1) indexTo = str.length;
             } else {
-                if(!to) to = from;
+                if (!to) to = from;
                 indexTo = to instanceof RegExp ? str.search(to) : str.indexOf(to);
                 if (indexTo === -1) indexTo = indexFrom;
             }
