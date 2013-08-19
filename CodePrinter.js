@@ -32,7 +32,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.3.4';
+    CodePrinter.version = '0.3.5';
     
     CodePrinter.defaults = {
         path: '',
@@ -61,6 +61,7 @@ window.CodePrinter = (function($) {
     
     CodePrinter.prototype = {}.extend({
         sizes: {},
+        isFullscreen: false,
         prepare: function() {
             var self = this,
                 source = self.source,
@@ -232,7 +233,7 @@ window.CodePrinter = (function($) {
                     var k = e.charCode ? e.charCode : e.keyCode,
                         ch = String.fromCharCode(k);
                     
-                    self.keypressMap.touch(e, self, ch) !== false ? self.insertText(ch) : null;
+                    self.keypressMap.touch(k, self, e) !== false ? self.insertText(ch) : null;
                     self.print();
                     return e.cancel();
                 }
@@ -275,11 +276,9 @@ window.CodePrinter = (function($) {
                     sW, sH, wW, wH;
                 
                 source.css({ width: 0, height: 0 });
-                sW = source.scrollWidth() - source.paddingWidth()/2;
-                sH = source.scrollHeight() - source.paddingHeight();
-                wW = wrapper.clientWidth() - source.paddingWidth();
-                wH = wrapper.clientHeight() - source.paddingHeight();
-                source.css({ width: sW < wW ? wW : sW, height: sH < wH ? wH : sH });
+                sW = source.scrollWidth() + source.css('paddingRight');
+                sH = source.scrollHeight();
+                source.css({ width: sW < wrapper.clientWidth() ? null : sW, height: sH < wrapper.clientHeight() ? null : sH });
             }
         },
         unselectLine: function() {
@@ -300,13 +299,17 @@ window.CodePrinter = (function($) {
             if (!mode) {
                 mode = this.options.mode;
             }
-            
+            var h = CodePrinter.hasMode(mode);
             CodePrinter.requireMode(mode, function(ModeObject) {
                 var overlay = this.overlay,
                     value = this.getSourceValue(),
                     pre = overlay.lines,
                     parsed, j = -1;
                 
+                if (h === false) {
+                    ModeObject.keydownMap ? this.keydownMap.extend(ModeObject.keydownMap) : null;
+                    ModeObject.keypressMap ? this.keypressMap.extend(ModeObject.keypressMap) : null;
+                }
                 parsed = ModeObject.parse(value);
                 
                 while (parsed[++j] != null) {
@@ -455,6 +458,27 @@ window.CodePrinter = (function($) {
         update: function() {
             this.print();
             this.caret.reload();
+        },
+        enterFullscreen: function() {
+            if (! this.isFullscreen) {
+                var main = this.mainElement,
+                    b = document.body;
+                this.tempnode = document.createTextNode('');
+                main.addClass('cp-fullscreen').css({ margin: [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ') });
+                main.after(this.tempnode).appendTo(document.body);
+                this.source.focus();
+                this.isFullscreen = true;
+            }
+        },
+        exitFullscreen: function() {
+            if (this.isFullscreen && this.tempnode) {
+                var tmp = this.tempnode;
+                this.mainElement.removeClass('cp-fullscreen').css({ margin: null }).insertBefore(tmp);
+                tmp.parentNode.removeChild(tmp);
+                delete this.tempnode;
+                this.source.focus();
+                this.isFullscreen = false;
+            }
         }
     };
     
@@ -815,7 +839,8 @@ window.CodePrinter = (function($) {
             var t = this.textBeforeCursor().match(/^ +/),
                 a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            this.insertText(a);
+            this.textBeforeCursor(1) == '{' ? this.insertText(a + this.tabString()) : this.insertText(a);
+            this.textAfterCursor(1) == '}' ? this.insertText(a, 1) : null;
             this.update();
             return e.cancel();
         },
@@ -839,6 +864,12 @@ window.CodePrinter = (function($) {
             if (this[code]) {
                 return this[code].call(self, event, code);
             }
+        },
+        34: function() {
+            this.textBeforeCursor(1) != '"' ? this.insertText('"', 1) : 0;
+        },
+        39: function() {
+            this.textBeforeCursor(1) != "'" ? this.insertText("'", 1) : 0;
         },
         40: function() {
             this.options.insertClosingBrackets ? this.insertText(')', 1) : null;
@@ -868,6 +899,11 @@ window.CodePrinter = (function($) {
             var w = this.wrapper.item();
             w.scrollTop = w.scrollHeight;
             this.caret.moveTo(-1);
+        },
+        70: function(e) {
+            if (e.shiftKey) {
+                this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
+            }
         },
         73: function() {
             this.infobar.element.item().style.display == 'none' ? this.infobar.show() : this.infobar.hide();
