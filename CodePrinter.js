@@ -176,25 +176,10 @@ window.CodePrinter = (function($) {
                     caret.reload();
                 },
                 focus: function() {
-                    var a = true;
-                    caret.element.show();
-                    if (self.options.blinkCaret) {
-                        this.interval = setInterval(function() {
-                            if (a) {
-                                caret.element.hide();
-                                a = false;
-                            } else {
-                                caret.element.show();
-                                a = true;
-                            }
-                        }, 400);
-                    }
+                    caret.activate().reload();
                 },
                 blur: function() {
-                    if (this.interval) {
-                        this.interval = clearInterval(this.interval);
-                    }
-                    caret.element.hide();
+                    caret.deactivate();
                     self.unselectLine();
                 },
                 keydown: function(e) {
@@ -486,6 +471,23 @@ window.CodePrinter = (function($) {
         }
     };
     Caret.prototype = {
+        activate: function() {
+            this.element.show();
+            if (this.root.options.blinkCaret) {
+                var elm = this.element, a = true;
+                this.interval = setInterval(function() {
+                    a === true ? elm.hide() : elm.show();
+                    a = !a;
+                }, 400);
+            }
+        },
+        deactivate: function() {
+            if (this.interval) {
+                this.interval = clearInterval(this.interval);
+            }
+            this.element.hide();
+            this.line = -1;
+        },
         reload: function() {
             var root = this.root,
                 stl = root.options.caretStyle,
