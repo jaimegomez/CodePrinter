@@ -480,6 +480,7 @@ window.CodePrinter = (function($) {
                     a = !a;
                 }, 400);
             }
+            return this;
         },
         deactivate: function() {
             if (this.interval) {
@@ -487,6 +488,7 @@ window.CodePrinter = (function($) {
             }
             this.element.hide();
             this.line = -1;
+            return this;
         },
         reload: function() {
             var root = this.root,
@@ -501,6 +503,7 @@ window.CodePrinter = (function($) {
             this.line = pos.line;
             
             this.emit('reloaded', { position: pos });
+            return this;
         },
         getPosition: function() {
             var root = this.root,
@@ -521,7 +524,7 @@ window.CodePrinter = (function($) {
                 pos = pos + (l + 1);
             }
             this.root.source.item().setSelectionRange(pos, pos + (len || 0));
-            this.reload();
+            return this.reload();
         }
     };
     
