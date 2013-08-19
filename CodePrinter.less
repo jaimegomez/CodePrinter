@@ -128,7 +128,7 @@
     	font-size:9px;
     	color:@textColor;
     	position:relative;
-    	z-index:7;
+    	z-index:8;
         overflow:hidden;
     	
     	span {
@@ -145,31 +145,39 @@
             }
         }
 	}
-    .cp-finder-bar {
-        .block;
+    .cpf-bar {
+        .flexbox;
         .size(100%, auto);
         .margins(0, 0);
         .linear-gradient(top, @gradientStartColor, @gradientEndColor);
         .border(@borderColor, 1px 0 0 0);
+        .sizing(border-box);
         .shadow(0 0 10px rgba(0,0,0,0.25));
         position:relative;
-        z-index:12;
+        z-index:7;
         
-        .cp-finder-input {
-            .size(auto, 18px);
-            .margins(0, 2px 5px);
+        .cpf-leftbox {
+            .margins(0, 0 5px);
+        }
+        .cpf-flexbox {
+            .flex(1);
+        }
+        .cpf-input {
+            .block;
+            .size(100%, 23px);
+            .margins(0, 3px 8px);
+            .sizing(border-box);
             border-width:0;
-            min-width:50%;
+            border-left:1px solid @borderColor;
+            font-size:13px;
             outline:none;
         }
-        .cp-finder-button {
+        .cpf-button {
+            .inline-block;
+            .vertical-middle;
             .margins(0, 3px 5px);
             background:none;
             border-width:0;
-        }
-        .cp-finder-input, .cp-finder-button {
-            .inline-block;
-            .vertical-top;
         }
     }
     .cp-caret {
@@ -319,22 +327,12 @@
     -o-box-sizing:@s;
     box-sizing:@s;
 }
-.flex-parent (@o: horizontal) {
-    display:-webkit-box;
-    display:-moz-box;
-    display:-ms-flexbox;
-    display:box;
-    -webkit-box-orient:@o;
-    -moz-box-orient:@o;
-    -ms-flex-orient:@o;
-    box-orient:@o;
-}
 .flex (@f: 1) {
-    -webkit-box-flex:@f;
-    -moz-box-flex:@f;
-    -ms-box-flex:@f;
-    -o-box-flex:@f;
-    box-flex:@f;
+    -webkit-flex:@f;
+    -moz-flex:@f;
+    -ms-flex:@f;
+    -o-flex:@f;
+    flex:@f;
 }
 .animation (@name, @time: .2s, @i: 1, @function: ease-in-out) {
     @str: @name @time @i @function;
@@ -373,7 +371,7 @@
 .block              { display:block;            }
 .inline             { display:inline;           }
 .inline-block       { display:inline-block;     }
-.box                { display:-webkit-box; display:-moz-box; display:-ms-flexbox; display:box; }
+.flexbox            { display:-webkit-box; display:-moz-box; display:-ms-flexbox; display:-webkit-flex; display:flex; }
 .hidden             { display:none;             }
 .table              { display:table;            }
 .table-cell         { display:table-cell;       }
