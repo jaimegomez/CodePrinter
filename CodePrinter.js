@@ -681,30 +681,47 @@ window.CodePrinter = (function($) {
     };
     
     var Finder = function(cp) {
-        var findbutton = $(document.createElement('button')).addClass('cp-finder-button').html('Find'),
-            findprev = $(document.createElement('button')).addClass('cp-finder-button').html('Find Prev');
+        var self = this,
+            findnext = $(document.createElement('button')).addClass('cpf-button cpf-findnext').html('Find Next'),
+            findprev = $(document.createElement('button')).addClass('cpf-button cpf-findprev').html('Find Prev'),
+            leftbox = $(document.createElement('div')).addClass('cpf-leftbox'),
+            flexbox = $(document.createElement('div')).addClass('cpf-flexbox'),
+            input = $(document.createElement('input')).addClass('cpf-input').attr({ type: 'text' }),
+            bar = $(document.createElement('div')).addClass('cpf-bar').append(leftbox.append(findprev, findnext), flexbox.append(input));
         
-        this.input = $(document.createElement('input')).addClass('cp-finder-input').attr({ type: 'text' });
-        this.bar = $(document.createElement('div')).addClass('cp-finder-bar').append(findbutton, findprev, this.input);
-        cp.mainElement.append(this.bar);
+        cp.mainElement.append(bar);
         
-        this.root = cp;
-        this.open();
+        input.on({
+            keydown: function(e) {
+                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
+                if (k === 27) {
+                    self.close();
+                }
+            }
+        });
         
-        return this;
+        self.displayValue = bar.css('display');
+        self.root = cp;
+        self.input = input;
+        self.bar = bar;
+        self.open();
+        
+        return self;
     };
     Finder.prototype = {
         isClosed: false,
         open: function() {
             this.isClosed = false;
-            this.bar.show();
-            var ch = this.bar.clientHeight();
-            this.root.container.css({ height: this.root.container.clientHeight() - ch });
+            this.bar.show(this.displayValue);
+            var oh = this.bar.offsetHeight();
+            this.root.container.css({ height: this.root.container.clientHeight() - oh });
+            this.input.focus();
         },
         close: function() {
             this.isClosed = true;
             this.bar.hide();
             this.root.container.css({ height: null });
+            this.root.source.focus();
         }
     };
     
