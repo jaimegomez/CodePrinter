@@ -266,6 +266,34 @@
   background: none;
   border-width: 0;
 }
+.codeprinter .cpf-overlay {
+  background: none !important;
+  z-index: 6;
+}
+.codeprinter .cpf-overlay .cpf-occurrence {
+  display: inline-block;
+  vertical-align: top;
+  margin: -1px 0 0 -2px;
+  padding: 1px 0;
+  border-color: #666666;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 4px;
+  background: none;
+  color: transparent;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+.codeprinter .cpf-overlay .cpf-occurrence.active {
+  -webkit-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+  -moz-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+  -ms-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+  -o-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
+  background: #fdd017;
+  color: black;
+}
 .codeprinter .cp-caret {
   width: 1px;
   height: 10px;

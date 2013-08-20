@@ -691,23 +691,39 @@ window.CodePrinter = (function($) {
             leftbox = $(document.createElement('div')).addClass('cpf-leftbox'),
             flexbox = $(document.createElement('div')).addClass('cpf-flexbox'),
             input = $(document.createElement('input')).addClass('cpf-input').attr({ type: 'text' }),
-            bar = $(document.createElement('div')).addClass('cpf-bar').append(leftbox.append(findprev, findnext), flexbox.append(input));
+            bar = $(document.createElement('div')).addClass('cpf-bar').append(leftbox.append(findprev, findnext), flexbox.append(input)),
+            overlay = $(document.createElement('div')).addClass('cp-overlay cpf-overlay'),
+            keyMap = {
+                13: function() {
+                    self.find(this.value);
+                },
+                27: function() {
+                    self.close();
+                },
+                38: function() {
+                    self.prev();
+                },
+                40: function() {
+                    self.next();
+                }
+            };
         
         cp.mainElement.append(bar);
         
-        input.on({
-            keydown: function(e) {
-                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
-                if (k === 27) {
-                    self.close();
-                }
+        input.on({ keydown: function(e) {
+            var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
+            if (keyMap[k]) {
+                keyMap[k].call(this);
             }
-        });
+        }});
+        findnext.on({ click: function(e) { self.next(); }});
+        findprev.on({ click: function(e) { self.prev(); }});
         
         self.displayValue = bar.css('display');
         self.root = cp;
         self.input = input;
         self.bar = bar;
+        self.overlay = overlay;
         self.open();
         
         return self;
@@ -724,8 +740,56 @@ window.CodePrinter = (function($) {
         close: function() {
             this.isClosed = true;
             this.bar.hide();
+            this.overlay.remove();
             this.root.container.css({ height: null });
             this.root.source.focus();
+        },
+        clear: function() {
+            this.searched = null;
+            this.searchResults = $([]);
+            this.overlay.html('').appendTo(this.root.wrapper);
+        },
+        push: function(span) {
+            this.searchResults.push(span.item());
+            this.overlay.append(span);
+        },
+        find: function(find) {
+            if (find == null || find.length === 0) {
+                this.clear();
+                return false;
+            }
+            if (this.searched == find) {
+                this.next();
+            } else {
+                var root = this.root,
+                    value = root.getSourceValue(),
+                    pdx = root.source.total('paddingLeft', 'borderLeftWidth'),
+                    pdy = root.source.total('paddingTop', 'borderTopWidth'),
+                    index, line = 0, ln = 0, last, bf;
+                
+                this.clear();
+                
+                while ((index = value.indexOf(find)) !== -1) {
+                    var span = $(document.createElement('span')).addClass('cpf-occurrence').html(find);
+                    bf = value.substring(0, index);
+                    line += bf.split('\n').length-1;
+                    last = bf.lastIndexOf('\n')+1;
+                    ln = last > 0 ? index - last : ln + index;
+                    bf = root.getTextAtLine(line).substring(0, ln);
+                    ln = bf.length + find.length;
+                    span.css(root.getTextSize(find).extend({ top: pdy + line * root.sizes.lineHeight, left: pdx + root.getTextSize(bf).width }));
+                    this.push(span);
+                    value = value.substr(index+find.length);
+                }
+                this.searched = find;
+                this.searchResults.removeClass('active').get(0).addClass('active');
+            }
+        },
+        next: function() {
+            this.searchResults.removeClass('active').getNext().addClass('active');
+        },
+        prev: function() {
+            this.searchResults.removeClass('active').getPrev().addClass('active');
         }
     };
     

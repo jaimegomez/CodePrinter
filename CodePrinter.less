@@ -180,6 +180,28 @@
             border-width:0;
         }
     }
+    .cpf-overlay {
+        background:none !important;
+        z-index:6;
+        
+        .cpf-occurrence {
+            .inline-block;
+            .vertical-top;
+            .margins(-1px 0 0 -2px, 1px 0);
+            .border(#666, 1px);
+            .round-corner(4px);
+            background:none;
+            color:transparent;
+            position:absolute;
+            top:0; left:0;
+            
+            &.active {
+                .shadow(0 0 4px rgba(0,0,0,0.2));
+                background:#fdd017;
+                color:black;
+            }
+        }
+    }
     .cp-caret {
         .size(1px, 10px);
         .background(black);
