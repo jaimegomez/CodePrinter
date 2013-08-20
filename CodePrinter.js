@@ -32,7 +32,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.3.5';
+    CodePrinter.version = '0.3.6';
     
     CodePrinter.defaults = {
         path: '',
