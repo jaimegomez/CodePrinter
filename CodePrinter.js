@@ -54,6 +54,7 @@ window.CodePrinter = (function($) {
         indentNewLines: true,
         insertClosingBrackets: true,
         shortcuts: true,
+        showFinder: false,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
@@ -95,6 +96,7 @@ window.CodePrinter = (function($) {
             source.html(encodeEntities(this.getSourceValue()));
             self.adjust();
             
+            options.showFinder ? this.finder = new Finder(self) : 0;
             if (options.highlightBrackets) {
                 overlay.delegate('click', '.cp-bracket', function() {
                     overlay.find('.cp-highlight').removeClass('cp-highlight');
