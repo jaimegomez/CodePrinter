@@ -688,10 +688,11 @@ window.CodePrinter = (function($) {
         var self = this,
             findnext = $(document.createElement('button')).addClass('cpf-button cpf-findnext').html('Find Next'),
             findprev = $(document.createElement('button')).addClass('cpf-button cpf-findprev').html('Find Prev'),
+            closebutton = $(document.createElement('button')).addClass('cpf-button cpf-close').html('Close'),
             leftbox = $(document.createElement('div')).addClass('cpf-leftbox'),
             flexbox = $(document.createElement('div')).addClass('cpf-flexbox'),
             input = $(document.createElement('input')).addClass('cpf-input').attr({ type: 'text' }),
-            bar = $(document.createElement('div')).addClass('cpf-bar').append(leftbox.append(findprev, findnext), flexbox.append(input)),
+            bar = $(document.createElement('div')).addClass('cpf-bar').append(leftbox.append(closebutton, findprev, findnext), flexbox.append(input)),
             overlay = $(document.createElement('div')).addClass('cp-overlay cpf-overlay'),
             keyMap = {
                 13: function() {
@@ -718,6 +719,7 @@ window.CodePrinter = (function($) {
         }});
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
+        closebutton.on({ click: function(e) { self.close(); }});
         
         self.displayValue = bar.css('display');
         self.root = cp;
