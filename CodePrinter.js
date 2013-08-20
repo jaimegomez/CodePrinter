@@ -352,6 +352,10 @@ window.CodePrinter = (function($) {
             var array = this.getSourceValue().split('\n');
             return array[line];
         },
+        setSelection: function(from, to) {
+            this.source.item().setSelectionRange(from, to != null ? to : from);
+            this.caret.reload();
+        },
         textBeforeCursor: function(all) {
             var ta = this.source.item(),
                 v = ta.value.substring(0, ta.selectionStart);
