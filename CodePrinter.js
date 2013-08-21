@@ -55,6 +55,7 @@ window.CodePrinter = (function($) {
         insertClosingBrackets: true,
         shortcuts: true,
         showFinder: false,
+        searchOnTheFly: true,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
@@ -693,6 +694,8 @@ window.CodePrinter = (function($) {
         input.on({ keydown: function(e) {
             var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
             return keyMap[k] ? (keyMap[k].call(this) && e.cancel()) : true;
+        }, keyup: function(e) {
+            cp.options.searchOnTheFly && this.value !== self.searched ? self.find(this.value) : 0;
         }});
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
