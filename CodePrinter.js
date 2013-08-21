@@ -705,6 +705,7 @@ window.CodePrinter = (function($) {
         self.input = input;
         self.bar = bar;
         self.overlay = overlay;
+        self.searchResults = $([]);
         self.open();
         
         return self;
@@ -724,7 +725,7 @@ window.CodePrinter = (function($) {
         },
         clear: function() {
             this.searched = null;
-            this.searchResults = $([]);
+            this.searchResults.length = 0;
             this.overlay.html('').appendTo(this.root.wrapper);
         },
         push: function(span) {
@@ -764,10 +765,10 @@ window.CodePrinter = (function($) {
             }
         },
         next: function() {
-            this.searchResults.removeClass('active').getNext().addClass('active');
+            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getNext().addClass('active') : 0;
         },
         prev: function() {
-            this.searchResults.removeClass('active').getPrev().addClass('active');
+            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getPrev().addClass('active') : 0;
         }
     };
     
