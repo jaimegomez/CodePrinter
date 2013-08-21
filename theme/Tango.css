@@ -1,8 +1,10 @@
 /* CodePrinter - Tango theme */
 
 .cps-tango .cp-wrapper { background:#FFFFFF; color:#000000; }
-.cps-tango .cp-counter { background:#FFFFFF; color:#999999; border-left-color:#999999; box-shadow:0 0 10px rgba(0,0,0,0.1); }
 .cps-tango .cp-source::selection { background:#EEEEEE; }
+.cps-tango .cp-counter,
+.cps-tango .cp-infobar,
+.cps-tango .cpf-bar { background:#fff; border-color:#c0c0c0; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.1); }
 
 .cps-tango .cp-tab { border-left-color:#999999; }
 .cps-tango .cp-bracket { color:#444444; }

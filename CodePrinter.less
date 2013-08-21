@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.3.6
+*   version     0.4.0
 */
 
 @backgroundColor:       rgb(255,255,255);
@@ -28,10 +28,17 @@
 	position:relative; top:0;
 	
 	.cp-container {
+        .block;
+        .flexbox;
+        -webkit-flex-flow:column;
+           -moz-flex-flow:column;
+             -o-flex-flow:column;
+                flex-flow:column;
     	position:relative;
 	}
 	.cp-wrapper {
 	    .block;
+        .flex(1);
 	    .size(auto, 100%);
     	.margins(0 0 0 35px, 0 0);
         .sizing(border-box);
@@ -128,7 +135,7 @@
     	font-size:9px;
     	color:@textColor;
     	position:relative;
-    	z-index:7;
+    	z-index:8;
         overflow:hidden;
     	
     	span {
@@ -145,6 +152,70 @@
             }
         }
 	}
+    .cpf-bar {
+        .flexbox;
+        .size(100%, auto);
+        .margins(0, 0);
+        .linear-gradient(top, @gradientStartColor, @gradientEndColor);
+        .border(@borderColor, 1px 0 0 0);
+        .sizing(border-box);
+        .shadow(0 0 10px rgba(0,0,0,0.25));
+        font-size:12px;
+        color:black;
+        position:relative;
+        z-index:7;
+        
+        .cpf-leftbox {
+            .margins(0, 0 5px);
+            .sizing(border-box);
+        }
+        .cpf-flexbox {
+            .flex(1);
+            .sizing(border-box);
+            min-width:100px;
+        }
+    }
+    .cpf-input {
+        .block;
+        .size(100%, 23px);
+        .margins(0, 3px 8px);
+        .border(@borderColor, 0 0 0 1px);
+        .sizing(border-box);
+        min-width:100px;
+        font-size:inherit;
+        color:inherit;
+        outline:none;
+    }
+    .cpf-button {
+        .inline-block;
+        .vertical-middle;
+        .margins(0, 3px 5px);
+        background:none;
+        border-width:0;
+        font-size:inherit;
+        color:inherit;
+    }
+    .cpf-overlay {
+        background:none !important;
+        z-index:6;
+    }
+    .cpf-occurrence {
+        .inline-block;
+        .vertical-top;
+        .margins(0 0 0 -1px, 0 0);
+        .border(#666, 1px);
+        .round-corner(4px);
+        background:none;
+        color:transparent;
+        position:absolute;
+        top:0; left:0;
+        
+        &.active {
+            .shadow(0 0 4px rgba(0,0,0,0.2));
+            background:#fdd017;
+            color:black;
+        }
+    }
     .cp-caret {
         .size(1px, 10px);
         .background(black);
@@ -212,12 +283,17 @@
     }
     
     &.cp-fullscreen {
-        .block !important;
+        .block;
+        .flexbox;
         .position(absolute, 0, 0, 0, 0);
         z-index:100;
+        -webkit-flex-flow:column;
+           -moz-flex-flow:column;
+             -o-flex-flow:column;
+                flex-flow:column;
         
         .cp-container {
-            height:100%;
+            .flex(1);
         }
     }
 }
@@ -292,22 +368,12 @@
     -o-box-sizing:@s;
     box-sizing:@s;
 }
-.flex-parent (@o: horizontal) {
-    display:-webkit-box;
-    display:-moz-box;
-    display:-ms-flexbox;
-    display:box;
-    -webkit-box-orient:@o;
-    -moz-box-orient:@o;
-    -ms-flex-orient:@o;
-    box-orient:@o;
-}
 .flex (@f: 1) {
-    -webkit-box-flex:@f;
-    -moz-box-flex:@f;
-    -ms-box-flex:@f;
-    -o-box-flex:@f;
-    box-flex:@f;
+    -webkit-flex:@f;
+    -moz-flex:@f;
+    -ms-flex:@f;
+    -o-flex:@f;
+    flex:@f;
 }
 .animation (@name, @time: .2s, @i: 1, @function: ease-in-out) {
     @str: @name @time @i @function;
@@ -346,7 +412,7 @@
 .block              { display:block;            }
 .inline             { display:inline;           }
 .inline-block       { display:inline-block;     }
-.box                { display:-webkit-box; display:-moz-box; display:-ms-flexbox; display:box; }
+.flexbox            { display:-webkit-box; display:-moz-box; display:-ms-flexbox; display:-webkit-flex; display:flex; }
 .hidden             { display:none;             }
 .table              { display:table;            }
 .table-cell         { display:table-cell;       }
