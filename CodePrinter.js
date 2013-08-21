@@ -665,8 +665,8 @@ window.CodePrinter = (function($) {
     
     var Finder = function(cp) {
         var self = this,
-            findnext = $(document.createElement('button')).addClass('cpf-button cpf-findnext').html('Find Next'),
-            findprev = $(document.createElement('button')).addClass('cpf-button cpf-findprev').html('Find Prev'),
+            findnext = $(document.createElement('button')).addClass('cpf-button cpf-findnext').html('Next'),
+            findprev = $(document.createElement('button')).addClass('cpf-button cpf-findprev').html('Prev'),
             closebutton = $(document.createElement('button')).addClass('cpf-button cpf-close').html('Close'),
             leftbox = $(document.createElement('div')).addClass('cpf-leftbox'),
             flexbox = $(document.createElement('div')).addClass('cpf-flexbox'),
