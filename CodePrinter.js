@@ -996,7 +996,7 @@ window.CodePrinter = (function($) {
             if (e.shiftKey) {
                 this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
             } else {
-                this.finder ? this.finder.isClosed ? this.finder.open() : this.finder.close() : this.finder = new Finder(this);
+                this.finder ? this.finder.isClosed ? this.finder.open() : this.finder.input.focus() : this.finder = new Finder(this);
             }
         },
         73: function() {
