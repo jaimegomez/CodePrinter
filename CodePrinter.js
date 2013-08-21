@@ -692,9 +692,7 @@ window.CodePrinter = (function($) {
         
         input.on({ keydown: function(e) {
             var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
-            if (keyMap[k]) {
-                keyMap[k].call(this);
-            }
+            return keyMap[k] ? (keyMap[k].call(this) && e.cancel()) : true;
         }});
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
