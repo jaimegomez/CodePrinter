@@ -751,7 +751,7 @@ window.CodePrinter = (function($) {
                 this.clear();
                 
                 while ((index = value.indexOf(find)) !== -1) {
-                    var span = $(document.createElement('span')).addClass('cpf-occurrence').html(find);
+                    var span = $(document.createElement('span')).addClass('cpf-occurrence').text(find);
                     bf = value.substring(0, index);
                     line += bf.split('\n').length-1;
                     last = bf.lastIndexOf('\n')+1;
