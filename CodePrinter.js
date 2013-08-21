@@ -603,11 +603,11 @@ window.CodePrinter = (function($) {
             this.list.get(0).remove(true);
         },
         show: function() {
-            this.element.show();
+            this.root.container.prepend(this.element);
             this.root.wrapper.css({ marginLeft: this.element.offsetWidth() });
         },
         hide: function() {
-            this.element.hide();
+            this.element.remove();
             this.root.wrapper.css({ marginLeft: 0 });
         }
     };
@@ -620,8 +620,7 @@ window.CodePrinter = (function($) {
         this.element = $(document.createElement('div')).addClass('cp-infobar').append(mode, act, ch);
         this.element.actions = act;
         this.element.characters = ch;
-        
-        cp.options.infobarOnTop ? this.element.prependTo(cp.mainElement) : this.element.appendTo(cp.mainElement);
+        this.root = cp;
         
         this.actions = {
             plaintext: {
@@ -656,10 +655,11 @@ window.CodePrinter = (function($) {
             return el;
         },
         show: function() {
-            this.element.show();
+            var r = this.root;
+            r.options.infobarOnTop ? this.element.prependTo(r.mainElement) : this.element.appendTo(r.mainElement);
         },
         hide: function() {
-            this.element.hide();
+            this.element.remove();
         }
     };
     
@@ -1002,10 +1002,10 @@ window.CodePrinter = (function($) {
             }
         },
         73: function() {
-            this.infobar.element.item().style.display == 'none' ? this.infobar.show() : this.infobar.hide();
+            this.infobar.element.item().parentNode == null ? this.infobar.show() : this.infobar.hide();
         },
         78: function() {
-            this.counter.element.item().style.display == 'none' ? this.counter.show() : this.counter.hide();
+            this.counter.element.item().parentNode == null ? this.counter.show() : this.counter.hide();
         },
         82: function() {
             this.print();
