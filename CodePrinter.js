@@ -714,15 +714,12 @@ window.CodePrinter = (function($) {
         open: function() {
             this.isClosed = false;
             this.bar.show(this.displayValue);
-            var oh = this.bar.offsetHeight();
-            this.root.container.css({ height: this.root.container.clientHeight() - oh });
             this.input.focus();
         },
         close: function() {
             this.isClosed = true;
             this.bar.hide();
             this.overlay.remove();
-            this.root.container.css({ height: null });
             this.root.source.focus();
         },
         clear: function() {
