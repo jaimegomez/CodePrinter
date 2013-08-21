@@ -55,7 +55,7 @@ window.CodePrinter = (function($) {
         insertClosingBrackets: true,
         shortcuts: true,
         showFinder: false,
-        searchOnTheFly: true,
+        searchOnTheFly: false,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
