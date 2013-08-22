@@ -32,7 +32,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.4.0';
+    CodePrinter.version = '0.4.1';
     
     CodePrinter.defaults = {
         path: '',
@@ -55,6 +55,7 @@ window.CodePrinter = (function($) {
         insertClosingBrackets: true,
         shortcuts: true,
         showFinder: false,
+        searchOnTheFly: false,
         width: 'auto',
         height: 'auto',
         randomIDLength: 7
@@ -71,8 +72,7 @@ window.CodePrinter = (function($) {
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
             
-            typeof options.theme === 'string' && options.theme !== 'default' ? self.requireStyle(options.theme) : options.theme = 'default';
-            self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
+            self.setTheme(options.theme);
             
             self.counter = new Counter(self);
             options.lineNumbers ? self.counter.show() : self.counter.hide();
@@ -310,6 +310,13 @@ window.CodePrinter = (function($) {
         },
         tabString: function() {
             return Array(this.options.tabWidth+1).join(' ');
+        },
+        setTheme: function(name) {
+            typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
+            name = name.toLowerCase().replace(' ', '-');
+            this.theme ? this.mainElement.removeClass('cps-'+this.theme) : 0;
+            this.mainElement.addClass('cps-'+name);
+            this.theme = name;
         }
     });
     
@@ -692,9 +699,9 @@ window.CodePrinter = (function($) {
         
         input.on({ keydown: function(e) {
             var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
-            if (keyMap[k]) {
-                keyMap[k].call(this);
-            }
+            return keyMap[k] ? (keyMap[k].call(this) && e.cancel()) : true;
+        }, keyup: function(e) {
+            cp.options.searchOnTheFly && this.value !== self.searched ? self.find(this.value) : 0;
         }});
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
@@ -705,6 +712,7 @@ window.CodePrinter = (function($) {
         self.input = input;
         self.bar = bar;
         self.overlay = overlay;
+        self.searchResults = $([]);
         self.open();
         
         return self;
@@ -724,7 +732,7 @@ window.CodePrinter = (function($) {
         },
         clear: function() {
             this.searched = null;
-            this.searchResults = $([]);
+            this.searchResults.length = 0;
             this.overlay.html('').appendTo(this.root.wrapper);
         },
         push: function(span) {
@@ -764,10 +772,10 @@ window.CodePrinter = (function($) {
             }
         },
         next: function() {
-            this.searchResults.removeClass('active').getNext().addClass('active');
+            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getNext().addClass('active') : 0;
         },
         prev: function() {
-            this.searchResults.removeClass('active').getPrev().addClass('active');
+            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getPrev().addClass('active') : 0;
         }
     };
     
@@ -832,6 +840,15 @@ window.CodePrinter = (function($) {
                 this.base = this.base.substr(pos);
             }
             return s;
+        },
+        eol: function() {
+            return this.base[0] === '\n' || this.base.substring(0, 2) === '\r\n';
+        },
+        sol: function() {
+            return this.final.length === 0 || this.final[this.final.length-1] === '\n';
+        },
+        next: function() {
+            return this.base[0] || '';
         },
         toString: function() {
             return this.final + this.base;
