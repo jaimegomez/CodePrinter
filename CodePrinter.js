@@ -72,8 +72,7 @@ window.CodePrinter = (function($) {
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
             
-            typeof options.theme === 'string' && options.theme !== 'default' ? self.requireStyle(options.theme) : options.theme = 'default';
-            self.mainElement.addClass('cps-'+options.theme.toLowerCase().replace(' ', '-'));
+            self.setTheme(options.theme);
             
             self.counter = new Counter(self);
             options.lineNumbers ? self.counter.show() : self.counter.hide();
@@ -311,6 +310,13 @@ window.CodePrinter = (function($) {
         },
         tabString: function() {
             return Array(this.options.tabWidth+1).join(' ');
+        },
+        setTheme: function(name) {
+            typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
+            name = name.toLowerCase().replace(' ', '-');
+            this.theme ? this.mainElement.removeClass('cps-'+this.theme) : 0;
+            this.mainElement.addClass('cps-'+name);
+            this.theme = name;
         }
     });
     
