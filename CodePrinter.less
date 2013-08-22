@@ -30,15 +30,14 @@
 	.cp-container {
         .block;
         .flexbox;
-        -webkit-flex-flow:column;
-           -moz-flex-flow:column;
-             -o-flex-flow:column;
-                flex-flow:column;
+        .flex-flow(column);
     	position:relative;
 	}
 	.cp-wrapper {
 	    .block;
+        .flexbox;
         .flex(1);
+        .flex-flow(column);
 	    .size(auto, 100%);
     	.margins(0 0 0 35px, 0 0);
         .sizing(border-box);
@@ -54,6 +53,7 @@
 	}
 	.cp-source {
 	    .block;
+        .flex(1);
 	    .margins(0, @paddingY @paddingX);
         .sizing(border-box);
         background:none;
@@ -274,8 +274,8 @@
     .cp-regexp { color:#c82829; }
     .cp-escaped { color:teal; }
     .cp-phptag { color:#FF0000; }
-    .cp-string, .cp-string * { color:maroon !important; }
-    .cp-comment, .cp-comment * { color:#a4a4a4 !important; }
+    .cp-string { color:maroon; }
+    .cp-comment { color:#a4a4a4; }
     
     &.cps-default {
         .cp-keyword, .cp-control, .cp-special, .cp-boolean, .cp-empty-value, .cp-phptag { font-weight:bold; }
@@ -285,12 +285,9 @@
     &.cp-fullscreen {
         .block;
         .flexbox;
+        .flex-flow(column);
         .position(absolute, 0, 0, 0, 0);
         z-index:100;
-        -webkit-flex-flow:column;
-           -moz-flex-flow:column;
-             -o-flex-flow:column;
-                flex-flow:column;
         
         .cp-container {
             .flex(1);
@@ -374,6 +371,13 @@
     -ms-flex:@f;
     -o-flex:@f;
     flex:@f;
+}
+.flex-flow (@f: row) {
+    -webkit-flex-flow:@f;
+    -moz-flex-flow:@f;
+    -ms-flex-flow:@f;
+    -o-flex-flow:@f;
+    flex-flow:@f;
 }
 .animation (@name, @time: .2s, @i: 1, @function: ease-in-out) {
     @str: @name @time @i @function;

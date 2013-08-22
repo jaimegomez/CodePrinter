@@ -26,17 +26,28 @@
   display: flex;
   -webkit-flex-flow: column;
   -moz-flex-flow: column;
+  -ms-flex-flow: column;
   -o-flex-flow: column;
   flex-flow: column;
   position: relative;
 }
 .codeprinter .cp-wrapper {
   display: block;
+  display: -webkit-box;
+  display: -moz-box;
+  display: -ms-flexbox;
+  display: -webkit-flex;
+  display: flex;
   -webkit-flex: 1;
   -moz-flex: 1;
   -ms-flex: 1;
   -o-flex: 1;
   flex: 1;
+  -webkit-flex-flow: column;
+  -moz-flex-flow: column;
+  -ms-flex-flow: column;
+  -o-flex-flow: column;
+  flex-flow: column;
   width: auto;
   height: 100%;
   margin: 0 0 0 35px;
@@ -58,6 +69,11 @@
 }
 .codeprinter .cp-source {
   display: block;
+  -webkit-flex: 1;
+  -moz-flex: 1;
+  -ms-flex: 1;
+  -o-flex: 1;
+  flex: 1;
   margin: 0;
   padding: 5px 15px;
   -webkit-box-sizing: border-box;
@@ -436,13 +452,11 @@
 .codeprinter .cp-phptag {
   color: #FF0000;
 }
-.codeprinter .cp-string,
-.codeprinter .cp-string * {
-  color: maroon !important;
+.codeprinter .cp-string {
+  color: maroon;
 }
-.codeprinter .cp-comment,
-.codeprinter .cp-comment * {
-  color: #a4a4a4 !important;
+.codeprinter .cp-comment {
+  color: #a4a4a4;
 }
 .codeprinter.cps-default .cp-keyword,
 .codeprinter.cps-default .cp-control,
@@ -463,16 +477,17 @@
   display: -ms-flexbox;
   display: -webkit-flex;
   display: flex;
+  -webkit-flex-flow: column;
+  -moz-flex-flow: column;
+  -ms-flex-flow: column;
+  -o-flex-flow: column;
+  flex-flow: column;
   position: absolute;
   top: 0;
   right: 0;
   bottom: 0;
   left: 0;
   z-index: 100;
-  -webkit-flex-flow: column;
-  -moz-flex-flow: column;
-  -o-flex-flow: column;
-  flex-flow: column;
 }
 .codeprinter.cp-fullscreen .cp-container {
   -webkit-flex: 1;
