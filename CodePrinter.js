@@ -841,6 +841,15 @@ window.CodePrinter = (function($) {
             }
             return s;
         },
+        eol: function() {
+            return this.base[0] === '\n' || this.base.substring(0, 2) === '\r\n';
+        },
+        sol: function() {
+            return this.final.length === 0 || this.final[this.final.length-1] === '\n';
+        },
+        next: function() {
+            return this.base[0] || '';
+        },
         toString: function() {
             return this.final + this.base;
         }
