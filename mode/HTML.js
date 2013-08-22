@@ -2,7 +2,7 @@
 
 CodePrinter.defineMode('HTML', {
     regexp: /<!--|<!\w+|<\/?|&.+;/,
-    regexp2: /[\w\-]+|=|"|'|\b\w+\b|\/?\s*>/,
+    regexp2: /[\w\-]+|=|"|'|\b\w+\b|<|\/?\s*>/,
     
     fn: function(stream) {
         var pos, found;
@@ -18,22 +18,26 @@ CodePrinter.defineMode('HTML', {
                     if (found === '<!--') {
                         stream.eat(found, '-->').wrap(['comment']);
                     } else {
-                        stream.eat(found, '>').wrap(['special']);
+                        stream.eat(found, '>').wrap(['special', 'doctype']);
                     }
                 } else {
                     stream.eat(found).wrap(['broket', 'open']);
                     
-                    if ((pos = stream.search(/\w+/)) !== -1) {
-                        found = stream.match(/\w+/)[0];
+                    if ((pos = stream.search(/^\s*\w+/)) !== -1) {
+                        found = stream.match(/^\s*\w+/)[0];
                         stream.tear(pos);
                         stream.eat(found).wrap(['keyword', found]);
-                    }
+                    } else 
+                        continue;
                     
                     while((pos = stream.search(this.regexp2)) !== -1) {
                         found = stream.match(this.regexp2)[0];
                         
                         stream.tear(pos);
                         
+                        if (found === '<') {
+                            break;
+                        }
                         if (/^\w+$/.test(found)) {
                             stream.eat(found).wrap(['property', found]);
                         } else if (found === '=') {
