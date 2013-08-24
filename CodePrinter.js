@@ -53,6 +53,7 @@ window.CodePrinter = (function($) {
         autoScroll: true,
         indentNewLines: true,
         insertClosingBrackets: true,
+        insertClosingQuotes: true,
         shortcuts: true,
         showFinder: false,
         searchOnTheFly: false,
@@ -205,7 +206,8 @@ window.CodePrinter = (function($) {
                     var k = e.charCode ? e.charCode : e.keyCode,
                         ch = String.fromCharCode(k);
                     
-                    self.keypressMap.touch(k, self, e) !== false ? self.insertText(ch) : null;
+                    self.keypressMap.touch(k, self, e, ch) !== false ? self.insertText(ch, 0) : null;
+                    self.emit('keypress:'+k, { code: k, char: ch, event: e });
                     self.print();
                     return e.cancel();
                 }
@@ -971,15 +973,19 @@ window.CodePrinter = (function($) {
         },
         9: function(e) {
             this.insertText(this.tabString());
+            this.update();
             return e.cancel();
         },
         13: function(e) {
             var t = this.textBeforeCursor().match(/^ +/),
                 a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            this.overlay.insert();
-            this.textBeforeCursor(1) == '{' ? this.insertText(a + this.tabString()) : this.insertText(a);
-            this.textAfterCursor(1) == '}' ? this.insertText(a, 1) : null;
+            if (this.textBeforeCursor(1) === '>') {
+                this.insertText(a + this.tabString());
+                this.textAfterCursor(1) === '<' && this.insertText(a, 1);
+            } else {
+                this.insertText(a);
+            }
             this.update();
             return e.cancel();
         },
@@ -999,27 +1005,33 @@ window.CodePrinter = (function($) {
     
     var keypressMap = function() {};
     keypressMap.prototype = {
-        touch: function(code, self, event) {
+        touch: function(code, self, event, char) {
             if (this[code]) {
-                return this[code].call(self, event, code);
+                return this[code].call(self, event, code, char);
             }
         },
-        34: function() {
-            this.textBeforeCursor(1) != '"' ? this.insertText('"', 1) : 0;
+        34: function(e, k, ch) {
+            if (this.options.insertClosingQuotes) {
+                this.textAfterCursor(1) !== ch ? this.insertText(ch + ch, 0, -1) : this.moveCursor(1);
+                return false;
+            }
         },
-        39: function() {
-            this.textBeforeCursor(1) != "'" ? this.insertText("'", 1) : 0;
+        40: function(e, k, ch) {
+            if (this.options.insertClosingBrackets) {
+                this.insertText(ch + (k === 40 ? String.fromCharCode(41) : String.fromCharCode(k+2)), 0, -1);
+                return false;
+            }
         },
-        40: function() {
-            this.options.insertClosingBrackets ? this.insertText(')', 1) : null;
-        },
-        91: function() {
-            this.options.insertClosingBrackets ? this.insertText(']', 1) : null;
-        },
-        123: function() {
-            this.options.insertClosingBrackets ? this.insertText('}', 1) : null;
+        41: function(e, k, ch) {
+            if (this.options.insertClosingBrackets && this.textAfterCursor(1) == ch) {
+                this.moveCursor(1);
+                return false;
+            }
         }
     };
+    keypressMap.prototype[39] = keypressMap.prototype[34];
+    keypressMap.prototype[91] = keypressMap.prototype[123] = keypressMap.prototype[40];
+    keypressMap.prototype[93] = keypressMap.prototype[125] = keypressMap.prototype[41];
     
     var shortcuts = function() {};
     shortcuts.prototype = {
