@@ -460,6 +460,11 @@ window.CodePrinter = (function($) {
                 this.source.focus();
                 this.isFullscreen = false;
             }
+        },
+        moveCursor: function(dst) {
+            dst = !isNaN(dst) ? parseInt(dst) : 1;
+            var s = this.source.item().selectionStart;
+            this.setSelection(s + dst, s + dst);
         }
     };
     
