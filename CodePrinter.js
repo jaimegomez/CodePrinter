@@ -688,7 +688,11 @@ window.CodePrinter = (function($) {
             overlay = $(document.createElement('div')).addClass('cp-overlay cpf-overlay'),
             keyMap = {
                 13: function() {
-                    self.find(this.value);
+                    if (self.searched === this.value) {
+                        self.next();
+                    } else {
+                        self.find(this.value);
+                    }
                 },
                 27: function() {
                     self.close();
@@ -712,6 +716,27 @@ window.CodePrinter = (function($) {
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
         closebutton.on({ click: function(e) { self.close(); }});
+        overlay.delegate('click', 'span', function() {
+            var index = self.searchResults.indexOf(this)+1;
+            if (index !== 0) {
+                var v = cp.getSourceValue(),
+                    f = this.textContent || this.innerText,
+                    c = 0, i = 0;
+                
+                while (c < index && (i = v.indexOf(f, i)+1)){
+                    c++;
+                }
+                cp.setSelection(i-1, i-1+f.length);
+                this.style.display = 'none';
+            }
+        });
+        cp.source.on({
+            keyup: function() {
+                if (!self.isClosed && self.searched) {
+                    self.reload();
+                }
+            }
+        });
         
         self.displayValue = bar.css('display');
         self.root = cp;
@@ -727,6 +752,7 @@ window.CodePrinter = (function($) {
         isClosed: false,
         open: function() {
             this.isClosed = false;
+            this.clear();
             this.bar.show(this.displayValue);
             this.input.focus();
         },
@@ -746,21 +772,16 @@ window.CodePrinter = (function($) {
             this.overlay.append(span);
         },
         find: function(find) {
-            if (find == null || find.length === 0) {
-                this.clear();
-                return false;
-            }
-            if (this.searched == find) {
-                this.next();
-            } else {
-                var root = this.root,
-                    value = root.getSourceValue(),
-                    pdx = root.source.total('paddingLeft', 'borderLeftWidth'),
-                    pdy = root.source.total('paddingTop', 'borderTopWidth'),
-                    index, line = 0, ln = 0, last, bf;
-                
-                this.clear();
-                
+            var root = this.root,
+                value = root.getSourceValue(),
+                pdx = root.source.total('paddingLeft', 'borderLeftWidth'),
+                pdy = root.source.total('paddingTop', 'borderTopWidth'),
+                index, line = 0, ln = 0, last, bf;
+            
+            find = find || this.input.value();
+            this.clear();
+            
+            if (find) {
                 while ((index = value.indexOf(find)) !== -1) {
                     var span = $(document.createElement('span')).addClass('cpf-occurrence').text(find);
                     bf = value.substring(0, index);
@@ -777,11 +798,14 @@ window.CodePrinter = (function($) {
                 this.searchResults.removeClass('active').get(0).addClass('active');
             }
         },
+        reload: function() {
+            return this.find(this.searched);
+        },
         next: function() {
-            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getNext().addClass('active') : 0;
+            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getNext().addClass('active') : this.find();
         },
         prev: function() {
-            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getPrev().addClass('active') : 0;
+            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getPrev().addClass('active') : this.find();
         }
     };
     
