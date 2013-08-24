@@ -344,13 +344,14 @@ window.CodePrinter = (function($) {
             
             return (typeof all === 'number' ? v.substring(0, all) : all !== true ? v.substring(0, v.indexOf('\n')) : v);
         },
-        insertText: function(text, mv) {
+        insertText: function(text, mv, j) {
             var ta = this.source.item(),
                 v = ta.value,
                 s = ta.selectionStart,
                 e = ta.selectionEnd;
             
             mv = typeof mv === 'number' ? mv : 0;
+            j = typeof j === 'number' ? j : 0;
             
             if (mv <= 0) {
                 v = v.substring(0, s + mv) + text + v.substring(s + mv, s) + v.substr(e);
@@ -360,7 +361,7 @@ window.CodePrinter = (function($) {
                 v = v.substring(0, s) + v.substring(e, e + mv) + text + v.substr(e + mv);
             }
             ta.value = v;
-            ta.setSelectionRange(s, s);
+            ta.setSelectionRange(s + j, s + j);
             this.caret.reload();
         },
         removeBeforeCursor: function(text) {
