@@ -58,5 +58,34 @@ CodePrinter.defineMode('HTML', {
         }
         
         return stream;
+    },
+    keydownMap: {
+        13: function(e) {
+            var t = this.textBeforeCursor().match(/^ +/),
+                a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
+            
+            if (this.textBeforeCursor(1) === '>') {
+                this.insertText(a + this.tabString());
+                this.textAfterCursor(1) === '<' && this.insertText(a, 1);
+            } else {
+                this.insertText(a);
+            }
+            this.update();
+            return e.cancel();
+        }
+    },
+    keypressMap: {
+        62: function() {
+            var t = this.textBeforeCursor(),
+                m = t.match(/<\s*(\w+)\s*[^>]*$/);
+            
+            this.insertText('>');
+            if (m && m[1]) {
+                var sc = ['area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr'],
+                    z = m[0].trim();
+                z[z.length-1] !== '/' && sc.indexOf(m[1].toLowerCase()) === -1 ? this.insertText('</'+m[1]+'>', 1) : 0;
+            }
+            return false;
+        }
     }
 });
