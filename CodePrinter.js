@@ -32,7 +32,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.4.1';
+    CodePrinter.version = '0.4.2';
     
     CodePrinter.defaults = {
         path: '',
@@ -53,6 +53,7 @@ window.CodePrinter = (function($) {
         autoScroll: true,
         indentNewLines: true,
         insertClosingBrackets: true,
+        insertClosingQuotes: true,
         shortcuts: true,
         showFinder: false,
         searchOnTheFly: false,
@@ -205,7 +206,8 @@ window.CodePrinter = (function($) {
                     var k = e.charCode ? e.charCode : e.keyCode,
                         ch = String.fromCharCode(k);
                     
-                    self.keypressMap.touch(k, self, e) !== false ? self.insertText(ch) : null;
+                    self.keypressMap.touch(k, self, e, ch) !== false ? self.insertText(ch, 0) : null;
+                    self.emit('keypress:'+k, { code: k, char: ch, event: e });
                     self.print();
                     return e.cancel();
                 }
@@ -344,13 +346,14 @@ window.CodePrinter = (function($) {
             
             return (typeof all === 'number' ? v.substring(0, all) : all !== true ? v.substring(0, v.indexOf('\n')) : v);
         },
-        insertText: function(text, mv) {
+        insertText: function(text, mv, j) {
             var ta = this.source.item(),
                 v = ta.value,
                 s = ta.selectionStart,
                 e = ta.selectionEnd;
             
             mv = typeof mv === 'number' ? mv : 0;
+            j = typeof j === 'number' ? j : 0;
             
             if (mv <= 0) {
                 v = v.substring(0, s + mv) + text + v.substring(s + mv, s) + v.substr(e);
@@ -360,7 +363,7 @@ window.CodePrinter = (function($) {
                 v = v.substring(0, s) + v.substring(e, e + mv) + text + v.substr(e + mv);
             }
             ta.value = v;
-            ta.setSelectionRange(s, s);
+            ta.setSelectionRange(s + j, s + j);
             this.caret.reload();
         },
         removeBeforeCursor: function(text) {
@@ -459,6 +462,11 @@ window.CodePrinter = (function($) {
                 this.source.focus();
                 this.isFullscreen = false;
             }
+        },
+        moveCursor: function(dst) {
+            dst = !isNaN(dst) ? parseInt(dst) : 1;
+            var s = this.source.item().selectionStart;
+            this.setSelection(s + dst, s + dst);
         }
     };
     
@@ -682,7 +690,11 @@ window.CodePrinter = (function($) {
             overlay = $(document.createElement('div')).addClass('cp-overlay cpf-overlay'),
             keyMap = {
                 13: function() {
-                    self.find(this.value);
+                    if (self.searched === this.value) {
+                        self.next();
+                    } else {
+                        self.find(this.value);
+                    }
                 },
                 27: function() {
                     self.close();
@@ -706,6 +718,27 @@ window.CodePrinter = (function($) {
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
         closebutton.on({ click: function(e) { self.close(); }});
+        overlay.delegate('click', 'span', function() {
+            var index = self.searchResults.indexOf(this)+1;
+            if (index !== 0) {
+                var v = cp.getSourceValue(),
+                    f = this.textContent || this.innerText,
+                    c = 0, i = 0;
+                
+                while (c < index && (i = v.indexOf(f, i)+1)){
+                    c++;
+                }
+                cp.setSelection(i-1, i-1+f.length);
+                this.style.display = 'none';
+            }
+        });
+        cp.source.on({
+            keyup: function() {
+                if (!self.isClosed && self.searched) {
+                    self.reload();
+                }
+            }
+        });
         
         self.displayValue = bar.css('display');
         self.root = cp;
@@ -721,6 +754,7 @@ window.CodePrinter = (function($) {
         isClosed: false,
         open: function() {
             this.isClosed = false;
+            this.clear();
             this.bar.show(this.displayValue);
             this.input.focus();
         },
@@ -740,21 +774,16 @@ window.CodePrinter = (function($) {
             this.overlay.append(span);
         },
         find: function(find) {
-            if (find == null || find.length === 0) {
-                this.clear();
-                return false;
-            }
-            if (this.searched == find) {
-                this.next();
-            } else {
-                var root = this.root,
-                    value = root.getSourceValue(),
-                    pdx = root.source.total('paddingLeft', 'borderLeftWidth'),
-                    pdy = root.source.total('paddingTop', 'borderTopWidth'),
-                    index, line = 0, ln = 0, last, bf;
-                
-                this.clear();
-                
+            var root = this.root,
+                value = root.getSourceValue(),
+                pdx = root.source.total('paddingLeft', 'borderLeftWidth'),
+                pdy = root.source.total('paddingTop', 'borderTopWidth'),
+                index, line = 0, ln = 0, last, bf;
+            
+            find = find || this.input.value();
+            this.clear();
+            
+            if (find) {
                 while ((index = value.indexOf(find)) !== -1) {
                     var span = $(document.createElement('span')).addClass('cpf-occurrence').text(find);
                     bf = value.substring(0, index);
@@ -771,11 +800,14 @@ window.CodePrinter = (function($) {
                 this.searchResults.removeClass('active').get(0).addClass('active');
             }
         },
+        reload: function() {
+            return this.find(this.searched);
+        },
         next: function() {
-            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getNext().addClass('active') : 0;
+            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getNext().addClass('active') : this.find();
         },
         prev: function() {
-            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getPrev().addClass('active') : 0;
+            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getPrev().addClass('active') : this.find();
         }
     };
     
@@ -941,15 +973,19 @@ window.CodePrinter = (function($) {
         },
         9: function(e) {
             this.insertText(this.tabString());
+            this.update();
             return e.cancel();
         },
         13: function(e) {
             var t = this.textBeforeCursor().match(/^ +/),
                 a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            this.overlay.insert();
-            this.textBeforeCursor(1) == '{' ? this.insertText(a + this.tabString()) : this.insertText(a);
-            this.textAfterCursor(1) == '}' ? this.insertText(a, 1) : null;
+            if (this.textBeforeCursor(1) === '>') {
+                this.insertText(a + this.tabString());
+                this.textAfterCursor(1) === '<' && this.insertText(a, 1);
+            } else {
+                this.insertText(a);
+            }
             this.update();
             return e.cancel();
         },
@@ -969,27 +1005,33 @@ window.CodePrinter = (function($) {
     
     var keypressMap = function() {};
     keypressMap.prototype = {
-        touch: function(code, self, event) {
+        touch: function(code, self, event, char) {
             if (this[code]) {
-                return this[code].call(self, event, code);
+                return this[code].call(self, event, code, char);
             }
         },
-        34: function() {
-            this.textBeforeCursor(1) != '"' ? this.insertText('"', 1) : 0;
+        34: function(e, k, ch) {
+            if (this.options.insertClosingQuotes) {
+                this.textAfterCursor(1) !== ch ? this.insertText(ch + ch, 0, -1) : this.moveCursor(1);
+                return false;
+            }
         },
-        39: function() {
-            this.textBeforeCursor(1) != "'" ? this.insertText("'", 1) : 0;
+        40: function(e, k, ch) {
+            if (this.options.insertClosingBrackets) {
+                this.insertText(ch + (k === 40 ? String.fromCharCode(41) : String.fromCharCode(k+2)), 0, -1);
+                return false;
+            }
         },
-        40: function() {
-            this.options.insertClosingBrackets ? this.insertText(')', 1) : null;
-        },
-        91: function() {
-            this.options.insertClosingBrackets ? this.insertText(']', 1) : null;
-        },
-        123: function() {
-            this.options.insertClosingBrackets ? this.insertText('}', 1) : null;
+        41: function(e, k, ch) {
+            if (this.options.insertClosingBrackets && this.textAfterCursor(1) == ch) {
+                this.moveCursor(1);
+                return false;
+            }
         }
     };
+    keypressMap.prototype[39] = keypressMap.prototype[34];
+    keypressMap.prototype[91] = keypressMap.prototype[123] = keypressMap.prototype[40];
+    keypressMap.prototype[93] = keypressMap.prototype[125] = keypressMap.prototype[41];
     
     var shortcuts = function() {};
     shortcuts.prototype = {

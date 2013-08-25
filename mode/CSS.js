@@ -69,7 +69,7 @@ CodePrinter.defineMode('CSS', {
 	},
     keypressMap: {
         58: function() {
-            this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' ? this.insertText(';', 1) : 0;
+            this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.insertText(';', 1);
         }
     }
 });
