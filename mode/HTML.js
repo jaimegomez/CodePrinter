@@ -13,43 +13,41 @@ CodePrinter.defineMode('HTML', {
             
             stream.tear(pos);
             
-            if (found[0] === '<') {
-                if (found.substr(0, 2) === '<!') {
-                    if (found === '<!--') {
-                        stream.eat(found, '-->').wrap(['comment']);
-                    } else {
-                        stream.eat(found, '>').wrap(['special', 'doctype']);
-                    }
+            if (found.substr(0, 2) === '<!') {
+                if (found === '<!--') {
+                    stream.eat(found, '-->').wrap(['comment']);
                 } else {
-                    stream.eat(found).wrap(['broket', 'open']);
+                    stream.eat(found, '>').wrap(['special', 'doctype']);
+                }
+            } else if (found[0] === '<') {
+                stream.eat(found).wrap(['broket', 'open']);
+                
+                if ((pos = stream.search(/^\s*\w+/)) !== -1) {
+                    found = stream.match(/^\s*\w+/)[0];
+                    stream.tear(pos);
+                    stream.eat(found).wrap(['keyword', found]);
+                } else 
+                    continue;
+                
+                while((pos = stream.search(this.regexp2)) !== -1) {
+                    found = stream.match(this.regexp2)[0];
                     
-                    if ((pos = stream.search(/^\s*\w+/)) !== -1) {
-                        found = stream.match(/^\s*\w+/)[0];
-                        stream.tear(pos);
-                        stream.eat(found).wrap(['keyword', found]);
-                    } else 
-                        continue;
+                    stream.tear(pos);
                     
-                    while((pos = stream.search(this.regexp2)) !== -1) {
-                        found = stream.match(this.regexp2)[0];
-                        
-                        stream.tear(pos);
-                        
-                        if (found === '<') {
-                            break;
-                        }
-                        if (/^\w+$/.test(found)) {
-                            stream.eat(found).wrap(['property', found]);
-                        } else if (found === '=') {
-                            stream.eat(found).wrap(['operator', 'equal']);
-                        } else if (this.chars.hasOwnProperty(found)) {
-                            stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
-                        } else if (found[found.length-1] === '>') {
-                            stream.eat(found).wrap(['broket', 'close']);
-                            break;
-                        } else {
-                            stream.eat(found).wrap(['other']);
-                        }
+                    if (found === '<') {
+                        break;
+                    }
+                    if (/^\w+$/.test(found)) {
+                        stream.eat(found).wrap(['property', found]);
+                    } else if (found === '=') {
+                        stream.eat(found).wrap(['operator', 'equal']);
+                    } else if (this.chars.hasOwnProperty(found)) {
+                        stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
+                    } else if (found[found.length-1] === '>') {
+                        stream.eat(found).wrap(['broket', 'close']);
+                        break;
+                    } else {
+                        stream.eat(found).wrap(['other']);
                     }
                 }
             } else if (found[0] === '&') {
