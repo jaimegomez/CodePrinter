@@ -1,7 +1,7 @@
 /* CodePrinter - HTML mode */
 
 CodePrinter.defineMode('HTML', {
-    regexp: /<!--|<!\w+|<\/?|&.+;/,
+    regexp: /<!--|<!\w+|<\?|<\/?|&.+;/,
     regexp2: /[\w\-]+|=|"|'|\b\w+\b|<|\/?\s*>/,
     
     fn: function(stream) {
@@ -18,6 +18,20 @@ CodePrinter.defineMode('HTML', {
                     stream.eat(found, '-->').wrap(['comment']);
                 } else {
                     stream.eat(found, '>').wrap(['special', 'doctype']);
+                }
+            } else if (found.substr(0, 2) === '<?') {
+                var p = stream.final.length,
+                    e = stream.eat(found, '?>', true).eaten, s;
+                
+                if (e.length > 4) {
+                    stream.back();
+                    s = stream.createSlice(e.length);
+                    
+                    CodePrinter.requireMode('PHP', function(php) {
+                        stream.convertSlice(s.index, php.parse(s.content).toString());
+                    }, this);
+                } else {
+                    stream.wrap(['phptag']);
                 }
             } else if (found[0] === '<') {
                 stream.eat(found).wrap(['broket', 'open']);
