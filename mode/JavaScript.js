@@ -62,8 +62,9 @@ CodePrinter.defineMode('JavaScript', {
                 stream.eat(found+stream.substring(0, 2)).wrap('escaped');
             } else if (found[0] == '/') {
                 stream.eat(found);
-                stream.eaten = stream.eaten.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="cp-regexp">');
-                stream.wrap('regexp');
+                stream.wrap(['regexp'], function(cls) {
+                    return this.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="'+cls+'">');
+                });
             } else {
                 stream.eat(found).wrap(['other']);
             }
