@@ -6,7 +6,6 @@ CodePrinter.defineMode('HTML', {
     
     fn: function(stream) {
         var pos, found;
-        stream = stream || this.stream;
         
         while((pos = stream.search(this.regexp)) !== -1) {
             found = stream.match(this.regexp)[0];
@@ -36,8 +35,8 @@ CodePrinter.defineMode('HTML', {
             } else if (found[0] === '<') {
                 stream.eat(found).wrap(['broket', 'open']);
                 
-                if ((pos = stream.search(/^\s*\w+/)) !== -1) {
-                    found = stream.match(/^\s*\w+/)[0];
+                if ((pos = stream.search(/^\b\w+/)) !== -1) {
+                    found = stream.match(/^\b\w+/)[0];
                     stream.tear(pos);
                     stream.eat(found).wrap(['keyword', found]);
                 } else 
