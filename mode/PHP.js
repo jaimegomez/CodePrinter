@@ -2,7 +2,7 @@
 
 CodePrinter.defineMode('PHP', {
 	controls: ['if','else','for','foreach','switch','case','while','do','elseif','try','catch','declare','endif','endfor','endforeach','endswitch','endwhile','enddeclare'],
-	keywords: ['abstract','and','array','as','break','callable','clone','const','continue','default','die','echo','exit','extends','final','global','goto','implements','include','include_once','instanceof','insteadof','namespace','new','null','or','print','private','protected','public','require','require_once','return','static','use','var','xor'],
+	keywords: ['echo','return','break','continue','array','require','require_once','include','include_once','new','abstract','and','as','callable','clone','const','default','die','exit','extends','final','global','goto','implements','instanceof','insteadof','namespace','null','or','print','private','protected','public','static','use','var','xor'],
     specials: ['class','function','interface','trait','self','parent','super'],
     constants: ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__'],
 	regexp: /\$[\w\d\_]+|\/\*|"|'|{|}|\(|\)|\[|\]|=|-|\+|\/|%|\b[\w\d\_]+(?=\()|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\?>|<\?php|<\?=?|\.|,|:|;|\?|!|<|>|&|\||\b\w+\b/g,
