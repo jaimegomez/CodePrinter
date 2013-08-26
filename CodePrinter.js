@@ -273,39 +273,53 @@ window.CodePrinter = (function($) {
             if (!mode) {
                 mode = this.options.mode;
             }
-            var h = CodePrinter.hasMode(mode);
+            var self = this,
+                h = CodePrinter.hasMode(mode);
+            
             CodePrinter.requireMode(mode, function(ModeObject) {
-                var overlay = this.overlay,
-                    value = this.getSourceValue(),
-                    pre = overlay.lines,
-                    parsed, j = -1;
+                var stream = this.stream = new Stream(this.getSourceValue());
                 
                 if (h === false) {
                     ModeObject.keydownMap ? this.keydownMap.extend(ModeObject.keydownMap) : null;
                     ModeObject.keypressMap ? this.keypressMap.extend(ModeObject.keypressMap) : null;
                 }
-                parsed = ModeObject.parse(value);
                 
-                while (parsed[++j] != null) {
-                    if (this.options.showIndent) {
-                        parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
+                stream.on({
+                    'slice.converted': function() {
+                        self.render(this);
                     }
-                    overlay.set(j, parsed[j]);
-                }
+                });
                 
-                if (parsed.length < pre.length) {
-                    for (var i = parsed.length; i < pre.length; i++) {
-                        overlay.remove(i);
-                    }
-                }
-                
-                this.lines = j;
-                this.value = value;
-                this.parsed = parsed;
-                this.counter.reload(j);
-                this.infobar.reload(value.length, j);
-                this.adjust();
+                this.render(ModeObject.fn(stream));
             }, this);
+        },
+        render: function(stream) {
+            stream = stream || this.stream;
+            
+            var ov = this.overlay,
+                ln = ov.lines.length,
+                parsed = stream.toString().split(/\n/g),
+                j = -1;
+            
+            while (parsed[++j] != null) {
+                if (this.options.showIndent) {
+                    parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
+                }
+                if (!this.parsed || parsed[j] !== this.parsed[j]) {
+                    ov.set(j, parsed[j]);
+                }
+            }
+            if (parsed.length < ln) {
+                for (var i = parsed.length; i < ln; i++) {
+                    ov.remove(i);
+                }
+            }
+            
+            this.lines = j;
+            this.parsed = parsed;
+            this.counter.reload(j);
+            this.infobar.reload(stream.startLength, j);
+            this.adjust();
         },
         requireStyle: function(style, callback) {
             $.require(this.options.path+'theme/'+style+'.css', callback);
@@ -822,42 +836,66 @@ window.CodePrinter = (function($) {
             this.base = str;
             this.eaten = '';
             this.final = '';
+            this.slices = [];
+            this.startLength = str.length;
             return this;
         },
-        eat: function(from, to) {
+        eat: function(from, to, req) {
             var str = this.base,
-                indexFrom = from instanceof RegExp ? str.search(from) : str.indexOf(from),
-                indexTo = 0;
+                indexFrom = 0,
+                indexTo = 0,
+                pos = 0;
             
-            if (to === '\n') {
-                indexTo = str.indexOf(to) - 1;
-            } else if (from === to) {
-                indexTo = str.indexOf(to, 1);
-                if (indexTo === -1) indexTo = str.length;
+            if (from instanceof RegExp) {
+                if ((indexFrom = str.search(from)) !== -1) {
+                    from = str.match(from)[0];
+                } else
+                    return this;
             } else {
-                if (!to) to = from;
-                indexTo = to instanceof RegExp ? str.search(to) : str.indexOf(to);
-                if (indexTo === -1) indexTo = indexFrom;
+                indexFrom = str.indexOf(from);
+            }
+            pos = indexFrom + from.length;
+            
+            if (to) {
+                var str2 = str.substr(pos);
+                if (to === '\n') {
+                    indexTo = str2.indexOf(to) - 1;
+                } else if (to instanceof RegExp) {
+                    if ((indexTo = str2.search(to)) !== -1) {
+                        to = str2.match(to)[0];
+                    }
+                } else {
+                    indexTo = str2.indexOf(to);
+                }
+                if (indexTo === -1) {
+                    indexTo = req ? str.length : pos;
+                } else {
+                    indexTo = indexTo + pos + to.length;
+                }
+            } else {
+                indexTo = pos;
             }
             
-            this.eaten = encodeEntities(str.substring(indexFrom, indexTo + to.length));
-            this.base = str.substr(indexTo + to.length);
+            this.eaten = str.substring(indexFrom, indexTo);
+            this.base = str.substr(indexTo);
             return this;
         },
-        wrap: function(suffix, tag) {
+        wrap: function(suffix, fn) {
             var result = '',
-                tmp = this.eaten.split(/\n/g);
+                tmp = encodeEntities(this.eaten);
             
             suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
-            tag = tag ? tag : 'span';
             
             for (var i = 0; i < suffix.length; i++) {
                 suffix[i] = 'cp-'+suffix[i];
             }
+            suffix = suffix.join(' ');
+            fn instanceof Function && (tmp = fn.call(tmp, suffix));
+            tmp = tmp.split(/\n/g);
             
             for (var i = 0; i < tmp.length; i++) {
-                result = result + '<'+tag+' class="'+suffix.join(' ')+'">';
-                result = result + tmp[i] +'</'+tag+'>';
+                result = result + '<span class="'+suffix+'">';
+                result = result + tmp[i] +'</span>';
                 if (i !== tmp.length - 1) {
                     result = result + "\n";
                 }
@@ -868,10 +906,34 @@ window.CodePrinter = (function($) {
             var s = '';
             if (!isNaN(pos)) {
                 s = this.base.substring(0, pos);
-                this.final = this.final + s;
+                this.final = this.final + encodeEntities(s);
                 this.base = this.base.substr(pos);
             }
             return s;
+        },
+        createSlice: function(len) {
+            var sli = {
+                targetPosition: this.final.length,
+                content: this.tear(len),
+                startLength: len
+            };
+            sli.length = encodeEntities(sli.content).length;
+            sli.index = this.slices.push(sli)-1;
+            return sli;
+        },
+        getSlice: function(i) {
+            return this.slices[i];
+        },
+        convertSlice: function(index, content) {
+            var sli = this.slices[index];
+            if (sli) {
+                this.final = this.final.substring(0, sli.targetPosition) + content + this.final.substr(sli.targetPosition + sli.length);
+                this.emit('slice.converted', { slice: sli });
+            }
+        },
+        back: function() {
+            this.base = this.eaten + this.base;
+            this.eaten = '';
         },
         eol: function() {
             return this.base[0] === '\n' || this.base.substring(0, 2) === '\r\n';
@@ -944,14 +1006,12 @@ window.CodePrinter = (function($) {
             }
             return this;
         },
-        parse: function(str) {
-            str = typeof str === 'string' ? new Stream(str) : str instanceof Stream ? str : this.stream != null ? this.stream : new Stream('');
-            var p = this.fn(str);
-            return p instanceof Stream ? p.toString().split(/\n/g) : typeof p === 'string' ? p.split(/\n/g) : '';
+        parse: function(text) {
+            return this.fn(new Stream(text));
         },
         fn: function(stream) {
             stream = stream || this.stream;
-            return stream.final;
+            return stream;
         }
     };
     
