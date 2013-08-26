@@ -5,11 +5,10 @@ CodePrinter.defineMode('PHP', {
 	keywords: ['echo','return','break','continue','array','require','require_once','include','include_once','new','abstract','and','as','callable','clone','const','default','die','exit','extends','final','global','goto','implements','instanceof','insteadof','namespace','null','or','print','private','protected','public','static','use','var','xor'],
     specials: ['class','function','interface','trait','self','parent','super'],
     constants: ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__'],
-	regexp: /\$[\w\d\_]+|\/\*|"|'|{|}|\(|\)|\[|\]|=|-|\+|\/|%|\b[\w\d\_]+(?=\()|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\?>|<\?php|<\?=?|\.|,|:|;|\?|!|<|>|&|\||\b\w+\b/g,
+	regexp: /\$[\w\d\_]+|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b|\/\*|\/\/|["'{}\(\)\[\]\=\-\+\/%]|\b\w+(?=\()|\?>|<\?php|<\?=?|\.|,|:|;|\?|!|<|>|&|\|/,
 	
 	fn: function(stream) {
 		var pos, found;
-		stream = stream || this.stream;
         
 		while ((pos = stream.search(this.regexp)) !== -1) {
         	found = stream.match(this.regexp)[0];
@@ -28,15 +27,15 @@ CodePrinter.defineMode('PHP', {
                         stream.eat(found).wrap(['numeric', 'float']);
                     }
                 }
-            } else if (/^[\w\d\_]+$/i.test(found)) {
+            } else if (/^\w+$/i.test(found)) {
             	if (found == 'true' || found == 'false') {
             		stream.eat(found).wrap(['boolean', found.toLowerCase()]);
             	} else if (this.controls.indexOf(found) !== -1) {
             		stream.eat(found).wrap(['control', found]);
-	            } else if (this.keywords.indexOf(found) !== -1) {
-	            	stream.eat(found).wrap(['keyword', found]);
 	            } else if (this.specials.indexOf(found) !== -1) {
-	            	stream.eat(found).wrap(['special'])
+                    stream.eat(found).wrap(['special'])
+                } else if (this.keywords.indexOf(found) !== -1) {
+	            	stream.eat(found).wrap(['keyword', found]);
 	            } else if (/^\s*\(/.test(stream.substr(found.length))) {
             		stream.eat(found).wrap(['fname', found]);
             	} else if (this.constants.indexOf(found) !== -1) {
