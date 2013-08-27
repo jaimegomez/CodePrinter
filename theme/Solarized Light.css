@@ -8,7 +8,7 @@
 .cps-solarized-light .cp-activeLine { background:rgba(255,255,0,0.3); box-shadow:0 0 1px 1px rgba(255,165,0,0.8); }
 .cps-solarized-light .cpf-input { background:#ede6d3; }
 
-.cps-solarized-light .cp-tab { border-left-color:#445544; }
+.cps-solarized-light .cp-tab { border-color:#445544; }
 .cps-solarized-light .cp-bracket { color:#657A81; }
 .cps-solarized-light .cp-operator { color:#000000; }
 .cps-solarized-light .cp-keyword { color:#B58900; }
@@ -23,5 +23,5 @@
 .cps-solarized-light .cp-regexp { color:#2AA198; }
 .cps-solarized-light .cp-escaped { color:#D30102; }
 .cps-solarized-light .cp-phptag { color:#FF0000; }
-.cps-solarized-light .cp-string, .cps-solarized-light .cp-string * { color:#2AA198 !important; }
-.cps-solarized-light .cp-comment, .cps-solarized-light .cp-comment * { color:#93A1A1 !important; font-style:italic; }
+.cps-solarized-light .cp-string { color:#2AA198; }
+.cps-solarized-light .cp-comment { color:#93A1A1; font-style:italic; }
