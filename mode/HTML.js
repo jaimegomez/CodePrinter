@@ -1,39 +1,42 @@
 /* CodePrinter - HTML mode */
 
 CodePrinter.defineMode('HTML', {
-    regexp: /<!--|<!\w+|<\/?|&.+;/,
+    regexp: /<!--|<!\w+|<\?|<\/?|&.+;/,
     regexp2: /[\w\-]+|=|"|'|\b\w+\b|<|\/?\s*>/,
     
     fn: function(stream) {
-        var pos, found;
-        stream = stream || this.stream;
+        var found;
         
-        while((pos = stream.search(this.regexp)) !== -1) {
-            found = stream.match(this.regexp)[0];
-            
-            stream.tear(pos);
-            
+        while (found = stream.retrieve(this.regexp)) {
             if (found.substr(0, 2) === '<!') {
                 if (found === '<!--') {
                     stream.eat(found, '-->').wrap(['comment']);
                 } else {
                     stream.eat(found, '>').wrap(['special', 'doctype']);
                 }
+            } else if (found.substr(0, 2) === '<?') {
+                var p = stream.final.length,
+                    e = stream.eat(found, '?>', true).eaten, s;
+                
+                if (e.length > 4) {
+                    stream.back();
+                    s = stream.createSlice(e.length);
+                    
+                    CodePrinter.requireMode('PHP', function(php) {
+                        stream.convertSlice(s.index, php.parse(s.content).toString());
+                    }, this);
+                } else {
+                    stream.wrap(['phptag']);
+                }
             } else if (found[0] === '<') {
                 stream.eat(found).wrap(['broket', 'open']);
                 
-                if ((pos = stream.search(/^\s*\w+/)) !== -1) {
-                    found = stream.match(/^\s*\w+/)[0];
-                    stream.tear(pos);
+                if (found = stream.retrieve(/^\b\w+/)) {
                     stream.eat(found).wrap(['keyword', found]);
                 } else 
                     continue;
                 
-                while((pos = stream.search(this.regexp2)) !== -1) {
-                    found = stream.match(this.regexp2)[0];
-                    
-                    stream.tear(pos);
-                    
+                while (found = stream.retrieve(this.regexp2)) {
                     if (found === '<') {
                         break;
                     }

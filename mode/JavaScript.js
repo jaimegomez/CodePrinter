@@ -8,14 +8,9 @@ CodePrinter.defineMode('JavaScript', {
     regexp: /\/\*|\/\/|'|"|{|}|\(|\)|\[|\]|=|-|\+|\/(.*)\/[gimy]{0,4}|\/|%|<|>|&|\||\.|,|:|;|\?|!|\$(?!\w)|\b[\w\d\-\_]+(?=(\(|\:))|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b/,
     
     fn: function(stream) {
-        var pos, found;
-        stream = stream || this.stream;
+        var found;
         
-        while ((pos = stream.search(this.regexp)) !== -1) {
-            found = stream.match(this.regexp)[0];
-            
-            stream.tear(pos);
-            
+        while (found = stream.retrieve(this.regexp)) {
             if (!isNaN(found)) {
                 if (/^0x[\da-fA-F]+$/.test(found)) {
                     stream.eat(found).wrap(['numeric', 'hex']);
@@ -62,8 +57,9 @@ CodePrinter.defineMode('JavaScript', {
                 stream.eat(found+stream.substring(0, 2)).wrap('escaped');
             } else if (found[0] == '/') {
                 stream.eat(found);
-                stream.eaten = stream.eaten.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="cp-regexp">');
-                stream.wrap('regexp');
+                stream.wrap(['regexp'], function(cls) {
+                    return this.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="'+cls+'">');
+                });
             } else {
                 stream.eat(found).wrap(['other']);
             }

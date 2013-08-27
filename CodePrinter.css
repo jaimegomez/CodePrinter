@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.4.2
+*   version     0.4.3
 */
 .codeprinter {
   display: block;
@@ -458,6 +458,10 @@
 }
 .codeprinter .cp-comment {
   color: #a4a4a4;
+}
+.codeprinter .cp-invalid {
+  background: #FA2B7D;
+  color: #F9F9F2;
 }
 .codeprinter.cps-default .cp-keyword,
 .codeprinter.cps-default .cp-control,

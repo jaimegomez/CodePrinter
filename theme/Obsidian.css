@@ -27,13 +27,12 @@
 .cps-obsidian .cp-regexp { color:#D25252; }
 .cps-obsidian .cp-escaped { color:#EFC090; }
 .cps-obsidian .cp-phptag { color:#FFFFFF; }
-.cps-obsidian .cp-string, .cps-obsidian .cp-string * { color:#EC7600 !important; }
-.cps-obsidian .cp-comment, .cps-obsidian .cp-comment * { color:#7D8C93 !important; }
+.cps-obsidian .cp-string { color:#EC7600; }
+.cps-obsidian .cp-comment { color:#7D8C93; }
 
 .cps-obsidian .cp-control,
 .cps-obsidian .cp-boolean,
 .cps-obsidian .cp-phptag { font-weight:bold; }
 
 .cps-obsidian .cp-string,
-.cps-obsidian .cp-string *,
 .cps-obsidian .cp-fname { font-style:italic; }

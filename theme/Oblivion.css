@@ -12,7 +12,7 @@
 .cps-oblivion .cpf-occurrence { border-color:#ddd; }
 .cps-oblivion .cpf-occurrence.active { background:white; border-color:black; }
 
-.cps-oblivion .cp-tab { border-left-color:#445544; }
+.cps-oblivion .cp-tab { border-color:#445544; }
 .cps-oblivion .cp-bracket { color:#D8D8D8; }
 .cps-oblivion .cp-operator { color:#FFFFFF; }
 .cps-oblivion .cp-keyword { color:#D197D9; }
@@ -27,5 +27,5 @@
 .cps-oblivion .cp-regexp { color:#EFC090; }
 .cps-oblivion .cp-escaped { color:#D25252; }
 .cps-oblivion .cp-phptag { color:#FF0000; }
-.cps-oblivion .cp-string, .cps-oblivion .cp-string * { color:#FFC600 !important; }
-.cps-oblivion .cp-comment, .cps-oblivion .cp-comment * { color:#C7DD0C !important; }
+.cps-oblivion .cp-string { color:#FFC600; }
+.cps-oblivion .cp-comment { color:#C7DD0C; }

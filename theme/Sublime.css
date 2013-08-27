@@ -10,7 +10,7 @@
 .cps-sublime .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-sublime .cpf-input { background:#373832; border-color:#555; }
 
-.cps-sublime .cp-tab { border-left-color:#6A6A6A; }
+.cps-sublime .cp-tab { border-color:#6A6A6A; }
 .cps-sublime .cp-bracket { color:#F9FAF4; }
 .cps-sublime .cp-operator { color:#FF007F; }
 .cps-sublime .cp-keyword { color:#FF007F; }
@@ -26,5 +26,5 @@
 .cps-sublime .cp-regexp { color:#E0D670; }
 .cps-sublime .cp-escaped { color:#888DFF; }
 .cps-sublime .cp-phptag { color:#FFFFFF; }
-.cps-sublime .cp-string, .cps-sublime .cp-string * { color:#E0D670 !important; }
-.cps-sublime .cp-comment, .cps-sublime .cp-comment * { color:#75705D !important; }
+.cps-sublime .cp-string { color:#E0D670; }
+.cps-sublime .cp-comment { color:#75705D; }
