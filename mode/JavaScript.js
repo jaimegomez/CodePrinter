@@ -8,14 +8,9 @@ CodePrinter.defineMode('JavaScript', {
     regexp: /\/\*|\/\/|'|"|{|}|\(|\)|\[|\]|=|-|\+|\/(.*)\/[gimy]{0,4}|\/|%|<|>|&|\||\.|,|:|;|\?|!|\$(?!\w)|\b[\w\d\-\_]+(?=(\(|\:))|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b/,
     
     fn: function(stream) {
-        var pos, found;
-        stream = stream || this.stream;
+        var found;
         
-        while ((pos = stream.search(this.regexp)) !== -1) {
-            found = stream.match(this.regexp)[0];
-            
-            stream.tear(pos);
-            
+        while (found = stream.retrieve(this.regexp)) {
             if (!isNaN(found)) {
                 if (/^0x[\da-fA-F]+$/.test(found)) {
                     stream.eat(found).wrap(['numeric', 'hex']);

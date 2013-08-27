@@ -5,16 +5,12 @@ CodePrinter.defineMode('PHP', {
 	keywords: ['echo','return','break','continue','array','require','require_once','include','include_once','new','abstract','and','as','callable','clone','const','default','die','exit','extends','final','global','goto','implements','instanceof','insteadof','namespace','null','or','print','private','protected','public','static','use','var','xor'],
     specials: ['class','function','interface','trait','self','parent','super'],
     constants: ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__'],
-	regexp: /\$[\w\d\_]+|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b|\/\*|\/\/|["'{}\(\)\[\]\=\-\+\/%]|\b\w+(?=\()|\?>|<\?php|<\?=?|\.|,|:|;|\?|!|<|>|&|\|/,
+	regexp: /\$[\w\d\_]+|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b|\/\*|\/\/|["'{}\(\)\[\]\=\-\+\/%]|\?>|<\?php|<\?=?|\.|,|:|;|\?|!|<|>|&|\|/,
 	
 	fn: function(stream) {
-		var pos, found;
+		var found;
         
-		while ((pos = stream.search(this.regexp)) !== -1) {
-        	found = stream.match(this.regexp)[0];
-            
-            stream.tear(pos);
-            
+		while (found = stream.retrieve(this.regexp)) {
             if (found[0] === '$') {
             	stream.eat(found).wrap(['variable'])
             } else if (!isNaN(found)) {
@@ -36,7 +32,7 @@ CodePrinter.defineMode('PHP', {
                     stream.eat(found).wrap(['special'])
                 } else if (this.keywords.indexOf(found) !== -1) {
 	            	stream.eat(found).wrap(['keyword', found]);
-	            } else if (/^\s*\(/.test(stream.substr(found.length))) {
+	            } else if (stream.isNext(/\s*\(/)) {
             		stream.eat(found).wrap(['fname', found]);
             	} else if (this.constants.indexOf(found) !== -1) {
                     stream.eat(found).wrap(['const', found.replace(/_/g, '')]);

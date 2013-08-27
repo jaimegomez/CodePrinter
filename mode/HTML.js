@@ -5,13 +5,9 @@ CodePrinter.defineMode('HTML', {
     regexp2: /[\w\-]+|=|"|'|\b\w+\b|<|\/?\s*>/,
     
     fn: function(stream) {
-        var pos, found;
+        var found;
         
-        while((pos = stream.search(this.regexp)) !== -1) {
-            found = stream.match(this.regexp)[0];
-            
-            stream.tear(pos);
-            
+        while (found = stream.retrieve(this.regexp)) {
             if (found.substr(0, 2) === '<!') {
                 if (found === '<!--') {
                     stream.eat(found, '-->').wrap(['comment']);
@@ -35,18 +31,12 @@ CodePrinter.defineMode('HTML', {
             } else if (found[0] === '<') {
                 stream.eat(found).wrap(['broket', 'open']);
                 
-                if ((pos = stream.search(/^\b\w+/)) !== -1) {
-                    found = stream.match(/^\b\w+/)[0];
-                    stream.tear(pos);
+                if (found = stream.retrieve(/^\b\w+/)) {
                     stream.eat(found).wrap(['keyword', found]);
                 } else 
                     continue;
                 
-                while((pos = stream.search(this.regexp2)) !== -1) {
-                    found = stream.match(this.regexp2)[0];
-                    
-                    stream.tear(pos);
-                    
+                while (found = stream.retrieve(this.regexp2)) {
                     if (found === '<') {
                         break;
                     }
