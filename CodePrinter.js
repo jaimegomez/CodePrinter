@@ -832,16 +832,20 @@ window.CodePrinter = (function($) {
         return this.init(string);
     };
     Stream.prototype = {
+        found: false,
+        pos: 0,
+        eaten: '',
+        final: '',
         init: function(str) {
             this.base = str;
-            this.eaten = '';
-            this.final = '';
             this.slices = [];
-            this.startLength = str.length;
             return this;
         },
+        remainingText: function() {
+            return this.base.substr(this.pos);
+        },
         eat: function(from, to, req) {
-            var str = this.base,
+            var str = this.base.substr(this.pos),
                 indexFrom = 0,
                 indexTo = 0,
                 pos = 0;
@@ -851,8 +855,8 @@ window.CodePrinter = (function($) {
                     from = str.match(from)[0];
                 } else
                     return this;
-            } else {
-                indexFrom = str.indexOf(from);
+            } else if ((indexFrom = str.indexOf(from)) === -1) {
+                return this;
             }
             pos = indexFrom + from.length;
             
@@ -876,8 +880,9 @@ window.CodePrinter = (function($) {
                 indexTo = pos;
             }
             
+            this.final = this.final + str.substring(0, indexFrom);
             this.eaten = str.substring(indexFrom, indexTo);
-            this.base = str.substr(indexTo);
+            this.pos = this.pos + this.eaten.length;
             return this;
         },
         wrap: function(suffix, fn) {
@@ -900,14 +905,15 @@ window.CodePrinter = (function($) {
                     result = result + "\n";
                 }
             }
+            this.eaten = '';
             return this.final = this.final + result;
         },
         tear: function(pos) {
             var s = '';
             if (!isNaN(pos)) {
-                s = this.base.substring(0, pos);
+                s = this.base.substr(this.pos, pos);
                 this.final = this.final + encodeEntities(s);
-                this.base = this.base.substr(pos);
+                this.pos = this.pos + pos;
             }
             return s;
         },
@@ -932,26 +938,51 @@ window.CodePrinter = (function($) {
             }
         },
         back: function() {
-            this.base = this.eaten + this.base;
+            this.pos = this.pos - this.eaten.length;
             this.eaten = '';
         },
         eol: function() {
-            return this.base[0] === '\n' || this.base.substring(0, 2) === '\r\n';
+            return this.base.substr(this.pos, 1) === '\n' || this.base.substr(this.pos, 2) === '\r\n';
         },
         sol: function() {
-            return this.final.length === 0 || this.final[this.final.length-1] === '\n';
+            return this.pos = 0 || this.base.substr(this.pos - 1, 1) === '\n';
         },
-        next: function() {
-            return this.base[0] || '';
+        next: function(ln) {
+            return this.base.substr(this.pos, (ln || 1)) || '';
+        },
+        retrieve: function(rgx) {
+            var m = this.base.substr(this.pos).match(rgx),
+                f = false;
+            f = m ? m[0] : f;
+            if (f) {
+                this.tear(this.base.indexOf(f, this.pos) - this.pos);
+            }
+            return this.found = f;
+        },
+        isNext: function(s) {
+            var b = this.base.substr(this.pos + (this.found.length || 0));
+            return s instanceof RegExp && b.search(s) === 0 || typeof str === 'string' && b.indexOf(s) === 0;
+        },
+        skip: function() {
+            if (this.found) {
+                var str = this.base.substr(this.pos),
+                    l = str.indexOf(this.found) + this.found.length;
+                
+                this.pos = this.pos + l;
+                this.eaten = '';
+                this.final = this.final + str.substring(0, l);
+            }
+            return this;
         },
         toString: function() {
-            return this.final + this.base;
+            return this.final + this.base.substr(this.pos);
         }
     };
     
     $.each(['substr','substring','replace','search','match','split'], function(v) {
         Stream.prototype[v] = function() {
-            return this.base[v].apply(this.base, arguments);
+            var b = this.base.substr(this.pos);
+            return b[v].apply(b, arguments);
         };
     });
     
@@ -1040,9 +1071,9 @@ window.CodePrinter = (function($) {
             var t = this.textBeforeCursor().match(/^ +/),
                 a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
-            if (this.textBeforeCursor(1) === '>') {
+            if (this.textBeforeCursor(1) === '{') {
                 this.insertText(a + this.tabString());
-                this.textAfterCursor(1) === '<' && this.insertText(a, 1);
+                this.textAfterCursor(1) === '}' && this.insertText(a, 1);
             } else {
                 this.insertText(a);
             }
@@ -1170,5 +1201,5 @@ window.CodePrinter = (function($) {
         return this;
     };
     
-    return CodePrinter;    
+    return CodePrinter;
 })(Selector);
