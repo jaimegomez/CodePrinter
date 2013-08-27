@@ -247,7 +247,7 @@ window.CodePrinter = (function($) {
             if (this.isWritable) {
                 var wrapper = this.wrapper,
                     source = this.source,
-                    sW, sH, wW, wH;
+                    sW, sH;
                 
                 source.css({ width: 0, height: 0 });
                 sW = source.scrollWidth() + source.css('paddingRight');
