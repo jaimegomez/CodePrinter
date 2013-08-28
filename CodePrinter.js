@@ -825,30 +825,86 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Stream = function(string) {
+    var Stream = function() {
         if (!(this instanceof Stream)) {
-            return new Stream(string);
+            return new Stream();
         }
-        return this.init(string);
+        this.value = [];
+        this.parsed = [];
+        this.slices = [];
+        return this;
     };
     Stream.prototype = {
-        found: false,
-        pos: 0,
+        found: '',
         eaten: '',
-        final: '',
-        init: function(str) {
-            this.base = str;
-            this.slices = [];
+        row: 0,
+        pos: 0,
+        defineParser: function(parser) {
+            if (parser instanceof CodePrinter.Mode) {
+                this.parser = parser;
+            }
+        },
+        setRow: function(r, p) {
+            if (r < 0 || r >= this.value.length) {
+                return false;
+            }
+            this.row = r;
+            this.pos = (p || 0);
             return this;
         },
-        remainingText: function() {
-            return this.base.substr(this.pos);
+        forward: function() {
+            return this.setRow(this.row + 1);
         },
-        eat: function(from, to, req) {
-            var str = this.base.substr(this.pos),
-                indexFrom = 0,
-                indexTo = 0,
-                pos = 0;
+        backward: function() {
+            return this.setRow(this.row - 1);
+        },
+        current: function() {
+            return this.value[this.row || 0];
+        },
+        parse: function(str) {
+            var v = this.value.slice(0),
+                d = this.parsed.length - this.value.length;
+            
+            this.value = $.browser.windows ? str.split('\r\n') : str.split('\n');
+            
+            for (var i = 0; i < this.value.length; i++) {
+                if (!v[i] || this.value[i] !== v[i]) {
+                    this.parsed[i] = '';
+                }
+            }
+            if (d > 0) {
+                this.parsed.splice(this.value.length, d);
+            }
+            
+            for (var i = 0; i < this.value.length; i++) {
+                this.setRow(i, 0);
+                if (!v[i] || this.value[i] !== v[i]) {
+                    this.parser.fn(this);
+                }
+                if (this.row != i) {
+                    i = this.row - 1;
+                }
+            }
+        },
+        match: function(rgx) {
+            var s = this.current().substr(this.pos),
+                f = false;
+            
+            if (s.length > 0) {
+                var m = rgx.exec(s), i;
+                if (m && m[0]) {
+                    f = m[0];
+                    i = s.indexOf(f);
+                    this.append(s.substring(0, i));
+                    this.pos = this.pos + i;
+                }
+            }
+            !f && this.skip();
+            return this.found = f;
+        },
+        eat: function(from, to, force) {
+            var str = this.current().substr(this.pos),
+                indexFrom = 0, indexTo = 0, pos = 0;
             
             if (from instanceof RegExp) {
                 if ((indexFrom = str.search(from)) !== -1) {
@@ -863,7 +919,7 @@ window.CodePrinter = (function($) {
             if (to) {
                 var str2 = str.substr(pos);
                 if (to === '\n') {
-                    indexTo = str2.indexOf(to) - 1;
+                    indexTo = str2.length;
                 } else if (to instanceof RegExp) {
                     if ((indexTo = str2.search(to)) !== -1) {
                         to = str2.match(to)[0];
@@ -872,119 +928,91 @@ window.CodePrinter = (function($) {
                     indexTo = str2.indexOf(to);
                 }
                 if (indexTo === -1) {
-                    indexTo = req ? str.length : pos;
+                    if (force) {
+                        // force eat...
+                        //return this;
+                    }
                 } else {
                     indexTo = indexTo + pos + to.length;
                 }
-            } else {
+            }
+            if (indexTo <= 0) {
                 indexTo = pos;
             }
             
-            this.final = this.final + str.substring(0, indexFrom);
-            this.eaten = str.substring(indexFrom, indexTo);
-            this.pos = this.pos + this.eaten.length;
+            this.append(str.substring(0, indexFrom));
+            this.eaten = [str.substring(indexFrom, indexTo)];
+            this.pos = this.pos + indexTo;
             return this;
         },
+        eatWhile: function(from, to) {
+            return this.eat(from, to, true);
+        },
         wrap: function(suffix, fn) {
-            var result = '',
-                tmp = encodeEntities(this.eaten);
+            var i = 0,
+                tmp = this.eaten,
+                span = function(txt) {
+                    txt = encodeEntities(txt);
+                    fn instanceof Function && (txt = fn.call(txt, suffix));
+                    return '<span class="'+suffix+'">' + txt + '</span>';
+                };
             
             suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
             
-            for (var i = 0; i < suffix.length; i++) {
+            for (i = 0; i < suffix.length; i++) {
                 suffix[i] = 'cp-'+suffix[i];
             }
             suffix = suffix.join(' ');
-            fn instanceof Function && (tmp = fn.call(tmp, suffix));
-            tmp = tmp.split(/\n/g);
             
-            for (var i = 0; i < tmp.length; i++) {
-                result = result + '<span class="'+suffix+'">';
-                result = result + tmp[i] +'</span>';
-                if (i !== tmp.length - 1) {
-                    result = result + "\n";
+            i = -1;
+            while (++i < tmp.length) {
+                this.append(span(tmp[i]));
+                if (i+1 < tmp.length) {
+                    this.forward();
+                } else {
+                    break;
                 }
             }
-            this.eaten = '';
-            return this.final = this.final + result;
-        },
-        tear: function(pos) {
-            var s = '';
-            if (!isNaN(pos)) {
-                s = this.base.substr(this.pos, pos);
-                this.final = this.final + encodeEntities(s);
-                this.pos = this.pos + pos;
-            }
-            return s;
-        },
-        createSlice: function(len) {
-            var sli = {
-                targetPosition: this.final.length,
-                content: this.tear(len),
-                startLength: len
-            };
-            sli.length = encodeEntities(sli.content).length;
-            sli.index = this.slices.push(sli)-1;
-            return sli;
-        },
-        getSlice: function(i) {
-            return this.slices[i];
-        },
-        convertSlice: function(index, content) {
-            var sli = this.slices[index];
-            if (sli) {
-                this.final = this.final.substring(0, sli.targetPosition) + content + this.final.substr(sli.targetPosition + sli.length);
-                this.emit('slice.converted', { slice: sli });
-            }
-        },
-        back: function() {
-            this.pos = this.pos - this.eaten.length;
-            this.eaten = '';
-        },
-        eol: function() {
-            return this.base.substr(this.pos, 1) === '\n' || this.base.substr(this.pos, 2) === '\r\n';
-        },
-        sol: function() {
-            return this.pos = 0 || this.base.substr(this.pos - 1, 1) === '\n';
-        },
-        next: function(ln) {
-            return this.base.substr(this.pos, (ln || 1)) || '';
-        },
-        retrieve: function(rgx) {
-            var m = this.base.substr(this.pos).match(rgx),
-                f = false;
-            f = m ? m[0] : f;
-            if (f) {
-                this.tear(this.base.indexOf(f, this.pos) - this.pos);
-            }
-            return this.found = f;
-        },
-        isNext: function(s) {
-            var b = this.base.substr(this.pos + (this.found.length || 0));
-            return s instanceof RegExp && b.search(s) === 0 || typeof str === 'string' && b.indexOf(s) === 0;
-        },
-        skip: function() {
-            if (this.found) {
-                var str = this.base.substr(this.pos),
-                    l = str.indexOf(this.found) + this.found.length;
-                
-                this.pos = this.pos + l;
-                this.eaten = '';
-                this.final = this.final + str.substring(0, l);
-            }
+            i > 1 && this.setRow(this.row + i);
             return this;
         },
-        toString: function() {
-            return this.final + this.base.substr(this.pos);
+        append: function(txt) {
+            if (typeof this.parsed[this.row] === 'string') {
+                this.parsed[this.row] += txt;
+            }
+        },
+        before: function(l) {
+            return this.current().substring(l != null ? this.pos - l : 0, this.pos);
+        },
+        after: function(l) {
+            return this.current().substr(this.pos + (this.found.length || 0), l);
+        },
+        isAfter: function(s) {
+            var af = this.after();
+            return s instanceof RegExp ? af.search(s) === 0 : af.trim().indexOf(s) === 0;
+        },
+        isBefore: function(s) {
+            var bf = this.before(), t;
+            return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.lastIndexOf(s) === t.length - s.length;
+        },
+        back: function() {
+            
+        },
+        skip: function() {
+            this.append(this.current().substr(this.pos));
+            this.forward();
+        },
+        peek: function(q) {
+            q = q || 0;
+            return this.current().charAt(this.pos + q);
+        },
+        eol: function() {
+            return this.pos === this.current().length;
+        },
+        sol: function() {
+            return this.pos === 0;
         }
     };
-    
-    $.each(['substr','substring','replace','search','match','split'], function(v) {
-        Stream.prototype[v] = function() {
-            var b = this.base.substr(this.pos);
-            return b[v].apply(b, arguments);
-        };
-    });
     
     CodePrinter.Mode = function() {
         if (!(this instanceof CodePrinter.Mode)) {
