@@ -294,6 +294,10 @@ window.CodePrinter = (function($) {
                 this.render(stream, old);
             }, this);
         },
+        forcePrint: function() {
+            this.stream = new Stream();
+            this.print();
+        },
         render: function(stream, old) {
             stream = stream || this.stream;
             
