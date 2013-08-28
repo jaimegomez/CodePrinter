@@ -274,11 +274,11 @@ window.CodePrinter = (function($) {
                 mode = this.options.mode;
             }
             var self = this,
+                stream = this.stream = this.stream || new Stream(),
+                old = stream.parsed.slice(0),
                 h = CodePrinter.hasMode(mode);
             
             CodePrinter.requireMode(mode, function(ModeObject) {
-                var stream = this.stream = new Stream(this.getSourceValue());
-                
                 if (h === false) {
                     ModeObject.keydownMap ? this.keydownMap.extend(ModeObject.keydownMap) : null;
                     ModeObject.keypressMap ? this.keypressMap.extend(ModeObject.keypressMap) : null;
@@ -289,24 +289,22 @@ window.CodePrinter = (function($) {
                         self.render(this);
                     }
                 });
-                
-                this.render(ModeObject.fn(stream));
+                stream.defineParser(ModeObject);
+                stream.parse(this.getSourceValue());
+                this.render(stream, old);
             }, this);
         },
-        render: function(stream) {
+        render: function(stream, old) {
             stream = stream || this.stream;
             
             var ov = this.overlay,
                 ln = ov.lines.length,
-                parsed = stream.toString().split(/\n/g),
+                parsed = stream.parsed,
                 j = -1;
             
             while (parsed[++j] != null) {
-                if (this.options.showIndent) {
-                    parsed[j] = indentGrid(parsed[j], this.options.tabWidth);
-                }
-                if (!this.parsed || parsed[j] !== this.parsed[j]) {
-                    ov.set(j, parsed[j]);
+                if (!old || !old[j] || parsed[j] !== old[j]) {
+                    ov.set(j, this.options.showIndent ? indentGrid(parsed[j], this.options.tabWidth) : parsed[j]);
                 }
             }
             if (parsed.length < ln) {
