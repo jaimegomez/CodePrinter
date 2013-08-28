@@ -1035,8 +1035,8 @@ window.CodePrinter = (function($) {
         chars: { 
             '//': { end: '\n', cls: ['comment', 'line-comment'] }, 
             '/*': { end: '*/', cls: ['comment', 'multiline-comment'] },
-            "'": { end: "'", cls: ['string', 'single-quote'] },
-            '"': { end: '"', cls: ['string', 'double-quote'] }
+            "'": { end: /(^'|[^\\]')/, cls: ['string', 'single-quote'] },
+            '"': { end: /(^"|[^\\]")/, cls: ['string', 'double-quote'] }
         },
         punctuations: {
             '.': 'dot',
