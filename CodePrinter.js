@@ -1055,21 +1055,10 @@ window.CodePrinter = (function($) {
             '&': 'ampersand',
             '|': 'verticalbar'
         },
-        
-        setStream: function(str) {
-            if (typeof str === 'string') {
-                str = new Stream(str);
-            }
-            if (str instanceof Stream) {
-                this.stream = str;
-            }
-            return this;
-        },
         parse: function(text) {
             return this.fn(new Stream(text));
         },
         fn: function(stream) {
-            stream = stream || this.stream;
             return stream;
         }
     };
