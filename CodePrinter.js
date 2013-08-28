@@ -274,6 +274,7 @@ window.CodePrinter = (function($) {
                 mode = this.options.mode;
             }
             var self = this,
+                sT = document.body.scrollTop,
                 stream = this.stream = this.stream || new Stream(),
                 old = stream.parsed.slice(0),
                 h = CodePrinter.hasMode(mode);
@@ -292,6 +293,7 @@ window.CodePrinter = (function($) {
                 stream.defineParser(ModeObject);
                 stream.parse(this.getSourceValue());
                 this.render(stream, old);
+                document.body.scrollTop = sT;
             }, this);
         },
         forcePrint: function() {
