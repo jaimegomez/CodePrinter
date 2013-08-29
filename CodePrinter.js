@@ -286,7 +286,7 @@ window.CodePrinter = (function($) {
                 }
                 
                 stream.on({
-                    'slice.converted': function() {
+                    'substream:parsed': function() {
                         self.render(this);
                     }
                 });
@@ -309,7 +309,7 @@ window.CodePrinter = (function($) {
                 j = -1;
             
             while (parsed[++j] != null) {
-                if (!old || !old[j] || parsed[j] !== old[j]) {
+                if (!old || old[j] == null || parsed[j] !== old[j]) {
                     ov.set(j, this.options.showIndent ? indentGrid(parsed[j], this.options.tabWidth) : parsed[j]);
                 }
             }
@@ -320,7 +320,6 @@ window.CodePrinter = (function($) {
             }
             
             this.lines = j;
-            this.parsed = parsed;
             this.counter.reload(j);
             this.infobar.reload(stream.startLength, j);
             this.adjust();
@@ -835,7 +834,7 @@ window.CodePrinter = (function($) {
         }
         this.value = [];
         this.parsed = [];
-        this.slices = [];
+        this.substreams = [];
         return this;
     };
     Stream.prototype = {
@@ -869,23 +868,20 @@ window.CodePrinter = (function($) {
             var v = this.value.slice(0),
                 d = this.parsed.length - this.value.length;
             
-            this.value = $.browser.windows ? str.split('\r\n') : str.split('\n');
+            this.value = typeof str === 'string' ? $.browser.windows ? str.split('\r\n') : str.split('\n') : str;
+            this.startLength = str.length;
             
-            for (var i = 0; i < this.value.length; i++) {
-                if (!v[i] || this.value[i] !== v[i]) {
-                    this.parsed[i] = '';
-                }
-            }
             if (d > 0) {
                 this.parsed.splice(this.value.length, d);
             }
             
             for (var i = 0; i < this.value.length; i++) {
                 this.setRow(i, 0);
-                if (!v[i] || this.value[i] !== v[i]) {
+                if (v[i] == null || this.value[i] !== v[i]) {
+                    this.parsed[i] = '';
                     this.parser.fn(this);
                 }
-                if (this.row != i) {
+                if (this.row > i+1) {
                     i = this.row - 1;
                 }
             }
@@ -903,7 +899,7 @@ window.CodePrinter = (function($) {
                     this.pos = this.pos + i;
                 }
             }
-            !f && this.skip();
+            !f && this.tear();
             return this.found = f;
         },
         eat: function(from, to, force) {
@@ -919,6 +915,8 @@ window.CodePrinter = (function($) {
                 return this;
             }
             pos = indexFrom + from.length;
+            this.append(str.substring(0, indexFrom));
+            this.pos = this.pos + indexFrom;
             
             if (to) {
                 var str2 = str.substr(pos);
@@ -926,15 +924,36 @@ window.CodePrinter = (function($) {
                     indexTo = str2.length;
                 } else if (to instanceof RegExp) {
                     if ((indexTo = str2.search(to)) !== -1) {
-                        to = str2.match(to)[0];
+                        to = to.exec(str2)[0];
                     }
                 } else {
                     indexTo = str2.indexOf(to);
                 }
                 if (indexTo === -1) {
                     if (force) {
-                        // force eat...
-                        //return this;
+                        this.eaten = [str.substr(indexFrom)];
+                        this.pos = 0;
+                        
+                        while (++this.row < this.value.length) {
+                            str2 = this.current();
+                            if (to instanceof RegExp) {
+                                if ((indexTo = str2.search(to)) !== -1) {
+                                    to = to.exec(str2)[0];
+                                }
+                            } else {
+                                indexTo = str2.indexOf(to);
+                            }
+                            if (indexTo !== -1) {
+                                this.eaten.push(str2.substring(0, indexTo + to.length));
+                                this.pos = indexTo + to.length;
+                                return this;
+                            } else {
+                                this.eaten.push(str2);
+                            }
+                        }
+                        this.row--;
+                        this.pos = str2.length;
+                        return this;
                     }
                 } else {
                     indexTo = indexTo + pos + to.length;
@@ -944,9 +963,8 @@ window.CodePrinter = (function($) {
                 indexTo = pos;
             }
             
-            this.append(str.substring(0, indexFrom));
             this.eaten = [str.substring(indexFrom, indexTo)];
-            this.pos = this.pos + indexTo;
+            this.pos = this.pos + (indexTo - indexFrom);
             return this;
         },
         eatWhile: function(from, to) {
@@ -969,20 +987,68 @@ window.CodePrinter = (function($) {
             suffix = suffix.join(' ');
             
             i = -1;
+            tmp.length > 1 && (this.row = this.row - tmp.length+1);
+            
             while (++i < tmp.length) {
                 this.append(span(tmp[i]));
                 if (i+1 < tmp.length) {
-                    this.forward();
-                } else {
-                    break;
+                    this.parsed[++this.row] = '';
                 }
             }
-            i > 1 && this.setRow(this.row + i);
             return this;
         },
         append: function(txt) {
-            if (typeof this.parsed[this.row] === 'string') {
-                this.parsed[this.row] += txt;
+            if (typeof this.parsed[this.row] === 'string' && txt.length) {
+                this.parsed[this.row] = this.parsed[this.row] + txt;
+            }
+        },
+        push: function() {
+            var e = this.eaten;
+            if (e) {
+                for (var i = this.row - e.length + 1, j = 0; j < e.length; i++, j++) {
+                    if (this.parsed[i] == null) {
+                        this.parsed[i] = '';
+                    }
+                    this.parsed[i] += encodeEntities(e[j]);
+                }
+            }
+        },
+        createSubstream: function() {
+            var e = this.eaten,
+                sr = this.row - e.length + 1,
+                ss = {
+                    startRow: sr,
+                    startPosition: this.parsed[sr].length,
+                    endPosition: encodeEntities(e[e.length-1]).length,
+                    rows: e
+                };
+            
+            ss.index = this.substreams.push(ss) - 1;
+            this.push();
+            return ss;
+        },
+        getSubstream: function(i) {
+            return this.substreams[i];
+        },
+        parseSubstream: function(index, parser) {
+            var ss = this.substreams[index];
+            if (ss) {
+                var i = 0,
+                    sr = ss.startRow,
+                    content = parser.parse(ss.rows).parsed;
+                
+                if (content[i]) {
+                    if (content.length > 1) {
+                        this.parsed[sr] = this.parsed[sr].substring(0, ss.startPosition) + content[i];
+                        for (i = 1; i < content.length-1; i++) {
+                            this.parsed[sr+i] = content[i];
+                        }
+                        this.parsed[sr+i] = content[i] + (this.parsed[sr+i] ? this.parsed[sr+i].substr(ss.endPosition) : '');
+                    } else {
+                        this.parsed[sr] = this.parsed[sr].substring(0, ss.startPosition) + content[i] + this.parsed[sr].substr(ss.endPosition);
+                    }
+                }
+                this.emit('substream:parsed', { substream: ss });
             }
         },
         before: function(l) {
@@ -1002,9 +1068,18 @@ window.CodePrinter = (function($) {
         back: function() {
             
         },
-        skip: function() {
+        tear: function() {
             this.append(this.current().substr(this.pos));
             this.forward();
+        },
+        skip: function(found) {
+            var str = this.current().substr(this.pos);
+            found = found || this.found;
+            if (found && str.indexOf(found) === 0) {
+                this.append(found);
+                this.pos = this.pos + found.length;
+                this.found = false;
+            }
         },
         peek: function(q) {
             q = q || 0;
@@ -1015,6 +1090,9 @@ window.CodePrinter = (function($) {
         },
         sol: function() {
             return this.pos === 0;
+        },
+        toString: function() {
+            return $.browser.windows ? this.parsed.join('\r\n') : this.parsed.join('\n');
         }
     };
     
