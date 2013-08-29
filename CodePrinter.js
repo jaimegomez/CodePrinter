@@ -1138,7 +1138,10 @@ window.CodePrinter = (function($) {
             '|': 'verticalbar'
         },
         parse: function(text) {
-            return this.fn(new Stream(text));
+            var ns = new Stream();
+            ns.defineParser(this);
+            ns.parse(text);
+            return ns;
         },
         fn: function(stream) {
             return stream;
