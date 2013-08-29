@@ -1173,6 +1173,7 @@ window.CodePrinter = (function($) {
             var t = this.textBeforeCursor().match(/^ +/),
                 a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
+            this.overlay.insert();
             if (this.textBeforeCursor(1) === '{') {
                 this.insertText(a + this.tabString());
                 this.textAfterCursor(1) === '}' && this.insertText(a, 1);
