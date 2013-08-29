@@ -295,6 +295,7 @@
   border-color: #c0c0c0;
   border-width: 0 0 0 1px;
   border-style: solid;
+  border-radius: 0;
   -webkit-box-sizing: border-box;
   -moz-box-sizing: border-box;
   -ms-box-sizing: border-box;
