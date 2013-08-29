@@ -10,7 +10,7 @@ CodePrinter.defineMode('PHP', {
 	fn: function(stream) {
 		var found;
         
-		while (found = stream.retrieve(this.regexp)) {
+		while (found = stream.match(this.regexp)) {
             if (found[0] === '$') {
             	stream.eat(found).wrap(['variable'])
             } else if (!isNaN(found)) {
@@ -32,7 +32,7 @@ CodePrinter.defineMode('PHP', {
                     stream.eat(found).wrap(['special'])
                 } else if (this.keywords.indexOf(found) !== -1) {
 	            	stream.eat(found).wrap(['keyword', found]);
-	            } else if (stream.isNext(/\s*\(/)) {
+	            } else if (stream.isAfter('(')) {
             		stream.eat(found).wrap(['fname', found]);
             	} else if (this.constants.indexOf(found) !== -1) {
                     stream.eat(found).wrap(['const', found.replace(/_/g, '')]);

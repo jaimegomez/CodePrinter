@@ -10,13 +10,13 @@ CodePrinter.defineMode('CSS', {
     fn: function(stream) {
         var found;
         
-        while (found = stream.retrieve(this.regexp)) {
+        while (found = stream.match(this.regexp)) {
             if (found[0] === '#') {
                 stream.eat(found).wrap(['special', 'css-id']);
             } else if (found[0] === '.') {
                 stream.eat(found).wrap(['special', 'css-class']);
             } else if (/^[\w\-]+$/i.test(found)) {
-                if (stream.isNext(/:/)) {
+                if (stream.isAfter(':')) {
                     stream.eat(found).wrap(['property', 'property-'+found]);
                 } else if (found.indexOf('-') === -1) {
                     stream.eat(found).wrap(['css-tag']);
@@ -33,7 +33,7 @@ CodePrinter.defineMode('CSS', {
                 stream.eat(found).wrap(['punctuation', this.punctuations[found]]);
                 
                 if (found === ':') {
-                    while (found = stream.retrieve(this.values)) {
+                    while (found = stream.match(this.values)) {
                         if (found == ';') {
                             stream.eat(found).wrap(['punctuation', 'semicolon']);
                             break;
@@ -60,7 +60,7 @@ CodePrinter.defineMode('CSS', {
                             stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
                         } else if (found == "\n") {
                             break;
-                        } else if (stream.isNext(/\(/)) {
+                        } else if (stream.isAfter('(')) {
                             stream.eat(found).wrap(['fname', 'fname-'+found]);
                         } else {
                             stream.eat(found).wrap(['value']);
@@ -69,6 +69,8 @@ CodePrinter.defineMode('CSS', {
                 }
             } else if (this.brackets.hasOwnProperty(found)) {
                 stream.eat(found).wrap(this.brackets[found]);
+            } else if (this.operators.hasOwnProperty(found)) {
+                stream.eat(found).wrap(this.operators[found]);
             } else if (found === '/*') {
                 stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else {
