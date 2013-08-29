@@ -297,7 +297,7 @@ window.CodePrinter = (function($) {
             }, this);
         },
         forcePrint: function() {
-            this.stream = new Stream();
+            this.stream = null;
             this.print();
         },
         render: function(stream, old) {
