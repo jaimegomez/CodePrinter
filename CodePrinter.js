@@ -1,5 +1,7 @@
 /* CodePrinter - Main JavaScript Document */
 
+"use strict";
+
 window.CodePrinter = (function($) {
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
