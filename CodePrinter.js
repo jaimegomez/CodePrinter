@@ -1070,7 +1070,17 @@ window.CodePrinter = (function($) {
             return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.lastIndexOf(s) === t.length - s.length;
         },
         back: function() {
-            
+            if (this.eaten.length) {
+                this.row = this.row - this.eaten.length + 1;
+                this.pos = this.eaten.length > 1 ? this.value[this.row].rbreak(this.eaten[0]).length : this.pos - this.eaten[0].length;
+                this.eaten = [];
+            }
+            return this;
+        },
+        reset: function() {
+            this.found = false;
+            this.eaten = [];
+            return this;
         },
         tear: function() {
             this.append(this.current().substr(this.pos));
