@@ -838,7 +838,6 @@ window.CodePrinter = (function($) {
         }
         this.value = [];
         this.parsed = [];
-        this.substreams = [];
         return this;
     };
     Stream.prototype = {
@@ -1027,7 +1026,7 @@ window.CodePrinter = (function($) {
         },
         push: function() {
             var e = this.eaten;
-            if (e) {
+            if (e.length) {
                 for (var i = this.row - e.length + 1, j = 0; j < e.length; i++, j++) {
                     if (this.parsed[i] == null) {
                         this.parsed[i] = '';
@@ -1045,16 +1044,11 @@ window.CodePrinter = (function($) {
                     endPosition: encodeEntities(e[e.length-1]).length,
                     rows: e
                 };
-            
-            ss.index = this.substreams.push(ss) - 1;
+            e.length === 1 && (ss.endPosition = ss.endPosition + ss.startPosition);
             this.push();
             return ss;
         },
-        getSubstream: function(i) {
-            return this.substreams[i];
-        },
-        parseSubstream: function(index, parser) {
-            var ss = this.substreams[index];
+        parseSubstream: function(ss, parser) {
             if (ss) {
                 var i = 0,
                     sr = ss.startRow,
@@ -1292,7 +1286,7 @@ window.CodePrinter = (function($) {
             this.counter.element.item().parentNode == null ? this.counter.show() : this.counter.hide();
         },
         82: function() {
-            this.print();
+            this.forcePrint();
         }
     };
     
