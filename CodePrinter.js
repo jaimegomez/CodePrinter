@@ -906,9 +906,11 @@ window.CodePrinter = (function($) {
             !f && this.tear();
             return this.found = f;
         },
-        eat: function(from, to, force) {
+        eat: function(from, to, req, force) {
             var str = this.current().substr(this.pos),
                 indexFrom = 0, indexTo = 0, pos = 0;
+            
+            from = from || this.found;
             
             if (from instanceof RegExp) {
                 if ((indexFrom = str.search(from)) !== -1) {
@@ -958,6 +960,14 @@ window.CodePrinter = (function($) {
                         this.row--;
                         this.pos = str2.length;
                         return this;
+                    } else if (req) {
+                        indexTo = pos + str2.length;
+                        if (req instanceof Function) {
+                            this.eaten = [str.substring(indexFrom, indexTo)];
+                            this.pos = this.pos + (indexTo - indexFrom);
+                            req.call(this);
+                            return this;
+                        }
                     }
                 } else {
                     indexTo = indexTo + pos + to.length;
@@ -972,9 +982,16 @@ window.CodePrinter = (function($) {
             return this;
         },
         eatWhile: function(from, to) {
-            return this.eat(from, to, true);
+            return this.eat(from, to, true, true);
         },
         wrap: function(suffix, fn) {
+            if (!this.eaten.length) {
+                if (this.found) {
+                    this.eat();
+                } else {
+                    return this;
+                }
+            }
             var i = 0,
                 tmp = this.eaten,
                 span = function(txt) {
@@ -990,16 +1007,18 @@ window.CodePrinter = (function($) {
             }
             suffix = suffix.join(' ');
             
-            i = -1;
-            tmp.length > 1 && (this.row = this.row - tmp.length+1);
+            tmp.length > 1 && (this.row = this.row - tmp.length + 1);
+            i = 0;
             
-            while (++i < tmp.length) {
-                this.append(span(tmp[i]));
-                if (i+1 < tmp.length) {
+            while (true) {
+                this.append(tmp[i] ? span(tmp[i]) : '');
+                if (++i < tmp.length) {
                     this.parsed[++this.row] = '';
+                } else {
+                    break;
                 }
             }
-            return this;
+            return this.reset();
         },
         append: function(txt) {
             if (typeof this.parsed[this.row] === 'string' && txt.length) {
