@@ -60,7 +60,7 @@ window.CodePrinter = (function($) {
         showFinder: false,
         searchOnTheFly: false,
         width: 'auto',
-        height: 'auto',
+        height: 300,
         randomIDLength: 7
     };
     
@@ -92,7 +92,7 @@ window.CodePrinter = (function($) {
             options.fontSize != 12 && options.fontSize > 0 ? overlay.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) }) : 0;
             options.lineHeight != 16 && options.lineHeight > 0 ? id = '#'+id+' .cp-' && $.stylesheet.insert(id+'overlay pre, '+id+'counter, '+id+'source', 'line-height:'+options.lineHeight+'px;') : 0;
             options.width > 0 ? self.mainElement.css({ width: parseInt(options.width) }) : 0;
-            options.height > 0 ? self.container.css({ height: parseInt(options.height) }) : 0;
+            options.height > 0 ? self.wrapper.css({ maxHeight: parseInt(options.height) }) : 0;
             source.tag() === 'textarea' ? self.prepareWriter() : 0;
             
             overlay.addClass('cp-'+options.mode.toLowerCase());
@@ -254,7 +254,7 @@ window.CodePrinter = (function($) {
                 source.css({ width: 0, height: 0 });
                 sW = source.scrollWidth() + source.css('paddingRight');
                 sH = source.scrollHeight();
-                source.css({ width: sW < wrapper.clientWidth() ? null : sW, height: sH < wrapper.clientHeight() ? null : sH });
+                source.css({ minWidth: sW < wrapper.clientWidth() ? null : sW, minHeight: sH < wrapper.clientHeight() ? null : sH });
             }
         },
         unselectLine: function() {
