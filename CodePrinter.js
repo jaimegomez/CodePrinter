@@ -343,6 +343,63 @@ window.CodePrinter = (function($) {
         }
     });
     
+    var Data = function(value) {
+        var i = 0, j = -1, c, r,
+            eol = $.browser.windows ? '\r\n' : '\n',
+            pos = value.indexOf(eol);
+        
+        pos === -1 && (pos = value.length);
+        
+        do {
+            this.addLine(i, value.substring(0, pos));
+            value = value.substr(pos + eol.length);
+            i++;
+        } while ((pos = value.indexOf(eol)) !== -1);
+        this.addLine(i, value);
+        return this;
+    };
+    Data.prototype = [].extend({
+        lines: 0,
+        addLine: function(line, txt) {
+            var b, i, p = getDataLinePosition(line),
+                u = p[0], t = p[1], h = p[2];
+            
+            !this[h] && this.splice(h, 0, []);
+            b = this[h][t] || (this[h][t] = []);
+            b.splice(u, 0, new DataLine(txt));
+            this.lines++;
+            
+            if (b.length > 10) {
+                var r;
+                while ((r = b.splice(10, b.length - 10)) && r.length > 0) {
+                    t === 9 && (t = -1) && h++;
+                    b = this[h][++t] || (this[h][t] = []);
+                    var a = [0, 0];
+                    a.push.apply(a, r);
+                    b.splice.apply(b, a);
+                }
+            }
+            return this;
+        },
+        getLine: function(line) {
+            var p = getDataLinePosition(line);
+            return this[p[2]][p[1]][p[0]] || null;
+        },
+        count: function() {
+            var h = this.length, t;
+            t = this[--h].length - 1;
+            return parseInt(''+ h + t + (this[h][t].length - 1));
+        }
+    });
+    
+    var DataLine = function(txt) {
+        this.text = encodeEntities(txt);
+        return this;
+    };
+    DataLine.prototype = {
+        
+    };
+    
     var Writer = {
         getCurrentLine: function() {
             return this.textBeforeCursor(true).split('\n').length - 1;
@@ -1303,6 +1360,9 @@ window.CodePrinter = (function($) {
         return $.scripts.has('CodePrinter.'+name);
     };
     
+    function getDataLinePosition(line) {
+        return [line % 10, (line - line % 10) % 100 / 10, (line - line % 100) / 100 ];
+    };
     function decodeEntities(text) {
         var d = document.createElement('div');
         d.innerHTML = text;
