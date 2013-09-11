@@ -12,26 +12,39 @@
 @paddingY:              5px;
 @paddingX:              15px;
 @font:                  Menlo, Monaco, monospace, Courier;
-@fontSize:              12px;
-@lineHeight:            16px;
+@fontSize:              11px;
+@lineHeight:            15px;
 @lineTransition:        .2s;
 @indentBorder:          1px dotted rgb(200,200,200);
     
 .codeprinter {
     .block;
     .nowrap;
-    .margins(5px, 0);
+    .margins(0, 0);
     .border(silver, 1px);
     min-width:50px;
     min-height:20px;
     overflow:hidden;
     position:relative; top:0;
     
+    &, * {
+        -webkit-tap-highlight-color:transparent;
+    }
+    
     .cp-container {
         .block;
         .flexbox;
         .flex-flow(column);
         position:relative;
+        
+        .cp-tempdiv {
+            .inline-block;
+            .margins(0, 0);
+            white-space:pre;
+            position:absolute;
+            top:-100px; left:-100px;
+            visibility:hidden;
+        }
     }
     .cp-wrapper {
         .block;
@@ -39,7 +52,7 @@
         .flex(1);
         .flex-flow(column);
         .size(auto, 100%);
-        .margins(0 0 0 35px, 0 0);
+        .margins(0 0 0 35px, 0);
         .sizing(border-box);
         background:@backgroundColor;
         border:none;
@@ -53,40 +66,56 @@
     }
     .cp-source {
         .block;
-        .flex(1);
         .margins(0, @paddingY @paddingX);
         .sizing(border-box);
         background:none;
         border-width:0;
         min-width:100%;
         min-height:100%;
-        color:transparent;
+        color:black;
         resize:none;
         outline:none;
         z-index:3;
-        opacity:1;
         overflow:visible !important;
         overflow-x:visible !important;
         overflow-y:visible !important;
         white-space:pre;
         position:relative;
     }
+    .cp-input {
+        .inline-block;
+        .vertical-top;
+        .size(10px, 20px);
+        .margins(0, 0);
+        background:none;
+        color:transparent;
+        resize:none;
+        outline:none;
+        opacity:0;
+        white-space:pre;
+        position:absolute;
+        top:-100px; left:-100px;
+    }
     .cp-overlay {
         .block;
         .size(auto, auto);
-        .margins(0, @paddingY 0);
-        .non-events;
+        .margins(0, @paddingY @paddingX);
+        .sizing(border-box);
+        min-width:100%;
+        min-height:100%;
         border-width:0;
         color:inherit;
         z-index:5;
         overflow:visible;
-        position:absolute;
-        top:0; right:0; bottom:0; left:0;
+        overflow-x:visible;
+        overflow-y:visible;
+        position:relative;
+        cursor:text;
         
         pre {
             .block;
             .size(auto, auto);
-            .margins(0, 0 0 0 @paddingX);
+            .margins(0 -@paddingX, 0 @paddingX);
             .transition(@lineTransition);
             color:inherit;
         }
@@ -94,34 +123,35 @@
     .cp-counter {
         .inline-block;
         .vertical-top;
-        .margins(0, @paddingY 0 30px);
+        .margins(0, 0);
         .size(auto, auto);
         .linear-gradient(right, @gradientStartColor, @gradientEndColor);
         .border(@borderColor, 0 1px 0 0);
         .shadow(0 0 10px rgba(0,0,0,0.25));
         .user-select(none);
         color:@textColor;
-        min-width:35px;
+        min-width:38px;
         z-index:6;
-        list-style-type:none;
         overflow:hidden;
-        counter-reset:cp-counter;
         position:absolute;
         top:0; left:0; bottom:0;
         
+        ol {
+            .block;
+            .margins(0, @paddingY 0);
+            .align-right;
+            min-width:38px;
+            list-style-type:none;
+        }
+        
         li {
-            .margins(0, 0 7px);
+            .margins(0, 0 5px 0 7px);
             .align-right;
             .transition(@lineTransition);
             color:inherit;
             font-family:inherit;
             font-size:inherit;
             list-style-type:none;
-            counter-increment:cp-counter;
-            
-            &::before {
-                content:counter(cp-counter);
-            }
         }
     }
     .cp-infobar {
@@ -226,14 +256,14 @@
         z-index:10;
     }
     
-    .cp-overlay, .cp-source, .cp-counter {
+    .cp-overlay, .cp-source, .cp-input, .cp-counter {
         font-family:@font;
         font-size:@fontSize;
         word-break:normal;
         word-spacing:0px;
         word-wrap:normal;
     }
-    .cp-overlay pre, .cp-source, .cp-counter {
+    .cp-overlay pre, .cp-source, .cp-input, .cp-counter {
         line-height:@lineHeight;
     }
     .cp-overlay pre, .cp-counter li {
