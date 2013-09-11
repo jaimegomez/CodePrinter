@@ -5,7 +5,7 @@
 .cps-sublime .cp-infobar,
 .cps-sublime .cpf-bar { background:#272822; border-color:#555; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.7); }
 .cps-sublime .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
-.cps-sublime .cp-source::selection { background-color:rgba(255,255,255,0.2); }
+.cps-sublime ::selection { background:rgba(255,255,255,0.2); }
 .cps-sublime .cp-highlight { box-shadow:0 1px 0 white; }
 .cps-sublime .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-sublime .cpf-input { background:#373832; border-color:#555; }
