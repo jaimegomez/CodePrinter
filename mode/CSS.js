@@ -12,65 +12,65 @@ CodePrinter.defineMode('CSS', {
         
         while (found = stream.match(this.regexp)) {
             if (found[0] === '#') {
-                stream.eat(found).wrap(['special', 'css-id']);
+                stream.wrap(['special', 'css-id']);
             } else if (found[0] === '.') {
-                stream.eat(found).wrap(['special', 'css-class']);
+                stream.wrap(['special', 'css-class']);
             } else if (/^[\w\-]+$/i.test(found)) {
                 if (stream.isAfter(':')) {
-                    stream.eat(found).wrap(['property', 'property-'+found]);
+                    stream.wrap(['property', 'property-'+found]);
                 } else if (found.indexOf('-') === -1) {
-                    stream.eat(found).wrap(['css-tag']);
+                    stream.wrap(['css-tag']);
                 } else {
                     stream.skip();
                 }
             } else if (found[0] === '@') {
                 if (found === '@media') {
-                    stream.eat(found).wrap(['control', 'control-media']);
+                    stream.wrap(['control', 'control-media']);
                 } else {
-                    stream.eat(found).wrap(['variable', 'variable-'+found.substr(1)]);
+                    stream.wrap(['variable', 'variable-'+found.substr(1)]);
                 }
             } else if (this.punctuations.hasOwnProperty(found)) {
-                stream.eat(found).wrap(['punctuation', this.punctuations[found]]);
+                stream.wrap(['punctuation', this.punctuations[found]]);
                 
                 if (found === ':') {
                     while (found = stream.match(this.values)) {
                         if (found == ';') {
-                            stream.eat(found).wrap(['punctuation', 'semicolon']);
+                            stream.wrap(['punctuation', 'semicolon']);
                             break;
                         } else if (this.colors.indexOf(found) !== -1) {
-                            stream.eat(found).wrap(['keyword', 'color-'+found]);
+                            stream.wrap(['keyword', 'color-'+found]);
                         } else if (this.keywords.indexOf(found) !== -1) {
-                            stream.eat(found).wrap(['keyword', 'keyword-'+found]);
+                            stream.wrap(['keyword', 'keyword-'+found]);
                         } else if (found[0] === '#') {
                             if (found.length === 4 || found.length === 7) {
-                                stream.eat(found).wrap(['numeric', 'hex']);
+                                stream.wrap(['numeric', 'hex']);
                             } else {
-                                stream.eat(found).wrap(['invalid']);
+                                stream.wrap(['invalid']);
                             }
                         } else if (/\d/.test(found)) {
                             if (!isNaN(found)) {
-                                stream.eat(found).wrap(['numeric']);
+                                stream.wrap(['numeric']);
                             } else if (this.units.test(found)) {
                                 var f2 = found.match(this.units)[0];
-                                stream.eat(found).wrap(['numeric', 'unit-'+f2]);
+                                stream.wrap(['numeric', 'unit-'+f2]);
                             } else {
-                                stream.eat(found).wrap(['numeric']);
+                                stream.wrap(['numeric']);
                             }
                         } else if (this.chars.hasOwnProperty(found)) {
                             stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
                         } else if (found == "\n") {
                             break;
                         } else if (stream.isAfter('(')) {
-                            stream.eat(found).wrap(['fname', 'fname-'+found]);
+                            stream.wrap(['fname', 'fname-'+found]);
                         } else {
-                            stream.eat(found).wrap(['value']);
+                            stream.wrap(['value']);
                         }
                     }
                 }
             } else if (this.brackets.hasOwnProperty(found)) {
-                stream.eat(found).wrap(this.brackets[found]);
+                stream.wrap(this.brackets[found]);
             } else if (this.operators.hasOwnProperty(found)) {
-                stream.eat(found).wrap(this.operators[found]);
+                stream.wrap(this.operators[found]);
             } else if (found === '/*') {
                 stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else {
