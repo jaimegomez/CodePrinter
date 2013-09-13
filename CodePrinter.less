@@ -155,6 +155,9 @@
         }
     }
     .cp-infobar {
+        .block();
+        .flexbox;
+        .flex-flow(row);
         .size(auto, 12px);
         .margins(0, 2px 5px);
         .linear-gradient(bottom, @gradientStartColor, @gradientEndColor);
@@ -170,6 +173,10 @@
         
         span {
             .margins(0 5px);
+        }
+        .cp-characters {
+            .flex(1);
+            .align-right;
         }
         a {
             .margins(0 5px, 0);
@@ -229,6 +236,8 @@
     .cpf-overlay {
         background:none !important;
         z-index:6;
+        position:absolute;
+        top:0; right:0; bottom:0; left:0;
     }
     .cpf-occurrence {
         .inline-block;
