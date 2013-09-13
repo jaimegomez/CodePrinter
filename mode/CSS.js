@@ -77,6 +77,8 @@ CodePrinter.defineMode('CSS', {
                 stream.skip();
             }
         }
+        
+        return stream;
     },
     keypressMap: {
         58: function() {
