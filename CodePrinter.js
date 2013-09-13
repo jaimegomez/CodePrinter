@@ -200,24 +200,35 @@ window.CodePrinter = (function($) {
                 keydown: function(e) {
                     caret.deactivate().show();
                     
-                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : e.which;
+                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
                     if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
                         self.shortcuts[k].call(self, e, this);
                         return e.cancel();
                     }
                     if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
-                        return e.cancel();
+                        
+                    } else {
+                        return self.keydownMap.touch(k, self, e);
                     }
-                    return self.keydownMap.touch(k, self, e);
                 },
                 keypress: function(e) {
-                    var ch = String.fromCharCode(e.charCode);
-                    self.insertText(ch);
-                    self.update(caret.currentLine);
-                    this.value = '';
+                    var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
+                        ch = String.fromCharCode(k);
+                    
+                    if (!e.ctrlKey && !e.metaKey) {
+                        self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
+                        self.emit('keypress:'+k, { code: k, char: ch, event: e });
+                        this.value = '';
+                        return e.cancel();
+                    }
                 },
-                keyup: function() {
+                keyup: function(e) {
                     caret.activate();
+                    
+                    if (this.value.length) {
+                        self.insertText(this.value);
+                        this.value = '';
+                    }
                 }
             });
             
