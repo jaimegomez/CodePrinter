@@ -235,7 +235,6 @@ window.CodePrinter = (function($) {
             caret.on({
                 'text:changed': function() {
                     self.data.getLine(this.currentLine).setText(this.textAtCurrentLine());
-                    self.parse();
                 },
                 'position:changed': function() {
                     self.input.focus();
@@ -256,15 +255,9 @@ window.CodePrinter = (function($) {
                 }
             });
             
-            self.source.on({
-                keypress: function(e) {
-                    var k = e.charCode ? e.charCode : e.keyCode,
-                        ch = String.fromCharCode(k);
-                    
-                    self.keypressMap.touch(k, self, e, ch) !== false ? self.insertText(ch, 0) : null;
-                    self.emit('keypress:'+k, { code: k, char: ch, event: e });
-                    self.print();
-                    return e.cancel();
+            self.data.on({
+                'text:changed': function(e) {
+                    self.parse(e.dataLine);
                 }
             });
             
@@ -355,10 +348,10 @@ window.CodePrinter = (function($) {
         parse: function(line, force) {
             var dl, data = this.data;
             line instanceof DataLine && (dl = line) && (line = this.data.indexOf(line));
-            (line == null || line < 0) && (line = this.caret.currentLine);
-            !dl && (dl = data.getLine(line));
+            (line == null) && (line = this.caret.currentLine);
             
-            if (this.parser) {
+            if (line >= 0 && this.parser) {
+                !dl && (dl = data.getLine(line));
                 if (!dl.parsed || dl.changed || force) {
                     if (dl.startPoint) {
                         return this.parse(dl.startPoint, true);
@@ -424,7 +417,7 @@ window.CodePrinter = (function($) {
                 for (var i = 1; i < s.length; i++) {
                     this.caret.setTextAfter('');
                     this.insertNewLine();
-                    this.caret.setTextBefore(s[i]);
+                    this.caret.increment().setColumn(0).setTextBefore(s[i]);
                 }
                 this.caret.setTextAfter(af);
             } else if (mv > 0) {
@@ -435,9 +428,9 @@ window.CodePrinter = (function($) {
                 this.caret.setTextBefore(bf.substring(0, bf.length + mv) + text + bf.substr(bf.length + mv));
             }
         },
-        insertNewLine: function() {
+        insertNewLine: function(l) {
+            l == null && (l = this.caret.currentLine+1);
             var ov = this.overlay,
-                l = this.caret.currentLine+1,
                 dl = this.data.addLine(l, ''),
                 pre = dl.getElement(),
                 q = l - ov.firstLine;
@@ -447,7 +440,6 @@ window.CodePrinter = (function($) {
                 ov.lines.splice(q, 0, pre);
                 ov.lastLine++;
             }
-            this.caret.increment().setColumn(0);
             return this;
         },
         removeBeforeCursor: function(arg) {
@@ -935,14 +927,17 @@ window.CodePrinter = (function($) {
                 c = parseInt(fi.innerHTML) + this.list.length;
             
             fi.innerHTML = c;
-            c === this.root.caret.currentLine + 1 ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine');
+            this.root.options.highlightCurrentLine && (c === this.root.caret.currentLine + 1 ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
             this.element.append(fi);
             this.list.get(0).remove(true).push(fi);
             this.element.append(fi).css({ marginTop: '++' + this.root.sizes.lineHeight });
         },
         unshift: function() {
-            var la = this.list.item(-1);
-            la.innerHTML = parseInt(la.innerHTML) - this.list.length;
+            var la = this.list.item(-1),
+                c = parseInt(la.innerHTML) - this.list.length;
+            
+            la.innerHTML = c;
+            this.root.options.highlightCurrentLine && (c === this.root.caret.currentLine + 1 ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
             this.element.prepend(la);
             this.list.get(-1).remove(true).unshift(la);
             this.element.prepend(la).css({ marginTop: '--' + this.root.sizes.lineHeight });
