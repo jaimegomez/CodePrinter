@@ -82,9 +82,6 @@ window.CodePrinter = (function($) {
             self.counter = new Counter(self);
             options.lineNumbers ? self.counter.show() : self.counter.hide();
             
-            self.infobar = new InfoBar(self);
-            options.infobar ? self.infobar.show() : self.infobar.hide();
-            
             self.mainElement.attr({ id: id });
             self.id = id;
             
@@ -101,6 +98,8 @@ window.CodePrinter = (function($) {
             source.tag() === 'textarea' && self.prepareWriter();
             
             options.showFinder && (this.finder = new Finder(self));
+            self.infobar = new InfoBar(self);
+            options.infobar ? self.infobar.show() : self.infobar.hide();
             
             self.caret.onclick = function(e) {
                 var sl = this.scrollLeft,
@@ -961,7 +960,7 @@ window.CodePrinter = (function($) {
             plaintext: {
                 func: function() {
                     var newWindow = window.open('', '_blank');
-                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(cp.getSourceValue()) + '</pre>');
+                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(cp.data.toString()) + '</pre>');
                 }
             }
         };
@@ -970,13 +969,17 @@ window.CodePrinter = (function($) {
             this.addAction(k, this.actions[k].func, this.actions[k].text);
         }
         
+        if (cp.caret) {
+            cp.caret.on({
+                'position:changed': function() {
+                    ch.html('Line ' + (this.currentLine+1) + ', Column ' + this.textBefore().length);
+                }
+            })
+        }
+        
         return this;
     };
     InfoBar.prototype = {
-        reload: function(a, b, c) {
-            var html = (a && b) ? a+' characters, '+b+' lines' : a ? a+' selected characters' : '';
-            this.element.characters.html(html);
-        },
         addAction: function(name, func, text) {
             if (this.actions[name] && this.actions[name].element) {
                 this.actions[name].element.off('click', this.actions[name].func);
@@ -1110,7 +1113,7 @@ window.CodePrinter = (function($) {
                     line += bf.split('\n').length-1;
                     last = bf.lastIndexOf('\n')+1;
                     ln = last > 0 ? index - last : ln + index;
-                    bf = root.getTextAtLine(line).substring(0, ln);
+                    bf = root.data.getTextAtLine(line).substring(0, ln);
                     ln = bf.length + find.length;
                     span.css(getTextSize(root, find).extend({ top: pdy + line * root.sizes.lineHeight, left: pdx + getTextSize(root, bf).width }));
                     this.push(span);
@@ -1563,7 +1566,7 @@ window.CodePrinter = (function($) {
             }
         },
         73: function() {
-            this.infobar.parent.item().parentNode == null ? this.infobar.show() : this.infobar.hide();
+            this.infobar.element.item().parentNode == null ? this.infobar.show() : this.infobar.hide();
         },
         78: function() {
             this.counter.parent.item().parentNode == null ? this.counter.show() : this.counter.hide();
