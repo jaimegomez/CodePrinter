@@ -106,7 +106,7 @@ window.CodePrinter = (function($) {
                     st = this.scrollTop,
                     x = sl + e.layerX - self.sizes.paddingLeft + 3,
                     y = e.layerY - self.sizes.paddingTop + overlay.css('margin-top'),
-                    c = Math.ceil(y / self.sizes.lineHeight) - 1,
+                    c = Math.min(Math.ceil(y / self.sizes.lineHeight), self.data.lines) - 1,
                     s = self.data.getLine(c).getElementText(), af = '',
                     sz = getTextSize(self, s);
                 
