@@ -89,7 +89,7 @@ window.CodePrinter = (function($) {
             options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'overlay pre, '+id+'counter', 'line-height:'+options.lineHeight+'px;');
             options.width > 0 && self.mainElement.css({ width: parseInt(options.width) });
             options.height > 0 && self.wrapper.css({ height: parseInt(options.height) });
-            self.measureSizes();
+            self.measureSizes().clearSelection();
             self.activeLine = {};
             
             overlay.addClass('cp-'+options.mode.toLowerCase());
@@ -116,6 +116,14 @@ window.CodePrinter = (function($) {
                     sz = getTextSize(self, s);
                 }
                 
+                if (e.type === 'mousedown') {
+                    self.selection.startLine = c;
+                    self.selection.startColumn = s.length;
+                } else {
+                    self.selection.endLine = c;
+                    self.selection.endColumn = s.length;
+                }
+                
                 self.caret.position(c, s.length).activate();
                 this.scrollLeft = sl;
                 this.scrollTop = st;
@@ -126,7 +134,8 @@ window.CodePrinter = (function($) {
                     self.counter.parent.current().scrollTop = this.scrollTop;
                     self.render();
                 },
-                click: self.caret.onclick
+                mousedown: self.caret.onclick,
+                mouseup: self.caret.onclick
             });
             
             if (options.highlightBrackets) {
@@ -476,6 +485,36 @@ window.CodePrinter = (function($) {
             } else if (typeof arg === 'number') {
                 this.caret.setTextAfter(af.substr(arg));
             }
+        },
+        getSelection: function() {
+            var s = this.selection;
+            
+            if (s.startLine >= 0 && s.endLine >= 0) {
+                if (s.startLine != s.endLine) {
+                    var t, max, min = Math.min(s.startLine, s.endLine);
+                    
+                    if (min !== s.startLine) {
+                        max = s.startLine;
+                        var c = s.endColumn;
+                        s.endColumn = s.startColumn;
+                        s.startColumn = c;
+                    } else {
+                        max = s.endLine;
+                    }
+                    t = this.data.getTextAtLine(min).substr(s.startColumn) + eol
+                    for (var i = min+1; i < max; i++) {
+                        t = t + this.data.getTextAtLine(i) + eol;
+                    }
+                    return t + this.data.getTextAtLine(max).substring(0, s.endColumn);
+                } else {
+                    return this.data.getTextAtLine(s.startLine).substring(s.startColumn, s.endColumn);
+                }
+            }
+            return false;
+        },
+        clearSelection: function() {
+            this.selection = {};
+            return this;
         },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
