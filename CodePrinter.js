@@ -270,6 +270,8 @@ window.CodePrinter = (function($) {
             sizes.lineHeight = this.options.lineHeight;
             sizes.paddingTop = ov.css('paddingTop');
             sizes.paddingLeft = ov.css('paddingLeft');
+            sizes.charWidth = getTextSize(this).width;
+            return this;
         },
         unselectLine: function() {
             if (this.activeLine.pre) {
