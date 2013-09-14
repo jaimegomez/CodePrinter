@@ -116,8 +116,7 @@ window.CodePrinter = (function($) {
                     sz = getTextSize(self, s);
                 }
                 
-                self.caret.setCurrentLine(c).setColumn(s.length).activate();
-                self.selectLine(c);
+                self.caret.position(c, s.length).activate();
                 this.scrollLeft = sl;
                 this.scrollTop = st;
             };
@@ -234,7 +233,7 @@ window.CodePrinter = (function($) {
             
             caret.on({
                 'text:changed': function() {
-                    self.data.getLine(this.currentLine).setText(this.textAtCurrentLine());
+                    self.data.getLine(this.line()).setText(this.textAtCurrentLine());
                 },
                 'position:changed': function() {
                     self.input.focus();
@@ -348,7 +347,7 @@ window.CodePrinter = (function($) {
         parse: function(line, force) {
             var dl, data = this.data;
             line instanceof DataLine && (dl = line) && (line = this.data.indexOf(line));
-            (line == null) && (line = this.caret.currentLine);
+            (line == null) && (line = this.caret.line());
             
             if (line >= 0 && this.parser) {
                 !dl && (dl = data.getLine(line));
@@ -376,7 +375,7 @@ window.CodePrinter = (function($) {
             return this;
         },
         update: function(line) {
-            line = line >= 0 ? line : this.caret.currentLine;
+            line = line >= 0 ? line : this.caret.line();
             this.parse(line);
             return this;
         },
@@ -394,7 +393,7 @@ window.CodePrinter = (function($) {
             this.theme = name;
         },
         getCurrentLine: function() {
-            return this.caret.currentLine;
+            return this.caret.line();
         },
         setSelection: function(from, to) {
             
@@ -429,7 +428,7 @@ window.CodePrinter = (function($) {
             }
         },
         insertNewLine: function(l) {
-            l == null && (l = this.caret.currentLine+1);
+            l == null && (l = this.caret.line()+1);
             var ov = this.overlay,
                 dl = this.data.addLine(l, ''),
                 pre = dl.getElement(),
@@ -453,12 +452,13 @@ window.CodePrinter = (function($) {
                 if (arg <= bf.length) {
                     this.caret.setTextBefore(bf.substring(0, bf.length - arg));
                 } else {
-                    if (this.caret.currentLine > 0) {
+                    var l = this.caret.line();
+                    if (l > 0) {
                         var af = this.caret.textAfter(),
-                            dl = this.data.getLine(this.caret.currentLine - 1);
-                    
-                        this.data.removeLine(this.caret.currentLine);
-                        this.caret.setColumn(dl.text.length).decrement().setTextAtCurrentLine(dl.text, af);
+                            dl = this.data.getLine(l - 1);
+                        
+                        this.removeLine();
+                        this.caret.position(l - 1, dl.text.length, dl.text + af);
                     }
                 }
             }
@@ -661,7 +661,7 @@ window.CodePrinter = (function($) {
     };
     
     var Caret = function(cp) {
-        var before, after;
+        var line, column, before, after;
         
         this.element = $(document.createElement('div')).addClass('cp-caret cp-caret-'+cp.options.caretStyle);
         this.root = cp;
@@ -672,7 +672,7 @@ window.CodePrinter = (function($) {
                 if (before != str) {
                     before = str;
                     this.emit('text:changed');
-                    this.refresh();
+                    this.position(line, str.length);
                 }
                 return this;
             },
@@ -688,7 +688,7 @@ window.CodePrinter = (function($) {
                     before = bf;
                     after = af;
                     this.emit('text:changed');
-                    this.refresh();
+                    this.position(line, bf.length);
                 }
                 return this;
             },
@@ -701,27 +701,43 @@ window.CodePrinter = (function($) {
             textAtCurrentLine: function() {
                 return before + after;
             },
-            setPosition: function(line, col, txt) {
-                txt = txt != null ? txt : cp.data.getLine(line).getElementText();
-                col != null ? col < 0 && (col = txt.length + col + 1) : (col = this.currentColumn);
-                
-                var x = getTextSize(cp, txt.substring(0, col)).width,
-                    y = cp.sizes.lineHeight * line;
-                
-                this.setColumn(col).setCurrentLine(line);
-                before = txt.substring(0, col);
-                after = txt.substr(col);
-                cp.selectLine(line);
-                
-                return this.setPixelPosition(x, y);
+            position: function(l, c, t) {
+                if (l == null && c == null) {
+                    return { line: line + 1, column: before.length + 1 };
+                } else {
+                    typeof l !== 'number' && (l = line);
+                    l = Math.max(Math.min(l, cp.data.lines), 0);
+                    typeof t !== 'string' && (t = cp.data.getLine(l).getElementText());
+                    typeof c !== 'number' && (c = column);
+                    c < 0 && (c = t.length + c + 1);
+                    
+                    var x = getTextSize(cp, t.substring(0, c)).width,
+                        y = cp.sizes.lineHeight * l;
+                    
+                    if (line != l) {
+                        this.emit('line:changed', { current: l, last: line });
+                        line = l;
+                    }
+                    if (column != c) {
+                        this.emit('column:changed', { current: c, last: column });
+                        column = c;
+                    }
+                    
+                    before = t.substring(0, c);
+                    after = t.substr(c);
+                    cp.selectLine(l);
+                    
+                    return this.setPixelPosition(x, y);
+                }
+                return this;
             },
             moveX: function(mv) {
-                var abs, l, t, cl = this.currentLine;
-                                
+                var abs, l, t, cl = line;
+                
                 mv >= 0 || cl === 0 ? (abs = mv) && (t = after) : (abs = Math.abs(mv)) && (t = before);
                 
                 if (abs <= t.length) {
-                    return this.setPosition(cl, Math.max(0, Math.min((before + after).length, this.currentColumn + mv)));
+                    return this.position(cl, Math.max(0, Math.min((before + after).length, column + mv)));
                 }
                 while (abs > t.length) {
                     abs = abs - t.length - 1;
@@ -735,12 +751,18 @@ window.CodePrinter = (function($) {
                         break;
                     }
                 }
-                return this.setPosition(cl, mv >= 0 ? abs : t.length - abs, t);
+                return this.position(cl, mv >= 0 ? abs : t.length - abs, t);
             },
-            refresh: function() {
-                if (before != null) {
-                    this.setColumn(before.length);
-                }
+            moveY: function(mv) {
+                mv = line + mv;
+                mv = mv < 0 ? 0 : mv > this.root.data.lines ? this.root.data.lines : mv;
+                return this.position(mv, column);
+            },
+            line: function() {
+                return line;
+            },
+            column: function() {
+                return before.length;
             }
         });
     };
@@ -781,15 +803,6 @@ window.CodePrinter = (function($) {
             this.interval && (this.interval = clearInterval(this.interval));
             return this;
         },
-        increment: function() {
-            return this.setCurrentLine(this.currentLine + 1);
-        },
-        decrement: function() {
-            return this.setCurrentLine(this.currentLine - 1);
-        },
-        getPosition: function() {
-            return { line: this.currentLine, column: this.currentColumn };
-        },
         setPixelPosition: function(x, y) {
             var css = {},
                 stl = this.style || this.root.options.caretStyle;
@@ -802,36 +815,9 @@ window.CodePrinter = (function($) {
             this.emit('position:changed', [x, y]);
             return this;
         },
-        moveY: function(mv) {
-            mv = this.currentLine + mv;
-            mv = mv < 0 ? 0 : mv > this.root.data.lines ? this.root.data.lines : mv;
-            return this.setPosition(mv, this.currentColumn);
-        },
         move: function(x, y) {
             x && this.moveX(x);
             y && this.moveY(y);
-            return this;
-        },
-        getCurrentLine: function() {
-            return this.currentLine;
-        },
-        setCurrentLine: function(line) {
-            if (this.currentLine != line) {
-                this.emit('line:changed', { current: line, last: this.currentLine });
-                this.currentLine = line;
-                this.setPosition(line);
-            }
-            return this;
-        },
-        getColumn: function() {
-            return this.currentColumn;
-        },
-        setColumn: function(col) {
-            if (this.currentColumn != col) {
-                this.emit('column:changed', { current: col, last: this.currentColumn });
-                this.currentColumn = col;
-                this.setPosition(this.currentLine, col);
-            }
             return this;
         }
     };
@@ -927,7 +913,7 @@ window.CodePrinter = (function($) {
                 c = parseInt(fi.innerHTML) + this.list.length;
             
             fi.innerHTML = c;
-            this.root.options.highlightCurrentLine && (c === this.root.caret.currentLine + 1 ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
+            this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
             this.element.append(fi);
             this.list.get(0).remove(true).push(fi);
             this.element.append(fi).css({ marginTop: '++' + this.root.sizes.lineHeight });
@@ -937,7 +923,7 @@ window.CodePrinter = (function($) {
                 c = parseInt(la.innerHTML) - this.list.length;
             
             la.innerHTML = c;
-            this.root.options.highlightCurrentLine && (c === this.root.caret.currentLine + 1 ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
+            this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
             this.element.prepend(la);
             this.list.get(-1).remove(true).unshift(la);
             this.element.prepend(la).css({ marginTop: '--' + this.root.sizes.lineHeight });
@@ -978,7 +964,7 @@ window.CodePrinter = (function($) {
         if (cp.caret) {
             cp.caret.on({
                 'position:changed': function() {
-                    ch.html('Line ' + (this.currentLine+1) + ', Column ' + this.textBefore().length);
+                    ch.html('Line ' + (this.line()+1) + ', Column ' + (this.textBefore().length+1));
                 }
             })
         }
