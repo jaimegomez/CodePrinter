@@ -360,8 +360,10 @@ window.CodePrinter = (function($) {
                     
                     stream.getNextLine = function() {
                         var nl = data.getLine(++tmp);
-                        nl.setStartPoint(dl);
-                        this.value.push(nl.text);
+                        if (nl) {
+                            nl.setStartPoint(dl);
+                            this.value.push(nl.text);
+                        }
                         return this;
                     };
                 
