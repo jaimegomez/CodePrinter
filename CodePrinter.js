@@ -454,6 +454,20 @@ window.CodePrinter = (function($) {
             }
             return this;
         },
+        removeLine: function(l) {
+            l == null && (l = this.caret.line());
+            var ov = this.overlay,
+                q = l - ov.firstLine;
+            
+            this.data.removeLine(l);
+            
+            if (q >= 0 && l <= ov.lastLine) {
+                ov.lines.get(q).remove(true);
+                ov.lastLine--;
+                this.counter.decrease();
+            }
+            return this;
+        },
         removeBeforeCursor: function(arg) {
             var bf = this.caret.textBefore();
             if (typeof arg === 'string') {
@@ -602,6 +616,8 @@ window.CodePrinter = (function($) {
                     b[u].pre.parentNode.removeChild(b[u].pre);
                 }
                 b.splice(p[0], 1);
+                this.lines--;
+                
                 if (b.length === 9) {
                     var n, r;
                     
@@ -619,8 +635,10 @@ window.CodePrinter = (function($) {
             }
         },
         getLine: function(line) {
-            var p = getDataLinePosition(line);
-            return this[p[2]][p[1]][p[0]] || null;
+            if (typeof line === 'number') {
+                var p = getDataLinePosition(line);
+                return this[p[2]][p[1]][p[0]] || null;
+            }
         },
         getTextAtLine: function(line) {
             var l = this.getLine(line);
@@ -891,10 +909,6 @@ window.CodePrinter = (function($) {
                 q === 0 ? this.element.prepend(pre) : this.lines.eq(q-1).after(pre);
             }
         },
-        remove: function(eq) {
-            this.lines.get(eq || 0).remove(true);
-            this.root.counter.decrease();
-        },
         shift: function() {
             if (this.lastLine + 1 < this.root.data.lines) {
                 var pre = this.root.data.getLine(++this.lastLine).getElement();
@@ -935,13 +949,6 @@ window.CodePrinter = (function($) {
         return this;
     };
     Counter.prototype = {
-        reload: function(lines) {
-            var amp = !isNaN(lines) ? lines - this.list.length : 0;
-            
-            while (amp != 0) {
-                amp < 0 ? this.decrease() && amp++ : this.increase() && amp--;
-            }
-        },
         increase: function() {
             var li = li_clone.cloneNode(false);
             li.innerHTML = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : 1;
@@ -949,7 +956,7 @@ window.CodePrinter = (function($) {
             this.element.append(li);
         },
         decrease: function() {
-            this.list.get(0).remove(true);
+            this.list.get(-1).remove(true);
         },
         shift: function() {
             var fi = this.list.item(0),
