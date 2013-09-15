@@ -1,6 +1,7 @@
 /* CodePrinter - Sublime theme */
 
-.cps-sublime .cp-wrapper { background:#272822; color:#F9FAF4; }
+.cps-sublime .cp-wrapper,
+.cps-sublime .cp-source { background:#272822; color:#F9FAF4; }
 .cps-sublime .cp-counter,
 .cps-sublime .cp-infobar,
 .cps-sublime .cpf-bar { background:#272822; border-color:#555; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.7); }
