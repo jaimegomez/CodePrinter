@@ -105,7 +105,7 @@ window.CodePrinter = (function($) {
             self.caret.onclick = function(e) {
                 var sl = this.scrollLeft,
                     st = this.scrollTop,
-                    x = sl + e.layerX - self.sizes.paddingLeft + 3,
+                    x = Math.max(0, sl + e.layerX - self.sizes.paddingLeft + 3),
                     y = e.layerY - self.sizes.paddingTop + overlay.css('margin-top'),
                     c = Math.min(Math.ceil(y / self.sizes.lineHeight), self.data.lines) - 1,
                     s = self.data.getLine(c).getElementText(), af = '',
@@ -120,14 +120,13 @@ window.CodePrinter = (function($) {
                 if (e.type === 'mousedown') {
                     self.selection.startLine = c;
                     self.selection.startColumn = s.length;
+                    return this;
                 } else {
                     self.selection.endLine = c;
                     self.selection.endColumn = s.length;
                 }
                 
                 self.caret.position(c, s.length).activate();
-                this.scrollLeft = sl;
-                this.scrollTop = st;
             };
             
             self.wrapper.on({
@@ -199,7 +198,7 @@ window.CodePrinter = (function($) {
             self.shortcuts = new shortcuts;
             
             self.input = $(document.createElement('textarea')).addClass('cp-input');
-            self.wrapper.prepend(self.input);
+            self.mainElement.prepend(self.input);
             
             self.input.on({
                 blur: function() {
@@ -215,7 +214,7 @@ window.CodePrinter = (function($) {
                         return e.cancel();
                     }
                     if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
-                        
+                        return e.cancel();
                     } else {
                         return self.keydownMap.touch(k, self, e);
                     }
@@ -411,9 +410,6 @@ window.CodePrinter = (function($) {
         getCurrentLine: function() {
             return this.caret.line();
         },
-        setSelection: function(from, to) {
-            
-        },
         textBeforeCursor: function(i) {
             var bf = this.caret.textBefore();
             return i > 0 ? bf.slice(-i) : bf;
@@ -422,26 +418,27 @@ window.CodePrinter = (function($) {
             var af = this.caret.textAfter();
             return i > 0 ? af.substring(0, i) : af;
         },
-        insertText: function(text, mv) {
-            if (!mv) {
-                var pos, s = text.split(eol),
-                    bf = this.caret.textBefore(), af = this.caret.textAfter();
-                
-                this.caret.setTextBefore(bf + s[0]);
-                
+        textNearCursor: function(i) {
+            return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
+        },
+        insertText: function(text, mx) {
+            var pos, s = text.split(eol),
+                bf = this.caret.textBefore(),
+                af = this.caret.textAfter();
+            
+            this.caret.setTextBefore(bf + s[0]);
+            
+            if (s.length > 1) {
                 for (var i = 1; i < s.length; i++) {
                     this.caret.setTextAfter('');
                     this.insertNewLine();
-                    this.caret.increment().setColumn(0).setTextBefore(s[i]);
+                    this.caret.position(this.caret.line() + 1, 0).setTextBefore(s[i]);
                 }
                 this.caret.setTextAfter(af);
-            } else if (mv > 0) {
-                var af = this.caret.textAfter();
-                this.caret.setTextAfter(af.substring(0, mv) + text + af.substr(mv));
-            } else if (mv < 0) {
-                var bf = this.caret.textBefore();
-                this.caret.setTextBefore(bf.substring(0, bf.length + mv) + text + bf.substr(bf.length + mv));
             }
+            
+            mx && this.caret.moveX(mx);
+            return this;
         },
         insertNewLine: function(l) {
             l == null && (l = this.caret.line()+1);
@@ -450,10 +447,11 @@ window.CodePrinter = (function($) {
                 pre = dl.getElement(),
                 q = l - ov.firstLine;
             
-            if (q >= 0 && l <= ov.lastLine) {
+            if (q >= 0 && l <= ov.lastLine+1) {
                 q === 0 ? ov.element.prepend(pre) : ov.lines.eq(q-1).after(pre);
                 ov.lines.splice(q, 0, pre);
                 ov.lastLine++;
+                this.counter.increase();
             }
             return this;
         },
@@ -482,14 +480,15 @@ window.CodePrinter = (function($) {
                 if (arg <= bf.length) {
                     this.caret.setTextBefore(bf.substring(0, bf.length - arg));
                 } else {
-                    var l = this.caret.line();
-                    if (l > 0) {
-                        var af = this.caret.textAfter(),
-                            dl = this.data.getLine(l - 1);
-                        
+                    var af = this.caret.textAfter(),
+                        l = this.caret.line();
+                    
+                    while (arg > bf.length && l-1 >= 0) {
                         this.removeLine();
-                        this.caret.position(l - 1, dl.text.length, dl.text + af);
+                        arg = arg - bf.length - 1;
+                        bf = this.caret.position(--l, -1).textBefore();
                     }
+                    this.caret.setTextAtCurrentLine(bf.substring(0, bf.length - arg), af);
                 }
             }
         },
@@ -500,7 +499,20 @@ window.CodePrinter = (function($) {
                     this.caret.setTextAfter(af.substr(arg.length));
                 }
             } else if (typeof arg === 'number') {
-                this.caret.setTextAfter(af.substr(arg));
+                if (arg <= af.length) {
+                    this.caret.setTextAfter(af.substr(arg));
+                } else {
+                    var bf = this.caret.textBefore(),
+                        l = this.caret.line();
+                    
+                    while (arg > af.length && l+1 < this.data.lines) {
+                        this.caret.setTextAfter('');
+                        arg = arg - af.length;
+                        af = this.data.getTextAtLine(l+1);
+                        this.removeLine(l+1);
+                    }
+                    this.caret.setTextAtCurrentLine(bf, af.substr(arg));
+                }
             }
         },
         getSelection: function() {
@@ -614,11 +626,11 @@ window.CodePrinter = (function($) {
                 h = p[2], t = p[1], u = p[0],
                 b = this[h][t];
             
-            if (b) {
+            if (b && b[u]) {
                 if (b[u].pre && b[u].pre.parentNode) {
                     b[u].pre.parentNode.removeChild(b[u].pre);
                 }
-                b.splice(p[0], 1);
+                b.splice(u, 1);
                 this.lines--;
                 
                 if (b.length === 9) {
@@ -876,7 +888,7 @@ window.CodePrinter = (function($) {
             
             Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(this.root, css) : css.height = this.root.sizes.lineHeight;
             this.element.css(css);
-            this.emit('position:changed', [x, y]);
+            this.emit('position:changed', x, y);
             return this;
         },
         move: function(x, y) {
@@ -1514,7 +1526,7 @@ window.CodePrinter = (function($) {
             return e.cancel();
         },
         9: function(e) {
-            this.insertText(this.tabString(), -1);
+            this.insertText(this.tabString());
             return e.cancel();
         },
         13: function(e) {
@@ -1523,7 +1535,7 @@ window.CodePrinter = (function($) {
             
             if (this.textBeforeCursor(1) === '{') {
                 this.insertText(a + this.tabString());
-                this.textAfterCursor(1) === '}' && this.insertText(a, 1);
+                this.textAfterCursor(1) === '}' && this.insertText(a, -a.length);
             } else {
                 this.insertText(a);
             }
@@ -1550,7 +1562,6 @@ window.CodePrinter = (function($) {
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
             this.removeAfterCursor(r);
-            this.update();
             return e.cancel();
         }
     };
@@ -1564,19 +1575,19 @@ window.CodePrinter = (function($) {
         },
         34: function(e, k, ch) {
             if (this.options.insertClosingQuotes) {
-                this.textAfterCursor(1) !== ch ? this.insertText(ch + ch, 0, -1) : this.moveCursor(1);
+                this.textAfterCursor(1) !== ch ? this.insertText(ch + ch, -1) : this.caret.moveX(1);
                 return false;
             }
         },
         40: function(e, k, ch) {
             if (this.options.insertClosingBrackets) {
-                this.insertText(ch + (k === 40 ? String.fromCharCode(41) : String.fromCharCode(k+2)), 0, -1);
+                this.insertText(ch + (k === 40 ? String.fromCharCode(41) : String.fromCharCode(k+2)), -1);
                 return false;
             }
         },
         41: function(e, k, ch) {
             if (this.options.insertClosingBrackets && this.textAfterCursor(1) == ch) {
-                this.moveCursor(1);
+                this.caret.moveX(1);
                 return false;
             }
         }
@@ -1592,7 +1603,7 @@ window.CodePrinter = (function($) {
         },
         38: function() {
             this.wrapper.item().scrollTop = 0;
-            this.caret.moveTo(0);
+            this.caret.position(0, 0);
         },
         39: function() {
             var w = this.wrapper.item();
@@ -1601,7 +1612,7 @@ window.CodePrinter = (function($) {
         40: function() {
             var w = this.wrapper.item();
             w.scrollTop = w.scrollHeight;
-            this.caret.moveTo(-1);
+            this.caret.position(this.data.lines - 1, -1);
         },
         70: function(e) {
             if (e.shiftKey) {
