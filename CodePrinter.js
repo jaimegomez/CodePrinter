@@ -46,7 +46,7 @@ window.CodePrinter = (function($) {
         tabWidth: 4,
         fontSize: 11,
         lineHeight: 15,
-        linesOutsideOfView: 10,
+        linesOutsideOfView: 12,
         caretBlinkSpeed: 300,
         randomIDLength: 7,
         lineNumbers: true,
