@@ -48,6 +48,7 @@ window.CodePrinter = (function($) {
         lineHeight: 15,
         linesOutsideOfView: 12,
         caretBlinkSpeed: 300,
+        autoScrollSpeed: 100,
         randomIDLength: 7,
         lineNumbers: true,
         infobar: false,
@@ -244,16 +245,18 @@ window.CodePrinter = (function($) {
                 'text:changed': function() {
                     self.data.getLine(this.line()).setText(this.textAtCurrentLine());
                 },
-                'position:changed': function() {
+                'position:changed': function(x, y) {
                     self.input.focus();
-                },
-                reloaded: function(e) {
                     if (self.options.autoScroll) {
                         var wrapper = self.wrapper.item(),
-                            x = e.position.x, y = e.position.y;
+                            sL = wrapper.scrollLeft, sT = wrapper.scrollTop,
+                            cW = sL + wrapper.clientWidth, cH = sT + wrapper.clientHeight,
+                            ix = wrapper.clientWidth / 4, iy = wrapper.clientHeight / 4;
                         
-                        x - 30 < wrapper.scrollLeft ? wrapper.scrollLeft -= 50 : x + 30 > wrapper.clientWidth + wrapper.scrollLeft ? wrapper.scrollLeft += 50 : null;
-                        y - 30 < wrapper.scrollTop ? wrapper.scrollTop -= 50 : y + 30 > wrapper.clientHeight + wrapper.scrollTop ? wrapper.scrollTop += 50 : null;
+                        x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
+                        y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
+                        
+                        self.wrapper.scrollTo(x, y, self.options.autoScrollSpeed);
                     }
                 },
                 'line:changed': function(e) {
