@@ -262,6 +262,14 @@ window.CodePrinter = (function($) {
             self.data.on({
                 'text:changed': function(e) {
                     self.parse(e.dataLine);
+                },
+                'line:added': function() {
+                    var o = self.overlay.element.item();
+                    o.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+                },
+                'line:removed': function() {
+                    var o = self.overlay.element.item();
+                    o.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
                 }
             });
             
@@ -275,7 +283,7 @@ window.CodePrinter = (function($) {
             sizes.lineHeight = this.options.lineHeight;
             sizes.paddingTop = ov.css('paddingTop');
             sizes.paddingLeft = ov.css('paddingLeft');
-            sizes.charWidth = getTextSize(this).width;
+            sizes.charWidth = getTextSize(this, 'c').width;
             return this;
         },
         unselectLine: function() {
@@ -324,8 +332,6 @@ window.CodePrinter = (function($) {
                 lv = parseInt(this.options.linesOutsideOfView),
                 x = Math.min(Math.ceil(wch / lh) + lv + (wst > 2 * lh ? lv : 0), this.data.lines-1),
                 i = overlay.lastLine - overlay.firstLine;
-            
-            overlay.element.item().style.height = (this.data.lines * lh) + 'px';
             
             if (i < x) {
                 for (; i < x; i++) {
@@ -781,12 +787,12 @@ window.CodePrinter = (function($) {
                     return { line: line + 1, column: before.length + 1 };
                 } else {
                     typeof l !== 'number' && (l = line);
-                    l = Math.max(Math.min(l, cp.data.lines), 0);
+                    l = Math.max(Math.min(l, cp.data.lines - 1), 0);
                     typeof t !== 'string' && (t = cp.data.getLine(l).getElementText());
                     typeof c !== 'number' && (c = column);
                     c < 0 && (c = t.length + c + 1);
                     
-                    var x = getTextSize(cp, t.substring(0, c)).width,
+                    var x = cp.sizes.charWidth * c,
                         y = cp.sizes.lineHeight * l;
                     
                     if (line != l) {
@@ -842,15 +848,15 @@ window.CodePrinter = (function($) {
         });
     };
     Caret.styles = {
-        underline: function(css, pos) {
-            css.width = getTextSize(this, this.textBeforeCursor(1)).width + 2;
+        underline: function(css) {
+            css.width = this.sizes.charWidth + 2;
             css.height = 1;
             css.top = css.top + this.sizes.lineHeight - 1;
             css.left = css.left - 1;
             return css;
         },
-        block: function(css, pos) {
-            css.width = getTextSize(this, this.textBeforeCursor(1)).width;
+        block: function(css) {
+            css.width = this.sizes.charWidth;
             css.height = this.sizes.lineHeight;
             return css;
         }
@@ -882,7 +888,7 @@ window.CodePrinter = (function($) {
             var css = {},
                 stl = this.style || this.root.options.caretStyle;
             
-            x >= 0 && (css.left = x + this.root.sizes.paddingLeft - 1);
+            x >= 0 && (css.left = x + this.root.sizes.paddingLeft);
             y >= 0 && (css.top = y + this.root.sizes.paddingTop);
             
             Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(this.root, css) : css.height = this.root.sizes.lineHeight;
