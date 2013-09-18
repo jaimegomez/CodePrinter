@@ -94,9 +94,9 @@ window.CodePrinter = (function($) {
             self.activeLine = {};
             
             overlay.addClass('cp-'+options.mode.toLowerCase());
-            source.html(encodeEntities(this.getSourceValue()));
-            self.data = new Data(this.getSourceValue());
+            self.data = new Data();
             source.tag() === 'textarea' && self.prepareWriter();
+            self.data.init(source.value().replace(/\t/g, this.tabString()));
             
             options.showFinder && (this.finder = new Finder(self));
             self.infobar = new InfoBar(self);
@@ -583,31 +583,36 @@ window.CodePrinter = (function($) {
         }
     });
     
-    var Data = function(value) {
-        var i = 0, j = -1, c, r,
-            pos = value.indexOf(eol);
-        
-        pos === -1 && (pos = value.length);
-        
-        do {
-            this.addLine(i, value.substring(0, pos));
-            value = value.substr(pos + eol.length);
-            i++;
-        } while ((pos = value.indexOf(eol)) !== -1);
-        this.addLine(i, value);
+    var Data = function() {
         return this;
     };
     Data.prototype = [].extend({
         lines: 0,
+        init: function(value) {
+            var i = 0, j = -1, c, r,
+                pos = value.indexOf(eol);
+            
+            pos === -1 && (pos = value.length);
+            
+            do {
+                this.addLine(i, value.substring(0, pos));
+                value = value.substr(pos + eol.length);
+                i++;
+            } while ((pos = value.indexOf(eol)) !== -1);
+            this.addLine(i, value);
+            return this;
+        },
         addLine: function(line, txt) {
             var b, i, p = getDataLinePosition(line),
                 u = p[0], t = p[1], h = p[2],
-                dl = new DataLine(txt, this);
+                dl = new DataLine(this);
             
+            typeof txt === 'string' && dl.setText(txt);
             !this[h] && this.splice(h, 0, []);
             b = this[h][t] || (this[h][t] = []);
             b.splice(u, 0, dl);
             this.lines++;
+            this.emit('line:added', { dataLine: dl, line: line });
             
             if (b.length > 10) {
                 var r;
@@ -630,8 +635,9 @@ window.CodePrinter = (function($) {
                 if (b[u].pre && b[u].pre.parentNode) {
                     b[u].pre.parentNode.removeChild(b[u].pre);
                 }
-                b.splice(u, 1);
+                var dl = b.splice(u, 1);
                 this.lines--;
+                this.emit('line:removed', { dataLine: dl[0], line: line });
                 
                 if (b.length === 9) {
                     var n, r;
@@ -688,7 +694,7 @@ window.CodePrinter = (function($) {
     
     var pre_clone = document.createElement('pre');
     
-    var DataLine = function(str, parent) {
+    var DataLine = function(parent) {
         this.extend({
             setText: function(str) {
                 if (this.text !== str) {
@@ -706,7 +712,6 @@ window.CodePrinter = (function($) {
                 }
             }
         });
-        this.setText(str || '');
         return this;
     };
     
