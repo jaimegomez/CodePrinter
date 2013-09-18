@@ -1097,7 +1097,7 @@ window.CodePrinter = (function($) {
         
         input.on({ keydown: function(e) {
             var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
-            return keyMap[k] ? (keyMap[k].call(this) && e.cancel()) : true;
+            return keyMap[k] ? (keyMap[k].call(this) || e.cancel()) : true;
         }, keyup: function(e) {
             cp.options.searchOnTheFly && this.value !== self.searched ? self.find(this.value) : 0;
         }});
@@ -1161,26 +1161,23 @@ window.CodePrinter = (function($) {
         },
         find: function(find) {
             var root = this.root,
-                value = root.getSourceValue(),
-                pdx = root.source.total('paddingLeft', 'borderLeftWidth'),
-                pdy = root.source.total('paddingTop', 'borderTopWidth'),
-                index, line = 0, ln = 0, last, bf;
+                siz = root.sizes,
+                value, index, line = 0, ln = 0, last, bf;
             
             find = find || this.input.value();
             this.clear();
             
             if (find) {
-                while ((index = value.indexOf(find)) !== -1) {
-                    var span = $(document.createElement('span')).addClass('cpf-occurrence').text(find);
-                    bf = value.substring(0, index);
-                    line += bf.split('\n').length-1;
-                    last = bf.lastIndexOf('\n')+1;
-                    ln = last > 0 ? index - last : ln + index;
-                    bf = root.data.getTextAtLine(line).substring(0, ln);
-                    ln = bf.length + find.length;
-                    span.css(getTextSize(root, find).extend({ top: pdy + line * root.sizes.lineHeight, left: pdx + getTextSize(root, bf).width }));
-                    this.push(span);
-                    value = value.substr(index+find.length);
+                for (; line < root.data.lines; line++) {
+                    value = root.data.getLine(line).getElementText();
+                    ln = 0;
+                    
+                    while ((index = value.indexOf(find)) !== -1) {
+                        var span = $(document.createElement('span')).addClass('cpf-occurrence').text(find);
+                        span.css({ width: siz.charWidth * find.length, height: siz.lineHeight, top: siz.paddingTop + line * siz.lineHeight, left: siz.paddingLeft + siz.charWidth * (ln + index) });
+                        this.push(span);
+                        value = value.substr((ln = index + find.length));
+                    }
                 }
                 this.searched = find;
                 this.searchResults.removeClass('active').get(0).addClass('active');
