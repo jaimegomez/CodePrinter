@@ -567,8 +567,8 @@ window.CodePrinter = (function($) {
                 this.tempnode = document.createTextNode('');
                 main.addClass('cp-fullscreen').css({ margin: [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ') });
                 main.after(this.tempnode).appendTo(document.body);
-                this.source.focus();
                 this.isFullscreen = true;
+                this.render();
             }
         },
         exitFullscreen: function() {
@@ -577,8 +577,8 @@ window.CodePrinter = (function($) {
                 this.mainElement.removeClass('cp-fullscreen').css({ margin: null }).insertBefore(tmp);
                 tmp.parentNode.removeChild(tmp);
                 delete this.tempnode;
-                this.source.focus();
                 this.isFullscreen = false;
+                this.render();
             }
         }
     });
