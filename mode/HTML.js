@@ -7,7 +7,7 @@ CodePrinter.defineMode('HTML', {
     fn: function(stream) {
         var found;
         
-        while (found = stream.retrieve(this.regexp)) {
+        while (found = stream.match(this.regexp)) {
             if (found.substr(0, 2) === '<!') {
                 if (found === '<!--') {
                     stream.eat(found, '-->').wrap(['comment']);
@@ -15,46 +15,42 @@ CodePrinter.defineMode('HTML', {
                     stream.eat(found, '>').wrap(['special', 'doctype']);
                 }
             } else if (found.substr(0, 2) === '<?') {
-                var p = stream.final.length,
-                    e = stream.eat(found, '?>', true).eaten, s;
+                var s = stream.eatWhile(found, '?>').createSubstream();
                 
-                if (e.length > 4) {
-                    stream.back();
-                    s = stream.createSlice(e.length);
-                    
+                if (s) {
                     CodePrinter.requireMode('PHP', function(php) {
-                        stream.convertSlice(s.index, php.parse(s.content).toString());
+                        stream.parseSubstream(s, php);
                     }, this);
                 } else {
                     stream.wrap(['phptag']);
                 }
             } else if (found[0] === '<') {
-                stream.eat(found).wrap(['broket', 'open']);
+                stream.wrap(['broket', 'open']);
                 
-                if (found = stream.retrieve(/^\b\w+/)) {
-                    stream.eat(found).wrap(['keyword', found]);
+                if (found = stream.match(/^\b\w+/)) {
+                    stream.wrap(['keyword', found]);
                 } else 
                     continue;
                 
-                while (found = stream.retrieve(this.regexp2)) {
+                while (found = stream.match(this.regexp2)) {
                     if (found === '<') {
                         break;
                     }
                     if (/^\w+$/.test(found)) {
-                        stream.eat(found).wrap(['property', found]);
+                        stream.wrap(['property', found]);
                     } else if (found === '=') {
-                        stream.eat(found).wrap(['operator', 'equal']);
+                        stream.wrap(['operator', 'equal']);
                     } else if (this.chars.hasOwnProperty(found)) {
                         stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
                     } else if (found[found.length-1] === '>') {
-                        stream.eat(found).wrap(['broket', 'close']);
+                        stream.wrap(['broket', 'close']);
                         break;
                     } else {
-                        stream.eat(found).wrap(['other']);
+                        stream.wrap(['other']);
                     }
                 }
             } else if (found[0] === '&') {
-                stream.eat(found).wrap(['escaped']);
+                stream.wrap(['escaped']);
             }
         }
         

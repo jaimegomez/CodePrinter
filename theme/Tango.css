@@ -1,7 +1,7 @@
 /* CodePrinter - Tango theme */
 
 .cps-tango .cp-wrapper { background:#FFFFFF; color:#000000; }
-.cps-tango .cp-source::selection { background:#EEEEEE; }
+.cps-tango ::selection { background:#EEEEEE; }
 .cps-tango .cp-counter,
 .cps-tango .cp-infobar,
 .cps-tango .cpf-bar { background:#fff; border-color:#c0c0c0; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.1); }

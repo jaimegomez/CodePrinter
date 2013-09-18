@@ -5,7 +5,7 @@
 .cps-eclipse .cp-infobar,
 .cps-eclipse .cpf-bar { background:#FFFFFF; border-color:#AAAAAA; color:#000000; box-shadow:0 0 4px rgba(0,0,0,0.3); }
 .cps-eclipse .cp-caret { background:#000000; box-shadow:0 0 2px rgba(0,0,0,0.5); }
-.cps-eclipse .cp-source::selection { background:black; }
+.cps-eclipse ::selection { background:black; }
 .cps-eclipse .cp-highlight { box-shadow:0 1px 0 black; }
 .cps-eclipse .cp-activeLine { background:#E8F2FE; box-shadow:none; }
 .cps-eclipse .cpf-input { background:#FAFAFA; border-color:#AAAAAA; }

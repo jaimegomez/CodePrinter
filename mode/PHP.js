@@ -10,47 +10,47 @@ CodePrinter.defineMode('PHP', {
 	fn: function(stream) {
 		var found;
         
-		while (found = stream.retrieve(this.regexp)) {
+		while (found = stream.match(this.regexp)) {
             if (found[0] === '$') {
-            	stream.eat(found).wrap(['variable'])
+            	stream.wrap(['variable'])
             } else if (!isNaN(found)) {
                 if(/^0x[\da-fA-F]+$/.test(found)) {
-                    stream.eat(found).wrap(['numeric', 'hex']);
+                    stream.wrap(['numeric', 'hex']);
                 } else {
                     if ((found+'').indexOf('.') === -1) {
-                        stream.eat(found).wrap(['numeric', 'int']);
+                        stream.wrap(['numeric', 'int']);
                     } else {
-                        stream.eat(found).wrap(['numeric', 'float']);
+                        stream.wrap(['numeric', 'float']);
                     }
                 }
             } else if (/^\w+$/i.test(found)) {
             	if (found == 'true' || found == 'false') {
-            		stream.eat(found).wrap(['boolean', found.toLowerCase()]);
+            		stream.wrap(['boolean', found.toLowerCase()]);
             	} else if (this.controls.indexOf(found) !== -1) {
-            		stream.eat(found).wrap(['control', found]);
+            		stream.wrap(['control', found]);
 	            } else if (this.specials.indexOf(found) !== -1) {
-                    stream.eat(found).wrap(['special'])
+                    stream.wrap(['special'])
                 } else if (this.keywords.indexOf(found) !== -1) {
-	            	stream.eat(found).wrap(['keyword', found]);
-	            } else if (stream.isNext(/\s*\(/)) {
-            		stream.eat(found).wrap(['fname', found]);
+	            	stream.wrap(['keyword', found]);
+	            } else if (stream.isAfter('(')) {
+            		stream.wrap(['fname', found]);
             	} else if (this.constants.indexOf(found) !== -1) {
-                    stream.eat(found).wrap(['const', found.replace(/_/g, '')]);
+                    stream.wrap(['const', found.replace(/_/g, '')]);
                 } else {
-	            	stream.eat(found).wrap(['word']);
+	            	stream.wrap(['word']);
 	            }
             } else if (['?>','<?php','<?=','<?'].indexOf(found) !== -1) {
-                stream.eat(found).wrap(['phptag', found == '?>' ? 'closetag' : 'opentag']);
+                stream.wrap(['phptag', found == '?>' ? 'closetag' : 'opentag']);
             } else if (this.punctuations.hasOwnProperty(found)) {
-                stream.eat(found).wrap(['punctuation', this.punctuations[found]]);
+                stream.wrap(['punctuation', this.punctuations[found]]);
             } else if (this.operators.hasOwnProperty(found)) {
-            	stream.eat(found).wrap(['operator', this.operators[found]]);
+            	stream.wrap(['operator', this.operators[found]]);
             } else if (this.brackets.hasOwnProperty(found)) {
-                stream.eat(found).wrap(this.brackets[found]);
+                stream.wrap(this.brackets[found]);
             } else if (this.chars.hasOwnProperty(found)) {
                 stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else {
-            	stream.eat(found).wrap(['other']);
+            	stream.wrap(['other']);
             }
 		}
 		return stream;
