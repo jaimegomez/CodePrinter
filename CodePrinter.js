@@ -26,7 +26,7 @@ window.CodePrinter = (function($) {
         self.container = container;
         self.wrapper = wrapper;
         self.source = object.addClass('cp-source');
-        self.overlay = new Overlay(self);
+        self.screen = new Screen(self);
         
         self.prepare();
         self.print();
@@ -73,7 +73,7 @@ window.CodePrinter = (function($) {
         prepare: function() {
             var self = this,
                 source = self.source,
-                overlay = self.overlay.element,
+                screen = self.screen.element,
                 options = self.options,
                 sizes = self.sizes,
                 id = $.random(options.randomIDLength);
@@ -86,14 +86,14 @@ window.CodePrinter = (function($) {
             self.mainElement.attr({ id: id });
             self.id = id;
             
-            options.fontSize != 11 && options.fontSize > 0 && overlay.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) });
+            options.fontSize != 11 && options.fontSize > 0 && screen.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) });
             options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'overlay pre, '+id+'counter', 'line-height:'+options.lineHeight+'px;');
             options.width > 0 && self.mainElement.css({ width: parseInt(options.width) });
             options.height > 0 && self.wrapper.css({ height: parseInt(options.height) });
             self.measureSizes().clearSelection();
             self.activeLine = {};
             
-            overlay.addClass('cp-'+options.mode.toLowerCase());
+            screen.addClass('cp-'+options.mode.toLowerCase());
             self.data = new Data();
             source.tag() === 'textarea' && self.prepareWriter();
             self.data.init(source.value().replace(/\t/g, this.tabString()));
@@ -106,7 +106,7 @@ window.CodePrinter = (function($) {
                 var sl = this.scrollLeft,
                     st = this.scrollTop,
                     x = Math.max(0, sl + e.layerX - self.sizes.paddingLeft + 3),
-                    y = e.layerY - self.sizes.paddingTop + overlay.css('margin-top'),
+                    y = e.layerY - self.sizes.paddingTop + screen.css('margin-top'),
                     l = Math.min(Math.ceil(y / self.sizes.lineHeight), self.data.lines) - 1,
                     s = self.data.getLine(l).getElementText(),
                     c = Math.min(Math.floor(x / self.sizes.charWidth), s.length);
@@ -133,10 +133,10 @@ window.CodePrinter = (function($) {
             });
             
             if (options.highlightBrackets) {
-                overlay.delegate('click', '.cp-bracket', function() {
+                screen.delegate('click', '.cp-bracket', function() {
                     overlay.find('.cp-highlight').removeClass('cp-highlight');
                     
-                    var spans = overlay.find('span.cp-bracket'),
+                    var spans = screen.find('span.cp-bracket'),
                         cls = this.hasClass('cp-curly') ? 'cp-curly' : this.hasClass('cp-round') ? 'cp-round' : this.hasClass('cp-square') ? 'cp-square' : false,
                         index = 0, j = 0, span;
                     
@@ -264,12 +264,12 @@ window.CodePrinter = (function($) {
                     self.parse(e.dataLine);
                 },
                 'line:added': function() {
-                    var o = self.overlay.element.item();
-                    o.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+                    var s = self.screen.element.item();
+                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
                 },
                 'line:removed': function() {
-                    var o = self.overlay.element.item();
-                    o.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+                    var s = self.screen.element.item();
+                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
                 }
             });
             
@@ -278,11 +278,11 @@ window.CodePrinter = (function($) {
         },
         measureSizes: function() {
             var sizes = this.sizes,
-                ov = this.overlay.element;
+                s = this.screen.element;
             
             sizes.lineHeight = this.options.lineHeight;
-            sizes.paddingTop = ov.css('paddingTop');
-            sizes.paddingLeft = ov.css('paddingLeft');
+            sizes.paddingTop = s.css('paddingTop');
+            sizes.paddingLeft = s.css('paddingLeft');
             sizes.charWidth = getTextSize(this, 'c').width;
             return this;
         },
@@ -325,29 +325,29 @@ window.CodePrinter = (function($) {
             this.print();
         },
         render: function() {
-            var overlay = this.overlay,
+            var screen = this.screen,
                 wst = this.wrapper.scrollTop(),
                 wch = this.wrapper.clientHeight(),
                 lh = this.sizes.lineHeight,
                 lv = parseInt(this.options.linesOutsideOfView),
                 x = Math.min(Math.ceil(wch / lh) + lv + (wst > 2 * lh ? lv : 0), this.data.lines-1),
-                i = overlay.lastLine - overlay.firstLine;
+                i = screen.lastLine - screen.firstLine;
             
             if (i < x) {
                 for (; i < x; i++) {
-                    overlay.insert();
-                    this.parse(overlay.lastLine);
+                    screen.insert();
+                    this.parse(screen.lastLine);
                 }
                 this.source.item().style.display = 'none';
             } else {
-                x = Math.ceil((wst - parseInt(overlay.element.getStyle('margin-top'))) / lh);
+                x = Math.ceil((wst - parseInt(screen.element.getStyle('margin-top'))) / lh);
                 
                 while (x > lv) {
-                    overlay.shift();
+                    screen.shift();
                     x--;
                 }
                 while (x < lv) {
-                    overlay.unshift();
+                    screen.unshift();
                     x++;
                 }
             }
@@ -442,29 +442,29 @@ window.CodePrinter = (function($) {
         },
         insertNewLine: function(l) {
             l == null && (l = this.caret.line()+1);
-            var ov = this.overlay,
+            var s = this.screen,
                 dl = this.data.addLine(l, ''),
                 pre = dl.getElement(),
-                q = l - ov.firstLine;
+                q = l - s.firstLine;
             
-            if (q >= 0 && l <= ov.lastLine+1) {
-                q === 0 ? ov.element.prepend(pre) : ov.lines.eq(q-1).after(pre);
-                ov.lines.splice(q, 0, pre);
-                ov.lastLine++;
+            if (q >= 0 && l <= s.lastLine+1) {
+                q === 0 ? s.element.prepend(pre) : s.lines.eq(q-1).after(pre);
+                s.lines.splice(q, 0, pre);
+                s.lastLine++;
                 this.counter.increase();
             }
             return this;
         },
         removeLine: function(l) {
             l == null && (l = this.caret.line());
-            var ov = this.overlay,
-                q = l - ov.firstLine;
+            var s = this.screen,
+                q = l - s.firstLine;
             
             this.data.removeLine(l);
             
-            if (q >= 0 && l <= ov.lastLine) {
-                ov.lines.get(q).remove(true);
-                ov.lastLine--;
+            if (q >= 0 && l <= s.lastLine) {
+                s.lines.get(q).remove(true);
+                s.lastLine--;
                 this.counter.decrease();
             }
             return this;
@@ -903,16 +903,17 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Overlay = function(cp) {
+    var Screen = function(cp) {
         var self = this;
-        this.element = $(document.createElement('div')).addClass('cp-overlay');
+        this.parent = $(document.createElement('div')).addClass('cp-screen');
+        this.element = $(document.createElement('div')).addClass('cp-codelines');
         this.lines = $([]);
         this.root = cp;
-        cp.wrapper.append(this.element);
+        cp.wrapper.append(this.parent.append(this.element));
         
         return this;
     };
-    Overlay.prototype = {
+    Screen.prototype = {
         firstLine: 0,
         lastLine: -1,
         insert: function() {
@@ -1660,7 +1661,7 @@ window.CodePrinter = (function($) {
         text = text != null ? text : 'C';
         span.textContent = span.innerText = text;
         pre.appendChild(span);
-        cp.overlay.parent.item().appendChild(pre);
+        cp.screen.parent.item().appendChild(pre);
         cr = span.getBoundingClientRect();
         pre.parentNode.removeChild(pre);
         return cr;

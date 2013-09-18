@@ -96,13 +96,17 @@
         position:absolute;
         top:-100px; left:-100px;
     }
-    .cp-overlay {
+    .cp-screen, .cp-codelines {
         .block;
-        .size(auto, auto);
-        .margins(0, @paddingY @paddingX);
+        .size(100%, 100%);
         .sizing(border-box);
         min-width:100%;
         min-height:100%;
+        position:relative;
+        cursor:text;
+    }
+    .cp-screen {
+        .margins(0, 0);
         border-width:0;
         color:inherit;
         z-index:5;
@@ -118,6 +122,9 @@
             .margins(0 -@paddingX, 0 @paddingX);
             color:inherit;
         }
+    }
+    .cp-codelines {
+        .margins(0, @paddingY @paddingX);
     }
     .cp-counter {
         .inline-block;
@@ -263,17 +270,23 @@
         z-index:10;
     }
     
-    .cp-overlay, .cp-source, .cp-input, .cp-counter {
+    .cp-wrapper, .cp-counter {
         font-family:@font;
         font-size:@fontSize;
+        
+        * {
+            font:inherit;
+        }
+    }
+    .cp-screen, .cp-source, .cp-input, .cp-counter {
         word-break:normal;
         word-spacing:0px;
         word-wrap:normal;
     }
-    .cp-overlay pre, .cp-source, .cp-input, .cp-counter {
+    .cp-screen pre, .cp-source, .cp-input, .cp-counter {
         line-height:@lineHeight;
     }
-    .cp-overlay pre, .cp-counter li {
+    .cp-screen pre, .cp-counter li {
         font-family:inherit;
         font-size:inherit;
         word-break:inherit;
