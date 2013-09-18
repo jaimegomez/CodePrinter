@@ -107,26 +107,20 @@ window.CodePrinter = (function($) {
                     st = this.scrollTop,
                     x = Math.max(0, sl + e.layerX - self.sizes.paddingLeft + 3),
                     y = e.layerY - self.sizes.paddingTop + overlay.css('margin-top'),
-                    c = Math.min(Math.ceil(y / self.sizes.lineHeight), self.data.lines) - 1,
-                    s = self.data.getLine(c).getElementText(), af = '',
-                    sz = getTextSize(self, s);
-                
-                while (sz.width > x) {
-                    af = s[s.length-1] + af;
-                    s = s.substring(0, s.length-1);
-                    sz = getTextSize(self, s);
-                }
+                    l = Math.min(Math.ceil(y / self.sizes.lineHeight), self.data.lines) - 1,
+                    s = self.data.getLine(l).getElementText(),
+                    c = Math.min(Math.floor(x / self.sizes.charWidth), s.length);
                 
                 if (e.type === 'mousedown') {
-                    self.selection.startLine = c;
-                    self.selection.startColumn = s.length;
+                    self.selection.startLine = l;
+                    self.selection.startColumn = c;
                     return this;
                 } else {
-                    self.selection.endLine = c;
-                    self.selection.endColumn = s.length;
+                    self.selection.endLine = l;
+                    self.selection.endColumn = c;
                 }
                 
-                self.caret.position(c, s.length).activate();
+                self.caret.position(l, c).activate();
             };
             
             self.wrapper.on({
