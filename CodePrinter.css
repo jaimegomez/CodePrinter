@@ -35,7 +35,7 @@
   flex-flow: column;
   position: relative;
 }
-.codeprinter .cp-container .cp-tempdiv {
+.codeprinter .cp-container .cp-templine {
   display: inline-block;
   margin: 0;
   padding: 0;

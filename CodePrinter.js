@@ -1647,22 +1647,17 @@ window.CodePrinter = (function($) {
     };
     
     function getTextSize(cp, text) {
-        var h = 0, w = 0,
-            styles = ['font-size','font-style','font-weight','font-family','text-transform', 'letter-spacing'],
-            tmpdiv = document.createElement('div').addClass('cp-tempdiv');
+        var h = 0, w = 0, cr,
+            pre = document.createElement('pre').addClass('cp-templine'),
+            span = document.createElement('span');
         
         text = text != null ? text : 'C';
-        
-        for (var i = 0; i < styles.length; i++) {
-            tmpdiv.style[styles[i]] = cp.source.getStyle(styles[i]);
-        }
-        tmpdiv.textContent = tmpdiv.innerText = text;
-        cp.container.item().appendChild(tmpdiv);
-        h = tmpdiv.clientHeight;
-        w = tmpdiv.clientWidth;
-        tmpdiv.parentNode.removeChild(tmpdiv);
-        
-        return { height: h, width: w };
+        span.textContent = span.innerText = text;
+        pre.appendChild(span);
+        cp.overlay.parent.item().appendChild(pre);
+        cr = span.getBoundingClientRect();
+        pre.parentNode.removeChild(pre);
+        return cr;
     };
     function getDataLinePosition(line) {
         return [line % 10, (line - line % 10) % 100 / 10, (line - line % 100) / 100 ];
