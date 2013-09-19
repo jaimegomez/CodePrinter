@@ -4,6 +4,9 @@
 
 window.CodePrinter = (function($) {
     
+    var DATA_RATIO = 10,
+        DATA_MASTER_RATIO = 100;
+    
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
     var CodePrinter = function(object, options) {
@@ -614,10 +617,10 @@ window.CodePrinter = (function($) {
             this.lines++;
             this.emit('line:added', { dataLine: dl, line: line });
             
-            if (b.length > 10) {
+            if (b.length > DATA_RATIO) {
                 var r;
-                while ((r = b.splice(10, b.length - 10)) && r.length > 0) {
-                    t === 9 && (t = -1) && h++;
+                while ((r = b.splice(DATA_RATIO, b.length - DATA_RATIO)) && r.length > 0) {
+                    t === DATA_RATIO - 1 && (t = -1) && h++;
                     b = this[h][++t] || (this[h][t] = []);
                     var a = [0, 0];
                     a.push.apply(a, r);
@@ -639,17 +642,17 @@ window.CodePrinter = (function($) {
                 this.lines--;
                 this.emit('line:removed', { dataLine: dl[0], line: line });
                 
-                if (b.length === 9) {
+                if (b.length === DATA_RATIO - 1) {
                     var n, r;
                     
-                    t === 9 && (t = -1) && h++;
+                    t === DATA_RATIO - 1 && (t = -1) && h++;
                     n = this[h][++t];
                     
                     while (n) {
                         r = n.shift();
                         b.push(r);
                         b = n;
-                        t === 9 && (t = -1) && h++;
+                        t === DATA_RATIO - 1 && (t = -1) && h++;
                         n = this[h][++t];
                     }
                 }
@@ -1664,7 +1667,7 @@ window.CodePrinter = (function($) {
         return cr;
     };
     function getDataLinePosition(line) {
-        return [line % 10, (line - line % 10) % 100 / 10, (line - line % 100) / 100 ];
+        return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
     };
     function insertAfter(node, newNode) {
         node.parentNode.insertBefore(newNode, node.nextSibling);
