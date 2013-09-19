@@ -213,7 +213,7 @@
   font-size: inherit;
   list-style-type: none;
 }
-.codeprinter .cp-infobar {
+.codeprinter .cpi-bar {
   display: block;
   display: -webkit-box;
   display: -moz-box;
@@ -255,11 +255,11 @@
   z-index: 8;
   overflow: hidden;
 }
-.codeprinter .cp-infobar span {
+.codeprinter .cpi-bar span {
   margin: 0 5px;
   padding: 0;
 }
-.codeprinter .cp-infobar .cp-characters {
+.codeprinter .cpi-bar .cpi-position {
   -webkit-flex: 1;
   -moz-flex: 1;
   -ms-flex: 1;
@@ -267,7 +267,7 @@
   flex: 1;
   text-align: right;
 }
-.codeprinter .cp-infobar a {
+.codeprinter .cpi-bar a {
   margin: 0 5px;
   padding: 0;
   -webkit-transition: color 0.3s ease-in-out;
@@ -277,7 +277,7 @@
   transition: color 0.3s ease-in-out;
   color: inherit;
 }
-.codeprinter .cp-infobar a:hover {
+.codeprinter .cpi-bar a:hover {
   color: #444444;
   text-decoration: underline !important;
 }

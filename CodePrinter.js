@@ -1013,20 +1013,25 @@ window.CodePrinter = (function($) {
     };
     
     var InfoBar = function(cp) {
-        var mode = $(document.createElement('span')).addClass('cp-mode').html(cp.options.mode),
-            act = $(document.createElement('span')).addClass('cp-actions'),
-            ch = $(document.createElement('span')).addClass('cp-characters');
+        var mode = document.createElement('span').addClass('cpi-mode'),
+            act = document.createElement('span').addClass('cpi-actions'),
+            pos = document.createElement('span').addClass('cpi-position');
         
-        this.element = $(document.createElement('div')).addClass('cp-infobar').append(mode, act, ch);
-        this.element.actions = act;
-        this.element.characters = ch;
+        mode.innerHTML = cp.options.mode;
+        this.element = document.createElement('div').addClass('cpi-bar').append(mode, act, pos);
         this.root = cp;
+        
+        this.segments = {
+            mode: mode,
+            actions: act,
+            position: pos
+        };
         
         this.actions = {
             plaintext: {
                 func: function() {
                     var newWindow = window.open('', '_blank');
-                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(cp.data.toString()) + '</pre>');
+                    newWindow.document.writeln('<pre style="font-size:12px;">' + encodeEntities(cp.data.toString()) + '</pre>');
                 }
             }
         };
@@ -1038,9 +1043,9 @@ window.CodePrinter = (function($) {
         if (cp.caret) {
             cp.caret.on({
                 'position:changed': function() {
-                    ch.html('Line ' + (this.line()+1) + ', Column ' + (this.textBefore().length+1));
+                    pos.innerHTML = 'Line ' + (this.line()+1) + ', Column ' + (this.column()+1);
                 }
-            })
+            });
         }
         
         return this;
@@ -1050,8 +1055,9 @@ window.CodePrinter = (function($) {
             if (this.actions[name] && this.actions[name].element) {
                 this.actions[name].element.off('click', this.actions[name].func);
             }
-            var el = $(document.createElement('a')).addClass('cp-'+name).html(typeof text === 'string' ? text : name);
-            el.on('click', func).appendTo(this.element.actions);
+            var el = document.createElement('a').addClass('cp-'+name);
+            el.innerHTML = typeof text === 'string' ? text : name;
+            this.segments.actions.append(el.on('click', func));
             this.actions[name] = {
                 func: func,
                 element: el
