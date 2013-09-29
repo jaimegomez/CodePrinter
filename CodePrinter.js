@@ -764,9 +764,7 @@ window.CodePrinter = (function($) {
     var Caret = function(cp) {
         var line, column, before, after;
         
-        this.element = document.createElement('div').addClass('cp-caret cp-caret-'+cp.options.caretStyle);
         this.root = cp;
-        cp.wrapper.append(this.element);
         
         return this.extend({
             setTextBefore: function(str) {
@@ -1657,13 +1655,20 @@ window.CodePrinter = (function($) {
     
     var buildDOM = (function(){
         var m = document.createElement('div').addClass('codeprinter'),
-            c = document.createElement('div').addClass('cp-container');
-        c.appendChild(document.createElement('div').addClass('cp-wrapper'));
+            c = document.createElement('div').addClass('cp-container'),
+            w = document.createElement('div').addClass('cp-wrapper'),
+            i = document.createElement('textarea').addClass('cp-input'),
+            r = document.createElement('div').addClass('cp-caret');
+        w.appendChild(r);
+        c.appendChild(w);
+        m.appendChild(i);
         m.appendChild(c);
         return function(cp) {
             cp.mainElement = m.cloneNode(true);
-            cp.container = cp.mainElement.firstChild;
+            cp.input = cp.mainElement.firstChild;
+            cp.container = cp.input.nextSibling;
             cp.wrapper = cp.container.firstChild;
+            cp.caret.element = cp.wrapper.firstChild.addClass('cp-caret-'+cp.options.caretStyle);
         }
     })();
     function getTextSize(cp, text) {
