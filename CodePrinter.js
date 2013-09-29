@@ -281,6 +281,7 @@ window.CodePrinter = (function($) {
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.margin = parseInt(s.getPropertyValue('margin-top'));
             sizes.charWidth = getTextSize(this, 'c').width;
+            sizes.counterWidth = 0;
             return this;
         },
         unselectLine: function() {
@@ -582,11 +583,11 @@ window.CodePrinter = (function($) {
         openCounter: function() {
             this.counter = this.counter || new Counter(this);
             this.container.prepend(this.counter.parent);
-            this.wrapper.style.marginLeft = this.counter.parent.offsetWidth + 'px';
+            this.wrapper.style.marginLeft = (this.sizes.counterWidth = this.counter.parent.offsetWidth) + 'px';
         },
         closeCounter: function() {
             this.counter && this.counter.parent().remove();
-            this.wrapper.style.marginLeft = '0px';
+            this.wrapper.style.marginLeft = (this.sizes.counterWidth = 0) + 'px';
         },
         openInfobar: function() {
             this.infobar = this.infobar || new InfoBar(this);
