@@ -14,7 +14,7 @@ window.CodePrinter = (function($) {
             return new CodePrinter(element, options);
         }
         
-        var self = this, screen, sizes, data, id;
+        var self = this, screen, sizes, data, id, d;
         
         self.keydownMap = new keydownMap;
         self.keypressMap = new keypressMap;
@@ -60,11 +60,12 @@ window.CodePrinter = (function($) {
         
         self.data.init(data.replace(/\t/g, this.tabString()));
         
-        self.caret.onclick = function(e) {
+        var mouseController = function(e) {
             var sl = this.scrollLeft,
                 st = this.scrollTop,
-                x = Math.max(0, sl + e.layerX - self.sizes.paddingLeft + 3),
-                y = e.layerY - self.sizes.paddingTop + self.sizes.margin,
+                o = this.origin(),
+                x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft - self.sizes.counterWidth),
+                y = e.pageY - o.y - self.sizes.paddingTop + self.sizes.margin,
                 l = Math.min(Math.ceil(y / self.sizes.lineHeight), self.data.lines) - 1,
                 s = self.data.getLine(l).getElementText(),
                 c = Math.min(Math.floor(x / self.sizes.charWidth), s.length);
@@ -72,10 +73,15 @@ window.CodePrinter = (function($) {
             if (e.type === 'mousedown') {
                 self.selection.startLine = l;
                 self.selection.startColumn = c;
-                return this;
+                this.on('mousemove', mouseController);
+                d = true;
             } else {
                 self.selection.endLine = l;
                 self.selection.endColumn = c;
+                d = false;
+                if (e.type === 'mouseup') {
+                    this.off('mousemove', mouseController);
+                }
             }
             
             self.caret.position(l, c).activate();
@@ -86,8 +92,9 @@ window.CodePrinter = (function($) {
                 self.counter && (self.counter.parent.scrollTop = this.scrollTop);
                 self.render();
             },
-            mousedown: self.caret.onclick,
-            mouseup: self.caret.onclick
+            mousedown: mouseController,
+            mouseup: mouseController
+        });
         
         self.input.listen({
             blur: function(e) {
