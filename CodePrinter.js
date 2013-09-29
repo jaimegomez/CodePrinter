@@ -197,7 +197,7 @@ window.CodePrinter = (function($) {
         fontSize: 11,
         lineHeight: 15,
         linesOutsideOfView: 12,
-        caretBlinkSpeed: 300,
+        caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
         randomIDLength: 7,
         lineNumbers: true,
