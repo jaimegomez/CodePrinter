@@ -2,7 +2,7 @@
 
 .cps-obsidian .cp-wrapper { background:#293134; color:#e0e2e4; }
 .cps-obsidian .cp-counter,
-.cps-obsidian .cp-infobar,
+.cps-obsidian .cpi-bar,
 .cps-obsidian .cpf-bar { background:#293134; border-color:#81969a; color:#81969a; }
 .cps-obsidian .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-obsidian ::selection { background:#804000; }

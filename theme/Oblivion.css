@@ -2,7 +2,7 @@
 
 .cps-oblivion .cp-wrapper { background:#1E1E1E; color:#D8D8D8; }
 .cps-oblivion .cp-counter,
-.cps-oblivion .cp-infobar,
+.cps-oblivion .cpi-bar,
 .cps-oblivion .cpf-bar { background:#1e1e1e; border-color:#d0d0d0; color:#d0d0d0; }
 .cps-oblivion .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-oblivion ::selection { background:black; }
