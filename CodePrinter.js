@@ -16,8 +16,13 @@ window.CodePrinter = (function($) {
         
         var self = this, screen, sizes, data, id;
         
+        self.keydownMap = new keydownMap;
+        self.keypressMap = new keypressMap;
+        self.shortcuts = new shortcuts;
+        
         options = self.options = {}.extend(CodePrinter.defaults, options);
         
+        self.caret = new Caret(self);
         buildDOM(self);
         
         self.data = new Data();
@@ -54,7 +59,6 @@ window.CodePrinter = (function($) {
         self.activeLine = {};
         
         self.data.init(data.replace(/\t/g, this.tabString()));
-        self.prepareWriter();
         
         self.caret.onclick = function(e) {
             var sl = this.scrollLeft,
@@ -84,6 +88,88 @@ window.CodePrinter = (function($) {
             },
             mousedown: self.caret.onclick,
             mouseup: self.caret.onclick
+        
+        self.input.listen({
+            blur: function(e) {
+                if (d) {
+                    this.focus();
+                } else {
+                    self.caret.deactivate().hide();
+                    self.unselectLine();
+                }
+            },
+            keydown: function(e) {
+                self.caret.deactivate().show();
+                
+                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
+                if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
+                    self.shortcuts[k].call(self, e, this);
+                    return e.cancel();
+                }
+                if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                    return e.cancel();
+                } else {
+                    return self.keydownMap.touch(k, self, e);
+                }
+            },
+            keypress: function(e) {
+                var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
+                    ch = String.fromCharCode(k);
+                
+                if (!e.ctrlKey && !e.metaKey) {
+                    self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
+                    self.emit('keypress:'+k, { code: k, char: ch, event: e });
+                    this.value = '';
+                    return e.cancel();
+                }
+            },
+            keyup: function(e) {
+                self.caret.activate();
+                
+                if (this.value.length) {
+                    self.insertText(this.value);
+                    this.value = '';
+                }
+            }
+        });
+        
+        self.caret.on({
+            'text:changed': function() {
+                self.data.getLine(this.line()).setText(this.textAtCurrentLine());
+            },
+            'position:changed': function(x, y) {
+                document.activeElement != self.input && self.input.focus();
+                if (self.options.autoScroll) {
+                    var wrapper = self.wrapper,
+                        sL = wrapper.scrollLeft, sT = wrapper.scrollTop,
+                        cW = sL + wrapper.clientWidth, cH = sT + wrapper.clientHeight,
+                        ix = wrapper.clientWidth / 4, iy = wrapper.clientHeight / 4;
+                    
+                    x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
+                    y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
+                    
+                    $(wrapper).scrollTo(x, y, self.options.autoScrollSpeed);
+                }
+            },
+            'line:changed': function(e) {
+                if (self.options.highlightCurrentLine) {
+                    self.selectLine(e.current);
+                }
+            }
+        });
+        
+        self.data.on({
+            'text:changed': function(e) {
+                self.parse(e.dataLine);
+            },
+            'line:added': function() {
+                var s = self.screen.element;
+                s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+            },
+            'line:removed': function() {
+                var s = self.screen.element;
+                s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+            }
         });
         
         self.print();
@@ -178,101 +264,6 @@ window.CodePrinter = (function($) {
                     this.addClass('cp-highlight');
                 });
             }
-        },
-        prepareWriter: function() {
-            var self = this,
-                input = document.createElement('textarea').addClass('cp-input'),
-                caret = new Caret(self);
-            
-            self.keydownMap = new keydownMap;
-            self.keypressMap = new keypressMap;
-            self.shortcuts = new shortcuts;
-            
-            self.mainElement.prepend(input);
-            
-            input.listen({
-                blur: function() {
-                    caret.deactivate().hide();
-                    self.unselectLine();
-                },
-                keydown: function(e) {
-                    caret.deactivate().show();
-                    
-                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
-                    if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
-                        self.shortcuts[k].call(self, e, this);
-                        return e.cancel();
-                    }
-                    if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
-                        return e.cancel();
-                    } else {
-                        return self.keydownMap.touch(k, self, e);
-                    }
-                },
-                keypress: function(e) {
-                    var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
-                        ch = String.fromCharCode(k);
-                    
-                    if (!e.ctrlKey && !e.metaKey) {
-                        self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
-                        self.emit('keypress:'+k, { code: k, char: ch, event: e });
-                        this.value = '';
-                        return e.cancel();
-                    }
-                },
-                keyup: function(e) {
-                    caret.activate();
-                    
-                    if (this.value.length) {
-                        self.insertText(this.value);
-                        this.value = '';
-                    }
-                }
-            });
-            
-            caret.on({
-                'text:changed': function() {
-                    self.data.getLine(this.line()).setText(this.textAtCurrentLine());
-                },
-                'position:changed': function(x, y) {
-                    input.focus();
-                    if (self.options.autoScroll) {
-                        var wrapper = self.wrapper,
-                            sL = wrapper.scrollLeft, sT = wrapper.scrollTop,
-                            cW = sL + wrapper.clientWidth, cH = sT + wrapper.clientHeight,
-                            ix = wrapper.clientWidth / 4, iy = wrapper.clientHeight / 4;
-                        
-                        x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
-                        y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
-                        
-                        $(wrapper).scrollTo(x, y, self.options.autoScrollSpeed);
-                    }
-                },
-                'line:changed': function(e) {
-                    if (self.options.highlightCurrentLine) {
-                        self.selectLine(e.current);
-                    }
-                }
-            });
-            
-            
-            self.data.on({
-                'text:changed': function(e) {
-                    self.parse(e.dataLine);
-                },
-                'line:added': function() {
-                    var s = self.screen.element;
-                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-                },
-                'line:removed': function() {
-                    var s = self.screen.element;
-                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-                }
-            });
-            
-            self.input = input;
-            self.caret = caret;
-            self.isWritable = true;
         },
         measureSizes: function() {
             var sizes = this.sizes,
