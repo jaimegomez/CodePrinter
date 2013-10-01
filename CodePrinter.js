@@ -764,7 +764,7 @@ window.CodePrinter = (function($) {
         
         return this.extend({
             setTextBefore: function(str) {
-                if (before != str) {
+                if (before !== str) {
                     before = str;
                     this.emit('text:changed');
                     this.position(line, str.length);
@@ -772,14 +772,14 @@ window.CodePrinter = (function($) {
                 return this;
             },
             setTextAfter: function(str) {
-                if (after != str) {
+                if (after !== str) {
                     after = str;
                     this.emit('text:changed');
                 }
                 return this;
             },
             setTextAtCurrentLine: function(bf, af) {
-                if (before != bf || after != af) {
+                if (before !== bf || after !== af) {
                     before = bf;
                     after = af;
                     this.emit('text:changed');
