@@ -19,6 +19,7 @@ window.CodePrinter = (function($) {
         self.keydownMap = new keydownMap;
         self.keypressMap = new keypressMap;
         self.shortcuts = new shortcuts;
+        self.selection = new selection;
         
         options = self.options = {}.extend(CodePrinter.defaults, options);
         
@@ -55,7 +56,7 @@ window.CodePrinter = (function($) {
         options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter', 'line-height:'+options.lineHeight+'px;');
         options.width > 0 && (self.mainElement.style.width = parseInt(options.width) + 'px');
         options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
-        self.measureSizes().clearSelection();
+        self.measureSizes();
         self.activeLine = {};
         
         self.data.init(data.replace(/\t/g, this.tabString()));
@@ -71,13 +72,11 @@ window.CodePrinter = (function($) {
                 c = Math.min(Math.floor(x / self.sizes.charWidth), s.length);
             
             if (e.type === 'mousedown') {
-                self.selection.startLine = l;
-                self.selection.startColumn = c;
+                self.selection.setStart(l, c);
                 this.on('mousemove', mouseController);
                 d = true;
             } else {
-                self.selection.endLine = l;
-                self.selection.endColumn = c;
+                self.selection.setEnd(l, c);
                 d = false;
                 if (e.type === 'mouseup') {
                     this.off('mousemove', mouseController);
@@ -514,34 +513,31 @@ window.CodePrinter = (function($) {
             }
         },
         getSelection: function() {
-            var s = this.selection;
+            var s = this.selection.start,
+                e = this.selection.end;
             
-            if (s.startLine >= 0 && s.endLine >= 0) {
-                if (s.startLine != s.endLine) {
-                    var t, max, min = Math.min(s.startLine, s.endLine);
+            if (s.line >= 0 && e.line >= 0) {
+                if (s.line != e.line) {
+                    var t, max, min = Math.min(s.line, e.line);
                     
-                    if (min !== s.startLine) {
-                        max = s.startLine;
-                        var c = s.endColumn;
-                        s.endColumn = s.startColumn;
-                        s.startColumn = c;
+                    if (min !== s.line) {
+                        max = s.line;
+                        var c = e.column;
+                        e.column = s.column;
+                        s.column = c;
                     } else {
-                        max = s.endLine;
+                        max = e.line;
                     }
-                    t = this.data.getTextAtLine(min).substr(s.startColumn) + eol
+                    t = this.data.getTextAtLine(min).substr(s.column) + eol
                     for (var i = min+1; i < max; i++) {
                         t = t + this.data.getTextAtLine(i) + eol;
                     }
-                    return t + this.data.getTextAtLine(max).substring(0, s.endColumn);
+                    return t + this.data.getTextAtLine(max).substring(0, e.column);
                 } else {
-                    return this.data.getTextAtLine(s.startLine).substring(s.startColumn, s.endColumn);
+                    return this.data.getTextAtLine(s.line).substring(s.column, e.column);
                 }
             }
             return false;
-        },
-        clearSelection: function() {
-            this.selection = {};
-            return this;
         },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
@@ -1635,6 +1631,26 @@ window.CodePrinter = (function($) {
         },
         82: function() {
             this.forcePrint();
+        }
+    };
+    
+    var selection = function() {
+        this.clear();
+        return this;
+    };
+    selection.prototype = {
+        clear: function() {
+            this.start = {};
+            this.end = {};
+        },
+        setStart: function(line, column) {
+            this.start.line = line;
+            this.start.column = column;
+            this.end = {};
+        },
+        setEnd: function(line, column) {
+            this.end.line = line;
+            this.end.column = column;
         }
     };
     
