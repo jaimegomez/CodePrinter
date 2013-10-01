@@ -80,6 +80,10 @@
   overflow: scroll;
   overflow-x: scroll;
   overflow-y: scroll;
+  cursor: text;
+}
+.codeprinter .cp-wrapper * {
+  cursor: inherit;
 }
 .codeprinter .cp-source {
   display: block;
@@ -135,11 +139,15 @@
   min-width: 100%;
   min-height: 100%;
   position: relative;
-  cursor: text;
 }
 .codeprinter .cp-screen {
   margin: 0;
   padding: 0;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
   border-width: 0;
   color: inherit;
   z-index: 5;
@@ -147,7 +155,6 @@
   overflow-x: visible;
   overflow-y: visible;
   position: relative;
-  cursor: text;
 }
 .codeprinter .cp-screen pre {
   display: block;
@@ -195,6 +202,7 @@
   top: 0;
   left: 0;
   bottom: 0;
+  cursor: default;
 }
 .codeprinter .cp-counter ol {
   display: block;
@@ -368,6 +376,7 @@
   color: inherit;
 }
 .codeprinter .cpf-overlay {
+  pointer-events: none;
   background: none !important;
   z-index: 6;
   position: absolute;

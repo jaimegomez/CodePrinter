@@ -62,6 +62,11 @@
         overflow:scroll;
         overflow-x:scroll;
         overflow-y:scroll;
+        cursor:text;
+        
+        * {
+            cursor:inherit;
+        }
     }
     .cp-source {
         .block;
@@ -103,10 +108,10 @@
         min-width:100%;
         min-height:100%;
         position:relative;
-        cursor:text;
     }
     .cp-screen {
         .margins(0, 0);
+        .user-select(none);
         border-width:0;
         color:inherit;
         z-index:5;
@@ -114,7 +119,6 @@
         overflow-x:visible;
         overflow-y:visible;
         position:relative;
-        cursor:text;
         
         pre {
             .block;
@@ -141,6 +145,7 @@
         overflow:hidden;
         position:absolute;
         top:0; left:0; bottom:0;
+        cursor:default;
         
         ol {
             .block;
@@ -239,6 +244,7 @@
         color:inherit;
     }
     .cpf-overlay {
+        .non-events;
         background:none !important;
         z-index:6;
         position:absolute;
