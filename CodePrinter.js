@@ -979,8 +979,7 @@ window.CodePrinter = (function($) {
         cp.container.prepend(self.parent);
         
         this.element.delegate('mousedown', 'li', function() {
-            var index = parseInt(this.innerHTML) + 1;
-            cp.selectLine(index);
+            cp.selectLine(parseInt(this.innerHTML) - 1);
         });
         
         return this;
