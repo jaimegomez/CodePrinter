@@ -1434,8 +1434,18 @@ window.CodePrinter = (function($) {
             return this;
         },
         tear: function() {
-            this.append(this.current().substr(this.pos));
+            this.teared = this.current().substr(this.pos);
+            this.append(this.teared);
             this.forward();
+        },
+        restore: function() {
+            if (this.teared) {
+                var p = this.parsed[this.row];
+                this.backward();
+                this.parsed[this.row] = p.substr(0, p.length - this.teared.length);
+                this.pos = this.value[this.row].length - this.teared.length;
+                this.teared = null;
+            }
         },
         skip: function(found) {
             var str = this.current().substr(this.pos);

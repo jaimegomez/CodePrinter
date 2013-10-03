@@ -56,6 +56,8 @@ CodePrinter.defineMode('CSS', {
                             } else {
                                 stream.wrap(['numeric']);
                             }
+                        } else if (this.punctuations.hasOwnProperty(found)) {
+                            stream.wrap(['punctuation', this.punctuations[found]]);
                         } else if (this.chars.hasOwnProperty(found)) {
                             stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
                         } else if (stream.isAfter('(')) {
@@ -64,6 +66,7 @@ CodePrinter.defineMode('CSS', {
                             stream.wrap(['value']);
                         }
                     }
+                    !found && stream.restore();
                 }
             } else if (this.brackets.hasOwnProperty(found)) {
                 stream.wrap(this.brackets[found]);
