@@ -25,6 +25,7 @@ window.CodePrinter = (function($) {
         
         self.caret = new Caret(self);
         buildDOM(self);
+        self.mainElement.codeprinter = self;
         
         self.data = new Data();
         self.screen = new Screen(self);
