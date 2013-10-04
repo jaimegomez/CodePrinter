@@ -886,7 +886,7 @@ window.CodePrinter = (function($) {
         },
         activate: function() {
             if (this.root.options.blinkCaret) {
-                var elm = this.element, a = false;
+                var elm = this.element, a = true;
                 this.interval = clearInterval(this.interval) || setInterval(function() {
                     a === true ? elm.hide() : elm.show();
                     a = !a;
