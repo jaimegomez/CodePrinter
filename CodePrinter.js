@@ -69,21 +69,28 @@ window.CodePrinter = (function($) {
                 y = e.pageY - o.y - self.sizes.paddingTop + self.sizes.margin,
                 l = Math.min(Math.ceil(y / self.sizes.lineHeight), self.data.lines) - 1,
                 s = self.data.getLine(l).getElementText(),
-                c = Math.min(Math.floor(x / self.sizes.charWidth), s.length);
+                c = Math.min(Math.round(x / self.sizes.charWidth), s.length);
             
             if (e.type === 'mousedown') {
-                self.selection.setStart(l, c);
-                this.on('mousemove', mouseController);
+                var th = this;
                 d = true;
+                self.input.focus();
+                self.caret.deactivate().show();
+                self.selection.setStart(l, c);
+                self.emit('caret:initialized');
+                this.on('mousemove', mouseController);
+                $.document.one('mouseup', function(e) {
+                    th.off('mousemove', mouseController);
+                    self.emit('caret:stabilized');
+                    self.caret.activate();
+                    return d = e.cancel();
+                });
             } else {
                 self.selection.setEnd(l, c);
-                d = false;
-                if (e.type === 'mouseup') {
-                    this.off('mousemove', mouseController);
-                }
+                self.emit('caret:moved');
             }
             
-            self.caret.position(l, c).activate();
+            self.caret.position(l, c);
         };
         
         self.wrapper.listen({
@@ -91,8 +98,7 @@ window.CodePrinter = (function($) {
                 self.counter && (self.counter.parent.scrollTop = this.scrollTop);
                 self.render();
             },
-            mousedown: mouseController,
-            mouseup: mouseController
+            mousedown: mouseController
         });
         
         self.input.listen({
@@ -376,7 +382,7 @@ window.CodePrinter = (function($) {
                         }
                         return this;
                     };
-                
+                    
                     var p = this.parser.fn(stream).parsed;
                     for (var i = 0; i < p.length; i++) {
                         p[i] = this.options.showIndent ? indentGrid(p[i], this.options.tabWidth) : p[i];
