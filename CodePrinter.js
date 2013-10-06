@@ -4,12 +4,16 @@
 
 window.CodePrinter = (function($) {
     
-    var DATA_RATIO = 10,
+    var CodePrinter, Data, DataLine, Caret,
+        Screen, Counter, InfoBar, Finder, Stream,
+        keydownMap, keypressMap, shortcuts, selection,
+        eol, li_clone, pre_clone, selection_span,
+        DATA_RATIO = 10,
         DATA_MASTER_RATIO = 100;
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
-    var CodePrinter = function(element, options) {
+    CodePrinter = function(element, options) {
         if (!(this instanceof CodePrinter)) {
             return new CodePrinter(element, options);
         }
@@ -611,7 +615,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Data = function() {
+    Data = function() {
         return this;
     };
     Data.prototype = [].extend({
@@ -715,9 +719,9 @@ window.CodePrinter = (function($) {
         }
     });
     
-    var pre_clone = document.createElement('pre');
+    pre_clone = document.createElement('pre');
     
-    var DataLine = function(parent) {
+    DataLine = function(parent) {
         this.extend({
             setText: function(str) {
                 if (this.text !== str) {
@@ -764,7 +768,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Caret = function(cp) {
+    Caret = function(cp) {
         var line, column, before, after;
         
         this.root = cp;
@@ -924,7 +928,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Screen = function(cp) {
+    Screen = function(cp) {
         var self = this;
         this.parent = document.createElement('div').addClass('cp-screen');
         this.element = document.createElement('div').addClass('cp-codelines');
@@ -975,9 +979,9 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var li_clone = document.createElement('li');
+    li_clone = document.createElement('li');
     
-    var Counter = function(cp) {
+    Counter = function(cp) {
         var self = this;
         self.element = document.createElement('ol');
         self.parent = document.createElement('div').addClass('cp-counter').append(self.element);
@@ -1023,7 +1027,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var InfoBar = function(cp) {
+    InfoBar = function(cp) {
         var mode = document.createElement('span').addClass('cpi-mode'),
             act = document.createElement('span').addClass('cpi-actions'),
             pos = document.createElement('span').addClass('cpi-position');
@@ -1077,7 +1081,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Finder = function(cp) {
+    Finder = function(cp) {
         var self = this,
             findnext = document.createElement('button').addClass('cpf-button cpf-findnext'),
             findprev = document.createElement('button').addClass('cpf-button cpf-findprev'),
@@ -1199,7 +1203,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Stream = function(value) {
+    Stream = function(value) {
         if (!(this instanceof Stream)) {
             return new Stream();
         }
@@ -1528,7 +1532,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var keydownMap = function() {};
+    keydownMap = function() {};
     keydownMap.prototype = {
         touch: function(code, self, event) {
             if (this[code]) {
@@ -1584,7 +1588,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var keypressMap = function() {};
+    keypressMap = function() {};
     keypressMap.prototype = {
         touch: function(code, self, event, char) {
             if (this[code]) {
@@ -1614,7 +1618,7 @@ window.CodePrinter = (function($) {
     keypressMap.prototype[91] = keypressMap.prototype[123] = keypressMap.prototype[40];
     keypressMap.prototype[93] = keypressMap.prototype[125] = keypressMap.prototype[41];
     
-    var shortcuts = function() {};
+    shortcuts = function() {};
     shortcuts.prototype = {
         37: function() {
             this.wrapper.scrollLeft = 0;
@@ -1670,7 +1674,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var eol = $.browser.windows ? '\r\n' : '\n';
+    eol = $.browser.windows ? '\r\n' : '\n';
     
     CodePrinter.requireMode = function(req, cb, del) {
         return $.scripts.require('CodePrinter.'+req, cb, del);
