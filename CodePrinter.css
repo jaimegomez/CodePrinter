@@ -221,6 +221,26 @@
   font-size: inherit;
   list-style-type: none;
 }
+.codeprinter .cp-overlay {
+  pointer-events: none;
+  background: none !important;
+  z-index: 6;
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+.codeprinter .cp-overlay span {
+  margin: 0;
+  padding: 0;
+  border-width: 0;
+  position: absolute;
+}
+.codeprinter .cp-selection {
+  background: rgba(0, 0, 0, 0.3);
+  color: transparent;
+}
 .codeprinter .cpi-bar {
   display: block;
   display: -webkit-box;
@@ -375,16 +395,6 @@
   font-size: inherit;
   color: inherit;
 }
-.codeprinter .cpf-overlay {
-  pointer-events: none;
-  background: none !important;
-  z-index: 6;
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-}
 .codeprinter .cpf-occurrence {
   display: inline-block;
   vertical-align: top;
@@ -438,26 +448,31 @@
 .codeprinter .cp-screen,
 .codeprinter .cp-source,
 .codeprinter .cp-input,
-.codeprinter .cp-counter {
+.codeprinter .cp-counter,
+.codeprinter .cp-overlay {
   word-break: normal;
   word-spacing: 0px;
   word-wrap: normal;
+  white-space: pre;
 }
 .codeprinter .cp-screen pre,
 .codeprinter .cp-source,
 .codeprinter .cp-input,
-.codeprinter .cp-counter {
+.codeprinter .cp-counter,
+.codeprinter .cp-selection {
   line-height: 15px;
 }
 .codeprinter .cp-screen pre,
-.codeprinter .cp-counter li {
+.codeprinter .cp-counter li,
+.codeprinter .cp-overlay span {
   font-family: inherit;
   font-size: inherit;
   word-break: inherit;
   word-spacing: inherit;
   word-wrap: inherit;
+  white-space: inherit;
 }
-.codeprinter .cp-wrapper + .cp-infobar {
+.codeprinter .cp-wrapper + .cpi-bar {
   border-width: 1px 0 0 0;
 }
 .codeprinter .cp-activeLine {

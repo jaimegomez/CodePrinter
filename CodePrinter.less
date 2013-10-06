@@ -164,6 +164,23 @@
             list-style-type:none;
         }
     }
+    .cp-overlay {
+        .non-events;
+        background:none !important;
+        z-index:6;
+        position:absolute;
+        top:0; right:0; bottom:0; left:0;
+        
+        span {
+            .margins(0, 0);
+            border-width:0;
+            position:absolute;
+        }
+    }
+    .cp-selection {
+        background:rgba(0,0,0,0.3);
+        color:transparent;
+    }
     .cpi-bar {
         .block();
         .flexbox;
@@ -243,13 +260,6 @@
         font-size:inherit;
         color:inherit;
     }
-    .cpf-overlay {
-        .non-events;
-        background:none !important;
-        z-index:6;
-        position:absolute;
-        top:0; right:0; bottom:0; left:0;
-    }
     .cpf-occurrence {
         .inline-block;
         .vertical-top;
@@ -284,22 +294,24 @@
             font:inherit;
         }
     }
-    .cp-screen, .cp-source, .cp-input, .cp-counter {
+    .cp-screen, .cp-source, .cp-input, .cp-counter, .cp-overlay {
         word-break:normal;
         word-spacing:0px;
         word-wrap:normal;
+        white-space:pre;
     }
-    .cp-screen pre, .cp-source, .cp-input, .cp-counter {
+    .cp-screen pre, .cp-source, .cp-input, .cp-counter, .cp-selection {
         line-height:@lineHeight;
     }
-    .cp-screen pre, .cp-counter li {
+    .cp-screen pre, .cp-counter li, .cp-overlay span {
         font-family:inherit;
         font-size:inherit;
         word-break:inherit;
         word-spacing:inherit;
         word-wrap:inherit;
+        white-space:inherit;
     }
-    .cp-wrapper + .cp-infobar {
+    .cp-wrapper + .cpi-bar {
         border-width:1px 0 0 0;
     }
     
