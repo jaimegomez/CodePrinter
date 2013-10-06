@@ -305,9 +305,11 @@ window.CodePrinter = (function($) {
             }
         },
         selectLine: function(l) {
-            this.unselectLine();
-            this.activeLine.pre = this.data.getLine(l).getElement().addClass('cp-activeLine');
-            this.counter && (this.activeLine.li = this.counter.list.filter(function(item) { return item.innerHTML == l+1; }).addClass('cp-activeLine'));
+            if (this.options.highlightCurrentLine) {
+                this.unselectLine();
+                this.activeLine.pre = this.data.getLine(l).getElement().addClass('cp-activeLine');
+                this.counter && (this.activeLine.li = this.counter.list.filter(function(item) { return item.innerHTML == l+1; }).addClass('cp-activeLine'));
+            }
         },
         getSourceValue: function() {
             var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
