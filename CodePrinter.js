@@ -118,18 +118,20 @@ window.CodePrinter = (function($) {
                 }
             },
             keydown: function(e) {
+                var r = true, k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
                 self.caret.deactivate().show();
                 
-                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
                 if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
                     self.shortcuts[k].call(self, e, this);
                     return e.cancel();
                 }
                 if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
-                    return e.cancel();
+                    r = e.cancel();
                 } else {
-                    return self.keydownMap.touch(k, self, e);
+                    r = self.keydownMap.touch(k, self, e);
                 }
+                self.selection.clear();
+                return r;
             },
             keypress: function(e) {
                 var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
@@ -1557,7 +1559,12 @@ window.CodePrinter = (function($) {
                 m = t.match(/ +$/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            this.removeBeforeCursor(r);
+            if (this.selection.isset()) {
+                r = this.getSelection().length;
+                this.selection.isInversed() ? this.removeAfterCursor(r) : this.removeBeforeCursor(r);
+            } else {
+                this.removeBeforeCursor(r);
+            }
             return e.cancel();
         },
         9: function(e) {
@@ -1596,7 +1603,12 @@ window.CodePrinter = (function($) {
                 m = t.match(/^ +/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            this.removeAfterCursor(r);
+            if (this.selection.isset()) {
+                r = this.getSelection().length;
+                this.selection.isInversed() ? this.removeAfterCursor(r) : this.removeBeforeCursor(r);
+            } else {
+                this.removeAfterCursor(r);
+            }
             return e.cancel();
         }
     };
@@ -1694,16 +1706,13 @@ window.CodePrinter = (function($) {
             return this;
         },
         getStart: function() {
-            if (this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column)) {
-                return this.end;
-            }
-            return this.start;
+            return this.isInversed() ? this.end : this.start;
         },
         getEnd: function() {
-            if (this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column)) {
-                return this.start;
-            }
-            return this.end;
+            return this.isInversed() ? this.start : this.end;
+        },
+        isInversed: function() {
+            return this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column);
         },
         isset: function() {
             return this.start.line >= 0 && this.end.line >= 0;
