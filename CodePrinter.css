@@ -237,6 +237,9 @@
   border-width: 0;
   position: absolute;
 }
+.codeprinter .cp-selection-overlay {
+  z-index: 4;
+}
 .codeprinter .cp-selection {
   background: rgba(0, 0, 0, 0.3);
   color: transparent;
