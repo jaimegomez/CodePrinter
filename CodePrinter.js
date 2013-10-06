@@ -92,6 +92,7 @@ window.CodePrinter = (function($) {
                 });
             } else {
                 self.selection.setEnd(l, c);
+                self.showSelection();
                 self.emit('caret:moved');
             }
             
@@ -113,6 +114,7 @@ window.CodePrinter = (function($) {
                 } else {
                     self.caret.deactivate().hide();
                     self.unselectLine();
+                    self.selection.clear();
                 }
             },
             keydown: function(e) {
@@ -524,31 +526,40 @@ window.CodePrinter = (function($) {
             }
         },
         getSelection: function() {
-            var s = this.selection.start,
-                e = this.selection.end;
-            
-            if (s.line >= 0 && e.line >= 0) {
+            if (this.selection.isset()) {
+                var s = this.selection.getStart(),
+                    e = this.selection.getEnd();
+                
                 if (s.line != e.line) {
-                    var t, max, min = Math.min(s.line, e.line);
-                    
-                    if (min !== s.line) {
-                        max = s.line;
-                        var c = e.column;
-                        e.column = s.column;
-                        s.column = c;
-                    } else {
-                        max = e.line;
-                    }
-                    t = this.data.getTextAtLine(min).substr(s.column) + eol
-                    for (var i = min+1; i < max; i++) {
+                    var t = this.data.getTextAtLine(s.line).substr(s.column) + eol
+                    for (var i = s.line + 1; i < e.line; i++) {
                         t = t + this.data.getTextAtLine(i) + eol;
                     }
-                    return t + this.data.getTextAtLine(max).substring(0, e.column);
+                    return t + this.data.getTextAtLine(e.line).substring(0, e.column);
                 } else {
                     return this.data.getTextAtLine(s.line).substring(s.column, e.column);
                 }
             }
-            return false;
+            return '';
+        },
+        showSelection: function() {
+            var span, sel, el = this.selection.element,
+                s = this.selection.getStart(),
+                e = this.selection.getEnd();
+            
+            if (s && e) {
+                sel = this.getSelection().split(eol);
+                el.innerHTML = '';
+                
+                for (var i = 0; i < sel.length; i++) {
+                    span = selection_span.cloneNode(false);
+                    span.textContent = sel[i];
+                    span.style.top = ((s.line + i) * this.sizes.lineHeight + this.sizes.paddingTop + this.sizes.margin) + 'px';
+                    span.style.left = ((i === 0 ? s.column * this.sizes.charWidth : 0) + this.sizes.paddingLeft) + 'px';
+                    el.append(span);
+                }
+                el.parentNode == null && this.wrapper.append(el);
+            }
         },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
@@ -1654,23 +1665,46 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var selection = function() {
-        this.clear();
+    selection_span = document.createElement('span').addClass('cp-selection');
+    
+    selection = function() {
+        this.element = document.createElement('div').addClass('cp-selection-overlay cp-overlay');
+        this.start = {};
+        this.end = {};
         return this;
     };
     selection.prototype = {
         clear: function() {
+            this.element.innerHTML = '';
             this.start = {};
             this.end = {};
+            return this;
         },
         setStart: function(line, column) {
+            this.clear();
             this.start.line = line;
             this.start.column = column;
-            this.end = {};
+            return this;
         },
         setEnd: function(line, column) {
             this.end.line = line;
             this.end.column = column;
+            return this;
+        },
+        getStart: function() {
+            if (this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column)) {
+                return this.end;
+            }
+            return this.start;
+        },
+        getEnd: function() {
+            if (this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column)) {
+                return this.start;
+            }
+            return this.end;
+        },
+        isset: function() {
+            return this.start.line >= 0 && this.end.line >= 0;
         }
     };
     
