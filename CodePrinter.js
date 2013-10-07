@@ -1725,7 +1725,9 @@ window.CodePrinter = (function($) {
         return $.scripts.require('CodePrinter.'+req, cb, del);
     };
     CodePrinter.defineMode = function(name, obj) {
-        $.scripts.define('CodePrinter.'+name, (new CodePrinter.Mode()).extend(obj));
+        var m = (new CodePrinter.Mode()).extend(obj);
+        m.init instanceof Function && m.init();
+        $.scripts.define('CodePrinter.'+name, m);
     };
     CodePrinter.getMode = function(name) {
         return $.scripts.get('CodePrinter.'+name);
