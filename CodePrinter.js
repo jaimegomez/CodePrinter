@@ -1301,19 +1301,25 @@ window.CodePrinter = (function($) {
                         while (this.getNextLine()) {
                             this.row++;
                             str2 = this.current();
-                            if (to instanceof RegExp) {
-                                if ((indexTo = str2.search(to)) !== -1) {
-                                    to = to.exec(str2)[0];
+                            if (str2) {
+                                if (to instanceof RegExp) {
+                                    if ((indexTo = str2.search(to)) !== -1) {
+                                        to = to.exec(str2)[0];
+                                    }
+                                } else {
+                                    indexTo = str2.indexOf(to);
+                                }
+                                if (indexTo !== -1) {
+                                    this.eaten.push(str2.substring(0, indexTo + to.length));
+                                    this.pos = indexTo + to.length;
+                                    return this;
+                                } else {
+                                    this.eaten.push(str2);
                                 }
                             } else {
-                                indexTo = str2.indexOf(to);
-                            }
-                            if (indexTo !== -1) {
-                                this.eaten.push(str2.substring(0, indexTo + to.length));
-                                this.pos = indexTo + to.length;
+                                this.row--;
+                                this.pos = this.value[this.row].length;
                                 return this;
-                            } else {
-                                this.eaten.push(str2);
                             }
                         }
                         this.row--;
