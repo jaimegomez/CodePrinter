@@ -2,15 +2,10 @@
 
 CodePrinter.defineMode('C', {
 	controls: ['if','else','elseif','for','switch','while','do'],
-	keywords: ['return','new'],
-	types: ['int','double','short','long','char','float','unsigned','signed'],
+	keywords: ['return','new','using','namespace','this','sizeof','break','continue','static','struct','typedef','case','const','default','void','enum','extern','goto','register','union','auto','volatile'],
+	types: ['int','double','short','long','char','float','bool','unsigned','signed','struct'],
 	regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|"|'|{|}|\/|%|<|>|&|\||\.|,|:|;|\?|!/,
-	
-	init: function() {
-		this.chars.extend({
-			'<': { end: '>', cls: ['string', 'double-quote'] }
-		});
-	},
+	regexp2: /<[^>]*>?/,
 	
 	fn: function(stream) {
 		var found;
@@ -39,8 +34,16 @@ CodePrinter.defineMode('C', {
 					stream.wrap(['other']);
 				}
             } else if (found[0] === '#') {
-				stream.wrap(['special', found]);
-			} else if (this.chars.hasOwnProperty(found)) {
+				var fo = found.substr(1);
+				stream.wrap(['special', fo]);
+				if (fo === 'include') {
+					stream.eat(stream.after()).wrap(['string']);
+				}
+			} else if (found === '"' || found === "'") {
+                stream.eat(found, this.chars[found].end, function() {
+                    return this.wrap(['invalid']).reset();
+                }).wrap(this.chars[found].cls);
+            } else if (this.chars.hasOwnProperty(found)) {
 				stream.eatWhile(found, this.chars[found].end).wrap(this.chars[found].cls);
 			} else if (this.punctuations.hasOwnProperty(found)) {
                 stream.wrap(['punctuation', this.punctuations[found]]);
