@@ -67,6 +67,9 @@ window.CodePrinter = (function($) {
         self.data.init(data.replace(/\t/g, this.tabString()));
         
         var mouseController = function(e) {
+            if (e.button > 0 || e.which > 1)
+                return false;
+            
             var sl = this.scrollLeft,
                 st = this.scrollTop,
                 o = this.origin(),
