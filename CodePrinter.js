@@ -37,10 +37,10 @@ window.CodePrinter = (function($) {
         if (element.nodeType) {
             element.before(self.mainElement);
             options.extend($.parseData(element.data('codeprinter'), ','));
-            data = element.tagName.toLowerCase() === 'textarea' ? element.value : encodeEntities(element.innerHTML);
+            data = element.tagName.toLowerCase() === 'textarea' ? element.value : decodeEntities(element.innerHTML);
             element.parentNode.removeChild(element);
         } else if (typeof element === 'string') {
-            data = encodeEntities(element);
+            data = decodeEntities(element);
             options.appendTo && options.appendTo.append(self.mainElement);
         } else {
             return false;
