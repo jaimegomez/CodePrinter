@@ -15,7 +15,7 @@
 @fontSize:              11px;
 @lineHeight:            15px;
 @indentBorder:          1px dotted rgb(200,200,200);
-    
+
 .codeprinter {
     .block;
     .nowrap;
@@ -28,6 +28,7 @@
     
     &, * {
         -webkit-tap-highlight-color:transparent;
+        -webkit-font-smoothing:subpixel-antialiased;
     }
     
     .cp-container {
@@ -103,10 +104,7 @@
     }
     .cp-screen, .cp-codelines {
         .block;
-        .size(100%, 100%);
         .sizing(border-box);
-        min-width:100%;
-        min-height:100%;
         position:relative;
     }
     .cp-screen {
@@ -286,7 +284,8 @@
         .background(black);
         .shadow(0 0 2px rgba(0,0,0,0.5));
         .position(absolute, -50px, 0, 0, 0);
-        z-index:10;
+        .transition(.3s, opacity, ease-in-out);
+        z-index:100;
     }
     
     .cp-wrapper, .cp-counter {
