@@ -1680,6 +1680,12 @@ window.CodePrinter = (function($) {
         73: function() {
             !this.infobar || this.infobar.element.parentNode == null ? this.openInfobar() : this.closeInfobar();
         },
+        74: function() {
+            var self = this, l = parseInt(prompt("Jump to line..."), 10) - 1;
+            setTimeout(function() {
+                self.caret.position(l, 0);
+            }, 1);
+        },
         78: function() {
             !this.counter || this.counter.parent.parentNode == null ? this.openCounter() : this.closeCounter();
         },
