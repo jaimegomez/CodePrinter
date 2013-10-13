@@ -65,6 +65,7 @@ window.CodePrinter = (function($) {
         self.activeLine = {};
         
         self.data.init(data.replace(/\t/g, this.tabString()));
+        self.screen.parent.style.minHeight = (self.data.lines * sizes.lineHeight + sizes.paddingTop * 2) + 'px';
         
         var mouseController = function(e) {
             if (e.button > 0 || e.which > 1)
@@ -296,7 +297,7 @@ window.CodePrinter = (function($) {
             sizes.lineHeight = this.options.lineHeight;
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
-            sizes.margin = parseInt(s.getPropertyValue('margin-top'));
+            sizes.scrollTop = parseInt(s.getPropertyValue('top'));
             sizes.charWidth = getTextSize(this, 'c').width;
             sizes.counterWidth = 0;
             return this;
@@ -356,18 +357,20 @@ window.CodePrinter = (function($) {
                     this.parse(screen.lastLine);
                 }
             } else {
-                x = Math.ceil((wst - this.sizes.margin) / lh);
+                x = Math.ceil((wst - this.sizes.scrollTop) / lh);
                 
-                while (x > lv) {
-                    screen.shift();
-                    x--;
-                }
-                while (x < lv) {
-                    screen.unshift();
-                    x++;
+                if (x > lv + 2) {
+                    while (x > lv) {
+                        screen.shift();
+                        x--;
+                    }
+                } else if (x < lv - 2) {
+                    while (x < lv) {
+                        screen.unshift();
+                        x++;
+                    }
                 }
             }
-            screen.element.style.height = (this.data.lines * lh + this.sizes.paddingTop * 2) + 'px';
         },
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
@@ -561,7 +564,7 @@ window.CodePrinter = (function($) {
                 for (var i = 0; i < sel.length; i++) {
                     span = selection_span.cloneNode(false);
                     span.textContent = sel[i];
-                    span.style.top = ((s.line + i) * this.sizes.lineHeight + this.sizes.paddingTop + this.sizes.margin) + 'px';
+                    span.style.top = ((s.line + i) * this.sizes.lineHeight + this.sizes.paddingTop + this.sizes.scrollTop) + 'px';
                     span.style.left = ((i === 0 ? s.column * this.sizes.charWidth : 0) + this.sizes.paddingLeft) + 'px';
                     el.append(span);
                 }
@@ -589,7 +592,8 @@ window.CodePrinter = (function($) {
                     b = document.body;
                 this.tempnode = document.createTextNode('');
                 main.addClass('cp-fullscreen').style.margin = [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ');
-                main.after(this.tempnode).appendTo(document.body);
+                main.after(this.tempnode);
+                document.body.append(main);
                 this.isFullscreen = true;
                 this.render();
             }
@@ -778,11 +782,9 @@ window.CodePrinter = (function($) {
             return this.pre;
         },
         getElementText: function() {
-            if (this.pre) {
-                var tc = this.pre.textContent != null ? this.pre.textContent : this.pre.innerText;
-                return tc === ' ' && this.text === '' ? '' : tc;
-            }
-            return false;
+            !this.pre && this.getElement();
+            var tc = this.pre.textContent != null ? this.pre.textContent : this.pre.innerText;
+            return tc === ' ' && this.text === '' ? '' : tc;
         }
     };
     
@@ -979,7 +981,7 @@ window.CodePrinter = (function($) {
                 var pre = this.root.data.getLine(++this.lastLine).getElement();
                 this.lines.get(0).remove(true).push(pre);
                 this.element.append(pre);
-                this.element.style.marginTop = (this.root.sizes.margin += this.root.sizes.lineHeight) + 'px';
+                this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                 this.firstLine++;
                 this.root.parse(this.lastLine);
                 this.root.counter && this.root.counter.shift();
@@ -990,7 +992,7 @@ window.CodePrinter = (function($) {
                 var pre = this.root.data.getLine(--this.firstLine).getElement();
                 this.lines.get(-1).remove(true).unshift(pre);
                 this.element.prepend(pre);
-                this.element.style.marginTop = (this.root.sizes.margin -= this.root.sizes.lineHeight) + 'px';
+                this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
                 this.lastLine--;
                 this.root.parse(this.firstLine);
                 this.root.counter && this.root.counter.unshift();
@@ -1001,7 +1003,7 @@ window.CodePrinter = (function($) {
     li_clone = document.createElement('li');
     
     Counter = function(cp) {
-        var self = this;
+        var self = this, ln = cp.screen.lines.length;
         self.element = document.createElement('ol');
         self.parent = document.createElement('div').addClass('cp-counter').append(self.element);
         self.list = $([]);
@@ -1012,12 +1014,15 @@ window.CodePrinter = (function($) {
             cp.selectLine(parseInt(this.innerHTML) - 1);
         });
         
+        while (ln--) {
+            self.increase(cp.screen.firstLine+1);
+        }
         return this;
     };
     Counter.prototype = {
-        increase: function() {
+        increase: function(sL) {
             var li = li_clone.cloneNode(false);
-            li.innerHTML = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : 1;
+            li.innerHTML = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : sL >= 0 ? sL : 1;
             this.list.push(li);
             this.element.append(li);
         },
@@ -1032,7 +1037,7 @@ window.CodePrinter = (function($) {
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
             this.element.append(fi);
             this.list.get(0).remove(true).push(fi);
-            this.element.append(fi).style.marginTop = this.root.sizes.margin + 'px';
+            this.element.append(fi).style.marginTop = this.root.sizes.scrollTop + 'px';
         },
         unshift: function() {
             var la = this.list.item(-1),
@@ -1042,7 +1047,7 @@ window.CodePrinter = (function($) {
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
             this.element.prepend(la);
             this.list.get(-1).remove(true).unshift(la);
-            this.element.prepend(la).style.marginTop = this.root.sizes.margin + 'px';
+            this.element.prepend(la).style.marginTop = this.root.sizes.scrollTop + 'px';
         }
     };
     
