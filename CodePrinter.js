@@ -906,19 +906,19 @@ window.CodePrinter = (function($) {
     };
     Caret.prototype = {
         show: function() {
-            this.element.show();
+            this.element.style.opacity = 1;
             return this;
         },
         hide: function() {
-            this.element.hide();
+            this.element.style.opacity = 0;
             return this;
         },
         activate: function() {
             if (this.root.options.blinkCaret) {
                 var elm = this.element, a = true;
                 this.interval = clearInterval(this.interval) || setInterval(function() {
-                    a === true ? elm.hide() : elm.show();
                     a = !a;
+                    elm.style.opacity = +a;
                 }, this.root.options.caretBlinkSpeed);
             }
             return this;
@@ -936,6 +936,7 @@ window.CodePrinter = (function($) {
             
             Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(this.root, css) : css.height = this.root.sizes.lineHeight;
             $(this.element).css(css);
+            this.show().activate();
             this.emit('position:changed', x, y);
             return this;
         },
