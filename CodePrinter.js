@@ -33,7 +33,7 @@ window.CodePrinter = (function($) {
         
         self.data = new Data();
         self.screen = new Screen(self);
-                
+        
         if (element.nodeType) {
             element.before(self.mainElement);
             options.extend($.parseData(element.data('codeprinter'), ','));
@@ -1205,8 +1205,8 @@ window.CodePrinter = (function($) {
                         span.style.extend({
                             width: (siz.charWidth * find.length) + 'px',
                             height: siz.lineHeight + 'px',
-                            top: (siz.paddingTop + line * siz.lineHeight) + 'px',
-                            left: (siz.paddingLeft + siz.charWidth * (ln + index)) + 'px'
+                            top: (siz.paddingTop + line * siz.lineHeight + 1) + 'px',
+                            left: (siz.paddingLeft + siz.charWidth * (ln + index) + 1) + 'px'
                         });
                         this.push(span);
                         value = value.substr((ln = index + find.length));

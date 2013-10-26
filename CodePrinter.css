@@ -164,6 +164,7 @@
 .codeprinter .cp-codelines {
   margin: 0;
   padding: 5px 15px;
+  top: 0;
 }
 .codeprinter .cp-counter {
   display: inline-block;
