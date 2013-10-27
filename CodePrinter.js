@@ -6,8 +6,8 @@ window.CodePrinter = (function($) {
     
     var CodePrinter, Data, DataLine, Caret,
         Screen, Counter, InfoBar, Finder, Stream,
-        keydownMap, keypressMap, shortcuts, selection,
-        eol, li_clone, pre_clone, selection_span,
+        keydownMap, keypressMap, shortcuts, commands,
+        selection, eol, li_clone, pre_clone, selection_span,
         DATA_RATIO = 10,
         DATA_MASTER_RATIO = 100;
     
@@ -1700,6 +1700,26 @@ window.CodePrinter = (function($) {
         }
     };
     
+    commands = {
+        65: function() {
+            var ls = this.data.lines - 1;
+            this.selection.setStart(0, 0).setEnd(ls, this.data.getTextAtLine(ls).length);
+            this.showSelection();
+            this.emit('cmd.selectAll');
+        },
+        67: function() {
+            this.emit('cmd.copy');
+        },
+        86: function() {
+            this.emit('cmd.paste');
+        },
+        88: function() {
+            this.keydownMap.touch(8, this, null);
+            this.selection.clear();
+            this.emit('cmd.cut');
+        }
+    };
+
     selection_span = document.createElement('span').addClass('cp-selection');
     
     selection = function() {
