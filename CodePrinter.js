@@ -18,7 +18,7 @@ window.CodePrinter = (function($) {
             return new CodePrinter(element, options);
         }
         
-        var self = this, screen, sizes, data, id, d;
+        var self = this, screen, sizes, data, id, d, pr;
         
         self.keydownMap = new keydownMap;
         self.keypressMap = new keypressMap;
@@ -83,7 +83,6 @@ window.CodePrinter = (function($) {
             if (e.type === 'mousedown') {
                 var th = this;
                 d = true;
-                self.input.focus();
                 self.caret.deactivate().show();
                 self.selection.setStart(l, c);
                 self.emit('caret:initialized');
@@ -123,26 +122,32 @@ window.CodePrinter = (function($) {
                 }
             },
             keydown: function(e) {
-                var r = true, k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
+                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
                 self.caret.deactivate().show();
+                pr = true;
                 
+                if (isCommandKey(e) && commands[k]) {
+                    commands[k].call(self, this, e, k);
+                    return true;
+                }
                 if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
                     self.shortcuts[k].call(self, e, this);
-                    return e.cancel();
+                    return pr = e.cancel();
                 }
                 if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
-                    r = e.cancel();
+                    return pr = e.cancel();
                 } else {
-                    r = self.keydownMap.touch(k, self, e);
+                    pr = self.keydownMap.touch(k, self, e);
+                    pr = pr == -1 ? true : pr;
+                    self.selection.clear();
                 }
-                self.selection.clear();
-                return r;
+                return pr;
             },
             keypress: function(e) {
                 var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
                     ch = String.fromCharCode(k);
                 
-                if (!e.ctrlKey && !e.metaKey) {
+                if (pr && e.ctrlKey != true && e.metaKey != true) {
                     self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
                     self.emit('keypress:'+k, { code: k, char: ch, event: e });
                     this.value = '';
@@ -153,7 +158,7 @@ window.CodePrinter = (function($) {
                 self.caret.activate();
                 
                 if (this.value.length) {
-                    self.insertText(this.value);
+                    pr && self.insertText(this.value);
                     this.value = '';
                 }
             }
@@ -559,7 +564,10 @@ window.CodePrinter = (function($) {
                 e = this.selection.getEnd();
             
             if (s && e) {
-                sel = this.getSelection().split(eol);
+                sel = this.getSelection();
+                this.input.value = sel;
+                this.input.setSelectionRange(0, sel.length);
+                sel = sel.split(eol);
                 el.innerHTML = '';
                 
                 for (var i = 0; i < sel.length; i++) {
@@ -1569,6 +1577,7 @@ window.CodePrinter = (function($) {
             if (this[code]) {
                 return this[code].call(self, event, code);
             }
+            return -1;
         },
         8: function(e) {
             var t = this.caret.textBefore(),
@@ -1581,7 +1590,7 @@ window.CodePrinter = (function($) {
             } else {
                 this.removeBeforeCursor(r);
             }
-            return e.cancel();
+            return e && e.cancel();
         },
         9: function(e) {
             this.insertText(this.tabString());
