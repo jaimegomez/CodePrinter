@@ -30,7 +30,6 @@ CodePrinter.defineMode('JavaScript', {
                     stream.wrap(['empty-value', found]);
                 } else if (this.controls.indexOf(found) !== -1) {
                     stream.wrap(['control', found]);
-                      
                 } else if (this.specials.indexOf(found) !== -1) {
                     stream.wrap(['special', found]);
                 } else if (this.keywords.indexOf(found) !== -1) {

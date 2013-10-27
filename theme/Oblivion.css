@@ -2,10 +2,10 @@
 
 .cps-oblivion .cp-wrapper { background:#1E1E1E; color:#D8D8D8; }
 .cps-oblivion .cp-counter,
-.cps-oblivion .cp-infobar,
+.cps-oblivion .cpi-bar,
 .cps-oblivion .cpf-bar { background:#1e1e1e; border-color:#d0d0d0; color:#d0d0d0; }
 .cps-oblivion .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
-.cps-oblivion ::selection { background:black; }
+.cps-oblivion .cp-selection { background:black; }
 .cps-oblivion .cp-highlight { box-shadow:0 1px 0 white; }
 .cps-oblivion .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-oblivion .cpf-input { background:#3e3e3e; border-color:#d0d0d0; }

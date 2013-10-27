@@ -4,7 +4,7 @@ CodePrinter.defineMode('CSS', {
     colors: ['white','black','transparent','green','yellow','red','blue','orange','pink','cyan','violet','brown','gray','silver','gold','aqua','lime','navy','indigo','teal','fuchsia','magenta','beige','azure','khaki','sienna','skyblue'],
     keywords: ['inherit','italic','normal','bold','underline','none','all','solid','dotted','dashed'],
     regexp: /\/\*|#[\w\-]+|\.[\w\-]+|\b[\w\-]+|@\w+|{|}|:|;|<|>/,
-	values: /\/\*|\;|#[0-9a-fA-F]+|\-?\d+[a-zA-Z%]*|\-?\d*\.\d+[a-zA-Z%]*|\b[\w\-]+\b|'|"|\n/,
+	values: /\/\*|\;|,|#[0-9a-fA-F]+|\-?\d+[a-zA-Z%]*|\-?\d*\.\d+[a-zA-Z%]*|\b[a-zA-Z\-]+\b|'|"/,
     units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
     
     fn: function(stream) {
@@ -35,7 +35,7 @@ CodePrinter.defineMode('CSS', {
                 if (found === ':') {
                     while (found = stream.match(this.values)) {
                         if (found == ';') {
-                            stream.wrap(['punctuation', 'semicolon']);
+                            stream.wrap(['punctuation', this.punctuations[found]]);
                             break;
                         } else if (this.colors.indexOf(found) !== -1) {
                             stream.wrap(['keyword', 'color-'+found]);
@@ -56,16 +56,17 @@ CodePrinter.defineMode('CSS', {
                             } else {
                                 stream.wrap(['numeric']);
                             }
+                        } else if (this.punctuations.hasOwnProperty(found)) {
+                            stream.wrap(['punctuation', this.punctuations[found]]);
                         } else if (this.chars.hasOwnProperty(found)) {
                             stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
-                        } else if (found == "\n") {
-                            break;
                         } else if (stream.isAfter('(')) {
                             stream.wrap(['fname', 'fname-'+found]);
                         } else {
                             stream.wrap(['value']);
                         }
                     }
+                    !found && stream.restore();
                 }
             } else if (this.brackets.hasOwnProperty(found)) {
                 stream.wrap(this.brackets[found]);
@@ -82,7 +83,7 @@ CodePrinter.defineMode('CSS', {
     },
     keypressMap: {
         58: function() {
-            this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.insertText(';', 1);
+            this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.insertText(';');
         }
     }
 });

@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.5.0
+*   version     0.5.1
 */
 
 @backgroundColor:       rgb(255,255,255);
@@ -15,7 +15,7 @@
 @fontSize:              11px;
 @lineHeight:            15px;
 @indentBorder:          1px dotted rgb(200,200,200);
-    
+
 .codeprinter {
     .block;
     .nowrap;
@@ -25,9 +25,11 @@
     min-height:20px;
     overflow:hidden;
     position:relative; top:0;
-    
+    -webkit-transform:translate3d(0,0,0);
+
     &, * {
         -webkit-tap-highlight-color:transparent;
+        -webkit-font-smoothing:subpixel-antialiased;
     }
     
     .cp-container {
@@ -51,7 +53,7 @@
         .flex(1);
         .flex-flow(column);
         .size(auto, 100%);
-        .margins(0 0 0 35px, 0);
+        .margins(0, 0);
         .sizing(border-box);
         background:@backgroundColor;
         border:none;
@@ -62,6 +64,11 @@
         overflow:scroll;
         overflow-x:scroll;
         overflow-y:scroll;
+        cursor:text;
+        
+        * {
+            cursor:inherit;
+        }
     }
     .cp-source {
         .block;
@@ -98,15 +105,12 @@
     }
     .cp-screen, .cp-codelines {
         .block;
-        .size(100%, 100%);
         .sizing(border-box);
-        min-width:100%;
-        min-height:100%;
         position:relative;
-        cursor:text;
     }
     .cp-screen {
         .margins(0, 0);
+        .user-select(none);
         border-width:0;
         color:inherit;
         z-index:5;
@@ -114,7 +118,6 @@
         overflow-x:visible;
         overflow-y:visible;
         position:relative;
-        cursor:text;
         
         pre {
             .block;
@@ -125,6 +128,7 @@
     }
     .cp-codelines {
         .margins(0, @paddingY @paddingX);
+        top:0;
     }
     .cp-counter {
         .inline-block;
@@ -141,6 +145,7 @@
         overflow:hidden;
         position:absolute;
         top:0; left:0; bottom:0;
+        cursor:default;
         
         ol {
             .block;
@@ -159,7 +164,27 @@
             list-style-type:none;
         }
     }
-    .cp-infobar {
+    .cp-overlay {
+        .non-events;
+        background:none !important;
+        z-index:6;
+        position:absolute;
+        top:0; right:0; bottom:0; left:0;
+        
+        span {
+            .margins(0, 0);
+            border-width:0;
+            position:absolute;
+        }
+    }
+    .cp-selection-overlay {
+        z-index:4;
+    }
+    .cp-selection {
+        background:rgba(0,0,0,0.3);
+        color:transparent;
+    }
+    .cpi-bar {
         .block();
         .flexbox;
         .flex-flow(row);
@@ -179,7 +204,7 @@
         span {
             .margins(0 5px);
         }
-        .cp-characters {
+        .cpi-position {
             .flex(1);
             .align-right;
         }
@@ -238,12 +263,6 @@
         font-size:inherit;
         color:inherit;
     }
-    .cpf-overlay {
-        background:none !important;
-        z-index:6;
-        position:absolute;
-        top:0; right:0; bottom:0; left:0;
-    }
     .cpf-occurrence {
         .inline-block;
         .vertical-top;
@@ -267,7 +286,8 @@
         .background(black);
         .shadow(0 0 2px rgba(0,0,0,0.5));
         .position(absolute, -50px, 0, 0, 0);
-        z-index:10;
+        .transition(.3s, opacity, ease-in-out);
+        z-index:100;
     }
     
     .cp-wrapper, .cp-counter {
@@ -278,22 +298,24 @@
             font:inherit;
         }
     }
-    .cp-screen, .cp-source, .cp-input, .cp-counter {
+    .cp-screen, .cp-source, .cp-input, .cp-counter, .cp-overlay {
         word-break:normal;
         word-spacing:0px;
         word-wrap:normal;
+        white-space:pre;
     }
-    .cp-screen pre, .cp-source, .cp-input, .cp-counter {
+    .cp-screen pre, .cp-source, .cp-input, .cp-counter, .cp-selection {
         line-height:@lineHeight;
     }
-    .cp-screen pre, .cp-counter li {
+    .cp-screen pre, .cp-counter li, .cp-overlay span {
         font-family:inherit;
         font-size:inherit;
         word-break:inherit;
         word-spacing:inherit;
         word-wrap:inherit;
+        white-space:inherit;
     }
-    .cp-wrapper + .cp-infobar {
+    .cp-wrapper + .cpi-bar {
         border-width:1px 0 0 0;
     }
     
@@ -345,6 +367,12 @@
         .cp-container {
             .flex(1);
         }
+    }
+}
+@-moz-document url-prefix() {
+    .codeprinter .cp-wrapper {
+        margin-right:-15px;
+        margin-bottom:-15px;
     }
 }
 

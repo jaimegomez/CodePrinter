@@ -4,37 +4,211 @@
 
 window.CodePrinter = (function($) {
     
+    var CodePrinter, Data, DataLine, Caret,
+        Screen, Counter, InfoBar, Finder, Stream,
+        keydownMap, keypressMap, shortcuts, commands,
+        selection, eol, li_clone, pre_clone, selection_span,
+        DATA_RATIO = 10,
+        DATA_MASTER_RATIO = 100;
+    
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
-    var CodePrinter = function(object, options) {
+    CodePrinter = function(element, options) {
         if (!(this instanceof CodePrinter)) {
-            return new CodePrinter(object, options);
+            return new CodePrinter(element, options);
         }
         
-        var self = this,
-            mainElement = $(document.createElement('div')).addClass('codeprinter'),
-            container = $(document.createElement('div')).addClass('cp-container'),
-            wrapper = $(document.createElement('div')).addClass('cp-wrapper');
+        var self = this, screen, sizes, data, id, d, pr;
         
-        self.options = {}.extend(CodePrinter.defaults, options, $.parseData(object.data('codeprinter'), ','));
+        self.keydownMap = new keydownMap;
+        self.keypressMap = new keypressMap;
+        self.shortcuts = new shortcuts;
+        self.selection = new selection;
         
-        object.wrap(wrapper);
-        wrapper.wrap(container);
-        container.wrap(mainElement);
+        options = self.options = {}.extend(CodePrinter.defaults, options);
         
-        self.mainElement = mainElement;
-        self.container = container;
-        self.wrapper = wrapper;
-        self.source = object.addClass('cp-source');
+        self.caret = new Caret(self);
+        buildDOM(self);
+        self.mainElement.codeprinter = self;
+        
+        self.data = new Data();
         self.screen = new Screen(self);
         
-        self.prepare();
+        if (element.nodeType) {
+            element.before(self.mainElement);
+            options.extend($.parseData(element.data('codeprinter'), ','));
+            data = element.tagName.toLowerCase() === 'textarea' ? element.value : decodeEntities(element.innerHTML);
+            element.parentNode.removeChild(element);
+        } else if (typeof element === 'string') {
+            data = decodeEntities(element);
+            options.appendTo && options.appendTo.append(self.mainElement);
+        } else {
+            return false;
+        }
+        
+        screen = self.screen.element.addClass('cp-'+options.mode.toLowerCase());
+        sizes = self.sizes;
+        id = $.random(options.randomIDLength);
+        
+        self.setTheme(options.theme);
+        self.mainElement.id = id;
+        
+        options.lineNumbers && self.openCounter();
+        options.infobar && self.openInfobar();
+        options.showFinder && self.openFinder();
+        
+        options.fontSize != 11 && options.fontSize > 0 && (screen.style.fontSize = parseInt(options.fontSize) + 'px');
+        options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;');
+        options.width > 0 && (self.mainElement.style.width = parseInt(options.width) + 'px');
+        options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
+        self.measureSizes();
+        self.activeLine = {};
+        
+        self.data.init(data.replace(/\t/g, this.tabString()));
+        self.screen.parent.style.minHeight = (self.data.lines * sizes.lineHeight + sizes.paddingTop * 2) + 'px';
+        
+        var mouseController = function(e) {
+            if (e.button > 0 || e.which > 1)
+                return false;
+            
+            var sl = this.scrollLeft,
+                st = this.scrollTop,
+                o = this.origin(),
+                x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft - self.sizes.counterWidth),
+                y = st + e.pageY - o.y - self.sizes.paddingTop,
+                l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1,
+                s = self.data.getLine(l).getElementText(),
+                c = Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
+            
+            if (e.type === 'mousedown') {
+                var th = this;
+                d = true;
+                self.caret.deactivate().show();
+                self.selection.setStart(l, c);
+                self.emit('caret:initialized');
+                this.on('mousemove', mouseController);
+                $.document.one('mouseup', function(e) {
+                    th.off('mousemove', mouseController);
+                    self.emit('caret:stabilized');
+                    self.caret.activate();
+                    return d = e.cancel();
+                });
+            } else {
+                self.selection.setEnd(l, c);
+                self.showSelection();
+                self.emit('caret:moved');
+            }
+            $.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus();
+            
+            self.caret.position(l, c);
+        };
+        
+        self.wrapper.listen({
+            scroll: function() {
+                self.counter && (self.counter.parent.scrollTop = this.scrollTop);
+                self.render();
+            },
+            mousedown: mouseController
+        });
+        
+        self.input.listen({
+            blur: function(e) {
+                if (d) {
+                    this.focus();
+                } else {
+                    self.caret.deactivate().hide();
+                    self.unselectLine();
+                    self.selection.clear();
+                }
+            },
+            keydown: function(e) {
+                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
+                self.caret.deactivate().show();
+                pr = true;
+                
+                if (isCommandKey(e) && commands[k]) {
+                    commands[k].call(self, this, e, k);
+                    return true;
+                }
+                if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
+                    self.shortcuts[k].call(self, e, this);
+                    return pr = e.cancel();
+                }
+                if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                    return pr = e.cancel();
+                } else {
+                    pr = self.keydownMap.touch(k, self, e);
+                    pr = pr == -1 ? true : pr;
+                    self.selection.clear();
+                }
+                return pr;
+            },
+            keypress: function(e) {
+                var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
+                    ch = String.fromCharCode(k);
+                
+                if (pr && e.ctrlKey != true && e.metaKey != true) {
+                    self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
+                    self.emit('keypress:'+k, { code: k, char: ch, event: e });
+                    this.value = '';
+                    return e.cancel();
+                }
+            },
+            keyup: function(e) {
+                self.caret.activate();
+                
+                if (this.value.length) {
+                    pr && self.insertText(this.value);
+                    this.value = '';
+                }
+            }
+        });
+        
+        self.caret.on({
+            'text:changed': function() {
+                self.data.getLine(this.line()).setText(this.textAtCurrentLine());
+            },
+            'position:changed': function(x, y) {
+                document.activeElement != self.input && self.input.focus();
+                if (self.options.autoScroll) {
+                    var wrapper = self.wrapper,
+                        sL = wrapper.scrollLeft, sT = wrapper.scrollTop,
+                        cW = sL + wrapper.clientWidth, cH = sT + wrapper.clientHeight,
+                        ix = wrapper.clientWidth / 4, iy = wrapper.clientHeight / 4;
+                    
+                    x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
+                    y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
+                    
+                    $(wrapper).scrollTo(x, y, self.options.autoScrollSpeed);
+                }
+            },
+            'line:changed': function(e) {
+                if (self.options.highlightCurrentLine) {
+                    self.selectLine(e.current);
+                }
+            }
+        });
+        
+        self.data.on({
+            'text:changed': function(e) {
+                self.parse(e.dataLine);
+            },
+            'line:added': function() {
+                var s = self.screen.element;
+                s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+            },
+            'line:removed': function() {
+                var s = self.screen.element;
+                s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+            }
+        });
+        
         self.print();
         
         return self;
     };
     
-    CodePrinter.version = '0.5.0';
+    CodePrinter.version = '0.5.1';
     
     CodePrinter.defaults = {
         path: '',
@@ -47,7 +221,7 @@ window.CodePrinter = (function($) {
         fontSize: 11,
         lineHeight: 15,
         linesOutsideOfView: 12,
-        caretBlinkSpeed: 300,
+        caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
         randomIDLength: 7,
         lineNumbers: true,
@@ -67,71 +241,10 @@ window.CodePrinter = (function($) {
         searchOnTheFly: false
     };
     
-    CodePrinter.prototype = {}.extend({
+    CodePrinter.prototype = {
         sizes: {},
         isFullscreen: false,
         prepare: function() {
-            var self = this,
-                source = self.source,
-                screen = self.screen.element,
-                options = self.options,
-                sizes = self.sizes,
-                id = $.random(options.randomIDLength);
-            
-            self.setTheme(options.theme);
-            
-            self.counter = new Counter(self);
-            options.lineNumbers ? self.counter.show() : self.counter.hide();
-            
-            self.mainElement.attr({ id: id });
-            self.id = id;
-            
-            options.fontSize != 11 && options.fontSize > 0 && screen.add(source, self.counter.element).css({ fontSize: parseInt(options.fontSize) });
-            options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'overlay pre, '+id+'counter', 'line-height:'+options.lineHeight+'px;');
-            options.width > 0 && self.mainElement.css({ width: parseInt(options.width) });
-            options.height > 0 && self.wrapper.css({ height: parseInt(options.height) });
-            self.measureSizes().clearSelection();
-            self.activeLine = {};
-            
-            screen.addClass('cp-'+options.mode.toLowerCase());
-            self.data = new Data();
-            source.tag() === 'textarea' && self.prepareWriter();
-            self.data.init(source.value().replace(/\t/g, this.tabString()));
-            
-            options.showFinder && (this.finder = new Finder(self));
-            self.infobar = new InfoBar(self);
-            options.infobar ? self.infobar.show() : self.infobar.hide();
-            
-            self.caret.onclick = function(e) {
-                var sl = this.scrollLeft,
-                    st = this.scrollTop,
-                    x = Math.max(0, sl + e.layerX - self.sizes.paddingLeft + 3),
-                    y = e.layerY - self.sizes.paddingTop + screen.css('margin-top'),
-                    l = Math.min(Math.ceil(y / self.sizes.lineHeight), self.data.lines) - 1,
-                    s = self.data.getLine(l).getElementText(),
-                    c = Math.min(Math.floor(x / self.sizes.charWidth), s.length);
-                
-                if (e.type === 'mousedown') {
-                    self.selection.startLine = l;
-                    self.selection.startColumn = c;
-                    return this;
-                } else {
-                    self.selection.endLine = l;
-                    self.selection.endColumn = c;
-                }
-                
-                self.caret.position(l, c).activate();
-            };
-            
-            self.wrapper.on({
-                scroll: function() {
-                    self.counter.parent.current().scrollTop = this.scrollTop;
-                    self.render();
-                },
-                mousedown: self.caret.onclick,
-                mouseup: self.caret.onclick
-            });
-            
             if (options.highlightBrackets) {
                 screen.delegate('click', '.cp-bracket', function() {
                     overlay.find('.cp-highlight').removeClass('cp-highlight');
@@ -183,107 +296,16 @@ window.CodePrinter = (function($) {
                 });
             }
         },
-        prepareWriter: function() {
-            var self = this,
-                caret = new Caret(self);
-            
-            self.keydownMap = new keydownMap;
-            self.keypressMap = new keypressMap;
-            self.shortcuts = new shortcuts;
-            
-            self.input = $(document.createElement('textarea')).addClass('cp-input');
-            self.mainElement.prepend(self.input);
-            
-            self.input.on({
-                blur: function() {
-                    caret.deactivate().hide();
-                    self.unselectLine();
-                },
-                keydown: function(e) {
-                    caret.deactivate().show();
-                    
-                    var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
-                    if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
-                        self.shortcuts[k].call(self, e, this);
-                        return e.cancel();
-                    }
-                    if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
-                        return e.cancel();
-                    } else {
-                        return self.keydownMap.touch(k, self, e);
-                    }
-                },
-                keypress: function(e) {
-                    var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
-                        ch = String.fromCharCode(k);
-                    
-                    if (!e.ctrlKey && !e.metaKey) {
-                        self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
-                        self.emit('keypress:'+k, { code: k, char: ch, event: e });
-                        this.value = '';
-                        return e.cancel();
-                    }
-                },
-                keyup: function(e) {
-                    caret.activate();
-                    
-                    if (this.value.length) {
-                        self.insertText(this.value);
-                        this.value = '';
-                    }
-                }
-            });
-            
-            caret.on({
-                'text:changed': function() {
-                    self.data.getLine(this.line()).setText(this.textAtCurrentLine());
-                },
-                'position:changed': function(x, y) {
-                    self.input.focus();
-                    if (self.options.autoScroll) {
-                        var wrapper = self.wrapper.item(),
-                            sL = wrapper.scrollLeft, sT = wrapper.scrollTop,
-                            cW = sL + wrapper.clientWidth, cH = sT + wrapper.clientHeight,
-                            ix = wrapper.clientWidth / 4, iy = wrapper.clientHeight / 4;
-                        
-                        x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
-                        y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
-                        
-                        self.wrapper.scrollTo(x, y, self.options.autoScrollSpeed);
-                    }
-                },
-                'line:changed': function(e) {
-                    if (self.options.highlightCurrentLine) {
-                        self.selectLine(e.current);
-                    }
-                }
-            });
-            
-            self.data.on({
-                'text:changed': function(e) {
-                    self.parse(e.dataLine);
-                },
-                'line:added': function() {
-                    var s = self.screen.element.item();
-                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-                },
-                'line:removed': function() {
-                    var s = self.screen.element.item();
-                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-                }
-            });
-            
-            self.caret = caret;
-            self.isWritable = true;
-        },
         measureSizes: function() {
             var sizes = this.sizes,
-                s = this.screen.element;
+                s = window.getComputedStyle(this.screen.element, null);
             
             sizes.lineHeight = this.options.lineHeight;
-            sizes.paddingTop = s.css('paddingTop');
-            sizes.paddingLeft = s.css('paddingLeft');
+            sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
+            sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
+            sizes.scrollTop = parseInt(s.getPropertyValue('top'));
             sizes.charWidth = getTextSize(this, 'c').width;
+            sizes.counterWidth = 0;
             return this;
         },
         unselectLine: function() {
@@ -295,9 +317,11 @@ window.CodePrinter = (function($) {
             }
         },
         selectLine: function(l) {
-            this.unselectLine();
-            this.activeLine.pre = this.data.getLine(l).getElement().addClass('cp-activeLine');
-            this.activeLine.li = this.counter.list.filter(function(item) { return item.innerHTML == l+1; }).addClass('cp-activeLine');
+            if (this.options.highlightCurrentLine) {
+                this.unselectLine();
+                this.activeLine.pre = this.data.getLine(l).getElement().addClass('cp-activeLine');
+                this.counter && (this.activeLine.li = this.counter.list.filter(function(item) { return item.innerHTML == l+1; }).addClass('cp-activeLine'));
+            }
         },
         getSourceValue: function() {
             var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
@@ -326,8 +350,8 @@ window.CodePrinter = (function($) {
         },
         render: function() {
             var screen = this.screen,
-                wst = this.wrapper.scrollTop(),
-                wch = this.wrapper.clientHeight(),
+                wst = this.wrapper.scrollTop,
+                wch = this.wrapper.clientHeight,
                 lh = this.sizes.lineHeight,
                 lv = parseInt(this.options.linesOutsideOfView),
                 x = Math.min(Math.ceil(wch / lh) + lv + (wst > 2 * lh ? lv : 0), this.data.lines-1),
@@ -338,17 +362,19 @@ window.CodePrinter = (function($) {
                     screen.insert();
                     this.parse(screen.lastLine);
                 }
-                this.source.item().style.display = 'none';
             } else {
-                x = Math.ceil((wst - parseInt(screen.element.getStyle('margin-top'))) / lh);
+                x = Math.ceil((wst - this.sizes.scrollTop) / lh);
                 
-                while (x > lv) {
-                    screen.shift();
-                    x--;
-                }
-                while (x < lv) {
-                    screen.unshift();
-                    x++;
+                if (x > lv + 2) {
+                    while (x > lv) {
+                        screen.shift();
+                        x--;
+                    }
+                } else if (x < lv - 2) {
+                    while (x < lv) {
+                        screen.unshift();
+                        x++;
+                    }
                 }
             }
         },
@@ -379,7 +405,7 @@ window.CodePrinter = (function($) {
                         }
                         return this;
                     };
-                
+                    
                     var p = this.parser.fn(stream).parsed;
                     for (var i = 0; i < p.length; i++) {
                         p[i] = this.options.showIndent ? indentGrid(p[i], this.options.tabWidth) : p[i];
@@ -516,34 +542,43 @@ window.CodePrinter = (function($) {
             }
         },
         getSelection: function() {
-            var s = this.selection;
-            
-            if (s.startLine >= 0 && s.endLine >= 0) {
-                if (s.startLine != s.endLine) {
-                    var t, max, min = Math.min(s.startLine, s.endLine);
-                    
-                    if (min !== s.startLine) {
-                        max = s.startLine;
-                        var c = s.endColumn;
-                        s.endColumn = s.startColumn;
-                        s.startColumn = c;
-                    } else {
-                        max = s.endLine;
-                    }
-                    t = this.data.getTextAtLine(min).substr(s.startColumn) + eol
-                    for (var i = min+1; i < max; i++) {
+            if (this.selection.isset()) {
+                var s = this.selection.getStart(),
+                    e = this.selection.getEnd();
+                
+                if (s.line != e.line) {
+                    var t = this.data.getTextAtLine(s.line).substr(s.column) + eol
+                    for (var i = s.line + 1; i < e.line; i++) {
                         t = t + this.data.getTextAtLine(i) + eol;
                     }
-                    return t + this.data.getTextAtLine(max).substring(0, s.endColumn);
+                    return t + this.data.getTextAtLine(e.line).substring(0, e.column);
                 } else {
-                    return this.data.getTextAtLine(s.startLine).substring(s.startColumn, s.endColumn);
+                    return this.data.getTextAtLine(s.line).substring(s.column, e.column);
                 }
             }
-            return false;
+            return '';
         },
-        clearSelection: function() {
-            this.selection = {};
-            return this;
+        showSelection: function() {
+            var span, sel, el = this.selection.element,
+                s = this.selection.getStart(),
+                e = this.selection.getEnd();
+            
+            if (s && e) {
+                sel = this.getSelection();
+                this.input.value = sel;
+                this.input.setSelectionRange(0, sel.length);
+                sel = sel.split(eol);
+                el.innerHTML = '';
+                
+                for (var i = 0; i < sel.length; i++) {
+                    span = selection_span.cloneNode(false);
+                    span.textContent = sel[i];
+                    span.style.top = ((s.line + i) * this.sizes.lineHeight + this.sizes.paddingTop + this.sizes.scrollTop) + 'px';
+                    span.style.left = ((i === 0 ? s.column * this.sizes.charWidth : 0) + this.sizes.paddingLeft) + 'px';
+                    el.append(span);
+                }
+                el.parentNode == null && this.wrapper.append(el);
+            }
         },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
@@ -565,8 +600,9 @@ window.CodePrinter = (function($) {
                 var main = this.mainElement,
                     b = document.body;
                 this.tempnode = document.createTextNode('');
-                main.addClass('cp-fullscreen').css({ margin: [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ') });
-                main.after(this.tempnode).appendTo(document.body);
+                main.addClass('cp-fullscreen').style.margin = [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ');
+                main.after(this.tempnode);
+                document.body.append(main);
                 this.isFullscreen = true;
                 this.render();
             }
@@ -574,32 +610,54 @@ window.CodePrinter = (function($) {
         exitFullscreen: function() {
             if (this.isFullscreen && this.tempnode) {
                 var tmp = this.tempnode;
-                this.mainElement.removeClass('cp-fullscreen').css({ margin: null }).insertBefore(tmp);
+                this.mainElement.removeClass('cp-fullscreen').style.removeProperty('margin');
+                tmp.parentNode.insertBefore(this.mainElement, tmp);
                 tmp.parentNode.removeChild(tmp);
                 delete this.tempnode;
                 this.isFullscreen = false;
                 this.render();
             }
+        },
+        openCounter: function() {
+            this.counter = this.counter || new Counter(this);
+            this.container.prepend(this.counter.parent);
+            this.wrapper.style.marginLeft = (this.sizes.counterWidth = this.counter.parent.offsetWidth) + 'px';
+        },
+        closeCounter: function() {
+            this.counter && this.counter.parent().remove();
+            this.wrapper.style.marginLeft = (this.sizes.counterWidth = 0) + 'px';
+        },
+        openInfobar: function() {
+            this.infobar = this.infobar || new InfoBar(this);
+            this.options.infobarOnTop ? this.mainElement.prepend(this.infobar.element) : this.mainElement.append(this.infobar.element);
+        },
+        closeInfobar: function() {
+            this.infobar && this.infobar.element.remove();
+        },
+        openFinder: function() {
+            this.finder = this.finder || new Finder(this);
+            this.finder.clear();
+            this.mainElement.append(this.finder.bar);
+            this.wrapper.append(this.finder.overlay);
+            this.finder.input.focus();
+        },
+        closeFinder: function() {
+            this.finder && this.finder.close();
         }
-    });
+    };
     
-    var Data = function() {
+    Data = function() {
         return this;
     };
     Data.prototype = [].extend({
         lines: 0,
         init: function(value) {
-            var i = 0, j = -1, c, r,
-                pos = value.indexOf(eol);
+            value = value.split(eol);
+            var i = -1, l = value.length;
             
-            pos === -1 && (pos = value.length);
-            
-            do {
-                this.addLine(i, value.substring(0, pos));
-                value = value.substr(pos + eol.length);
-                i++;
-            } while ((pos = value.indexOf(eol)) !== -1);
-            this.addLine(i, value);
+            while (++i < l) {
+                this.addLine(i, value[i]);
+            }
             return this;
         },
         addLine: function(line, txt) {
@@ -614,10 +672,10 @@ window.CodePrinter = (function($) {
             this.lines++;
             this.emit('line:added', { dataLine: dl, line: line });
             
-            if (b.length > 10) {
+            if (b.length > DATA_RATIO) {
                 var r;
-                while ((r = b.splice(10, b.length - 10)) && r.length > 0) {
-                    t === 9 && (t = -1) && h++;
+                while ((r = b.splice(DATA_RATIO, b.length - DATA_RATIO)) && r.length > 0) {
+                    t === DATA_RATIO - 1 && (t = -1) && h++;
                     b = this[h][++t] || (this[h][t] = []);
                     var a = [0, 0];
                     a.push.apply(a, r);
@@ -639,17 +697,17 @@ window.CodePrinter = (function($) {
                 this.lines--;
                 this.emit('line:removed', { dataLine: dl[0], line: line });
                 
-                if (b.length === 9) {
+                if (b.length === DATA_RATIO - 1) {
                     var n, r;
                     
-                    t === 9 && (t = -1) && h++;
+                    t === DATA_RATIO - 1 && (t = -1) && h++;
                     n = this[h][++t];
                     
                     while (n) {
                         r = n.shift();
                         b.push(r);
                         b = n;
-                        t === 9 && (t = -1) && h++;
+                        t === DATA_RATIO - 1 && (t = -1) && h++;
                         n = this[h][++t];
                     }
                 }
@@ -692,9 +750,9 @@ window.CodePrinter = (function($) {
         }
     });
     
-    var pre_clone = document.createElement('pre');
+    pre_clone = document.createElement('pre');
     
-    var DataLine = function(parent) {
+    DataLine = function(parent) {
         this.extend({
             setText: function(str) {
                 if (this.text !== str) {
@@ -733,24 +791,20 @@ window.CodePrinter = (function($) {
             return this.pre;
         },
         getElementText: function() {
-            if (this.pre) {
-                var tc = this.pre.textContent != null ? this.pre.textContent : this.pre.innerText;
-                return tc === ' ' && this.text === '' ? '' : tc;
-            }
-            return false;
+            !this.pre && this.getElement();
+            var tc = this.pre.textContent != null ? this.pre.textContent : this.pre.innerText;
+            return tc === ' ' && this.text === '' ? '' : tc;
         }
     };
     
-    var Caret = function(cp) {
+    Caret = function(cp) {
         var line, column, before, after;
         
-        this.element = $(document.createElement('div')).addClass('cp-caret cp-caret-'+cp.options.caretStyle);
         this.root = cp;
-        cp.wrapper.append(this.element);
         
         return this.extend({
             setTextBefore: function(str) {
-                if (before != str) {
+                if (before !== str) {
                     before = str;
                     this.emit('text:changed');
                     this.position(line, str.length);
@@ -758,14 +812,14 @@ window.CodePrinter = (function($) {
                 return this;
             },
             setTextAfter: function(str) {
-                if (after != str) {
+                if (after !== str) {
                     after = str;
                     this.emit('text:changed');
                 }
                 return this;
             },
             setTextAtCurrentLine: function(bf, af) {
-                if (before != bf || after != af) {
+                if (before !== bf || after !== af) {
                     before = bf;
                     after = af;
                     this.emit('text:changed');
@@ -792,7 +846,7 @@ window.CodePrinter = (function($) {
                     typeof c !== 'number' && (c = column);
                     c < 0 && (c = t.length + c + 1);
                     
-                    var x = cp.sizes.charWidth * c,
+                    var x = cp.sizes.charWidth * Math.min(c, t.length),
                         y = cp.sizes.lineHeight * l;
                     
                     if (line != l) {
@@ -863,19 +917,19 @@ window.CodePrinter = (function($) {
     };
     Caret.prototype = {
         show: function() {
-            this.element.show();
+            this.element.style.opacity = 1;
             return this;
         },
         hide: function() {
-            this.element.hide();
+            this.element.style.opacity = 0;
             return this;
         },
         activate: function() {
             if (this.root.options.blinkCaret) {
-                var elm = this.element, a = false;
+                var elm = this.element, a = true;
                 this.interval = clearInterval(this.interval) || setInterval(function() {
-                    a === true ? elm.hide() : elm.show();
                     a = !a;
+                    elm.style.opacity = +a;
                 }, this.root.options.caretBlinkSpeed);
             }
             return this;
@@ -892,7 +946,8 @@ window.CodePrinter = (function($) {
             y >= 0 && (css.top = y + this.root.sizes.paddingTop);
             
             Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(this.root, css) : css.height = this.root.sizes.lineHeight;
-            this.element.css(css);
+            $(this.element).css(css);
+            this.show().activate();
             this.emit('position:changed', x, y);
             return this;
         },
@@ -903,10 +958,10 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Screen = function(cp) {
+    Screen = function(cp) {
         var self = this;
-        this.parent = $(document.createElement('div')).addClass('cp-screen');
-        this.element = $(document.createElement('div')).addClass('cp-codelines');
+        this.parent = document.createElement('div').addClass('cp-screen');
+        this.element = document.createElement('div').addClass('cp-codelines');
         this.lines = $([]);
         this.root = cp;
         cp.wrapper.append(this.parent.append(this.element));
@@ -920,7 +975,7 @@ window.CodePrinter = (function($) {
             var pre = this.root.data.getLine(++this.lastLine).getElement();
             this.lines.push(pre);
             this.element.append(pre);
-            this.root.counter.increase();
+            this.root.counter && this.root.counter.increase();
         },
         splice: function(dl, i) {
             if (dl instanceof DataLine && i >= this.firstLine && i <= this.lastLine) {
@@ -934,45 +989,49 @@ window.CodePrinter = (function($) {
             if (this.lastLine + 1 < this.root.data.lines) {
                 var pre = this.root.data.getLine(++this.lastLine).getElement();
                 this.lines.get(0).remove(true).push(pre);
-                this.element.append(pre).css({ marginTop: '++' + this.root.sizes.lineHeight });
+                this.element.append(pre);
+                this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                 this.firstLine++;
                 this.root.parse(this.lastLine);
-                this.root.counter.shift();
+                this.root.counter && this.root.counter.shift();
             }
         },
         unshift: function() {
             if (this.firstLine - 1 >= 0) {
                 var pre = this.root.data.getLine(--this.firstLine).getElement();
                 this.lines.get(-1).remove(true).unshift(pre);
-                this.element.prepend(pre).css({ marginTop: '--' + this.root.sizes.lineHeight });
+                this.element.prepend(pre);
+                this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
                 this.lastLine--;
                 this.root.parse(this.firstLine);
-                this.root.counter.unshift();
+                this.root.counter && this.root.counter.unshift();
             }
         }
     };
     
-    var li_clone = document.createElement('li');
+    li_clone = document.createElement('li');
     
-    var Counter = function(cp) {
-        var self = this;
-        self.element = $(document.createElement('ol'));
-        self.parent = $(document.createElement('div')).addClass('cp-counter').append(self.element);
+    Counter = function(cp) {
+        var self = this, ln = cp.screen.lines.length;
+        self.element = document.createElement('ol');
+        self.parent = document.createElement('div').addClass('cp-counter').append(self.element);
         self.list = $([]);
         self.root = cp;
         cp.container.prepend(self.parent);
         
         this.element.delegate('mousedown', 'li', function() {
-            var index = parseInt(this.innerHTML) + 1;
-            cp.selectLine(index);
+            cp.selectLine(parseInt(this.innerHTML) - 1);
         });
         
+        while (ln--) {
+            self.increase(cp.screen.firstLine+1);
+        }
         return this;
     };
     Counter.prototype = {
-        increase: function() {
+        increase: function(sL) {
             var li = li_clone.cloneNode(false);
-            li.innerHTML = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : 1;
+            li.innerHTML = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : sL >= 0 ? sL : 1;
             this.list.push(li);
             this.element.append(li);
         },
@@ -987,7 +1046,7 @@ window.CodePrinter = (function($) {
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
             this.element.append(fi);
             this.list.get(0).remove(true).push(fi);
-            this.element.append(fi).css({ marginTop: '++' + this.root.sizes.lineHeight });
+            this.element.append(fi).style.marginTop = this.root.sizes.scrollTop + 'px';
         },
         unshift: function() {
             var la = this.list.item(-1),
@@ -997,33 +1056,30 @@ window.CodePrinter = (function($) {
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
             this.element.prepend(la);
             this.list.get(-1).remove(true).unshift(la);
-            this.element.prepend(la).css({ marginTop: '--' + this.root.sizes.lineHeight });
-        },
-        show: function() {
-            this.root.container.prepend(this.parent);
-            this.root.wrapper.css({ marginLeft: this.parent.offsetWidth() });
-        },
-        hide: function() {
-            this.parent.remove();
-            this.root.wrapper.css({ marginLeft: 0 });
+            this.element.prepend(la).style.marginTop = this.root.sizes.scrollTop + 'px';
         }
     };
     
-    var InfoBar = function(cp) {
-        var mode = $(document.createElement('span')).addClass('cp-mode').html(cp.options.mode),
-            act = $(document.createElement('span')).addClass('cp-actions'),
-            ch = $(document.createElement('span')).addClass('cp-characters');
+    InfoBar = function(cp) {
+        var mode = document.createElement('span').addClass('cpi-mode'),
+            act = document.createElement('span').addClass('cpi-actions'),
+            pos = document.createElement('span').addClass('cpi-position');
         
-        this.element = $(document.createElement('div')).addClass('cp-infobar').append(mode, act, ch);
-        this.element.actions = act;
-        this.element.characters = ch;
+        mode.innerHTML = cp.options.mode;
+        this.element = document.createElement('div').addClass('cpi-bar').append(mode, act, pos);
         this.root = cp;
+        
+        this.segments = {
+            mode: mode,
+            actions: act,
+            position: pos
+        };
         
         this.actions = {
             plaintext: {
                 func: function() {
                     var newWindow = window.open('', '_blank');
-                    newWindow.document.writeln('<pre style="font-size:14px;">' + encodeEntities(cp.data.toString()) + '</pre>');
+                    newWindow.document.writeln('<pre style="font-size:12px;">' + encodeEntities(cp.data.toString()) + '</pre>');
                 }
             }
         };
@@ -1035,9 +1091,9 @@ window.CodePrinter = (function($) {
         if (cp.caret) {
             cp.caret.on({
                 'position:changed': function() {
-                    ch.html('Line ' + (this.line()+1) + ', Column ' + (this.textBefore().length+1));
+                    pos.innerHTML = 'Line ' + (this.line()+1) + ', Column ' + (this.column()+1);
                 }
-            })
+            });
         }
         
         return this;
@@ -1047,33 +1103,27 @@ window.CodePrinter = (function($) {
             if (this.actions[name] && this.actions[name].element) {
                 this.actions[name].element.off('click', this.actions[name].func);
             }
-            var el = $(document.createElement('a')).addClass('cp-'+name).html(typeof text === 'string' ? text : name);
-            el.on('click', func).appendTo(this.element.actions);
+            var el = document.createElement('a').addClass('cp-'+name);
+            el.innerHTML = typeof text === 'string' ? text : name;
+            this.segments.actions.append(el.on('click', func));
             this.actions[name] = {
                 func: func,
                 element: el
             };
             return el;
-        },
-        show: function() {
-            var r = this.root;
-            r.options.infobarOnTop ? this.element.prependTo(r.mainElement) : this.element.appendTo(r.mainElement);
-        },
-        hide: function() {
-            this.element.remove();
         }
     };
     
-    var Finder = function(cp) {
+    Finder = function(cp) {
         var self = this,
-            findnext = $(document.createElement('button')).addClass('cpf-button cpf-findnext').html('Next'),
-            findprev = $(document.createElement('button')).addClass('cpf-button cpf-findprev').html('Prev'),
-            closebutton = $(document.createElement('button')).addClass('cpf-button cpf-close').html('Close'),
-            leftbox = $(document.createElement('div')).addClass('cpf-leftbox'),
-            flexbox = $(document.createElement('div')).addClass('cpf-flexbox'),
-            input = $(document.createElement('input')).addClass('cpf-input').attr({ type: 'text' }),
-            bar = $(document.createElement('div')).addClass('cpf-bar').append(leftbox.append(closebutton, findprev, findnext), flexbox.append(input)),
-            overlay = $(document.createElement('div')).addClass('cp-overlay cpf-overlay'),
+            findnext = document.createElement('button').addClass('cpf-button cpf-findnext'),
+            findprev = document.createElement('button').addClass('cpf-button cpf-findprev'),
+            closebutton = document.createElement('button').addClass('cpf-button cpf-close'),
+            leftbox = document.createElement('div').addClass('cpf-leftbox'),
+            flexbox = document.createElement('div').addClass('cpf-flexbox'),
+            input = document.createElement('input').addClass('cpf-input'),
+            bar = document.createElement('div').addClass('cpf-bar'),
+            overlay = document.createElement('div').addClass('cpf-overlay cp-overlay'),
             keyMap = {
                 13: function() {
                     if (self.searched === this.value) {
@@ -1093,7 +1143,11 @@ window.CodePrinter = (function($) {
                 }
             };
         
-        cp.mainElement.append(bar);
+        findnext.innerHTML = 'Next';
+        findprev.innerHTML = 'Prev';
+        closebutton.innerHTML = 'Close';
+        input.type = 'text';
+        bar.append(leftbox.append(closebutton, findprev, findnext), flexbox.append(input));
         
         input.on({ keydown: function(e) {
             var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
@@ -1118,45 +1172,27 @@ window.CodePrinter = (function($) {
                 this.style.display = 'none';
             }
         });
-        cp.source.on({
-            keyup: function() {
-                if (!self.isClosed && self.searched) {
-                    self.reload();
-                }
-            }
-        });
         
-        self.displayValue = bar.css('display');
         self.root = cp;
         self.input = input;
         self.bar = bar;
         self.overlay = overlay;
         self.searchResults = $([]);
-        self.open();
         
         return self;
     };
     Finder.prototype = {
-        isClosed: false,
-        open: function() {
-            this.isClosed = false;
-            this.clear();
-            this.bar.show(this.displayValue);
-            this.input.focus();
-        },
         close: function() {
-            this.isClosed = true;
-            this.bar.hide();
-            this.overlay.remove();
-            this.root.source.focus();
+            this.bar.remove();
+            this.overlay.remove()
         },
         clear: function() {
             this.searched = null;
             this.searchResults.length = 0;
-            this.overlay.html('').appendTo(this.root.wrapper);
+            this.overlay.innerHTML = '';
         },
         push: function(span) {
-            this.searchResults.push(span.item());
+            this.searchResults.push(span);
             this.overlay.append(span);
         },
         find: function(find) {
@@ -1164,17 +1200,23 @@ window.CodePrinter = (function($) {
                 siz = root.sizes,
                 value, index, line = 0, ln = 0, last, bf;
             
-            find = find || this.input.value();
+            find = find || this.input.value;
             this.clear();
             
             if (find) {
                 for (; line < root.data.lines; line++) {
-                    value = root.data.getLine(line).getElementText();
+                    value = root.data.getTextAtLine(line);
                     ln = 0;
                     
-                    while ((index = value.indexOf(find)) !== -1) {
-                        var span = $(document.createElement('span')).addClass('cpf-occurrence').text(find);
-                        span.css({ width: siz.charWidth * find.length, height: siz.lineHeight, top: siz.paddingTop + line * siz.lineHeight, left: siz.paddingLeft + siz.charWidth * (ln + index) });
+                    while (value && (index = value.indexOf(find)) !== -1) {
+                        var span = document.createElement('span').addClass('cpf-occurrence');
+                        span.textContent = span.innerText = span.innerHTML = find;
+                        span.style.extend({
+                            width: (siz.charWidth * find.length) + 'px',
+                            height: siz.lineHeight + 'px',
+                            top: (siz.paddingTop + line * siz.lineHeight + 1) + 'px',
+                            left: (siz.paddingLeft + siz.charWidth * (ln + index) + 1) + 'px'
+                        });
                         this.push(span);
                         value = value.substr((ln = index + find.length));
                     }
@@ -1194,7 +1236,7 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var Stream = function(value) {
+    Stream = function(value) {
         if (!(this instanceof Stream)) {
             return new Stream();
         }
@@ -1277,19 +1319,25 @@ window.CodePrinter = (function($) {
                         while (this.getNextLine()) {
                             this.row++;
                             str2 = this.current();
-                            if (to instanceof RegExp) {
-                                if ((indexTo = str2.search(to)) !== -1) {
-                                    to = to.exec(str2)[0];
+                            if (str2) {
+                                if (to instanceof RegExp) {
+                                    if ((indexTo = str2.search(to)) !== -1) {
+                                        to = to.exec(str2)[0];
+                                    }
+                                } else {
+                                    indexTo = str2.indexOf(to);
+                                }
+                                if (indexTo !== -1) {
+                                    this.eaten.push(str2.substring(0, indexTo + to.length));
+                                    this.pos = indexTo + to.length;
+                                    return this;
+                                } else {
+                                    this.eaten.push(str2);
                                 }
                             } else {
-                                indexTo = str2.indexOf(to);
-                            }
-                            if (indexTo !== -1) {
-                                this.eaten.push(str2.substring(0, indexTo + to.length));
-                                this.pos = indexTo + to.length;
+                                this.row--;
+                                this.pos = this.value[this.row].length;
                                 return this;
-                            } else {
-                                this.eaten.push(str2);
                             }
                         }
                         this.row--;
@@ -1436,8 +1484,18 @@ window.CodePrinter = (function($) {
             return this;
         },
         tear: function() {
-            this.append(this.current().substr(this.pos));
+            this.teared = this.current().substr(this.pos);
+            this.append(this.teared);
             this.forward();
+        },
+        restore: function() {
+            if (this.teared) {
+                var p = this.parsed[this.row];
+                this.backward();
+                this.parsed[this.row] = p.substr(0, p.length - this.teared.length);
+                this.pos = this.value[this.row].length - this.teared.length;
+                this.teared = null;
+            }
         },
         skip: function(found) {
             var str = this.current().substr(this.pos);
@@ -1513,20 +1571,26 @@ window.CodePrinter = (function($) {
         }
     };
     
-    var keydownMap = function() {};
+    keydownMap = function() {};
     keydownMap.prototype = {
         touch: function(code, self, event) {
             if (this[code]) {
                 return this[code].call(self, event, code);
             }
+            return -1;
         },
         8: function(e) {
             var t = this.caret.textBefore(),
                 m = t.match(/ +$/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            this.removeBeforeCursor(r);
-            return e.cancel();
+            if (this.selection.isset()) {
+                r = this.getSelection().length;
+                this.selection.isInversed() ? this.removeAfterCursor(r) : this.removeBeforeCursor(r);
+            } else {
+                this.removeBeforeCursor(r);
+            }
+            return e && e.cancel();
         },
         9: function(e) {
             this.insertText(this.tabString());
@@ -1564,12 +1628,17 @@ window.CodePrinter = (function($) {
                 m = t.match(/^ +/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            this.removeAfterCursor(r);
+            if (this.selection.isset()) {
+                r = this.getSelection().length;
+                this.selection.isInversed() ? this.removeAfterCursor(r) : this.removeBeforeCursor(r);
+            } else {
+                this.removeAfterCursor(r);
+            }
             return e.cancel();
         }
     };
     
-    var keypressMap = function() {};
+    keypressMap = function() {};
     keypressMap.prototype = {
         touch: function(code, self, event, char) {
             if (this[code]) {
@@ -1599,21 +1668,21 @@ window.CodePrinter = (function($) {
     keypressMap.prototype[91] = keypressMap.prototype[123] = keypressMap.prototype[40];
     keypressMap.prototype[93] = keypressMap.prototype[125] = keypressMap.prototype[41];
     
-    var shortcuts = function() {};
+    shortcuts = function() {};
     shortcuts.prototype = {
         37: function() {
-            this.wrapper.item().scrollLeft = 0;
+            this.wrapper.scrollLeft = 0;
         },
         38: function() {
-            this.wrapper.item().scrollTop = 0;
+            this.wrapper.scrollTop = 0;
             this.caret.position(0, 0);
         },
         39: function() {
-            var w = this.wrapper.item();
+            var w = this.wrapper;
             w.scrollLeft = w.scrollWidth;
         },
         40: function() {
-            var w = this.wrapper.item();
+            var w = this.wrapper;
             w.scrollTop = w.scrollHeight;
             this.caret.position(this.data.lines - 1, -1);
         },
@@ -1621,27 +1690,95 @@ window.CodePrinter = (function($) {
             if (e.shiftKey) {
                 this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
             } else {
-                this.finder ? this.finder.isClosed ? this.finder.open() : this.finder.input.focus() : this.finder = new Finder(this);
+                !this.finder || this.finder.bar.parentNode == null ? this.openFinder() : this.closeFinder();
             }
         },
         73: function() {
-            this.infobar.element.item().parentNode == null ? this.infobar.show() : this.infobar.hide();
+            !this.infobar || this.infobar.element.parentNode == null ? this.openInfobar() : this.closeInfobar();
+        },
+        74: function() {
+            var self = this, l = parseInt(prompt("Jump to line..."), 10) - 1;
+            setTimeout(function() {
+                self.caret.position(l, 0);
+            }, 1);
         },
         78: function() {
-            this.counter.parent.item().parentNode == null ? this.counter.show() : this.counter.hide();
+            !this.counter || this.counter.parent.parentNode == null ? this.openCounter() : this.closeCounter();
         },
         82: function() {
             this.forcePrint();
         }
     };
     
-    var eol = $.browser.windows ? '\r\n' : '\n';
+    commands = {
+        65: function() {
+            var ls = this.data.lines - 1;
+            this.selection.setStart(0, 0).setEnd(ls, this.data.getTextAtLine(ls).length);
+            this.showSelection();
+            this.emit('cmd.selectAll');
+        },
+        67: function() {
+            this.emit('cmd.copy');
+        },
+        86: function() {
+            this.emit('cmd.paste');
+        },
+        88: function() {
+            this.keydownMap.touch(8, this, null);
+            this.selection.clear();
+            this.emit('cmd.cut');
+        }
+    };
+
+    selection_span = document.createElement('span').addClass('cp-selection');
+    
+    selection = function() {
+        this.element = document.createElement('div').addClass('cp-selection-overlay cp-overlay');
+        this.start = {};
+        this.end = {};
+        return this;
+    };
+    selection.prototype = {
+        clear: function() {
+            this.element.innerHTML = '';
+            this.start = {};
+            this.end = {};
+            return this;
+        },
+        setStart: function(line, column) {
+            this.clear();
+            this.start.line = line;
+            this.start.column = column;
+            return this;
+        },
+        setEnd: function(line, column) {
+            this.end.line = line;
+            this.end.column = column;
+            return this;
+        },
+        getStart: function() {
+            return this.isInversed() ? this.end : this.start;
+        },
+        getEnd: function() {
+            return this.isInversed() ? this.start : this.end;
+        },
+        isInversed: function() {
+            return this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column);
+        },
+        isset: function() {
+            return this.start.line >= 0 && this.end.line >= 0;
+        }
+    };
+    
+    eol = $.browser.windows ? '\r\n' : '\n';
     
     CodePrinter.requireMode = function(req, cb, del) {
         return $.scripts.require('CodePrinter.'+req, cb, del);
     };
     CodePrinter.defineMode = function(name, obj) {
-        $.scripts.define('CodePrinter.'+name, (new CodePrinter.Mode()).extend(obj));
+        var m = (new CodePrinter.Mode()).extend(obj);
+        m.init instanceof Function && m.init();
+        $.scripts.define('CodePrinter.'+name, m);
     };
     CodePrinter.getMode = function(name) {
         return $.scripts.get('CodePrinter.'+name);
@@ -1650,6 +1787,24 @@ window.CodePrinter = (function($) {
         return $.scripts.has('CodePrinter.'+name);
     };
     
+    var buildDOM = (function(){
+        var m = document.createElement('div').addClass('codeprinter'),
+            c = document.createElement('div').addClass('cp-container'),
+            w = document.createElement('div').addClass('cp-wrapper'),
+            i = document.createElement('textarea').addClass('cp-input'),
+            r = document.createElement('div').addClass('cp-caret');
+        w.appendChild(r);
+        c.appendChild(w);
+        m.appendChild(i);
+        m.appendChild(c);
+        return function(cp) {
+            cp.mainElement = m.cloneNode(true);
+            cp.input = cp.mainElement.firstChild;
+            cp.container = cp.input.nextSibling;
+            cp.wrapper = cp.container.firstChild;
+            cp.caret.element = cp.wrapper.firstChild.addClass('cp-caret-'+cp.options.caretStyle);
+        }
+    })();
     function getTextSize(cp, text) {
         var h = 0, w = 0, cr,
             pre = document.createElement('pre').addClass('cp-templine'),
@@ -1658,13 +1813,13 @@ window.CodePrinter = (function($) {
         text = text != null ? text : 'C';
         span.textContent = span.innerText = text;
         pre.appendChild(span);
-        cp.screen.parent.item().appendChild(pre);
+        cp.screen.parent.appendChild(pre);
         cr = span.getBoundingClientRect();
         pre.parentNode.removeChild(pre);
         return cr;
     };
     function getDataLinePosition(line) {
-        return [line % 10, (line - line % 10) % 100 / 10, (line - line % 100) / 100 ];
+        return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
     };
     function insertAfter(node, newNode) {
         node.parentNode.insertBefore(newNode, node.nextSibling);
@@ -1684,15 +1839,14 @@ window.CodePrinter = (function($) {
         tmp[0] = tmp[0].replace(new RegExp("(\\s{"+ width +"})", "g"), '<span class="cp-tab">$1</span>');
         return tmp[0] + tmp[1];
     };
+    function isCommandKey(e) {
+        return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
+    };
     
     $.prototype.CodePrinter = function(opt) {
-        var c;
-        if ((c = this.current()) && c.CodePrinter) {
-            return c.CodePrinter;
-        } else {
-            $.each(this, function(n) {
-                n.CodePrinter = new CodePrinter(this, opt);
-            });
+        var k = -1;
+        while (++k < this.length) {
+            this[k].CodePrinter = new CodePrinter(this[k], opt);
         }
         return this;
     };
