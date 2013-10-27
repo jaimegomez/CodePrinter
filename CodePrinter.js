@@ -99,6 +99,7 @@ window.CodePrinter = (function($) {
                 self.showSelection();
                 self.emit('caret:moved');
             }
+            $.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus();
             
             self.caret.position(l, c);
         };
