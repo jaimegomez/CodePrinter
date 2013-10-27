@@ -1809,6 +1809,9 @@ window.CodePrinter = (function($) {
         tmp[0] = tmp[0].replace(new RegExp("(\\s{"+ width +"})", "g"), '<span class="cp-tab">$1</span>');
         return tmp[0] + tmp[1];
     };
+    function isCommandKey(e) {
+        return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
+    };
     
     $.prototype.CodePrinter = function(opt) {
         var k = -1;
