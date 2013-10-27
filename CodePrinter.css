@@ -598,6 +598,12 @@
   -o-flex: 1;
   flex: 1;
 }
+@-moz-document url-prefix() {
+  .codeprinter .cp-wrapper {
+    margin-right: -15px;
+    margin-bottom: -15px;
+  }
+}
 /* ########### */
 /* LESS MIXINS */
 .block {
