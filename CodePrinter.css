@@ -16,7 +16,6 @@
   overflow: hidden;
   position: relative;
   top: 0;
-  -webkit-transform: translate3d(0, 0, 0);
 }
 .codeprinter,
 .codeprinter * {
@@ -202,6 +201,7 @@
   left: 0;
   bottom: 0;
   cursor: default;
+  -webkit-transform: translate3d(0, 0, 0);
 }
 .codeprinter .cp-counter ol {
   display: block;
@@ -284,6 +284,7 @@
   position: relative;
   z-index: 8;
   overflow: hidden;
+  -webkit-transform: translate3d(0, 0, 0);
 }
 .codeprinter .cpi-bar span {
   margin: 0 5px;
@@ -344,6 +345,7 @@
   color: black;
   position: relative;
   z-index: 7;
+  -webkit-transform: translate3d(0, 0, 0);
 }
 .codeprinter .cpf-bar .cpf-leftbox {
   margin: 0;
