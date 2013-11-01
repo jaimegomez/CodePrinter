@@ -1423,39 +1423,6 @@ window.CodePrinter = (function($) {
                 }
             }
         },
-        createSubstream: function() {
-            var e = this.eaten,
-                sr = this.row - e.length + 1,
-                ss = {
-                    startRow: sr,
-                    startPosition: this.parsed[sr].length,
-                    endPosition: encodeEntities(e[e.length-1]).length,
-                    rows: e
-                };
-            e.length === 1 && (ss.endPosition = ss.endPosition + ss.startPosition);
-            this.push();
-            return ss;
-        },
-        parseSubstream: function(ss, parser) {
-            if (ss) {
-                var i = 0,
-                    sr = ss.startRow,
-                    content = parser.parse(ss.rows).parsed;
-                
-                if (content[i]) {
-                    if (content.length > 1) {
-                        this.parsed[sr] = this.parsed[sr].substring(0, ss.startPosition) + content[i];
-                        for (i = 1; i < content.length-1; i++) {
-                            this.parsed[sr+i] = content[i];
-                        }
-                        this.parsed[sr+i] = content[i] + (this.parsed[sr+i] ? this.parsed[sr+i].substr(ss.endPosition) : '');
-                    } else {
-                        this.parsed[sr] = this.parsed[sr].substring(0, ss.startPosition) + content[i] + this.parsed[sr].substr(ss.endPosition);
-                    }
-                }
-                this.emit('substream:parsed', { substream: ss });
-            }
-        },
         before: function(l) {
             return this.current().substring(l != null ? this.pos - l : 0, this.pos);
         },
