@@ -83,7 +83,13 @@ CodePrinter.defineMode('CSS', {
     },
     keypressMap: {
         58: function() {
-            this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.insertText(';');
+            this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.insertText(':;', -1);
+        },
+        59: function() {
+            if (this.textAfterCursor(1) === ';') {
+                this.caret.moveX(1);
+                return false;
+            }
         }
     }
 });
