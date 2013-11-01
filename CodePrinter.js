@@ -148,7 +148,11 @@ window.CodePrinter = (function($) {
                     ch = String.fromCharCode(k);
                 
                 if (pr && e.ctrlKey != true && e.metaKey != true) {
-                    self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
+                    if (self.parser.keypressMap[k]) {
+                        self.parser.keypressMap[k].call(self, e, ch) && self.insertText(ch);
+                    } else {
+                        self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
+                    }
                     self.emit('keypress:'+k, { code: k, char: ch, event: e });
                     this.value = '';
                     return e.cancel();
@@ -1496,6 +1500,7 @@ window.CodePrinter = (function($) {
     };
     
     CodePrinter.Mode.prototype = {
+        keypressMap: {},
         brackets: {
             '{': ['bracket', 'bracket-curly', 'bracket-open'],
             '}': ['bracket', 'bracket-curly', 'bracket-close'],
