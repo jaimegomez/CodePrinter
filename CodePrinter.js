@@ -727,6 +727,10 @@ window.CodePrinter = (function($) {
             var l = this.getLine(line);
             return l ? l.text : false;
         },
+        setParsedAtLine: function(line, str) {
+            var l = this.getLine(line);
+            l && l.setParsed(str);
+        },
         count: function() {
             var h = this.length, t;
             t = this[--h].length - 1;
