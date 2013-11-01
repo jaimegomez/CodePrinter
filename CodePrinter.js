@@ -1238,7 +1238,7 @@ window.CodePrinter = (function($) {
     
     Stream = function(value) {
         if (!(this instanceof Stream)) {
-            return new Stream();
+            return new Stream(value);
         }
         this.value = value instanceof Array ? value : typeof value === 'string' ? [value] : [];
         this.parsed = [];
