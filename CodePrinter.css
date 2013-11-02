@@ -413,6 +413,7 @@
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 10;
 }
 .codeprinter .cpf-occurrence.active {
   -webkit-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
