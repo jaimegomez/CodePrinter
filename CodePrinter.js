@@ -1666,7 +1666,7 @@ window.CodePrinter = (function($) {
             if (e.shiftKey) {
                 this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
             } else {
-                !this.finder || this.finder.bar.parentNode == null ? this.openFinder() : this.closeFinder();
+                !this.finder || this.finder.bar.parentNode == null ? this.openFinder() : this.finder.input.focus();
             }
         },
         73: function() {
