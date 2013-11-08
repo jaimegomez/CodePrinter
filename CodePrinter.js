@@ -582,6 +582,7 @@ window.CodePrinter = (function($) {
                     el.append(span);
                 }
                 el.parentNode == null && this.wrapper.append(el);
+                this.caret.position(e.line, e.column);
             }
         },
         registerKeydown: function(arg) {
