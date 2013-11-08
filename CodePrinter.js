@@ -813,6 +813,7 @@ window.CodePrinter = (function($) {
         
         return this.extend({
             setTextBefore: function(str) {
+                str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
                 if (before !== str) {
                     before = str;
                     this.emit('text:changed');
@@ -821,6 +822,7 @@ window.CodePrinter = (function($) {
                 return this;
             },
             setTextAfter: function(str) {
+                str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
                 if (after !== str) {
                     after = str;
                     this.emit('text:changed');
@@ -828,6 +830,8 @@ window.CodePrinter = (function($) {
                 return this;
             },
             setTextAtCurrentLine: function(bf, af) {
+                bf.indexOf('@') !== -1 && (bf = bf.replaceAll(['@a','@b'], [after, before]));
+                af.indexOf('@') !== -1 && (af = af.replaceAll(['@a','@b'], [after, before]));
                 if (before !== bf || after !== af) {
                     before = bf;
                     after = af;
