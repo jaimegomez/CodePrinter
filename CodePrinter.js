@@ -1166,18 +1166,12 @@ window.CodePrinter = (function($) {
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
         closebutton.on({ click: function(e) { self.close(); }});
-        overlay.delegate('click', 'span', function() {
-            var index = self.searchResults.indexOf(this)+1;
-            if (index !== 0) {
-                var v = cp.getSourceValue(),
-                    f = this.textContent || this.innerText,
-                    c = 0, i = 0;
-                
-                while (c < index && (i = v.indexOf(f, i)+1)){
-                    c++;
-                }
-                cp.setSelection(i-1, i-1+f.length);
-                this.style.display = 'none';
+        overlay.delegate('click', 'span', function(e) {
+            if (this.position) {
+                cp.selection.setStart(this.position.ls, this.position.cs).setEnd(this.position.le, this.position.ce);
+                cp.showSelection();
+                this.parentNode.removeChild(this);
+                return e.cancel();
             }
         });
         
@@ -1219,6 +1213,12 @@ window.CodePrinter = (function($) {
                     while (value && (index = value.indexOf(find)) !== -1) {
                         var span = document.createElement('span').addClass('cpf-occurrence');
                         span.textContent = span.innerText = span.innerHTML = find;
+                        span.extend({ position: {
+                            ls: line, 
+                            cs: ln+index,
+                            le: line,
+                            ce: ln+index + find.length
+                        }});
                         span.style.extend({
                             width: (siz.charWidth * find.length) + 'px',
                             height: siz.lineHeight + 'px',
