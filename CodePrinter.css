@@ -487,7 +487,6 @@
 }
 .codeprinter .cp-activeLine {
   background: rgba(230, 239, 255, 0.6);
-  box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
 }
 .codeprinter .cp-tab {
   margin: 0 0 0 -1px;
@@ -562,6 +561,9 @@
 .codeprinter .cp-invalid {
   background: #FA2B7D;
   color: #F9F9F2;
+}
+.codeprinter.cps-default .cp-activeLine {
+  box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
 }
 .codeprinter.cps-default .cp-keyword,
 .codeprinter.cps-default .cp-control,

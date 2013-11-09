@@ -324,7 +324,6 @@
     
     .cp-activeLine {
         background:rgba(230,239,255,0.6);
-        box-shadow:0 0 1px 1px rgba(51,153,255,0.5);
     }
     .cp-tab {
         .margins(0 0 0 -1px, 0);
@@ -356,6 +355,7 @@
     .cp-invalid { background:#FA2B7D; color:#F9F9F2; }
     
     &.cps-default {
+        .cp-activeLine { box-shadow:0 0 1px 1px rgba(51,153,255,0.5); }
         .cp-keyword, .cp-control, .cp-special, .cp-boolean, .cp-empty-value, .cp-phptag { font-weight:bold; }
         .cp-special, .cp-comment { font-style:italic; }
     }
