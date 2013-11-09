@@ -35,7 +35,7 @@ CodePrinter.defineMode('C', {
 				}
             } else if (found[0] === '#') {
 				var fo = found.substr(1);
-				stream.wrap(['special', fo]);
+				stream.wrap(['special', 'directives', fo]);
 				if (fo === 'include') {
 					stream.eat(stream.after()).wrap(['string']);
 				}
