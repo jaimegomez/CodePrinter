@@ -1477,6 +1477,12 @@ window.CodePrinter = (function($) {
                 this.teared = null;
             }
         },
+        revert: function() {
+            if (this.found) {
+                this.pos = this.pos - this.found.length;
+                this.found = false;
+            }
+        },
         skip: function(found) {
             var str = this.current().substr(this.pos);
             found = found || this.found;
