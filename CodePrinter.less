@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.5.1
+*   version     0.5.2
 */
 
 @backgroundColor:       rgb(255,255,255);
@@ -25,8 +25,7 @@
     min-height:20px;
     overflow:hidden;
     position:relative; top:0;
-    -webkit-transform:translate3d(0,0,0);
-
+    
     &, * {
         -webkit-tap-highlight-color:transparent;
         -webkit-font-smoothing:subpixel-antialiased;
@@ -146,6 +145,7 @@
         position:absolute;
         top:0; left:0; bottom:0;
         cursor:default;
+        -webkit-transform:translate3d(0,0,0);
         
         ol {
             .block;
@@ -200,6 +200,7 @@
         position:relative;
         z-index:8;
         overflow:hidden;
+        -webkit-transform:translate3d(0,0,0);
         
         span {
             .margins(0 5px);
@@ -231,6 +232,7 @@
         color:black;
         position:relative;
         z-index:7;
+        -webkit-transform:translate3d(0,0,0);
         
         .cpf-leftbox {
             .margins(0, 0 5px);
@@ -273,6 +275,7 @@
         color:transparent;
         position:absolute;
         top:0; left:0;
+        z-index:10;
         
         &.active {
             .shadow(0 0 4px rgba(0,0,0,0.2));
@@ -321,7 +324,6 @@
     
     .cp-activeLine {
         background:rgba(230,239,255,0.6);
-        box-shadow:0 0 1px 1px rgba(51,153,255,0.5);
     }
     .cp-tab {
         .margins(0 0 0 -1px, 0);
@@ -353,6 +355,7 @@
     .cp-invalid { background:#FA2B7D; color:#F9F9F2; }
     
     &.cps-default {
+        .cp-activeLine { box-shadow:0 0 1px 1px rgba(51,153,255,0.5); }
         .cp-keyword, .cp-control, .cp-special, .cp-boolean, .cp-empty-value, .cp-phptag { font-weight:bold; }
         .cp-special, .cp-comment { font-style:italic; }
     }

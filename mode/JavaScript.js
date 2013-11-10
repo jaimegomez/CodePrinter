@@ -2,7 +2,7 @@
 
 CodePrinter.defineMode('JavaScript', {
     controls: ['if','else','elseif','for','switch','while','do'],
-    keywords: ['this','return','new','continue','break','instanceof','typeof','case','try','catch','debugger','default','delete','finally','in','throw','void','with'],
+    keywords: ['var','this','return','new','continue','break','instanceof','typeof','case','try','catch','debugger','default','delete','finally','in','throw','void','with'],
     specials: ['window','document','console','arguments','function','Object','Array','String','Number','Function','Math','JSON','RegExp','Node','HTMLElement','Boolean','$','jQuery','Selector'],
     
     regexp: /\/\*|\/\/|'|"|{|}|\(|\)|\[|\]|=|-|\+|\/(.*)\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\/|%|<|>|&|\||\.|,|:|;|\?|!|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
@@ -24,8 +24,6 @@ CodePrinter.defineMode('JavaScript', {
             } else if (/^[\w\-\$]+$/i.test(found)) {
                 if (found == 'true' || found == 'false') {
                     stream.wrap(['boolean', found]);
-                } else if (found == 'var') {
-                    stream.wrap(['variable']);
                 } else if (found == 'null' || found == 'undefined') {
                     stream.wrap(['empty-value', found]);
                 } else if (this.controls.indexOf(found) !== -1) {
