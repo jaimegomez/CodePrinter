@@ -240,7 +240,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.5.1';
+    CodePrinter.version = '0.5.2';
     
     CodePrinter.defaults = {
         path: '',
