@@ -3,7 +3,7 @@
 .cps-xcode .cp-wrapper { background:#FFFFFF; color:#000000; }
 .cps-xcode .cp-counter,
 .cps-xcode .cpi-bar,
-.cps-xcode .cpf-bar { background:#FFFFFF; color:#999999; border-color:#AFBFCF; }
+.cps-xcode .cpf-bar { background:#FFFFFF; color:#555555; border-color:#AFBFCF; }
 .cps-xcode .cp-selection { background:#BDD8F2; }
 .cps-xcode .cp-activeLine { background:rgba(200,180,255,0.3); }
 
@@ -18,7 +18,7 @@
 .cps-xcode .cp-special { color:#6F33A7; }
 .cps-xcode .cp-directives { color:#78492B; }
 .cps-xcode .cp-numeric { color:#340DD4; }
-.cps-xcode .cp-fname { color:#000000; }
+.cps-xcode .cp-fname { color:#4F8187; }
 .cps-xcode .cp-property { color:#37595D; }
 .cps-xcode .cp-regexp { color:#C81B28; }
 .cps-xcode .cp-escaped { color:#558186; }
@@ -26,3 +26,4 @@
 .cps-xcode .cp-string { color:#C81B28; }
 .cps-xcode .cp-single-quote { color:#2B3DD8; }
 .cps-xcode .cp-comment { color:#1D8711; }
+.cps-xcode .cp-invalid { background:#C81B28; }
