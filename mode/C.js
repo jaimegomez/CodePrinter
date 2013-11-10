@@ -5,7 +5,6 @@ CodePrinter.defineMode('C', {
 	keywords: ['return','new','using','namespace','this','sizeof','break','continue','static','struct','typedef','case','const','default','void','enum','extern','goto','register','union','auto','volatile'],
 	types: ['int','double','short','long','char','float','bool','unsigned','signed','struct'],
 	regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|"|'|{|}|\/|%|<|>|&|\||\.|,|:|;|\?|!/,
-	regexp2: /<[^>]*>?/,
 	
 	fn: function(stream) {
 		var found;
@@ -28,7 +27,7 @@ CodePrinter.defineMode('C', {
 					stream.wrap(['keyword', found]);
 				} else if (this.types.indexOf(found) !== -1) {
 					stream.wrap(['keyword', 'type', found]);
-				} else if (stream.isAfter('(')) {
+				} else if (stream.isAfter('(') || ['cout','cin'].indexOf(found) !== -1) {
 					stream.wrap(['fname', 'fname-'+found]);
 				} else {
 					stream.wrap(['other']);
