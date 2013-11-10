@@ -2,7 +2,7 @@
 
 CodePrinter.defineMode('HTML', {
     regexp: /<!--|<!\w+|<\/?|&.+;/,
-    regexp2: /[\w\-]+|=|"|'|\b\w+\b|<|\/?\s*>/,
+    regexp2: /[a-zA-Z\-]+|=|"|'|<|\/?\s*>/,
     
     fn: function(stream) {
         var found;
@@ -17,11 +17,12 @@ CodePrinter.defineMode('HTML', {
             } else if (found[0] === '<') {
                 stream.wrap(['broket', 'open']);
                 
-                if (found = stream.match(/^\b\w+/)) {
+                if (found = stream.match(/^\b[a-zA-Z]+/)) {
                     stream.wrap(['keyword', found]);
                     
                     while (found = stream.match(this.regexp2)) {
                         if (found === '<') {
+                            stream.revert();
                             break;
                         }
                         if (/^\w+$/.test(found)) {
@@ -37,9 +38,8 @@ CodePrinter.defineMode('HTML', {
                             stream.wrap(['other']);
                         }
                     }
-                } else {
-                    stream.restore();
                 }
+                !found && stream.restore();
             } else if (found[0] === '&') {
                 stream.wrap(['escaped']);
             } else {
@@ -51,16 +51,15 @@ CodePrinter.defineMode('HTML', {
     },
     keydownMap: {
         13: function(e) {
-            var t = this.textBeforeCursor().match(/^ +/),
+            var t = this.caret.textBefore().match(/^ +/),
                 a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
             if (this.textBeforeCursor(1) === '>') {
                 this.insertText(a + this.tabString());
-                this.textAfterCursor(1) === '<' && this.insertText(a, 1);
+                this.textAfterCursor(1) === '<' && this.insertText(a, -a.length);
             } else {
                 this.insertText(a);
             }
-            this.update();
             return e.cancel();
         }
     },
@@ -73,7 +72,7 @@ CodePrinter.defineMode('HTML', {
             if (m && m[1]) {
                 var sc = ['area', 'base', 'br', 'col', 'command', 'embed', 'hr', 'img', 'input', 'keygen', 'link', 'meta', 'param', 'source', 'track', 'wbr'],
                     z = m[0].trim();
-                z[z.length-1] !== '/' && sc.indexOf(m[1].toLowerCase()) === -1 ? this.insertText('</'+m[1]+'>', 1) : 0;
+                z[z.length-1] !== '/' && sc.indexOf(m[1].toLowerCase()) === -1 ? this.caret.setTextAfter('</'+m[1]+'>@a') : 0;
             }
             return false;
         }
