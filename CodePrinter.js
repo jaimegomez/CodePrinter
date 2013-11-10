@@ -207,6 +207,31 @@ window.CodePrinter = (function($) {
             }
         });
         
+        self.on({
+            'removed.before': function(t) {
+                var p = self.parser;
+                if (p && p.onRemovedBefore && p.onRemovedBefore[t]) {
+                    p = p.onRemovedBefore[t];
+                    if (typeof p === 'string' || typeof p === 'number') {
+                        self.removeAfterCursor(p);
+                    } else if (p instanceof Function) {
+                        p.call(self, t);
+                    }
+                }
+            },
+            'removed.after': function(t) {
+                var p = self.parser;
+                if (p && p.onRemovedAfter && p.onRemovedAfter[t]) {
+                    p = p.onRemovedAfter[t];
+                    if (typeof p === 'string' || typeof p === 'number') {
+                        self.removeBeforeCursor(p);
+                    } else if (p instanceof Function) {
+                        p.call(self, t);
+                    }
+                }
+            }
+        });
+        
         self.print();
         
         return self;
@@ -500,11 +525,12 @@ window.CodePrinter = (function($) {
             return this;
         },
         removeBeforeCursor: function(arg) {
-            var bf = this.caret.textBefore();
+            var r, bf = this.caret.textBefore();
             if (typeof arg === 'string') {
                 var l = bf.length - arg.length;
                 if (bf.lastIndexOf(arg) === l) {
                     this.caret.setTextBefore(bf.substring(0, l));
+                    r = arg;
                 }
             } else if (typeof arg === 'number') {
                 if (arg <= bf.length) {
@@ -520,13 +546,16 @@ window.CodePrinter = (function($) {
                     }
                     this.caret.setTextAtCurrentLine(bf.substring(0, bf.length - arg), af);
                 }
+                r = bf.substr(bf.length - arg);
             }
+            r && this.emit('removed.before', r);
         },
         removeAfterCursor: function(arg) {
-            var af = this.caret.textAfter();
+            var r, af = this.caret.textAfter();
             if (typeof arg === 'string') {
                 if (af.indexOf(arg) === 0) {
                     this.caret.setTextAfter(af.substr(arg.length));
+                    r = arg;
                 }
             } else if (typeof arg === 'number') {
                 if (arg <= af.length) {
@@ -543,7 +572,9 @@ window.CodePrinter = (function($) {
                     }
                     this.caret.setTextAtCurrentLine(bf, af.substr(arg));
                 }
+                r = af.substring(0, arg);
             }
+            r && this.emit('removed.after', r);
         },
         getSelection: function() {
             if (this.selection.isset()) {
