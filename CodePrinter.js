@@ -65,7 +65,6 @@ window.CodePrinter = (function($) {
         self.activeLine = {};
         
         self.data.init(data.replace(/\t/g, this.tabString()));
-        self.screen.parent.style.minHeight = (self.data.lines * sizes.lineHeight + sizes.paddingTop * 2) + 'px';
         
         var mouseController = function(e) {
             if (e.button > 0 || e.which > 1)
@@ -137,7 +136,11 @@ window.CodePrinter = (function($) {
                 if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
                     return pr = e.cancel();
                 } else {
-                    pr = self.keydownMap.touch(k, self, e);
+                    if (self.parser.keydownMap[k]) {
+                        pr = self.parser.keydownMap[k].call(self, e, k);
+                    } else {
+                        pr = self.keydownMap.touch(k, self, e);
+                    }
                     pr = pr == -1 ? true : pr;
                     self.selection.clear();
                 }
@@ -435,8 +438,8 @@ window.CodePrinter = (function($) {
                         return this;
                     };
                     
-                    var p = this.parser.fn(stream).parsed;
-                    for (var i = 0; i < p.length; i++) {
+                    var p = this.parser.fn(stream).parsed, i = -1;
+                    while (++i < p.length) {
                         p[i] = this.options.showIndent ? indentGrid(p[i], this.options.tabWidth) : p[i];
                         data.getLine(line+i).setParsed(p[i]);
                     }
@@ -712,6 +715,7 @@ window.CodePrinter = (function($) {
                 var r;
                 while ((r = b.splice(DATA_RATIO, b.length - DATA_RATIO)) && r.length > 0) {
                     t === DATA_RATIO - 1 && (t = -1) && h++;
+                    !this[h] && this.splice(h, 0, []);
                     b = this[h][++t] || (this[h][t] = []);
                     var a = [0, 0];
                     a.push.apply(a, r);
@@ -750,10 +754,11 @@ window.CodePrinter = (function($) {
             }
         },
         getLine: function(line) {
-            if (typeof line === 'number') {
+            if (typeof line === 'number' && line >= 0 && line < this.lines) {
                 var p = getDataLinePosition(line);
                 return this[p[2]][p[1]][p[0]] || null;
             }
+            return null;
         },
         getTextAtLine: function(line) {
             var l = this.getLine(line);
@@ -922,15 +927,19 @@ window.CodePrinter = (function($) {
                     abs = abs - t.length - 1;
                     cl = cl + (mv > 0) - (mv < 0);
                     l = cp.data.getLine(cl);
-                    if (l) {
+                    if (l != null) {
                         t = l.getElementText();
                     } else {
-                        mv >= 0 ? --cl : cl = 0;
-                        abs = 0;
+                        if (mv >= 0) {
+                            --cl;
+                            abs = -1;
+                        } else {
+                            mv = cl = abs = 0;
+                        }
                         break;
                     }
                 }
-                return this.position(cl, mv >= 0 ? abs : t.length - abs, t);
+                return this.position(cl, mv >= 0 ? abs : t.length - abs);
             },
             moveY: function(mv) {
                 mv = line + mv;
@@ -1542,11 +1551,14 @@ window.CodePrinter = (function($) {
         if (!(this instanceof CodePrinter.Mode)) {
             return new CodePrinter.Mode();
         }
+        this.keydownMap = {};
+        this.keypressMap = {};
+        this.onRemovedBefore = {'{':'}','(':')','[':']','"':'"',"'":"'"};
+        this.onRemovedAfter = {'}':'{',')':'(','[':']','"':'"',"'":"'"};
         return this;
     };
     
     CodePrinter.Mode.prototype = {
-        keypressMap: {},
         brackets: {
             '{': ['bracket', 'bracket-curly', 'bracket-open'],
             '}': ['bracket', 'bracket-curly', 'bracket-close'],
@@ -1793,10 +1805,10 @@ window.CodePrinter = (function($) {
     CodePrinter.requireMode = function(req, cb, del) {
         return $.scripts.require('CodePrinter.'+req, cb, del);
     };
-    CodePrinter.defineMode = function(name, obj) {
+    CodePrinter.defineMode = function(name, obj, req) {
         var m = (new CodePrinter.Mode()).extend(obj);
         m.init instanceof Function && m.init();
-        $.scripts.define('CodePrinter.'+name, m);
+        $.scripts.define('CodePrinter.'+name, m, req);
     };
     CodePrinter.getMode = function(name) {
         return $.scripts.get('CodePrinter.'+name);
