@@ -90,6 +90,9 @@ CodePrinter.defineMode('CSS', {
                 this.caret.moveX(1);
                 return false;
             }
+            this.insertText(';');
         }
-    }
+    },
+    onRemovedBefore: { ':': ';' },
+    onRemovedAfter: { ';': ':' }
 });
