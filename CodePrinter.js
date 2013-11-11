@@ -1619,12 +1619,7 @@ window.CodePrinter = (function($) {
                 m = t.match(/ +$/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            if (this.selection.isset()) {
-                r = this.getSelection().length;
-                this.selection.isInversed() ? this.removeAfterCursor(r) : this.removeBeforeCursor(r);
-            } else {
-                this.removeBeforeCursor(r);
-            }
+            this.selection.isset() ? this.removeSelection() : this.removeBeforeCursor(r);
             return e && e.cancel();
         },
         9: function(e) {
@@ -1663,12 +1658,7 @@ window.CodePrinter = (function($) {
                 m = t.match(/^ +/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            if (this.selection.isset()) {
-                r = this.getSelection().length;
-                this.selection.isInversed() ? this.removeAfterCursor(r) : this.removeBeforeCursor(r);
-            } else {
-                this.removeAfterCursor(r);
-            }
+            this.selection.isset() ? this.removeSelection() : this.removeAfterCursor(r);
             return e.cancel();
         }
     };
