@@ -177,6 +177,7 @@ window.CodePrinter = (function($) {
         self.caret.on({
             'text:changed': function() {
                 self.data.getLine(this.line()).setText(this.textAtCurrentLine());
+                self.finder && self.finder.find();
             },
             'position:changed': function(x, y) {
                 document.activeElement != self.input && self.input.focus();
