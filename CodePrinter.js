@@ -1559,7 +1559,7 @@ window.CodePrinter = (function($) {
         this.keydownMap = {};
         this.keypressMap = {};
         this.onRemovedBefore = {'{':'}','(':')','[':']','"':'"',"'":"'"};
-        this.onRemovedAfter = {'}':'{',')':'(','[':']','"':'"',"'":"'"};
+        this.onRemovedAfter = {'}':'{',')':'(',']':'[','"':'"',"'":"'"};
         return this;
     };
     
