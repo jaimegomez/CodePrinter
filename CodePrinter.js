@@ -1081,8 +1081,11 @@ window.CodePrinter = (function($) {
         self.root = cp;
         cp.container.prepend(self.parent);
         
-        this.element.delegate('mousedown', 'li', function() {
-            cp.selectLine(parseInt(this.innerHTML) - 1);
+        this.element.delegate('click', 'li', function() {
+            var l = parseInt(this.innerHTML) - 1;
+            cp.caret.position(l, 0);
+            cp.selection.setRange(l, 0, l, cp.caret.textAtCurrentLine().length);
+            cp.showSelection();
         });
         
         while (ln--) {
