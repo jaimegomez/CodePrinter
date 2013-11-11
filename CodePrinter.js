@@ -59,7 +59,7 @@ window.CodePrinter = (function($) {
         
         options.fontSize != 11 && options.fontSize > 0 && (screen.style.fontSize = parseInt(options.fontSize) + 'px');
         options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;');
-        options.width > 0 && (self.mainElement.style.width = parseInt(options.width) + 'px');
+        options.width > 0 && (self.wrapper.style.width = parseInt(options.width) + 'px');
         options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
         self.measureSizes();
         self.activeLine = {};
