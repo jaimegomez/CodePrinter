@@ -619,6 +619,11 @@ window.CodePrinter = (function($) {
                 this.caret.position(e.line, e.column);
             }
         },
+        removeSelection: function() {
+            var l = this.getSelection().length;
+            this.selection.isInversed() ? this.removeAfterCursor(l) : this.removeBeforeCursor(l);
+            this.selection.clear();
+        },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
             this.keydownMap.extend(arg);
