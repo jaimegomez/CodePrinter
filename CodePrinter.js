@@ -134,7 +134,7 @@ window.CodePrinter = (function($) {
                     self.shortcuts[k].call(self, e, this);
                     return pr = e.cancel();
                 }
-                if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                if (k >= 17 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
                     return pr = e.cancel();
                 } else {
                     if (self.parser.keydownMap[k]) {
@@ -1640,6 +1640,11 @@ window.CodePrinter = (function($) {
                 this.insertText(a);
             }
             return e.cancel();
+        },
+        16: function() {
+            if (this.selection.start.line == null) {
+                this.selection.setStart(this.caret.line(), this.caret.column());
+            }
         },
         27: function(e) {
             return e.cancel();
