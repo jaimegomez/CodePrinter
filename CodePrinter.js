@@ -87,6 +87,7 @@ window.CodePrinter = (function($) {
                 self.emit('caret:initialized');
                 this.on('mousemove', mouseController);
                 $.document.one('mouseup', function(e) {
+                    !self.selection.isset() && self.selection.clear();
                     th.off('mousemove', mouseController);
                     self.emit('caret:stabilized');
                     self.caret.activate();
@@ -126,8 +127,8 @@ window.CodePrinter = (function($) {
                 pr = true;
                 
                 if (isCommandKey(e) && commands[k]) {
-                    commands[k].call(self, this, e, k);
-                    return true;
+                    pr = commands[k].call(self, this, e, k);
+                    return pr;
                 }
                 if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
                     self.shortcuts[k].call(self, e, this);
@@ -142,7 +143,9 @@ window.CodePrinter = (function($) {
                         pr = self.keydownMap.touch(k, self, e);
                     }
                     pr = pr == -1 ? true : pr;
-                    self.selection.clear();
+                    if (pr && self.selection.isset()) {
+                        self.removeSelection();
+                    }
                 }
                 return pr;
             },
@@ -164,8 +167,8 @@ window.CodePrinter = (function($) {
             keyup: function(e) {
                 self.caret.activate();
                 
-                if (this.value.length) {
-                    pr && self.insertText(this.value);
+                if (this.value.length && pr) {
+                    self.insertText(this.value);
                     this.value = '';
                 }
             }
@@ -569,7 +572,7 @@ window.CodePrinter = (function($) {
                     
                     while (arg > af.length && l+1 < this.data.lines) {
                         this.caret.setTextAfter('');
-                        arg = arg - af.length;
+                        arg = arg - af.length - 1;
                         af = this.data.getTextAtLine(l+1);
                         this.removeLine(l+1);
                     }
@@ -616,7 +619,7 @@ window.CodePrinter = (function($) {
                     el.append(span);
                 }
                 el.parentNode == null && this.wrapper.append(el);
-                this.caret.position(e.line, e.column);
+                this.selection.isInversed() ? this.caret.position(s.line, s.column) : this.caret.position(e.line, e.column);
             }
         },
         removeSelection: function() {
@@ -1741,17 +1744,22 @@ window.CodePrinter = (function($) {
             this.selection.setStart(0, 0).setEnd(ls, this.data.getTextAtLine(ls).length);
             this.showSelection();
             this.emit('cmd.selectAll');
+            return false;
         },
         67: function() {
             this.emit('cmd.copy');
+            return false;
         },
         86: function() {
+            this.removeSelection();
             this.emit('cmd.paste');
+            return true;
         },
         88: function() {
             this.keydownMap.touch(8, this, null);
             this.selection.clear();
             this.emit('cmd.cut');
+            return true;
         }
     };
 
@@ -1779,6 +1787,11 @@ window.CodePrinter = (function($) {
         setEnd: function(line, column) {
             this.end.line = line;
             this.end.column = column;
+            return this;
+        },
+        setRange: function(sl, sc, el, ec) {
+            this.setStart(sl, sc);
+            this.setEnd(el, ec);
             return this;
         },
         getStart: function() {
