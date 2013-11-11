@@ -1649,17 +1649,12 @@ window.CodePrinter = (function($) {
         27: function(e) {
             return e.cancel();
         },
-        37: function() {
-            this.caret.moveX(-1);
-        },
-        38: function() {
-            this.caret.moveY(-1);
-        },
-        39: function() {
-            this.caret.moveX(1);
-        },
-        40: function() {
-            this.caret.moveY(1);
+        37: function(e, c) {
+            c%2 ? this.caret.move(c-38, 0) : this.caret.move(0, c-39);
+            if (e.shiftKey && this.selection.start.line >= 0) {
+                this.selection.setEnd(this.caret.line(), this.caret.column());
+                this.showSelection();
+            }
         },
         46: function(e) {
             var t = this.caret.textAfter(),
@@ -1670,6 +1665,7 @@ window.CodePrinter = (function($) {
             return e.cancel();
         }
     };
+    keydownMap.prototype[40] = keydownMap.prototype[39] = keydownMap.prototype[38] = keydownMap.prototype[37];
     
     keypressMap = function() {};
     keypressMap.prototype = {
