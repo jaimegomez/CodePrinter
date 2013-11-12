@@ -1294,10 +1294,27 @@ window.CodePrinter = (function($) {
             return this.find(this.searched);
         },
         next: function() {
-            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getNext().addClass('active') : this.find();
+            if (this.searchResults.length > 0) {
+                this.searchResults.removeClass('active').getNext().addClass('active');
+                this.scrollToActive();
+            } else {
+                this.find();
+            }
         },
         prev: function() {
-            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getPrev().addClass('active') : this.find();
+            if (this.searchResults.length > 0) {
+                this.searchResults.removeClass('active').getPrev().addClass('active');
+                this.scrollToActive();
+            } else {
+                this.find();
+            }
+        },
+        scrollToActive: function() {
+            $(this.root.wrapper).scrollTo( 
+                parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
+                parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
+                this.root.options.autoScrollSpeed
+            );
         }
     };
     
