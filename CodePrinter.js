@@ -783,11 +783,11 @@ window.CodePrinter = (function($) {
             return parseInt(''+ h + t + (this[h][t].length - 1));
         },
         indexOf: function(dl) {
-            var h = 0, d = 0, i = -1;
-            for (; h < this.length; h++) {
-                for (; d < this[h].length; d++) {
+            var h , d, i = -1;
+            for (h = 0; h < this.length; h++) {
+                for (d = 0; d < this[h].length; d++) {
                     if ((i = this[h][d].indexOf(dl)) !== -1) {
-                        return h * 100 + d * 10 + i;
+                        return h * DATA_MASTER_RATIO + d * DATA_RATIO + i;
                     }
                 }
             }
