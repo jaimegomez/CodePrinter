@@ -35,6 +35,11 @@
   -o-flex-flow: column;
   flex-flow: column;
   position: relative;
+  font-family: Menlo, Monaco, monospace, Courier;
+  font-size: 11px;
+}
+.codeprinter .cp-container * {
+  font: inherit;
 }
 .codeprinter .cp-container .cp-templine {
   display: inline-block;
@@ -445,15 +450,6 @@
   -o-transition: opacity 0.3s ease-in-out;
   transition: opacity 0.3s ease-in-out;
   z-index: 100;
-}
-.codeprinter .cp-wrapper,
-.codeprinter .cp-counter {
-  font-family: Menlo, Monaco, monospace, Courier;
-  font-size: 11px;
-}
-.codeprinter .cp-wrapper *,
-.codeprinter .cp-counter * {
-  font: inherit;
 }
 .codeprinter .cp-screen,
 .codeprinter .cp-source,

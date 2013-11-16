@@ -36,6 +36,12 @@
         .flexbox;
         .flex-flow(column);
         position:relative;
+        font-family:@font;
+        font-size:@fontSize;
+        
+        * {
+            font:inherit;
+        }
         
         .cp-templine {
             .inline-block;
@@ -293,14 +299,6 @@
         z-index:100;
     }
     
-    .cp-wrapper, .cp-counter {
-        font-family:@font;
-        font-size:@fontSize;
-        
-        * {
-            font:inherit;
-        }
-    }
     .cp-screen, .cp-source, .cp-input, .cp-counter, .cp-overlay {
         word-break:normal;
         word-spacing:0px;
