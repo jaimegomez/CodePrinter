@@ -956,6 +956,10 @@ window.CodePrinter = (function($) {
                 mv = mv < 0 ? 0 : mv > this.root.data.lines ? this.root.data.lines : mv;
                 return this.position(mv, column);
             },
+            refresh: function() {
+                cp.sizes.charWidth = getTextSize(cp, 'c').width;
+                return this.position(line, column);
+            },
             line: function() {
                 return line;
             },
