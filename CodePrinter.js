@@ -337,6 +337,7 @@ window.CodePrinter = (function($) {
                 s = window.getComputedStyle(this.screen.element, null);
             
             sizes.lineHeight = this.options.lineHeight;
+            sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.scrollTop = parseInt(s.getPropertyValue('top'));
