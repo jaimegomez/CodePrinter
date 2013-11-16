@@ -1762,6 +1762,16 @@ window.CodePrinter = (function($) {
         },
         82: function() {
             this.forcePrint();
+        },
+        187: function() {
+            var id = this.mainElement.id;
+            if (this.sizes.fontSize < 40) {
+                this.wrapper.style.fontSize = (++this.sizes.fontSize)+'px';
+                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && (this.wrapper.style.marginLeft = this.counter.parent.clientWidth+'px');
+                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(++this.sizes.lineHeight)+'px;');
+                this.caret.refresh();
+            }
+        },
         }
     };
     
