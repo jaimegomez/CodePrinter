@@ -198,7 +198,7 @@
   -o-user-select: none;
   user-select: none;
   color: #777777;
-  min-width: 38px;
+  min-width: 15px;
   z-index: 6;
   overflow: hidden;
   position: absolute;
@@ -213,12 +213,11 @@
   margin: 0;
   padding: 5px 0;
   text-align: right;
-  min-width: 38px;
   list-style-type: none;
 }
 .codeprinter .cp-counter li {
   margin: 0;
-  padding: 0 5px 0 7px;
+  padding: 0 5px 0 20px;
   text-align: right;
   color: inherit;
   font-family: inherit;
