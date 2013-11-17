@@ -76,5 +76,6 @@ CodePrinter.defineMode('HTML', {
             }
             return false;
         }
-    }
+    },
+    comment: '<!--[text content]-->'
 });
