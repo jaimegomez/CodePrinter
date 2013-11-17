@@ -255,6 +255,8 @@ window.CodePrinter = (function($) {
         height: 300,
         tabWidth: 4,
         fontSize: 11,
+        minFontSize: 8,
+        maxFontSize: 40,
         lineHeight: 15,
         linesOutsideOfView: 12,
         caretBlinkSpeed: 400,
@@ -1765,18 +1767,18 @@ window.CodePrinter = (function($) {
         },
         187: function() {
             var id = this.mainElement.id;
-            if (this.sizes.fontSize < 40) {
+            if (this.sizes.fontSize < this.options.maxFontSize) {
                 this.wrapper.style.fontSize = (++this.sizes.fontSize)+'px';
-                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && (this.wrapper.style.marginLeft = this.counter.parent.clientWidth+'px');
+                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
                 (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(++this.sizes.lineHeight)+'px;');
                 this.caret.refresh();
             }
         },
         189: function() {
             var id = this.mainElement.id;
-            if (this.sizes.fontSize > 8) {
+            if (this.sizes.fontSize > this.options.minFontSize) {
                 this.wrapper.style.fontSize = (--this.sizes.fontSize)+'px';
-                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && (this.wrapper.style.marginLeft = this.counter.parent.clientWidth+'px');
+                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
                 (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(--this.sizes.lineHeight)+'px;');
                 this.caret.refresh();
             }
