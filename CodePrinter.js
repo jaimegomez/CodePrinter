@@ -1692,6 +1692,8 @@ window.CodePrinter = (function($) {
             if (e.shiftKey && this.selection.start.line >= 0) {
                 this.selection.setEnd(this.caret.line(), this.caret.column());
                 this.showSelection();
+            } else {
+                this.selection.clear();
             }
         },
         46: function(e) {
