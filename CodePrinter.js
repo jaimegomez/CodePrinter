@@ -204,6 +204,7 @@ window.CodePrinter = (function($) {
         self.data.on({
             'text:changed': function(e) {
                 self.parse(e.dataLine);
+                self.caret.refresh();
             },
             'line:added': function() {
                 var s = self.screen.element;
