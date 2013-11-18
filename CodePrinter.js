@@ -858,6 +858,18 @@ window.CodePrinter = (function($) {
             !this.pre && this.getElement();
             var tc = this.pre.textContent != null ? this.pre.textContent : this.pre.innerText;
             return tc === ' ' && this.text === '' ? '' : tc;
+        },
+        prepend: function(str) {
+            return this.setText(str + this.text);
+        },
+        append: function(str) {
+            return this.setText(this.text + str);
+        },
+        lbreak: function(str) {
+            return this.setText(this.text.lbreak(str));
+        },
+        rbreak: function(str) {
+            return this.setText(this.text.rbreak(str));
         }
     };
     
