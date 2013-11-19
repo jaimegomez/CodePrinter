@@ -1677,7 +1677,44 @@ window.CodePrinter = (function($) {
             return e && e.cancel();
         },
         9: function(e) {
-            this.insertText(this.tabString());
+            var t = this.tabString();
+            if (this.selection.isset()) {
+                var s = this.selection, i, l;
+                
+                s.correct();
+                this.caret.position(s.start.line, s.start.column);
+                i = s.start.line;
+                l = s.end.line;
+                
+                if (e.shiftKey) {
+                    var dl = this.data.getLine(i);
+                    if (dl.text.indexOf(t) === 0) {
+                        dl.setText(dl.text.substr(t.length));
+                        s.start.column -= t.length;
+                        this.caret.moveX(-t.length);
+                    }
+                    if (l - i++) {
+                        for (; i < l; i++) {
+                            this.data.getLine(i).lbreak(t);
+                        }
+                        dl = this.data.getLine(i);
+                        if (dl.text.indexOf(t) === 0) {
+                            dl.setText(dl.text.substr(t.length));
+                            s.end.column -= t.length;
+                        }
+                    }
+                } else {
+                    for (; i <= l; i++) {
+                        this.data.getLine(i).prepend(t);
+                    }
+                    s.start.column += t.length;
+                    s.end.column += t.length;
+                    this.caret.moveX(t.length);
+                }
+                this.showSelection();
+            } else {
+                e.shiftKey ? this.removeBeforeCursor(t) : this.insertText(t);
+            }
             return e.cancel();
         },
         13: function(e) {
