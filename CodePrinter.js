@@ -1807,6 +1807,34 @@ window.CodePrinter = (function($) {
                 (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(--this.sizes.lineHeight)+'px;');
                 this.caret.refresh();
             }
+        },
+        229: function() {
+            if (this.parser && this.parser.comment) {
+                var c = this.parser.comment,
+                    m = '[text content]',
+                    i = c.indexOf(m), j,
+                    s = c, e = '', x,
+                    t = this.caret.textAtCurrentLine(),
+                    l = this.caret.column();
+                
+                if (i !== -1) {
+                    s = c.substr(0, i);
+                    e = c.substr(i+m.length);
+                }    
+                j = t.indexOf(s);
+                if (j !== -1) {
+                    var k = e ? t.indexOf(e, j+s.length) : t.length;
+                    t = t.substring(0, j) + t.substring(j+s.length, k);
+                    x = l > j ? l > j+s.length ? -s.length : -l+j : 0;
+                } else {
+                    var k = -1;
+                    while (t[++k] == ' ');
+                    t = t.substring(0, k) + s + t.substr(k) + e;
+                    x = l >= k ? s.length : 0;
+                }
+                this.data.getLine(this.caret.line()).setText(t);
+                x && this.caret.moveX(x);
+            }
         }
     };
     
