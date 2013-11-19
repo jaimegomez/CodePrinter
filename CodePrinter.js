@@ -1875,6 +1875,13 @@ window.CodePrinter = (function($) {
         isInversed: function() {
             return this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column);
         },
+        correct: function() {
+            if (this.isInversed()) {
+                var t = this.start;
+                this.start = this.end;
+                this.end = t;
+            }
+        },
         isset: function() {
             return this.start.line >= 0 && this.end.line >= 0;
         }
