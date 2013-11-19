@@ -54,5 +54,6 @@ CodePrinter.defineMode('PHP', {
             }
 		}
 		return stream;
-	}
+	},
+    comment: '//'
 });

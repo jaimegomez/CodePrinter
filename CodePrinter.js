@@ -33,6 +33,8 @@ window.CodePrinter = (function($) {
         
         self.data = new Data();
         self.screen = new Screen(self);
+        self.activeLine = {};
+        self.sizes = {};
         
         if (element.nodeType) {
             element.before(self.mainElement);
@@ -62,7 +64,6 @@ window.CodePrinter = (function($) {
         options.width > 0 && (self.wrapper.style.width = parseInt(options.width) + 'px');
         options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
         self.measureSizes();
-        self.activeLine = {};
         
         self.data.init(data.replace(/\t/g, this.tabString()));
         
@@ -73,7 +74,7 @@ window.CodePrinter = (function($) {
             var sl = this.scrollLeft,
                 st = this.scrollTop,
                 o = this.origin(),
-                x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft - self.sizes.counterWidth),
+                x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft),
                 y = st + e.pageY - o.y - self.sizes.paddingTop,
                 l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1,
                 s = self.data.getLine(l).getElementText(),
@@ -203,6 +204,7 @@ window.CodePrinter = (function($) {
         self.data.on({
             'text:changed': function(e) {
                 self.parse(e.dataLine);
+                self.caret.refresh();
             },
             'line:added': function() {
                 var s = self.screen.element;
@@ -244,7 +246,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.5.3';
+    CodePrinter.version = '0.5.4';
     
     CodePrinter.defaults = {
         path: '',
@@ -255,6 +257,8 @@ window.CodePrinter = (function($) {
         height: 300,
         tabWidth: 4,
         fontSize: 11,
+        minFontSize: 8,
+        maxFontSize: 40,
         lineHeight: 15,
         linesOutsideOfView: 12,
         caretBlinkSpeed: 400,
@@ -278,7 +282,6 @@ window.CodePrinter = (function($) {
     };
     
     CodePrinter.prototype = {
-        sizes: {},
         isFullscreen: false,
         prepare: function() {
             if (options.highlightBrackets) {
@@ -337,6 +340,7 @@ window.CodePrinter = (function($) {
                 s = window.getComputedStyle(this.screen.element, null);
             
             sizes.lineHeight = this.options.lineHeight;
+            sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.scrollTop = parseInt(s.getPropertyValue('top'));
@@ -667,7 +671,13 @@ window.CodePrinter = (function($) {
             }
         },
         openCounter: function() {
-            this.counter = this.counter || new Counter(this);
+            if (!this.counter) {
+                var self = this;
+                this.counter = new Counter(this);
+                this.counter.on('width:changed', function() {
+                    self.wrapper.style.marginLeft = (self.sizes.counterWidth = self.counter.parent.offsetWidth) + 'px';
+                });
+            }
             this.container.prepend(this.counter.parent);
             this.wrapper.style.marginLeft = (this.sizes.counterWidth = this.counter.parent.offsetWidth) + 'px';
         },
@@ -848,6 +858,18 @@ window.CodePrinter = (function($) {
             !this.pre && this.getElement();
             var tc = this.pre.textContent != null ? this.pre.textContent : this.pre.innerText;
             return tc === ' ' && this.text === '' ? '' : tc;
+        },
+        prepend: function(str) {
+            return this.setText(str + this.text);
+        },
+        append: function(str) {
+            return this.setText(this.text + str);
+        },
+        lbreak: function(str) {
+            return this.setText(this.text.lbreak(str));
+        },
+        rbreak: function(str) {
+            return this.setText(this.text.rbreak(str));
         }
     };
     
@@ -954,6 +976,10 @@ window.CodePrinter = (function($) {
                 mv = line + mv;
                 mv = mv < 0 ? 0 : mv > this.root.data.lines ? this.root.data.lines : mv;
                 return this.position(mv, column);
+            },
+            refresh: function() {
+                cp.sizes.charWidth = getTextSize(cp, 'c').width;
+                return this.position(line, column);
             },
             line: function() {
                 return line;
@@ -1095,13 +1121,17 @@ window.CodePrinter = (function($) {
     };
     Counter.prototype = {
         increase: function(sL) {
-            var li = li_clone.cloneNode(false);
-            li.innerHTML = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : sL >= 0 ? sL : 1;
+            var li = li_clone.cloneNode(false),
+                n = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : sL >= 0 ? sL : 1;
+            li.innerHTML = n;
             this.list.push(li);
             this.element.append(li);
+            n.toString().length > (n-1).toString().length && this.emit('width:changed');
         },
         decrease: function() {
-            this.list.get(-1).remove(true);
+            var n = parseInt(this.list.get(-1).html());
+            this.list.remove(true);
+            (n-1).toString().length < n.toString().length && this.emit('width:changed');
         },
         shift: function() {
             var fi = this.list.item(0),
@@ -1647,7 +1677,44 @@ window.CodePrinter = (function($) {
             return e && e.cancel();
         },
         9: function(e) {
-            this.insertText(this.tabString());
+            var t = this.tabString();
+            if (this.selection.isset()) {
+                var s = this.selection, i, l;
+                
+                s.correct();
+                this.caret.position(s.start.line, s.start.column);
+                i = s.start.line;
+                l = s.end.line;
+                
+                if (e.shiftKey) {
+                    var dl = this.data.getLine(i);
+                    if (dl.text.indexOf(t) === 0) {
+                        dl.setText(dl.text.substr(t.length));
+                        s.start.column -= t.length;
+                        this.caret.moveX(-t.length);
+                    }
+                    if (l - i++) {
+                        for (; i < l; i++) {
+                            this.data.getLine(i).lbreak(t);
+                        }
+                        dl = this.data.getLine(i);
+                        if (dl.text.indexOf(t) === 0) {
+                            dl.setText(dl.text.substr(t.length));
+                            s.end.column -= t.length;
+                        }
+                    }
+                } else {
+                    for (; i <= l; i++) {
+                        this.data.getLine(i).prepend(t);
+                    }
+                    s.start.column += t.length;
+                    s.end.column += t.length;
+                    this.caret.moveX(t.length);
+                }
+                this.showSelection();
+            } else {
+                e.shiftKey ? this.removeBeforeCursor(t) : this.insertText(t);
+            }
             return e.cancel();
         },
         13: function(e) {
@@ -1675,6 +1742,8 @@ window.CodePrinter = (function($) {
             if (e.shiftKey && this.selection.start.line >= 0) {
                 this.selection.setEnd(this.caret.line(), this.caret.column());
                 this.showSelection();
+            } else {
+                this.selection.clear();
             }
         },
         46: function(e) {
@@ -1757,6 +1826,52 @@ window.CodePrinter = (function($) {
         },
         82: function() {
             this.forcePrint();
+        },
+        187: function() {
+            var id = this.mainElement.id;
+            if (this.sizes.fontSize < this.options.maxFontSize) {
+                this.wrapper.style.fontSize = (++this.sizes.fontSize)+'px';
+                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
+                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(++this.sizes.lineHeight)+'px;');
+                this.caret.refresh();
+            }
+        },
+        189: function() {
+            var id = this.mainElement.id;
+            if (this.sizes.fontSize > this.options.minFontSize) {
+                this.wrapper.style.fontSize = (--this.sizes.fontSize)+'px';
+                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
+                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(--this.sizes.lineHeight)+'px;');
+                this.caret.refresh();
+            }
+        },
+        229: function() {
+            if (this.parser && this.parser.comment) {
+                var c = this.parser.comment,
+                    m = '[text content]',
+                    i = c.indexOf(m), j,
+                    s = c, e = '', x,
+                    t = this.caret.textAtCurrentLine(),
+                    l = this.caret.column();
+                
+                if (i !== -1) {
+                    s = c.substr(0, i);
+                    e = c.substr(i+m.length);
+                }    
+                j = t.indexOf(s);
+                if (j !== -1) {
+                    var k = e ? t.indexOf(e, j+s.length) : t.length;
+                    t = t.substring(0, j) + t.substring(j+s.length, k);
+                    x = l > j ? l > j+s.length ? -s.length : -l+j : 0;
+                } else {
+                    var k = -1;
+                    while (t[++k] == ' ');
+                    t = t.substring(0, k) + s + t.substr(k) + e;
+                    x = l >= k ? s.length : 0;
+                }
+                this.data.getLine(this.caret.line()).setText(t);
+                x && this.caret.moveX(x);
+            }
         }
     };
     
@@ -1824,6 +1939,13 @@ window.CodePrinter = (function($) {
         },
         isInversed: function() {
             return this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column);
+        },
+        correct: function() {
+            if (this.isInversed()) {
+                var t = this.start;
+                this.start = this.end;
+                this.end = t;
+            }
         },
         isset: function() {
             return this.start.line >= 0 && this.end.line >= 0;

@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.5.3
+*   version     0.5.4
 */
 .codeprinter {
   display: block;
@@ -35,6 +35,11 @@
   -o-flex-flow: column;
   flex-flow: column;
   position: relative;
+  font-family: Menlo, Monaco, monospace, Courier;
+  font-size: 11px;
+}
+.codeprinter .cp-container * {
+  font: inherit;
 }
 .codeprinter .cp-container .cp-templine {
   display: inline-block;
@@ -193,7 +198,7 @@
   -o-user-select: none;
   user-select: none;
   color: #777777;
-  min-width: 38px;
+  min-width: 15px;
   z-index: 6;
   overflow: hidden;
   position: absolute;
@@ -208,12 +213,11 @@
   margin: 0;
   padding: 5px 0;
   text-align: right;
-  min-width: 38px;
   list-style-type: none;
 }
 .codeprinter .cp-counter li {
   margin: 0;
-  padding: 0 5px 0 7px;
+  padding: 0 5px 0 20px;
   text-align: right;
   color: inherit;
   font-family: inherit;
@@ -445,15 +449,6 @@
   -o-transition: opacity 0.3s ease-in-out;
   transition: opacity 0.3s ease-in-out;
   z-index: 100;
-}
-.codeprinter .cp-wrapper,
-.codeprinter .cp-counter {
-  font-family: Menlo, Monaco, monospace, Courier;
-  font-size: 11px;
-}
-.codeprinter .cp-wrapper *,
-.codeprinter .cp-counter * {
-  font: inherit;
 }
 .codeprinter .cp-screen,
 .codeprinter .cp-source,

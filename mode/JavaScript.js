@@ -61,5 +61,6 @@ CodePrinter.defineMode('JavaScript', {
         }
         
         return stream;
-    }
+    },
+    comment: '//'
 });

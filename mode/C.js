@@ -56,5 +56,6 @@ CodePrinter.defineMode('C', {
 		}
 		
 		return stream;
-	}
+	},
+    comment: '//'
 });

@@ -94,5 +94,6 @@ CodePrinter.defineMode('CSS', {
         }
     },
     onRemovedBefore: { ':': ';' },
-    onRemovedAfter: { ';': ':' }
+    onRemovedAfter: { ';': ':' },
+    comment: '/*[text content]*/'
 });
