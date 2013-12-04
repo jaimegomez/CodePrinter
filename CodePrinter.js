@@ -73,7 +73,7 @@ window.CodePrinter = (function($) {
             
             var sl = this.scrollLeft,
                 st = this.scrollTop,
-                o = this.origin(),
+                o = this.bounds(),
                 x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft),
                 y = st + e.pageY - o.y - self.sizes.paddingTop,
                 l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1,
@@ -87,7 +87,7 @@ window.CodePrinter = (function($) {
                 self.selection.setStart(l, c);
                 self.emit('caret:initialized');
                 this.on('mousemove', mouseController);
-                $.document.one('mouseup', function(e) {
+                document.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
                     th.off('mousemove', mouseController);
                     self.emit('caret:stabilized');
@@ -123,7 +123,7 @@ window.CodePrinter = (function($) {
                 }
             },
             keydown: function(e) {
-                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
+                var k = e.getCharCode();
                 self.caret.deactivate().show();
                 pr = true;
                 
@@ -151,7 +151,7 @@ window.CodePrinter = (function($) {
                 return pr;
             },
             keypress: function(e) {
-                var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
+                var k = e.getCharCode(),
                     ch = String.fromCharCode(k);
                 
                 if (pr && e.ctrlKey != true && e.metaKey != true) {
@@ -191,7 +191,7 @@ window.CodePrinter = (function($) {
                     x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
                     y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
                     
-                    $(wrapper).scrollTo(x, y, self.options.autoScrollSpeed);
+                    wrapper.scrollTo(x, y, self.options.autoScrollSpeed);
                 }
             },
             'line:changed': function(e) {
@@ -807,7 +807,7 @@ window.CodePrinter = (function($) {
             var r = [], h = 0, t = 0, i = 0;
             for (; h < this.length; h++) {
                 for (; t < this[h].length; t++) {
-                    r.push.apply(r, $(this[h][t]).map('text'));
+                    r.push.apply(r, this[h][t].map('text'));
                 }
             }
             return r.join(eol);
@@ -1034,7 +1034,7 @@ window.CodePrinter = (function($) {
             y >= 0 && (css.top = y + this.root.sizes.paddingTop);
             
             Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(this.root, css) : css.height = this.root.sizes.lineHeight;
-            $(this.element).css(css);
+            this.element.css(css);
             this.show().activate();
             this.emit('position:changed', x, y);
             return this;
@@ -1340,7 +1340,7 @@ window.CodePrinter = (function($) {
             }
         },
         scrollToActive: function() {
-            $(this.root.wrapper).scrollTo( 
+            this.root.wrapper.scrollTo( 
                 parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
                 parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
                 this.root.options.autoScrollSpeed
