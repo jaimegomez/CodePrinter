@@ -33,6 +33,8 @@ window.CodePrinter = (function($) {
         
         self.data = new Data();
         self.screen = new Screen(self);
+        self.activeLine = {};
+        self.sizes = {};
         
         if (element.nodeType) {
             element.before(self.mainElement);
@@ -59,10 +61,9 @@ window.CodePrinter = (function($) {
         
         options.fontSize != 11 && options.fontSize > 0 && (screen.style.fontSize = parseInt(options.fontSize) + 'px');
         options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;');
-        options.width > 0 && (self.mainElement.style.width = parseInt(options.width) + 'px');
+        options.width > 0 && (self.wrapper.style.width = parseInt(options.width) + 'px');
         options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
         self.measureSizes();
-        self.activeLine = {};
         
         self.data.init(data.replace(/\t/g, this.tabString()));
         
@@ -72,8 +73,8 @@ window.CodePrinter = (function($) {
             
             var sl = this.scrollLeft,
                 st = this.scrollTop,
-                o = this.origin(),
-                x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft - self.sizes.counterWidth),
+                o = this.bounds(),
+                x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft),
                 y = st + e.pageY - o.y - self.sizes.paddingTop,
                 l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1,
                 s = self.data.getLine(l).getElementText(),
@@ -86,7 +87,8 @@ window.CodePrinter = (function($) {
                 self.selection.setStart(l, c);
                 self.emit('caret:initialized');
                 this.on('mousemove', mouseController);
-                $.document.one('mouseup', function(e) {
+                document.one('mouseup', function(e) {
+                    !self.selection.isset() && self.selection.clear();
                     th.off('mousemove', mouseController);
                     self.emit('caret:stabilized');
                     self.caret.activate();
@@ -121,19 +123,19 @@ window.CodePrinter = (function($) {
                 }
             },
             keydown: function(e) {
-                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
+                var k = e.getCharCode();
                 self.caret.deactivate().show();
                 pr = true;
                 
                 if (isCommandKey(e) && commands[k]) {
-                    commands[k].call(self, this, e, k);
-                    return true;
+                    pr = commands[k].call(self, this, e, k);
+                    return pr;
                 }
                 if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
                     self.shortcuts[k].call(self, e, this);
                     return pr = e.cancel();
                 }
-                if (k >= 16 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                if (k >= 17 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
                     return pr = e.cancel();
                 } else {
                     if (self.parser.keydownMap[k]) {
@@ -142,12 +144,14 @@ window.CodePrinter = (function($) {
                         pr = self.keydownMap.touch(k, self, e);
                     }
                     pr = pr == -1 ? true : pr;
-                    self.selection.clear();
+                    if (pr && self.selection.isset()) {
+                        self.removeSelection();
+                    }
                 }
                 return pr;
             },
             keypress: function(e) {
-                var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
+                var k = e.getCharCode(),
                     ch = String.fromCharCode(k);
                 
                 if (pr && e.ctrlKey != true && e.metaKey != true) {
@@ -164,8 +168,8 @@ window.CodePrinter = (function($) {
             keyup: function(e) {
                 self.caret.activate();
                 
-                if (this.value.length) {
-                    pr && self.insertText(this.value);
+                if (this.value.length && pr) {
+                    self.insertText(this.value);
                     this.value = '';
                 }
             }
@@ -174,6 +178,7 @@ window.CodePrinter = (function($) {
         self.caret.on({
             'text:changed': function() {
                 self.data.getLine(this.line()).setText(this.textAtCurrentLine());
+                self.finder && self.finder.find();
             },
             'position:changed': function(x, y) {
                 document.activeElement != self.input && self.input.focus();
@@ -186,7 +191,7 @@ window.CodePrinter = (function($) {
                     x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
                     y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
                     
-                    $(wrapper).scrollTo(x, y, self.options.autoScrollSpeed);
+                    wrapper.scrollTo(x, y, self.options.autoScrollSpeed);
                 }
             },
             'line:changed': function(e) {
@@ -199,6 +204,7 @@ window.CodePrinter = (function($) {
         self.data.on({
             'text:changed': function(e) {
                 self.parse(e.dataLine);
+                self.caret.refresh();
             },
             'line:added': function() {
                 var s = self.screen.element;
@@ -240,7 +246,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.5.2';
+    CodePrinter.version = '0.5.4';
     
     CodePrinter.defaults = {
         path: '',
@@ -251,6 +257,8 @@ window.CodePrinter = (function($) {
         height: 300,
         tabWidth: 4,
         fontSize: 11,
+        minFontSize: 8,
+        maxFontSize: 40,
         lineHeight: 15,
         linesOutsideOfView: 12,
         caretBlinkSpeed: 400,
@@ -274,7 +282,6 @@ window.CodePrinter = (function($) {
     };
     
     CodePrinter.prototype = {
-        sizes: {},
         isFullscreen: false,
         prepare: function() {
             if (options.highlightBrackets) {
@@ -333,6 +340,7 @@ window.CodePrinter = (function($) {
                 s = window.getComputedStyle(this.screen.element, null);
             
             sizes.lineHeight = this.options.lineHeight;
+            sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.scrollTop = parseInt(s.getPropertyValue('top'));
@@ -569,7 +577,7 @@ window.CodePrinter = (function($) {
                     
                     while (arg > af.length && l+1 < this.data.lines) {
                         this.caret.setTextAfter('');
-                        arg = arg - af.length;
+                        arg = arg - af.length - 1;
                         af = this.data.getTextAtLine(l+1);
                         this.removeLine(l+1);
                     }
@@ -616,8 +624,13 @@ window.CodePrinter = (function($) {
                     el.append(span);
                 }
                 el.parentNode == null && this.wrapper.append(el);
-                this.caret.position(e.line, e.column);
+                this.selection.isInversed() ? this.caret.position(s.line, s.column) : this.caret.position(e.line, e.column);
             }
+        },
+        removeSelection: function() {
+            var l = this.getSelection().length;
+            this.selection.isInversed() ? this.removeAfterCursor(l) : this.removeBeforeCursor(l);
+            this.selection.clear();
         },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
@@ -644,6 +657,7 @@ window.CodePrinter = (function($) {
                 document.body.append(main);
                 this.isFullscreen = true;
                 this.render();
+                this.caret.refresh();
             }
         },
         exitFullscreen: function() {
@@ -655,10 +669,17 @@ window.CodePrinter = (function($) {
                 delete this.tempnode;
                 this.isFullscreen = false;
                 this.render();
+                this.caret.refresh();
             }
         },
         openCounter: function() {
-            this.counter = this.counter || new Counter(this);
+            if (!this.counter) {
+                var self = this;
+                this.counter = new Counter(this);
+                this.counter.on('width:changed', function() {
+                    self.wrapper.style.marginLeft = (self.sizes.counterWidth = self.counter.parent.offsetWidth) + 'px';
+                });
+            }
             this.container.prepend(this.counter.parent);
             this.wrapper.style.marginLeft = (this.sizes.counterWidth = this.counter.parent.offsetWidth) + 'px';
         },
@@ -774,11 +795,11 @@ window.CodePrinter = (function($) {
             return parseInt(''+ h + t + (this[h][t].length - 1));
         },
         indexOf: function(dl) {
-            var h = 0, d = 0, i = -1;
-            for (; h < this.length; h++) {
-                for (; d < this[h].length; d++) {
+            var h , d, i = -1;
+            for (h = 0; h < this.length; h++) {
+                for (d = 0; d < this[h].length; d++) {
                     if ((i = this[h][d].indexOf(dl)) !== -1) {
-                        return h * 100 + d * 10 + i;
+                        return h * DATA_MASTER_RATIO + d * DATA_RATIO + i;
                     }
                 }
             }
@@ -788,7 +809,7 @@ window.CodePrinter = (function($) {
             var r = [], h = 0, t = 0, i = 0;
             for (; h < this.length; h++) {
                 for (; t < this[h].length; t++) {
-                    r.push.apply(r, $(this[h][t]).map('text'));
+                    r.push.apply(r, this[h][t].map('text'));
                 }
             }
             return r.join(eol);
@@ -839,6 +860,18 @@ window.CodePrinter = (function($) {
             !this.pre && this.getElement();
             var tc = this.pre.textContent != null ? this.pre.textContent : this.pre.innerText;
             return tc === ' ' && this.text === '' ? '' : tc;
+        },
+        prepend: function(str) {
+            return this.setText(str + this.text);
+        },
+        append: function(str) {
+            return this.setText(this.text + str);
+        },
+        lbreak: function(str) {
+            return this.setText(this.text.lbreak(str));
+        },
+        rbreak: function(str) {
+            return this.setText(this.text.rbreak(str));
         }
     };
     
@@ -946,6 +979,10 @@ window.CodePrinter = (function($) {
                 mv = mv < 0 ? 0 : mv > this.root.data.lines ? this.root.data.lines : mv;
                 return this.position(mv, column);
             },
+            refresh: function() {
+                cp.sizes.charWidth = getTextSize(cp, 'c').width;
+                return this.position(line, column);
+            },
             line: function() {
                 return line;
             },
@@ -999,7 +1036,7 @@ window.CodePrinter = (function($) {
             y >= 0 && (css.top = y + this.root.sizes.paddingTop);
             
             Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(this.root, css) : css.height = this.root.sizes.lineHeight;
-            $(this.element).css(css);
+            this.element.css(css);
             this.show().activate();
             this.emit('position:changed', x, y);
             return this;
@@ -1072,8 +1109,11 @@ window.CodePrinter = (function($) {
         self.root = cp;
         cp.container.prepend(self.parent);
         
-        this.element.delegate('mousedown', 'li', function() {
-            cp.selectLine(parseInt(this.innerHTML) - 1);
+        this.element.delegate('click', 'li', function() {
+            var l = parseInt(this.innerHTML) - 1;
+            cp.caret.position(l, 0);
+            cp.selection.setRange(l, 0, l, cp.caret.textAtCurrentLine().length);
+            cp.showSelection();
         });
         
         while (ln--) {
@@ -1083,13 +1123,17 @@ window.CodePrinter = (function($) {
     };
     Counter.prototype = {
         increase: function(sL) {
-            var li = li_clone.cloneNode(false);
-            li.innerHTML = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : sL >= 0 ? sL : 1;
+            var li = li_clone.cloneNode(false),
+                n = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : sL >= 0 ? sL : 1;
+            li.innerHTML = n;
             this.list.push(li);
             this.element.append(li);
+            n.toString().length > (n-1).toString().length && this.emit('width:changed');
         },
         decrease: function() {
-            this.list.get(-1).remove(true);
+            var n = parseInt(this.list.get(-1).html());
+            this.list.remove(true);
+            (n-1).toString().length < n.toString().length && this.emit('width:changed');
         },
         shift: function() {
             var fi = this.list.item(0),
@@ -1282,10 +1326,27 @@ window.CodePrinter = (function($) {
             return this.find(this.searched);
         },
         next: function() {
-            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getNext().addClass('active') : this.find();
+            if (this.searchResults.length > 0) {
+                this.searchResults.removeClass('active').getNext().addClass('active');
+                this.scrollToActive();
+            } else {
+                this.find();
+            }
         },
         prev: function() {
-            this.searchResults.length > 0 ? this.searchResults.removeClass('active').getPrev().addClass('active') : this.find();
+            if (this.searchResults.length > 0) {
+                this.searchResults.removeClass('active').getPrev().addClass('active');
+                this.scrollToActive();
+            } else {
+                this.find();
+            }
+        },
+        scrollToActive: function() {
+            this.root.wrapper.scrollTo( 
+                parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
+                parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
+                this.root.options.autoScrollSpeed
+            );
         }
     };
     
@@ -1554,7 +1615,7 @@ window.CodePrinter = (function($) {
         this.keydownMap = {};
         this.keypressMap = {};
         this.onRemovedBefore = {'{':'}','(':')','[':']','"':'"',"'":"'"};
-        this.onRemovedAfter = {'}':'{',')':'(','[':']','"':'"',"'":"'"};
+        this.onRemovedAfter = {'}':'{',')':'(',']':'[','"':'"',"'":"'"};
         return this;
     };
     
@@ -1614,16 +1675,48 @@ window.CodePrinter = (function($) {
                 m = t.match(/ +$/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            if (this.selection.isset()) {
-                r = this.getSelection().length;
-                this.selection.isInversed() ? this.removeAfterCursor(r) : this.removeBeforeCursor(r);
-            } else {
-                this.removeBeforeCursor(r);
-            }
+            this.selection.isset() ? this.removeSelection() : this.removeBeforeCursor(r);
             return e && e.cancel();
         },
         9: function(e) {
-            this.insertText(this.tabString());
+            var t = this.tabString();
+            if (this.selection.isset()) {
+                var s = this.selection, i, l;
+                
+                s.correct();
+                this.caret.position(s.start.line, s.start.column);
+                i = s.start.line;
+                l = s.end.line;
+                
+                if (e.shiftKey) {
+                    var dl = this.data.getLine(i);
+                    if (dl.text.indexOf(t) === 0) {
+                        dl.setText(dl.text.substr(t.length));
+                        s.start.column -= t.length;
+                        this.caret.moveX(-t.length);
+                    }
+                    if (l - i++) {
+                        for (; i < l; i++) {
+                            this.data.getLine(i).lbreak(t);
+                        }
+                        dl = this.data.getLine(i);
+                        if (dl.text.indexOf(t) === 0) {
+                            dl.setText(dl.text.substr(t.length));
+                            s.end.column -= t.length;
+                        }
+                    }
+                } else {
+                    for (; i <= l; i++) {
+                        this.data.getLine(i).prepend(t);
+                    }
+                    s.start.column += t.length;
+                    s.end.column += t.length;
+                    this.caret.moveX(t.length);
+                }
+                this.showSelection();
+            } else {
+                e.shiftKey ? this.removeBeforeCursor(t) : this.insertText(t);
+            }
             return e.cancel();
         },
         13: function(e) {
@@ -1638,35 +1731,33 @@ window.CodePrinter = (function($) {
             }
             return e.cancel();
         },
+        16: function() {
+            if (this.selection.start.line == null) {
+                this.selection.setStart(this.caret.line(), this.caret.column());
+            }
+        },
         27: function(e) {
             return e.cancel();
         },
-        37: function() {
-            this.caret.moveX(-1);
-        },
-        38: function() {
-            this.caret.moveY(-1);
-        },
-        39: function() {
-            this.caret.moveX(1);
-        },
-        40: function() {
-            this.caret.moveY(1);
+        37: function(e, c) {
+            c%2 ? this.caret.move(c-38, 0) : this.caret.move(0, c-39);
+            if (e.shiftKey && this.selection.start.line >= 0) {
+                this.selection.setEnd(this.caret.line(), this.caret.column());
+                this.showSelection();
+            } else {
+                this.selection.clear();
+            }
         },
         46: function(e) {
             var t = this.caret.textAfter(),
                 m = t.match(/^ +/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
-            if (this.selection.isset()) {
-                r = this.getSelection().length;
-                this.selection.isInversed() ? this.removeAfterCursor(r) : this.removeBeforeCursor(r);
-            } else {
-                this.removeAfterCursor(r);
-            }
+            this.selection.isset() ? this.removeSelection() : this.removeAfterCursor(r);
             return e.cancel();
         }
     };
+    keydownMap.prototype[40] = keydownMap.prototype[39] = keydownMap.prototype[38] = keydownMap.prototype[37];
     
     keypressMap = function() {};
     keypressMap.prototype = {
@@ -1737,6 +1828,52 @@ window.CodePrinter = (function($) {
         },
         82: function() {
             this.forcePrint();
+        },
+        187: function() {
+            var id = this.mainElement.id;
+            if (this.sizes.fontSize < this.options.maxFontSize) {
+                this.wrapper.style.fontSize = (++this.sizes.fontSize)+'px';
+                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
+                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(++this.sizes.lineHeight)+'px;');
+                this.caret.refresh();
+            }
+        },
+        189: function() {
+            var id = this.mainElement.id;
+            if (this.sizes.fontSize > this.options.minFontSize) {
+                this.wrapper.style.fontSize = (--this.sizes.fontSize)+'px';
+                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
+                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(--this.sizes.lineHeight)+'px;');
+                this.caret.refresh();
+            }
+        },
+        229: function() {
+            if (this.parser && this.parser.comment) {
+                var c = this.parser.comment,
+                    m = '[text content]',
+                    i = c.indexOf(m), j,
+                    s = c, e = '', x,
+                    t = this.caret.textAtCurrentLine(),
+                    l = this.caret.column();
+                
+                if (i !== -1) {
+                    s = c.substr(0, i);
+                    e = c.substr(i+m.length);
+                }    
+                j = t.indexOf(s);
+                if (j !== -1) {
+                    var k = e ? t.indexOf(e, j+s.length) : t.length;
+                    t = t.substring(0, j) + t.substring(j+s.length, k);
+                    x = l > j ? l > j+s.length ? -s.length : -l+j : 0;
+                } else {
+                    var k = -1;
+                    while (t[++k] == ' ');
+                    t = t.substring(0, k) + s + t.substr(k) + e;
+                    x = l >= k ? s.length : 0;
+                }
+                this.data.getLine(this.caret.line()).setText(t);
+                x && this.caret.moveX(x);
+            }
         }
     };
     
@@ -1746,17 +1883,22 @@ window.CodePrinter = (function($) {
             this.selection.setStart(0, 0).setEnd(ls, this.data.getTextAtLine(ls).length);
             this.showSelection();
             this.emit('cmd.selectAll');
+            return false;
         },
         67: function() {
             this.emit('cmd.copy');
+            return false;
         },
         86: function() {
+            this.removeSelection();
             this.emit('cmd.paste');
+            return true;
         },
         88: function() {
             this.keydownMap.touch(8, this, null);
             this.selection.clear();
             this.emit('cmd.cut');
+            return true;
         }
     };
 
@@ -1786,6 +1928,11 @@ window.CodePrinter = (function($) {
             this.end.column = column;
             return this;
         },
+        setRange: function(sl, sc, el, ec) {
+            this.setStart(sl, sc);
+            this.setEnd(el, ec);
+            return this;
+        },
         getStart: function() {
             return this.isInversed() ? this.end : this.start;
         },
@@ -1794,6 +1941,13 @@ window.CodePrinter = (function($) {
         },
         isInversed: function() {
             return this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column);
+        },
+        correct: function() {
+            if (this.isInversed()) {
+                var t = this.start;
+                this.start = this.end;
+                this.end = t;
+            }
         },
         isset: function() {
             return this.start.line >= 0 && this.end.line >= 0;

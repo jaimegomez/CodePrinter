@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   LESS(CSS) document
 *   
-*   version     0.5.2
+*   version     0.5.4
 */
 
 @backgroundColor:       rgb(255,255,255);
@@ -36,6 +36,12 @@
         .flexbox;
         .flex-flow(column);
         position:relative;
+        font-family:@font;
+        font-size:@fontSize;
+        
+        * {
+            font:inherit;
+        }
         
         .cp-templine {
             .inline-block;
@@ -139,7 +145,7 @@
         .shadow(0 0 10px rgba(0,0,0,0.25));
         .user-select(none);
         color:@textColor;
-        min-width:38px;
+        min-width:15px;
         z-index:6;
         overflow:hidden;
         position:absolute;
@@ -151,12 +157,11 @@
             .block;
             .margins(0, @paddingY 0);
             .align-right;
-            min-width:38px;
             list-style-type:none;
         }
         
         li {
-            .margins(0, 0 5px 0 7px);
+            .margins(0, 0 5px 0 20px);
             .align-right;
             color:inherit;
             font-family:inherit;
@@ -293,14 +298,6 @@
         z-index:100;
     }
     
-    .cp-wrapper, .cp-counter {
-        font-family:@font;
-        font-size:@fontSize;
-        
-        * {
-            font:inherit;
-        }
-    }
     .cp-screen, .cp-source, .cp-input, .cp-counter, .cp-overlay {
         word-break:normal;
         word-spacing:0px;
