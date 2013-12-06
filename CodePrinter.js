@@ -1178,6 +1178,11 @@ window.CodePrinter = (function($) {
                     var newWindow = window.open('', '_blank');
                     newWindow.document.writeln('<pre style="font-size:12px;">' + encodeEntities(cp.data.toString()) + '</pre>');
                 }
+            },
+            fullscreen: {
+                func: function() {
+                    cp.isFullscreen ? cp.exitFullscreen() : cp.enterFullscreen();
+                }
             }
         };
         
