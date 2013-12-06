@@ -657,6 +657,7 @@ window.CodePrinter = (function($) {
                 document.body.append(main);
                 this.isFullscreen = true;
                 this.render();
+                this.caret.refresh();
             }
         },
         exitFullscreen: function() {
@@ -668,6 +669,7 @@ window.CodePrinter = (function($) {
                 delete this.tempnode;
                 this.isFullscreen = false;
                 this.render();
+                this.caret.refresh();
             }
         },
         openCounter: function() {
