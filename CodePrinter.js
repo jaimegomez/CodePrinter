@@ -1353,6 +1353,7 @@ window.CodePrinter = (function($) {
             }
         },
         scrollToActive: function() {
+            this.root.infobar && this.root.infobar.update(this.searchResults.length ? (this.searchResults.g+1)+' of '+this.searchResults.length+' matches' : 'Unable to find '+this.searched);
             this.root.wrapper.scrollTo( 
                 parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
                 parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
