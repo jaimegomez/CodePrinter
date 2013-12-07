@@ -294,7 +294,7 @@
   margin: 0 5px;
   padding: 0;
 }
-.codeprinter .cpi-bar .cpi-position {
+.codeprinter .cpi-bar .cpi-info {
   -webkit-flex: 1;
   -moz-flex: 1;
   -ms-flex: 1;

@@ -1160,16 +1160,16 @@ window.CodePrinter = (function($) {
     InfoBar = function(cp) {
         var mode = document.createElement('span').addClass('cpi-mode'),
             act = document.createElement('span').addClass('cpi-actions'),
-            pos = document.createElement('span').addClass('cpi-position');
+            info = document.createElement('span').addClass('cpi-info');
         
         mode.innerHTML = cp.options.mode;
-        this.element = document.createElement('div').addClass('cpi-bar').append(mode, act, pos);
+        this.element = document.createElement('div').addClass('cpi-bar').append(mode, act, info);
         this.root = cp;
         
         this.segments = {
             mode: mode,
             actions: act,
-            position: pos
+            info: info
         };
         
         this.actions = {
@@ -1193,7 +1193,7 @@ window.CodePrinter = (function($) {
         if (cp.caret) {
             cp.caret.on({
                 'position:changed': function() {
-                    pos.innerHTML = 'Line ' + (this.line()+1) + ', Column ' + (this.column()+1);
+                    info.innerHTML = 'Line ' + (this.line()+1) + ', Column ' + (this.column()+1);
                 }
             });
         }
@@ -1213,6 +1213,9 @@ window.CodePrinter = (function($) {
                 element: el
             };
             return el;
+        },
+        update: function(str) {
+            this.segments.info.innerHTML = str;
         }
     };
     
