@@ -1310,24 +1310,27 @@ window.CodePrinter = (function($) {
                     while (value && (index = value.indexOf(find)) !== -1) {
                         var span = document.createElement('span').addClass('cpf-occurrence');
                         span.textContent = span.innerText = span.innerHTML = find;
+                        ln = ln + index;
                         span.extend({ position: {
                             ls: line, 
-                            cs: ln+index,
+                            cs: ln,
                             le: line,
-                            ce: ln+index + find.length
+                            ce: ln + find.length
                         }});
                         span.style.extend({
                             width: (siz.charWidth * find.length) + 'px',
                             height: siz.lineHeight + 'px',
                             top: (siz.paddingTop + line * siz.lineHeight + 1) + 'px',
-                            left: (siz.paddingLeft + siz.charWidth * (ln + index) + 1) + 'px'
+                            left: (siz.paddingLeft + siz.charWidth * ln + 1) + 'px'
                         });
                         this.push(span);
-                        value = value.substr((ln = index + find.length));
+                        ln = ln + find.length;
+                        value = value.substr(index + find.length);
                     }
                 }
                 this.searched = find;
                 this.searchResults.removeClass('active').get(0).addClass('active');
+                this.scrollToActive();
             }
         },
         reload: function() {
