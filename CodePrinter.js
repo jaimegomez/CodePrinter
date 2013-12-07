@@ -920,22 +920,22 @@ window.CodePrinter = (function($) {
             },
             position: function(l, c, t) {
                 if (l == null && c == null) {
-                    return { line: line + 1, column: before.length + 1 };
+                    return { line: line ? line + 1 : 1, column: before ? (before.length || 0) + 1 : 1 };
                 } else {
-                    typeof l !== 'number' && (l = line);
+                    typeof l !== 'number' && (l = line || 0);
                     l = Math.max(Math.min(l, cp.data.lines - 1), 0);
                     typeof t !== 'string' && (t = cp.data.getLine(l).getElementText());
-                    typeof c !== 'number' && (c = column);
+                    typeof c !== 'number' && (c = column || 0);
                     c < 0 && (c = t.length + c + 1);
                     
                     var x = cp.sizes.charWidth * Math.min(c, t.length),
                         y = cp.sizes.lineHeight * l;
                     
-                    if (line != l) {
+                    if (line !== l) {
                         this.emit('line:changed', { current: l, last: line });
                         line = l;
                     }
-                    if (column != c) {
+                    if (column !== c) {
                         this.emit('column:changed', { current: c, last: column });
                         column = c;
                     }
@@ -981,7 +981,7 @@ window.CodePrinter = (function($) {
             },
             refresh: function() {
                 cp.sizes.charWidth = getTextSize(cp, 'c').width;
-                return this.position(line, column);
+                return this.position(line || 0, column || 0);
             },
             line: function() {
                 return line;
