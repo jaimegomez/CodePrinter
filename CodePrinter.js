@@ -1749,6 +1749,7 @@ window.CodePrinter = (function($) {
             }
         },
         27: function(e) {
+            this.isFullscreen && this.exitFullscreen();
             return e.cancel();
         },
         37: function(e, c) {
