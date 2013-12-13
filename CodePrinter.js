@@ -810,7 +810,9 @@ window.CodePrinter = (function($) {
             var r = [], h = 0, t = 0, i = 0;
             for (; h < this.length; h++) {
                 for (; t < this[h].length; t++) {
-                    r.push.apply(r, this[h][t].map('text'));
+                    r.push.apply(r, this[h][t].map(function(obj) {
+                        return obj.text;
+                    }));
                 }
             }
             return r.join(eol);
