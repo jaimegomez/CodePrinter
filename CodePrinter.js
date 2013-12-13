@@ -83,6 +83,7 @@ window.CodePrinter = (function($) {
             if (e.type === 'mousedown') {
                 var th = this;
                 d = true;
+                self.input.value = '';
                 self.caret.deactivate().show();
                 self.selection.setStart(l, c);
                 self.emit('caret:initialized');
