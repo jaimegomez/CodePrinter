@@ -684,7 +684,7 @@ window.CodePrinter = (function($) {
             this.wrapper.style.marginLeft = (this.sizes.counterWidth = this.counter.parent.offsetWidth) + 'px';
         },
         closeCounter: function() {
-            this.counter && this.counter.parent().remove();
+            this.counter && this.counter.parent.remove();
             this.wrapper.style.marginLeft = (this.sizes.counterWidth = 0) + 'px';
         },
         openInfobar: function() {
