@@ -760,7 +760,7 @@ window.CodePrinter = (function($) {
             return parseInt(''+ h + t + (this[h][t].length - 1));
         },
         indexOf: function(dl) {
-            var h , d, i = -1;
+            var h, d, i = -1;
             for (h = 0; h < this.length; h++) {
                 for (d = 0; d < this[h].length; d++) {
                     if ((i = this[h][d].indexOf(dl)) !== -1) {
@@ -771,9 +771,9 @@ window.CodePrinter = (function($) {
             return i;
         },
         toString: function() {
-            var r = [], h = 0, t = 0, i = 0;
+            var r = [], h = 0, t;
             for (; h < this.length; h++) {
-                for (; t < this[h].length; t++) {
+                for (t = 0; t < this[h].length; t++) {
                     r.push.apply(r, this[h][t].map(function(obj) {
                         return obj.text;
                     }));
