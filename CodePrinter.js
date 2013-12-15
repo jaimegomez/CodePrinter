@@ -477,6 +477,10 @@ window.CodePrinter = (function($) {
         getCurrentLine: function() {
             return this.caret.line();
         },
+        getTextAtLine: function(line) {
+            var l = this.data.getLine(line);
+            return l ? l.text.replaceAll('\t', this.tabString()) : '';
+        },
         textBeforeCursor: function(i) {
             var bf = this.caret.textBefore();
             return i > 0 ? bf.slice(-i) : bf;
@@ -579,7 +583,7 @@ window.CodePrinter = (function($) {
                     while (arg > af.length && l+1 < this.data.lines) {
                         this.caret.setTextAfter('');
                         arg = arg - af.length - 1;
-                        af = this.data.getTextAtLine(l+1);
+                        af = this.getTextAtLine(l+1);
                         this.removeLine(l+1);
                     }
                     this.caret.setTextAtCurrentLine(bf, af.substr(arg));
@@ -594,13 +598,13 @@ window.CodePrinter = (function($) {
                     e = this.selection.getEnd();
                 
                 if (s.line != e.line) {
-                    var t = this.data.getTextAtLine(s.line).substr(s.column) + eol
+                    var t = this.getTextAtLine(s.line).substr(s.column) + eol
                     for (var i = s.line + 1; i < e.line; i++) {
-                        t = t + this.data.getTextAtLine(i) + eol;
+                        t = t + this.getTextAtLine(i) + eol;
                     }
-                    return t + this.data.getTextAtLine(e.line).substring(0, e.column);
+                    return t + this.getTextAtLine(e.line).substring(0, e.column);
                 } else {
-                    return this.data.getTextAtLine(s.line).substring(s.column, e.column);
+                    return this.getTextAtLine(s.line).substring(s.column, e.column);
                 }
             }
             return '';
@@ -781,10 +785,6 @@ window.CodePrinter = (function($) {
                 return this[p[2]][p[1]][p[0]] || null;
             }
             return null;
-        },
-        getTextAtLine: function(line) {
-            var l = this.getLine(line);
-            return l ? l.text : false;
         },
         setParsedAtLine: function(line, str) {
             var l = this.getLine(line);
@@ -1307,7 +1307,7 @@ window.CodePrinter = (function($) {
             
             if (find) {
                 for (; line < root.data.lines; line++) {
-                    value = root.data.getTextAtLine(line);
+                    value = root.getTextAtLine(line);
                     ln = 0;
                     
                     while (value && (index = value.indexOf(find)) !== -1) {
@@ -1896,7 +1896,7 @@ window.CodePrinter = (function($) {
     commands = {
         65: function() {
             var ls = this.data.lines - 1;
-            this.selection.setStart(0, 0).setEnd(ls, this.data.getTextAtLine(ls).length);
+            this.selection.setStart(0, 0).setEnd(ls, this.getTextAtLine(ls).length);
             this.showSelection();
             this.emit('cmd.selectAll');
             return false;
