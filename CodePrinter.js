@@ -59,8 +59,8 @@ window.CodePrinter = (function($) {
         options.infobar && self.openInfobar();
         options.showFinder && self.openFinder();
         
-        options.fontSize != 11 && options.fontSize > 0 && (screen.style.fontSize = parseInt(options.fontSize) + 'px');
-        options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;');
+        options.fontSize != 11 && options.fontSize > 0 && this.setFontSize(options.fontSize);
+        options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
         options.width > 0 && (self.wrapper.style.width = parseInt(options.width) + 'px');
         options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
         self.measureSizes();
@@ -423,6 +423,20 @@ window.CodePrinter = (function($) {
             this.theme ? this.mainElement.removeClass('cps-'+this.theme) : 0;
             this.mainElement.addClass('cps-'+name);
             this.theme = name;
+        },
+        setFontSize: function(size) {
+            if (size >= this.options.minFontSize && size <= this.options.maxFontSize) {
+                var id = this.mainElement.id;
+                this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
+                size > this.options.fontSize ? ++this.sizes.lineHeight : size < this.options.fontSize ? --this.sizes.lineHeight : 0;
+                
+                id = '#'+id+' .cp-';
+                this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
+                this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
+                
+                this.wrapper.style.fontSize = (this.options.fontSize = size)+'px';
+                this.caret.refresh();
+            }
         },
         getCurrentLine: function() {
             return this.caret.line();
@@ -1796,22 +1810,10 @@ window.CodePrinter = (function($) {
             this.forcePrint();
         },
         187: function() {
-            var id = this.mainElement.id;
-            if (this.sizes.fontSize < this.options.maxFontSize) {
-                this.wrapper.style.fontSize = (++this.sizes.fontSize)+'px';
-                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
-                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(++this.sizes.lineHeight)+'px;');
-                this.caret.refresh();
-            }
+            this.setFontSize(this.options.fontSize+1);
         },
         189: function() {
-            var id = this.mainElement.id;
-            if (this.sizes.fontSize > this.options.minFontSize) {
-                this.wrapper.style.fontSize = (--this.sizes.fontSize)+'px';
-                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
-                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(--this.sizes.lineHeight)+'px;');
-                this.caret.refresh();
-            }
+            this.setFontSize(this.options.fontSize-1);
         },
         229: function() {
             if (this.parser && this.parser.comment) {
