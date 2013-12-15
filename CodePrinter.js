@@ -1931,12 +1931,14 @@ window.CodePrinter = (function($) {
             this.element.innerHTML = '';
             this.start = {};
             this.end = {};
+            this.emit('canceled');
             return this;
         },
         setStart: function(line, column) {
-            this.clear();
+            this.element.innerHTML != '' && this.clear();
             this.start.line = line;
             this.start.column = column;
+            this.emit('started');
             return this;
         },
         setEnd: function(line, column) {
