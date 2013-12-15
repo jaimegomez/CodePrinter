@@ -780,6 +780,17 @@ window.CodePrinter = (function($) {
                 }
             }
             return r.join(eol);
+        },
+        foreach: function(f) {
+            var h = 0, t, i;
+            for (; h < this.length; h++) {
+                for (t = 0; t < this[h].length; t++) {
+                    for (i = 0; i < this[h][t].length; i++) {
+                        f.call(this[h][t][i], this.data);
+                    }
+                }
+            }
+            return this;
         }
     });
     
