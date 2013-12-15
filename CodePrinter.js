@@ -284,56 +284,6 @@ window.CodePrinter = (function($) {
     
     CodePrinter.prototype = {
         isFullscreen: false,
-        prepare: function() {
-            if (options.highlightBrackets) {
-                screen.delegate('click', '.cp-bracket', function() {
-                    overlay.find('.cp-highlight').removeClass('cp-highlight');
-                    
-                    var spans = screen.find('span.cp-bracket'),
-                        cls = this.hasClass('cp-curly') ? 'cp-curly' : this.hasClass('cp-round') ? 'cp-round' : this.hasClass('cp-square') ? 'cp-square' : false,
-                        index = 0, j = 0, span;
-                    
-                    if (cls === false) {
-                        return false;
-                    }
-                    spans = spans.filter('.'+cls);
-                    
-                    index = spans.indexOf(this);
-                    if (index === -1) {
-                        return false;
-                    }
-                    
-                    if (this.hasClass('cp-open')) {
-                        for (var i = index+1; i < spans.length; i++) {
-                            span = spans.eq(i);
-                            if (span.hasClass('cp-close')) {
-                                if (j === 0) {
-                                    span.addClass('cp-highlight');
-                                    break;
-                                } else {
-                                    j--;
-                                }
-                            } else {
-                                j++;
-                            }
-                        }
-                    } else {
-                        for (var i = index-1; i >= 0; i--) {
-                            span = spans.eq(i);
-                            if (span.hasClass('cp-open')) {
-                                if (j === 0) {
-                                    span.addClass('cp-highlight');
-                                    break;
-                                } else {
-                                    j--;
-                                }
-                            } else {
-                                j++;
-                            }
-                        }
-                    }
-                    this.addClass('cp-highlight');
-                });
             }
         },
         measureSizes: function() {
