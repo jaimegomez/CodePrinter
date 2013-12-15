@@ -268,7 +268,7 @@ window.CodePrinter = (function($) {
         lineNumbers: true,
         infobar: false,
         infobarOnTop: true,
-        showIndent: true,
+        showIndentation: true,
         scrollable: true,
         highlightBrackets: false,
         highlightCurrentLine: true,
@@ -449,7 +449,7 @@ window.CodePrinter = (function($) {
                     
                     var p = this.parser.fn(stream).parsed, i = -1;
                     while (++i < p.length) {
-                        p[i] = this.options.showIndent ? indentGrid(p[i], this.options.tabWidth) : p[i];
+                        p[i] = this.options.showIndentation ? indentGrid(p[i]) : p[i];
                         data.getLine(line+i).setParsed(p[i]);
                     }
                 }
