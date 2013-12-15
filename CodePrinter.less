@@ -16,6 +16,21 @@
 @lineHeight:            15px;
 @indentBorder:          1px dotted rgb(200,200,200);
 
+
+.codeprinter-source {
+    display:block;
+    padding:@paddingY @paddingX;
+    background:@backgroundColor;
+    border:1px solid @borderColor;
+    color:@textColor;
+    font-family:@font;
+    font-size:@fontSize;
+    line-height:@lineHeight;
+    word-break:normal;
+    word-spacing:0px;
+    word-wrap:normal;
+    white-space:pre;
+}
 .codeprinter {
     .block;
     .nowrap;
@@ -35,6 +50,7 @@
         .block;
         .flexbox;
         .flex-flow(column);
+        .size(auto, 100%);
         position:relative;
         font-family:@font;
         font-size:@fontSize;
@@ -74,24 +90,6 @@
         * {
             cursor:inherit;
         }
-    }
-    .cp-source {
-        .block;
-        .margins(0, @paddingY @paddingX);
-        .sizing(border-box);
-        background:none;
-        border-width:0;
-        min-width:100%;
-        min-height:100%;
-        color:black;
-        resize:none;
-        outline:none;
-        z-index:3;
-        overflow:visible !important;
-        overflow-x:visible !important;
-        overflow-y:visible !important;
-        white-space:pre;
-        position:relative;
     }
     .cp-input {
         .inline-block;
@@ -209,6 +207,7 @@
         
         span {
             .margins(0 5px);
+            font-size:9px;
         }
         .cpi-info {
             .flex(1);
@@ -217,7 +216,9 @@
         a {
             .margins(0 5px, 0);
             .transition(.3s, color);
+            font-size:9px;
             color:inherit;
+            box-sizing:content-box;
             
             &:hover {
                 color:(@textColor - #333);
@@ -265,6 +266,8 @@
         .inline-block;
         .vertical-middle;
         .margins(0, 3px 5px);
+        .size(auto, auto);
+        .shadow(none);
         background:none;
         border-width:0;
         font-size:inherit;
@@ -298,13 +301,13 @@
         z-index:100;
     }
     
-    .cp-screen, .cp-source, .cp-input, .cp-counter, .cp-overlay {
+    .cp-screen, .cp-input, .cp-counter, .cp-overlay {
         word-break:normal;
         word-spacing:0px;
         word-wrap:normal;
         white-space:pre;
     }
-    .cp-screen pre, .cp-source, .cp-input, .cp-counter, .cp-selection {
+    .cp-screen pre, .cp-input, .cp-counter, .cp-selection {
         line-height:@lineHeight;
     }
     .cp-screen pre, .cp-counter li, .cp-overlay span {

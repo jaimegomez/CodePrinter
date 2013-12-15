@@ -3,6 +3,20 @@
 *   
 *   version     0.5.4
 */
+.codeprinter-source {
+  display: block;
+  padding: 5px 15px;
+  background: #ffffff;
+  border: 1px solid #c0c0c0;
+  color: #777777;
+  font-family: Menlo, Monaco, monospace, Courier;
+  font-size: 11px;
+  line-height: 15px;
+  word-break: normal;
+  word-spacing: 0px;
+  word-wrap: normal;
+  white-space: pre;
+}
 .codeprinter {
   display: block;
   white-space: nowrap;
@@ -34,6 +48,8 @@
   -ms-flex-flow: column;
   -o-flex-flow: column;
   flex-flow: column;
+  width: auto;
+  height: 100%;
   position: relative;
   font-family: Menlo, Monaco, monospace, Courier;
   font-size: 11px;
@@ -90,29 +106,6 @@
 }
 .codeprinter .cp-wrapper * {
   cursor: inherit;
-}
-.codeprinter .cp-source {
-  display: block;
-  margin: 0;
-  padding: 5px 15px;
-  -webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
-  -ms-box-sizing: border-box;
-  -o-box-sizing: border-box;
-  box-sizing: border-box;
-  background: none;
-  border-width: 0;
-  min-width: 100%;
-  min-height: 100%;
-  color: black;
-  resize: none;
-  outline: none;
-  z-index: 3;
-  overflow: visible !important;
-  overflow-x: visible !important;
-  overflow-y: visible !important;
-  white-space: pre;
-  position: relative;
 }
 .codeprinter .cp-input {
   display: inline-block;
@@ -293,6 +286,7 @@
 .codeprinter .cpi-bar span {
   margin: 0 5px;
   padding: 0;
+  font-size: 9px;
 }
 .codeprinter .cpi-bar .cpi-info {
   -webkit-flex: 1;
@@ -310,7 +304,9 @@
   -ms-transition: color 0.3s ease-in-out;
   -o-transition: color 0.3s ease-in-out;
   transition: color 0.3s ease-in-out;
+  font-size: 9px;
   color: inherit;
+  box-sizing: content-box;
 }
 .codeprinter .cpi-bar a:hover {
   color: #444444;
@@ -398,6 +394,13 @@
   vertical-align: middle;
   margin: 0;
   padding: 3px 5px;
+  width: auto;
+  height: auto;
+  -webkit-box-shadow: none;
+  -moz-box-shadow: none;
+  -ms-box-shadow: none;
+  -o-box-shadow: none;
+  box-shadow: none;
   background: none;
   border-width: 0;
   font-size: inherit;
@@ -451,7 +454,6 @@
   z-index: 100;
 }
 .codeprinter .cp-screen,
-.codeprinter .cp-source,
 .codeprinter .cp-input,
 .codeprinter .cp-counter,
 .codeprinter .cp-overlay {
@@ -461,7 +463,6 @@
   white-space: pre;
 }
 .codeprinter .cp-screen pre,
-.codeprinter .cp-source,
 .codeprinter .cp-input,
 .codeprinter .cp-counter,
 .codeprinter .cp-selection {
