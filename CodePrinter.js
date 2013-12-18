@@ -196,21 +196,6 @@ window.CodePrinter = (function($) {
             }
         });
         
-        self.data.on({
-            'text:changed': function(e) {
-                self.parse(e.dataLine);
-                self.caret.refresh();
-            },
-            'line:added': function() {
-                var s = self.screen.element;
-                s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-            },
-            'line:removed': function() {
-                var s = self.screen.element;
-                s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-            }
-        });
-        
         self.on({
             'removed.before': function(t) {
                 var p = self.parser;
@@ -236,7 +221,7 @@ window.CodePrinter = (function($) {
             }
         });
         
-        self.print();
+        self.init(data);
         
         return self;
     };
@@ -278,7 +263,35 @@ window.CodePrinter = (function($) {
     
     CodePrinter.prototype = {
         isFullscreen: false,
+        init: function(source) {
+            this.data = new Data();
+            source = decodeEntities(source).split(eol);
+            this.screen.lastLine !== -1 && this.screen.removeLines();
+            
+            var self = this, i = -1, l = source.length, tab = this.tabString();
+            
+            while (++i < l) {
+                this.data.addLine(i, source[i].replaceAll(tab, '\t'));
             }
+            
+            self.data.on({
+                'text:changed': function(e) {
+                    self.parse(e.dataLine);
+                    self.caret.refresh();
+                },
+                'line:added': function() {
+                    var s = self.screen.element;
+                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+                },
+                'line:removed': function() {
+                    var s = self.screen.element;
+                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+                }
+            });
+            
+            self.print();
+            
+            return this;
         },
         measureSizes: function() {
             var sizes = this.sizes,
@@ -674,15 +687,6 @@ window.CodePrinter = (function($) {
     };
     Data.prototype = [].extend({
         lines: 0,
-        init: function(value) {
-            value = value.split(eol);
-            var i = -1, l = value.length;
-            
-            while (++i < l) {
-                this.addLine(i, value[i]);
-            }
-            return this;
-        },
         addLine: function(line, txt) {
             var b, i, p = getDataLinePosition(line),
                 u = p[0], t = p[1], h = p[2],
