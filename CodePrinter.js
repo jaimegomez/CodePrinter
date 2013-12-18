@@ -392,7 +392,7 @@ window.CodePrinter = (function($) {
                     if (dl.startPoint) {
                         return this.parse(dl.startPoint, true);
                     }
-                    var tmp = line, p,
+                    var tmp = line, tabString = this.tabString(), p,
                         stream = new Stream(dl.text);
                     
                     stream.getNextLine = function() {
@@ -407,6 +407,7 @@ window.CodePrinter = (function($) {
                     var p = this.parser.fn(stream).parsed, i = -1;
                     while (++i < p.length) {
                         p[i] = this.options.showIndentation ? indentGrid(p[i]) : p[i];
+                        p[i] = p[i].replaceAll('\t', tabString);
                         data.getLine(line+i).setParsed(p[i]);
                     }
                 }
@@ -867,7 +868,7 @@ window.CodePrinter = (function($) {
                 if (before !== str) {
                     before = str;
                     this.emit('text:changed');
-                    this.position(line, str.length);
+                    this.position(line, str.replaceAll('\t', cp.tabString()).length);
                 }
                 return this;
             },
@@ -886,15 +887,15 @@ window.CodePrinter = (function($) {
                     before = bf;
                     after = af;
                     this.emit('text:changed');
-                    this.position(line, bf.length);
+                    this.position(line, bf.replaceAll('\t', cp.tabString()).length);
                 }
                 return this;
             },
             textBefore: function() {
-                return before;
+                return before.replaceAll('\t', cp.tabString());
             },
             textAfter: function() {
-                return after;
+                return after.replaceAll('\t', cp.tabString());
             },
             textAtCurrentLine: function() {
                 return before + after;
@@ -909,7 +910,8 @@ window.CodePrinter = (function($) {
                     typeof c !== 'number' && (c = column || 0);
                     c < 0 && (c = t.length + c + 1);
                     
-                    var x = cp.sizes.charWidth * Math.min(c, t.length),
+                    var tabString = cp.tabString(),
+                        x = cp.sizes.charWidth * Math.min(c, t.length),
                         y = cp.sizes.lineHeight * l;
                     
                     if (line !== l) {
@@ -921,28 +923,39 @@ window.CodePrinter = (function($) {
                         column = c;
                     }
                     
-                    before = t.substring(0, c);
-                    after = t.substr(c);
+                    before = t.substring(0, c).replaceAll(tabString, '\t');
+                    after = t.substr(c).replaceAll(tabString, '\t');
                     cp.selectLine(l);
+                    
+                    for (var s in this.tracking) {
+                        var a = before.endsWith(s), b = after.startsWith(s);
+                        if (a + b) {
+                            var r = this.tracking[s].call(this, cp, s, a, b);
+                            if (!r) {
+                                break;
+                            }
+                        }
+                    }
                     
                     return this.setPixelPosition(x, y);
                 }
                 return this;
             },
             moveX: function(mv) {
-                var abs, l, t, cl = line;
+                var abs, t, cl = line,
+                    bf = this.textBefore(),
+                    af = this.textAfter();
                 
-                mv >= 0 || cl === 0 ? (abs = mv) && (t = after) : (abs = Math.abs(mv)) && (t = before);
+                mv >= 0 || cl === 0 ? (abs = mv) && (t = af) : (abs = Math.abs(mv)) && (t = bf);
                 
                 if (abs <= t.length) {
-                    return this.position(cl, Math.max(0, Math.min((before + after).length, column + mv)));
+                    return this.position(cl, Math.max(0, Math.min((bf + af).length, column + mv)));
                 }
                 while (abs > t.length) {
                     abs = abs - t.length - 1;
                     cl = cl + (mv > 0) - (mv < 0);
-                    l = cp.data.getLine(cl);
-                    if (l != null) {
-                        t = l.getElementText();
+                    if (cl < cp.data.lines) {
+                        t = cp.getTextAtLine(cl);
                     } else {
                         if (mv >= 0) {
                             --cl;
@@ -968,7 +981,7 @@ window.CodePrinter = (function($) {
                 return line;
             },
             column: function() {
-                return before.length;
+                return this.textBefore().length;
             }
         });
     };
@@ -1665,14 +1678,14 @@ window.CodePrinter = (function($) {
         },
         8: function(e) {
             var t = this.caret.textBefore(),
-                m = t.match(/ +$/),
+                m = t.match(/\t+$/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
             this.selection.isset() ? this.removeSelection() : this.removeBeforeCursor(r);
             return e && e.cancel();
         },
         9: function(e) {
-            var t = this.tabString();
+            var t = '\t', w = this.options.tabWidth;
             if (this.selection.isset()) {
                 var s = this.selection, i, l;
                 
@@ -1684,9 +1697,9 @@ window.CodePrinter = (function($) {
                 if (e.shiftKey) {
                     var dl = this.data.getLine(i);
                     if (dl.text.indexOf(t) === 0) {
-                        dl.setText(dl.text.substr(t.length));
-                        s.start.column -= t.length;
-                        this.caret.moveX(-t.length);
+                        dl.setText(dl.text.substr(w));
+                        s.start.column -= w;
+                        this.caret.moveX(-w);
                     }
                     if (l - i++) {
                         for (; i < l; i++) {
@@ -1694,17 +1707,17 @@ window.CodePrinter = (function($) {
                         }
                         dl = this.data.getLine(i);
                         if (dl.text.indexOf(t) === 0) {
-                            dl.setText(dl.text.substr(t.length));
-                            s.end.column -= t.length;
+                            dl.setText(dl.text.substr(w));
+                            s.end.column -= w;
                         }
                     }
                 } else {
                     for (; i <= l; i++) {
                         this.data.getLine(i).prepend(t);
                     }
-                    s.start.column += t.length;
-                    s.end.column += t.length;
-                    this.caret.moveX(t.length);
+                    s.start.column += w;
+                    s.end.column += w;
+                    this.caret.moveX(w);
                 }
                 this.showSelection();
             } else {
@@ -1713,7 +1726,7 @@ window.CodePrinter = (function($) {
             return e.cancel();
         },
         13: function(e) {
-            var t = this.caret.textBefore().match(/^ +/),
+            var t = this.caret.textBefore().match(/^\t+/),
                 a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
             
             if (this.textBeforeCursor(1) === '{') {
@@ -1744,7 +1757,7 @@ window.CodePrinter = (function($) {
         },
         46: function(e) {
             var t = this.caret.textAfter(),
-                m = t.match(/^ +/),
+                m = t.match(/^\t+/),
                 r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
             
             this.selection.isset() ? this.removeSelection() : this.removeAfterCursor(r);
@@ -2000,11 +2013,11 @@ window.CodePrinter = (function($) {
     function encodeEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
     };
-    function indentGrid(text, width) {
-        var pos = text.search(/[^\s]/);
+    function indentGrid(text) {
+        var pos = text.search(/[^\t]/);
         if(pos == -1) pos = text.length;
         var tmp = [ text.substring(0, pos), text.substr(pos) ];
-        tmp[0] = tmp[0].replace(new RegExp("(\\s{"+ width +"})", "g"), '<span class="cp-tab">$1</span>');
+        tmp[0] = tmp[0].replaceAll('\t', '<span class="cp-tab">\t</span>');
         return tmp[0] + tmp[1];
     };
     function isCommandKey(e) {
