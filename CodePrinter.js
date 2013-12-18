@@ -29,31 +29,25 @@ window.CodePrinter = (function($) {
         
         self.caret = new Caret(self);
         buildDOM(self);
-        self.mainElement.codeprinter = self;
-        
-        self.data = new Data();
         self.screen = new Screen(self);
-        self.activeLine = {};
-        self.sizes = {};
+        self.mainElement.CodePrinter = self;
         
         if (element.nodeType) {
             element.before(self.mainElement);
+            self.measureSizes();
             options.extend($.parseData(element.data('codeprinter'), ','));
-            data = element.tagName.toLowerCase() === 'textarea' ? element.value : decodeEntities(element.innerHTML);
-            element.parentNode.removeChild(element);
+            data = element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML;
+            element.remove();
         } else if (typeof element === 'string') {
-            data = decodeEntities(element);
-            options.appendTo && options.appendTo.append(self.mainElement);
+            data = element;
         } else {
             return false;
         }
         
         screen = self.screen.element.addClass('cp-'+options.mode.toLowerCase());
-        sizes = self.sizes;
-        id = $.random(options.randomIDLength);
-        
-        self.setTheme(options.theme);
-        self.mainElement.id = id;
+        id = self.mainElement.id = $.random(options.randomIDLength);
+        sizes = self.sizes = {};
+        self.activeLine = {};
         
         options.lineNumbers && self.openCounter();
         options.infobar && self.openInfobar();
@@ -63,9 +57,8 @@ window.CodePrinter = (function($) {
         options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
         options.width > 0 && (self.wrapper.style.width = parseInt(options.width) + 'px');
         options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
-        self.measureSizes();
         
-        self.data.init(data.replace(/\t/g, this.tabString()));
+        self.setTheme(options.theme);
         
         var mouseController = function(e) {
             if (e.button > 0 || e.which > 1)
@@ -96,6 +89,7 @@ window.CodePrinter = (function($) {
                     return d = e.cancel();
                 });
             } else {
+                self.unselectLine();
                 self.selection.setEnd(l, c);
                 self.showSelection();
                 self.emit('caret:moved');
