@@ -425,6 +425,16 @@ window.CodePrinter = (function($) {
         tabString: function() {
             return Array(this.options.tabWidth+1).join(' ');
         },
+        setTabWidth: function(tw) {
+            if (typeof tw === 'number' && tw >= 0) {
+                var self = this;
+                self.options.tabWidth = tw;
+                
+                self.data.foreach(function() {
+                    self.parse(this, true);
+                });
+            }
+        },
         setTheme: function(name) {
             typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
             name = name.toLowerCase().replace(' ', '-');
