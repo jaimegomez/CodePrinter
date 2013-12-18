@@ -680,6 +680,11 @@ window.CodePrinter = (function($) {
         closeFinder: function() {
             this.finder && this.finder.close();
         }
+        },
+        prependTo: function(node) { return node.prepend(this.mainElement) && this.measureSizes(); },
+        appendTo: function(node) { return node.append(this.mainElement) && this.measureSizes(); },
+        insertBefore: function(node) { return node.before(this.mainElement) && this.measureSizes(); },
+        insertAfter: function(node) { return node.after(this.mainElement) && this.measureSizes(); }
     };
     
     Data = function() {
