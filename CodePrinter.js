@@ -442,6 +442,10 @@ window.CodePrinter = (function($) {
             this.mainElement.addClass('cps-'+name);
             this.theme = name;
         },
+        setMode: function(mode) {
+            this.mainElement.removeClass('cp-'+this.options.mode).addClass('cp-'+mode);
+            this.options.mode = mode;
+        },
         setFontSize: function(size) {
             if (size >= this.options.minFontSize && size <= this.options.maxFontSize) {
                 var id = this.mainElement.id;
