@@ -996,6 +996,31 @@ window.CodePrinter = (function($) {
             },
             column: function() {
                 return this.textBefore().length;
+            },
+            eachCharacter: function(f, bf) {
+                var i = this.textBefore().length, n = 0, r = true,
+                    tabString = cp.tabString();
+                
+                if (bf) {
+                    i--;
+                    while (r !== false && line - n >= 0) {
+                        var t = cp.getTextAtLine(line - n);
+                        n > 0 && (i = t.length - 1);
+                        while (r !== false && i >= 0) {
+                            r = f.call(this, t[i], line - n, 1+i--, cp);
+                        }
+                        n++;
+                    }
+                } else {
+                    while (r !== false && line + n < cp.data.lines) {
+                        var t = cp.getTextAtLine(line + n);
+                        while (r !== false && i < t.length) {
+                            r = f.call(this, t[i], line + n, ++i, cp);
+                        }
+                        i = 0;
+                        n++;
+                    }
+                }
             }
         });
     };
