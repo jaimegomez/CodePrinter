@@ -7,7 +7,7 @@ window.CodePrinter = (function($) {
     var CodePrinter, Data, DataLine, Caret,
         Screen, Counter, InfoBar, Finder, Stream,
         keydownMap, keypressMap, shortcuts, commands,
-        selection, eol, li_clone, pre_clone, selection_span,
+        selection, tracking, eol, li_clone, pre_clone, selection_span,
         DATA_RATIO = 10,
         DATA_MASTER_RATIO = 100;
     
@@ -249,7 +249,7 @@ window.CodePrinter = (function($) {
         infobarOnTop: true,
         showIndentation: true,
         scrollable: true,
-        highlightBrackets: false,
+        highlightBrackets: true,
         highlightCurrentLine: true,
         blinkCaret: true,
         autoScroll: true,
@@ -379,6 +379,8 @@ window.CodePrinter = (function($) {
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
+                this.caret.tracking = new tracking(this);
+                parser.tracking && this.caret.tracking.extend(parser.tracking);
             }
         },
         parse: function(line, force) {
@@ -940,18 +942,19 @@ window.CodePrinter = (function($) {
                     before = t.substring(0, c).replaceAll(tabString, '\t');
                     after = t.substr(c).replaceAll(tabString, '\t');
                     cp.selectLine(l);
+                    this.setPixelPosition(x, y);
                     
                     for (var s in this.tracking) {
                         var a = before.endsWith(s), b = after.startsWith(s);
                         if (a + b) {
-                            var r = this.tracking[s].call(this, cp, s, a, b);
+                            var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
                             if (!r) {
                                 break;
                             }
                         }
                     }
                     
-                    return this.setPixelPosition(x, y);
+                    return this;
                 }
                 return this;
             },
@@ -1990,6 +1993,52 @@ window.CodePrinter = (function($) {
         }
     };
     
+    tracking = function() {};
+    tracking.prototype = {
+        '(': function(cp, key, details) {
+            if (cp.options.highlightBrackets) {
+                var c = details.isAfter, sec = key === '(' ? ')' : String.fromCharCode(key.charCodeAt(0)+2);
+                
+                this.eachCharacter(function(ch, line, column, cp) {
+                    ch == key ? c++ : ch == sec && c--;
+                    if (!c) {
+                        var pos0 = getPositionOf(cp, details.line, details.column),
+                            pos1 = getPositionOf(cp, line, column),
+                            overlay = document.createElement('div').addClass('cp-overlay'),
+                            span0 = createSpan(key, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
+                            span1 = createSpan(ch, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
+                        
+                        overlay.append(span0, span1);
+                        cp.wrapper.append(overlay);
+                        return false;
+                    }
+                });
+            }
+        },
+        ')': function(cp, key, details) {
+            if (cp.options.highlightBrackets) {
+                var c = details.isBefore, sec = key === ')' ? '(' : String.fromCharCode(key.charCodeAt(0)-2);
+                
+                this.eachCharacter(function(ch, line, column, cp) {
+                    ch == key ? c++ : ch == sec && c--;
+                    if (!c) {
+                        var pos0 = getPositionOf(cp, line, column),
+                            pos1 = getPositionOf(cp, details.line, details.column),
+                            overlay = document.createElement('div').addClass('cp-overlay'),
+                            span0 = createSpan(ch, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
+                            span1 = createSpan(key, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
+                        
+                        overlay.append(span0, span1);
+                        cp.wrapper.append(overlay);
+                        return false;
+                    }
+                }, true);
+            }
+        }
+    };
+    tracking.prototype['{'] = tracking.prototype['['] = tracking.prototype['('];
+    tracking.prototype['}'] = tracking.prototype[']'] = tracking.prototype[')'];
+    
     eol = $.browser.windows ? '\r\n' : '\n';
     
     CodePrinter.requireMode = function(req, cb, del) {
@@ -2037,6 +2086,25 @@ window.CodePrinter = (function($) {
         cr = span.getBoundingClientRect();
         pre.parentNode.removeChild(pre);
         return cr;
+    };
+    function getPositionOf(cp, line, column)
+    {
+        return {
+            x: cp.sizes.paddingLeft + (column-1) * cp.sizes.charWidth,
+            y: cp.sizes.paddingTop + line * cp.sizes.lineHeight
+        };
+    };
+    function createSpan(text, classes, top, left, width, height)
+    {
+        var s = document.createElement('span').addClass(classes);
+        s.textContent = text;
+        s.style.extend({
+            top: top + 'px',
+            left: left + 'px',
+            width: width + 'px',
+            height: height + 'px'
+        });
+        return s;
     };
     function getDataLinePosition(line) {
         return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
