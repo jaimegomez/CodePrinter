@@ -230,7 +230,6 @@
 .codeprinter .cp-overlay span {
   margin: 0;
   padding: 0;
-  border-width: 0;
   position: absolute;
 }
 .codeprinter .cp-selection-overlay {
@@ -491,7 +490,7 @@
   border-left: 1px dotted #c8c8c8;
 }
 .codeprinter .cp-highlight {
-  box-shadow: 0 1px 0 black;
+  color: transparent;
 }
 .codeprinter .cp-tab {
   border-left-color: #c8c8c8;
@@ -560,6 +559,9 @@
 }
 .codeprinter.cps-default .cp-activeLine {
   box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+}
+.codeprinter.cps-default .cp-highlight {
+  border-bottom: 1px solid black;
 }
 .codeprinter.cps-default .cp-keyword,
 .codeprinter.cps-default .cp-control,

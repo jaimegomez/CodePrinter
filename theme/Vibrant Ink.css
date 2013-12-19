@@ -7,7 +7,7 @@
 .cps-vibrant-ink .cpf-bar { background:#191919; border-color:#555; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.7); }
 .cps-vibrant-ink .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-vibrant-ink .cp-selection { background:rgba(255,255,255,0.1); }
-.cps-vibrant-ink .cp-highlight { box-shadow:0 1px 0 white; }
+.cps-vibrant-ink .cp-highlight { border-bottom:1px solid white; }
 .cps-vibrant-ink .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-vibrant-ink .cpf-input { background:#373832; border-color:#555; }
 .cps-vibrant-ink .cpf-occurrence { background:#616161; color:#fff; border:none; margin:0; }

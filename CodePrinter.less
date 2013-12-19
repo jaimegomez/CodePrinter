@@ -176,7 +176,6 @@
         
         span {
             .margins(0, 0);
-            border-width:0;
             position:absolute;
         }
     }
@@ -331,7 +330,7 @@
         border-left:@indentBorder;
     }
     
-    .cp-highlight { box-shadow:0 1px 0 black; }
+    .cp-highlight { color:transparent; }
     .cp-tab { border-left-color:rgb(200,200,200); }
     .cp-bracket { color:black; pointer-events:all; }
     .cp-bracket-curly { color:red; }
@@ -356,6 +355,7 @@
     
     &.cps-default {
         .cp-activeLine { box-shadow:0 0 1px 1px rgba(51,153,255,0.5); }
+        .cp-highlight { border-bottom:1px solid black; }
         .cp-keyword, .cp-control, .cp-special, .cp-boolean, .cp-empty-value, .cp-phptag { font-weight:bold; }
         .cp-special, .cp-comment { font-style:italic; }
     }

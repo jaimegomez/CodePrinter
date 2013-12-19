@@ -8,7 +8,7 @@
 .cps-sublime .cpi-bar a:hover { color:#bbb; }
 .cps-sublime .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-sublime .cp-selection { background:rgba(255,255,255,0.4); }
-.cps-sublime .cp-highlight { box-shadow:0 1px 0 white; }
+.cps-sublime .cp-highlight { border-bottom:1px solid white; }
 .cps-sublime .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-sublime .cpf-input { background:#373832; border-color:#555; }
 .cps-sublime .cpf-occurrence { background:#666; color:#fff; border:none; margin:0; }

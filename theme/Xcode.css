@@ -5,6 +5,7 @@
 .cps-xcode .cpi-bar,
 .cps-xcode .cpf-bar { background:#FFFFFF; color:#555555; border-color:#AFBFCF; }
 .cps-xcode .cp-selection { background:#BDD8F2; }
+.cps-xcode .cp-highlight { border-bottom:1px solid black; }
 .cps-xcode .cp-activeLine { background:rgba(200,180,255,0.3); }
 
 .cps-xcode .cp-tab { border-color:#BBBBBB; }
