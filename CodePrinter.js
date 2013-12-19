@@ -315,7 +315,7 @@ window.CodePrinter = (function($) {
             }
         },
         selectLine: function(l) {
-            if (this.options.highlightCurrentLine) {
+            if (this.options.highlightCurrentLine && !this.selection.isset()) {
                 this.unselectLine();
                 this.activeLine.pre = this.data.getLine(l).getElement().addClass('cp-activeLine');
                 this.counter && (this.activeLine.li = this.counter.list.filter(function(item) { return item.innerHTML == l+1; }).addClass('cp-activeLine'));
@@ -624,6 +624,7 @@ window.CodePrinter = (function($) {
             var l = this.getSelection().length;
             this.selection.isInversed() ? this.removeAfterCursor(l) : this.removeBeforeCursor(l);
             this.selection.clear();
+            this.selectLine(this.caret.line());
         },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
@@ -1793,6 +1794,7 @@ window.CodePrinter = (function($) {
             if (e.shiftKey && this.selection.start.line >= 0) {
                 this.selection.setEnd(this.caret.line(), this.caret.column());
                 this.showSelection();
+                this.unselectLine();
             } else {
                 this.selection.clear();
             }
