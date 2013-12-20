@@ -5,7 +5,7 @@
 window.CodePrinter = (function($) {
     
     var CodePrinter, Data, DataLine, Caret,
-        Screen, Counter, InfoBar, Finder, Stream,
+        Screen, Overlay, Counter, InfoBar, Finder, Stream,
         keydownMap, keypressMap, shortcuts, commands,
         selection, tracking, eol, li_clone, pre_clone, selection_span,
         DATA_RATIO = 10,
@@ -48,6 +48,8 @@ window.CodePrinter = (function($) {
         id = self.mainElement.id = $.random(options.randomIDLength);
         sizes = self.sizes = {};
         self.activeLine = {};
+        self.overlays = [];
+        self.selection.overlay = new Overlay(self, 'cp-selection-overlay', false);
         
         options.lineNumbers && self.openCounter();
         options.infobar && self.openInfobar();
@@ -92,6 +94,7 @@ window.CodePrinter = (function($) {
                 self.unselectLine();
                 self.selection.setEnd(l, c);
                 self.showSelection();
+                self.removeOverlays();
                 self.emit('caret:moved');
             }
             $.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus();
@@ -115,6 +118,7 @@ window.CodePrinter = (function($) {
                     self.caret.deactivate().hide();
                     self.unselectLine();
                     self.selection.clear();
+                    self.removeOverlays();
                 }
             },
             keydown: function(e) {
@@ -188,6 +192,7 @@ window.CodePrinter = (function($) {
                     
                     wrapper.scrollTo(x, y, self.options.autoScrollSpeed);
                 }
+                self.removeOverlays();
             },
             'line:changed': function(e) {
                 if (self.options.highlightCurrentLine) {
@@ -598,7 +603,7 @@ window.CodePrinter = (function($) {
             return '';
         },
         showSelection: function() {
-            var span, sel, el = this.selection.element,
+            var span, sel, ov = this.selection.overlay,
                 s = this.selection.getStart(),
                 e = this.selection.getEnd();
             
@@ -607,16 +612,16 @@ window.CodePrinter = (function($) {
                 this.input.value = sel;
                 this.input.setSelectionRange(0, sel.length);
                 sel = sel.split(eol);
-                el.innerHTML = '';
+                ov.node.innerHTML = '';
                 
                 for (var i = 0; i < sel.length; i++) {
                     span = selection_span.cloneNode(false);
-                    span.textContent = sel[i];
+                    span.textContent = sel[i] || i === 0 ? sel[i] : ' ';
                     span.style.top = ((s.line + i) * this.sizes.lineHeight + this.sizes.paddingTop + this.sizes.scrollTop) + 'px';
                     span.style.left = ((i === 0 ? s.column * this.sizes.charWidth : 0) + this.sizes.paddingLeft) + 'px';
-                    el.append(span);
+                    ov.node.append(span);
                 }
-                el.parentNode == null && this.wrapper.append(el);
+                ov.reveal();
                 this.selection.isInversed() ? this.caret.position(s.line, s.column) : this.caret.position(e.line, e.column);
             }
         },
@@ -692,7 +697,7 @@ window.CodePrinter = (function($) {
             this.finder = this.finder || new Finder(this);
             this.finder.clear();
             this.mainElement.append(this.finder.bar);
-            this.wrapper.append(this.finder.overlay);
+            this.finder.overlay.reveal();
             this.finder.input.focus();
         },
         closeFinder: function() {
@@ -703,6 +708,15 @@ window.CodePrinter = (function($) {
         appendTo: function(node) { return node.append(this.mainElement) && this.measureSizes(); },
         insertBefore: function(node) { return node.before(this.mainElement) && this.measureSizes(); },
         insertAfter: function(node) { return node.after(this.mainElement) && this.measureSizes(); }
+        removeOverlays: function() {
+            if (this.overlays) {
+                for (var i = 0; i < this.overlays.length; i++) {
+                    if (this.overlays[i].isRemovable) {
+                        this.overlays[i].remove();
+                    }
+                }
+            }
+        },
     };
     
     Data = function() {
@@ -1133,6 +1147,25 @@ window.CodePrinter = (function($) {
                 this.root.parse(this.firstLine);
                 this.root.counter && this.root.counter.unshift();
             }
+    Overlay = function(cp, classes, removable) {
+        this.node = document.createElement('div').addClass('cp-overlay '+classes);
+        this.isRemovable = !!removable;
+        this.root = cp;
+        return this;
+    };
+    Overlay.prototype = {
+        reveal: function() {
+            if (!this.node.parentNode) {
+                this.root.overlays.push(this);
+                this.root.wrapper.append(this.node);
+                this.emit('overlay:revealed');
+            }
+        },
+        remove: function() {
+            var i = this.root.overlays.indexOf(this);
+            i != -1 && this.root.overlays.splice(i, 1);
+            this.node.remove();
+            this.emit('overlay:removed');
         }
     };
     
@@ -1265,7 +1298,7 @@ window.CodePrinter = (function($) {
             flexbox = document.createElement('div').addClass('cpf-flexbox'),
             input = document.createElement('input').addClass('cpf-input'),
             bar = document.createElement('div').addClass('cpf-bar'),
-            overlay = document.createElement('div').addClass('cpf-overlay cp-overlay'),
+            overlay = new Overlay(cp, 'cpf-overlay', false),
             keyMap = {
                 13: function() {
                     if (self.searched === this.value) {
@@ -1300,7 +1333,7 @@ window.CodePrinter = (function($) {
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
         closebutton.on({ click: function(e) { self.close(); }});
-        overlay.delegate('click', 'span', function(e) {
+        overlay.node.delegate('click', 'span', function(e) {
             if (this.position) {
                 cp.selection.setStart(this.position.ls, this.position.cs).setEnd(this.position.le, this.position.ce);
                 cp.showSelection();
@@ -1320,16 +1353,16 @@ window.CodePrinter = (function($) {
     Finder.prototype = {
         close: function() {
             this.bar.remove();
-            this.overlay.remove()
+            this.overlay.remove();
         },
         clear: function() {
             this.searched = null;
             this.searchResults.length = 0;
-            this.overlay.innerHTML = '';
+            this.overlay.node.innerHTML = '';
         },
         push: function(span) {
             this.searchResults.push(span);
-            this.overlay.append(span);
+            this.overlay.node.append(span);
         },
         find: function(find) {
             var root = this.root,
@@ -1365,6 +1398,7 @@ window.CodePrinter = (function($) {
                         value = value.substr(index + find.length);
                     }
                 }
+                this.overlay.reveal();
                 this.searched = find;
                 this.searchResults.removeClass('active').get(0).addClass('active');
                 this.scrollToActive();
@@ -1951,14 +1985,16 @@ window.CodePrinter = (function($) {
     };
     selection.prototype = {
         clear: function() {
-            this.element.innerHTML = '';
+            this.overlay.node.innerHTML = '';
+            this.overlay.isRemovable = true;
             this.start = {};
             this.end = {};
             this.emit('canceled');
             return this;
         },
         setStart: function(line, column) {
-            this.element.innerHTML != '' && this.clear();
+            this.overlay.node.innerHTML != '' && this.clear();
+            this.overlay.isRemovable = false;
             this.start.line = line;
             this.start.column = column;
             this.emit('started');
@@ -2004,14 +2040,14 @@ window.CodePrinter = (function($) {
                 this.eachCharacter(function(ch, line, column, cp) {
                     ch == key ? c++ : ch == sec && c--;
                     if (!c) {
-                        var pos0 = getPositionOf(cp, details.line, details.column),
+                        var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
+                            pos0 = getPositionOf(cp, details.line, details.column),
                             pos1 = getPositionOf(cp, line, column),
-                            overlay = document.createElement('div').addClass('cp-overlay'),
                             span0 = createSpan(key, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
                             span1 = createSpan(ch, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
                         
-                        overlay.append(span0, span1);
-                        cp.wrapper.append(overlay);
+                        overlay.node.append(span0, span1);
+                        overlay.reveal();
                         return false;
                     }
                 });
@@ -2024,14 +2060,14 @@ window.CodePrinter = (function($) {
                 this.eachCharacter(function(ch, line, column, cp) {
                     ch == key ? c++ : ch == sec && c--;
                     if (!c) {
-                        var pos0 = getPositionOf(cp, line, column),
+                        var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
+                            pos0 = getPositionOf(cp, line, column),
                             pos1 = getPositionOf(cp, details.line, details.column),
-                            overlay = document.createElement('div').addClass('cp-overlay'),
                             span0 = createSpan(ch, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
                             span1 = createSpan(key, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
                         
-                        overlay.append(span0, span1);
-                        cp.wrapper.append(overlay);
+                        overlay.node.append(span0, span1);
+                        overlay.reveal();
                         return false;
                     }
                 }, true);
