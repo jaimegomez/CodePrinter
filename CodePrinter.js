@@ -478,6 +478,7 @@ window.CodePrinter = (function($) {
             this.theme = name;
         },
         setMode: function(mode) {
+            mode = mode.toLowerCase();
             this.mainElement.removeClass('cp-'+this.options.mode).addClass('cp-'+mode);
             this.options.mode = mode;
         },
@@ -2133,18 +2134,18 @@ window.CodePrinter = (function($) {
     eol = $.browser.windows ? '\r\n' : '\n';
     
     CodePrinter.requireMode = function(req, cb, del) {
-        return $.scripts.require('CodePrinter.'+req, cb, del);
+        return $.scripts.require('CodePrinter.'+req.toLowerCase(), cb, del);
     };
     CodePrinter.defineMode = function(name, obj, req) {
         var m = (new CodePrinter.Mode()).extend(obj);
         m.init instanceof Function && m.init();
-        $.scripts.define('CodePrinter.'+name, m, req);
+        $.scripts.define('CodePrinter.'+name.toLowerCase(), m, req);
     };
     CodePrinter.getMode = function(name) {
-        return $.scripts.get('CodePrinter.'+name);
+        return $.scripts.get('CodePrinter.'+name.toLowerCase());
     };
     CodePrinter.hasMode = function(name) {
-        return $.scripts.has('CodePrinter.'+name);
+        return $.scripts.has('CodePrinter.'+name.toLowerCase());
     };
     
     var buildDOM = (function(){
