@@ -274,25 +274,22 @@ window.CodePrinter = (function($) {
             source = decodeEntities(source).split(eol);
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
-            var self = this, i = -1, l = source.length, tab = this.tabString();
+            var self = this, i = -1, l = source.length, tab = this.tabString(), fn;
             
             while (++i < l) {
                 this.data.addLine(i, source[i].replaceAll(tab, '\t'));
             }
             
             self.data.on({
-                'text:changed': function(e) {
-                    self.parse(e.dataLine);
+                'text:changed': function(dl) {
+                    self.parse(dl);
                     self.caret.refresh();
                 },
-                'line:added': function() {
-                    var s = self.screen.element;
-                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-                },
-                'line:removed': function() {
-                    var s = self.screen.element;
-                    s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-                }
+                'line:added': (fn = function() {
+                    var s = self.screen.parent;
+                    s.style.minHeight = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+                }),
+                'line:removed': fn
             });
             
             return this;
@@ -796,7 +793,7 @@ window.CodePrinter = (function($) {
                         b.push(r);
                         b = n;
                         t === DATA_RATIO - 1 && (t = -1) && h++;
-                        n = this[h][++t];
+                        n = this[h] && this[h][++t] || null;
                     }
                 }
             }
