@@ -32,21 +32,22 @@ window.CodePrinter = (function($) {
         self.screen = new Screen(self);
         self.mainElement.CodePrinter = self;
         
-        if (element.nodeType) {
+        
+        if (typeof element === 'string') {
+            data = element;
+        } else if (element.nodeType) {
             element.before(self.mainElement);
             self.measureSizes();
             options.extend($.parseData(element.data('codeprinter'), ','));
             data = element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML;
             element.remove();
-        } else if (typeof element === 'string') {
-            data = element;
         } else {
             return false;
         }
         
         screen = self.screen.element.addClass('cp-'+options.mode.toLowerCase());
         id = self.mainElement.id = $.random(options.randomIDLength);
-        sizes = self.sizes = {};
+        sizes = self.sizes = { lineHeight: options.lineHeight };
         self.activeLine = {};
         self.overlays = [];
         self.selection.overlay = new Overlay(self, 'cp-selection-overlay', false);
