@@ -255,6 +255,7 @@ window.CodePrinter = (function($) {
         infobarOnTop: true,
         showIndentation: true,
         scrollable: true,
+        tracking: true,
         highlightBrackets: true,
         highlightCurrentLine: true,
         blinkCaret: true,
@@ -403,8 +404,7 @@ window.CodePrinter = (function($) {
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
-                this.caret.tracking = new tracking(this);
-                parser.tracking && this.caret.tracking.extend(parser.tracking);
+                this.options.tracking && (this.caret.tracking = (new tracking(this)).extend(parser.tracking));
             }
         },
         parse: function(line, force) {
@@ -456,6 +456,14 @@ window.CodePrinter = (function($) {
         },
         tabString: function() {
             return Array(this.options.tabWidth+1).join(' ');
+        },
+        setOptions: function(key, value) {
+            if (this.options[key] !== value) {
+                this.options[key] = value;
+                if (key === 'tracking' && value) {
+                    this.caret.tracking = (new tracking(this)).extend(this.parser && this.parser.tracking);
+                }
+            }
         },
         setTabWidth: function(tw) {
             if (typeof tw === 'number' && tw >= 0) {
@@ -990,12 +998,14 @@ window.CodePrinter = (function($) {
                     cp.selectLine(l);
                     this.setPixelPosition(x, y);
                     
-                    for (var s in this.tracking) {
-                        var a = before.endsWith(s), b = after.startsWith(s);
-                        if (a + b) {
-                            var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
-                            if (!r) {
-                                break;
+                    if (cp.options.tracking) {
+                        for (var s in this.tracking) {
+                            var a = before.endsWith(s), b = after.startsWith(s);
+                            if (a + b) {
+                                var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
+                                if (!r) {
+                                    break;
+                                }
                             }
                         }
                     }
@@ -1119,6 +1129,11 @@ window.CodePrinter = (function($) {
             x && this.moveX(x);
             y && this.moveY(y);
             return this;
+        },
+        registerTracker: function(key, callback) {
+            if (this.tracking) {
+                this.tracking[key] = callback;
+            }
         }
     };
     
