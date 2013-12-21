@@ -305,8 +305,6 @@ window.CodePrinter = (function($) {
             sizes.charWidth = getTextSize(this, 'c').width;
             sizes.counterWidth = this.counter ? this.counter.parent.offsetWidth : 0;
             
-            this.screen.parent.style.minHeight = (this.data.lines * sizes.lineHeight + sizes.paddingTop * 2) + 'px';
-            
             return this;
         },
         unselectLine: function() {
@@ -384,6 +382,7 @@ window.CodePrinter = (function($) {
                 for (; i < x; i++) {
                     screen.insert();
                 }
+                screen.parent.style.minHeight = (this.data.lines * this.sizes.lineHeight + this.sizes.paddingTop * 2) + 'px';
             } else {
                 x = Math.ceil((wst - this.sizes.scrollTop) / lh);
                 
@@ -477,7 +476,7 @@ window.CodePrinter = (function($) {
         },
         setMode: function(mode) {
             mode = mode.toLowerCase();
-            this.mainElement.removeClass('cp-'+this.options.mode).addClass('cp-'+mode);
+            this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode);
             this.options.mode = mode;
         },
         setFontSize: function(size) {
