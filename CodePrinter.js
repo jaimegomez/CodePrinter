@@ -371,6 +371,7 @@ window.CodePrinter = (function($) {
             this.render();
         },
         render: function() {
+            this.measureSizes();
             var screen = this.screen,
                 wst = this.wrapper.scrollTop,
                 wch = this.wrapper.clientHeight,
