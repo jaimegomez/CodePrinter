@@ -330,10 +330,11 @@ window.CodePrinter = (function($) {
             var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
             return value.replace(/\t/g, this.tabString());
         },
-        print: function(mode) {
-            if (!mode) {
-                mode = this.options.mode;
-            }
+        print: function(mode, source) {
+            mode && this.setMode(mode);
+            mode = this.options.mode;
+            source && this.init(source);
+            
             var self = this,
                 sT = document.body.scrollTop,
                 sL = document.body.scrollLeft;
@@ -358,7 +359,7 @@ window.CodePrinter = (function($) {
                         }
                         t++;
                         u = 0;
-                    }, 100);
+                    }, 50);
                 
                 document.body.scrollTop = sT;
                 document.body.scrollLeft = sL;
