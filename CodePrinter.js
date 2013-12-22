@@ -176,8 +176,9 @@ window.CodePrinter = (function($) {
         });
         
         self.caret.on({
-            'text:changed': function() {
-                self.data.getLine(this.line()).setText(this.textAtCurrentLine(true));
+            'text:changed': function(line) {
+                line == null && (line = this.line());
+                self.data.getLine(line).setText(this.textAtCurrentLine(true));
                 self.finder && self.finder.find();
             },
             'position:changed': function(x, y) {
@@ -925,7 +926,7 @@ window.CodePrinter = (function($) {
                 str = str.replaceAll(cp.tabString(), '\t');
                 if (before !== str) {
                     before = str;
-                    this.emit('text:changed');
+                    this.emit('text:changed', line);
                     this.position(line, l);
                 }
                 return this;
@@ -935,7 +936,7 @@ window.CodePrinter = (function($) {
                 str = str.replaceAll(cp.tabString(), '\t');
                 if (after !== str) {
                     after = str;
-                    this.emit('text:changed');
+                    this.emit('text:changed', line);
                 }
                 return this;
             },
@@ -948,7 +949,7 @@ window.CodePrinter = (function($) {
                 if (before !== bf || after !== af) {
                     before = bf;
                     after = af;
-                    this.emit('text:changed');
+                    this.emit('text:changed', line);
                     this.position(line, l);
                 }
                 return this;
