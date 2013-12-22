@@ -135,7 +135,7 @@ window.CodePrinter = (function($) {
                     self.shortcuts[k].call(self, e, this);
                     return pr = e.cancel();
                 }
-                if (k >= 17 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                if (k >= 17 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145 || k == 224) {
                     return pr = e.cancel();
                 } else {
                     if (self.parser.keydownMap[k]) {
@@ -2036,9 +2036,10 @@ window.CodePrinter = (function($) {
             return true;
         },
         88: function() {
-            this.keydownMap.touch(8, this, null);
-            this.selection.clear();
-            this.emit('cmd.cut');
+            if (this.selection.isset()) {
+                this.removeSelection();
+                this.emit('cmd.cut');
+            }
             return true;
         }
     };

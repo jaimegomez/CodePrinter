@@ -106,12 +106,9 @@
         position:absolute;
         top:-100px; left:-100px;
     }
-    .cp-screen, .cp-codelines {
-        .block;
-        .sizing(border-box);
-        position:relative;
-    }
     .cp-screen {
+        .block;
+        .size(100%, 100%);
         .margins(0, 0);
         .user-select(none);
         border-width:0;
@@ -130,8 +127,9 @@
         }
     }
     .cp-codelines {
+        .block;
         .margins(0, @paddingY @paddingX);
-        top:0;
+        position:relative; top:0;
     }
     .cp-counter {
         .inline-block;
@@ -370,12 +368,6 @@
         .cp-container {
             .flex(1);
         }
-    }
-}
-@-moz-document url-prefix() {
-    .codeprinter .cp-wrapper {
-        margin-right:-15px;
-        margin-bottom:-15px;
     }
 }
 
