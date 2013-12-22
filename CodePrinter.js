@@ -429,8 +429,10 @@ window.CodePrinter = (function($) {
                         if (nl) {
                             nl.setStartPoint(dl);
                             this.value.push(nl.text);
+                            return this;
+                        } else {
+                            return false;
                         }
-                        return this;
                     };
                     
                     p = this.parser.fn(stream).parsed;
