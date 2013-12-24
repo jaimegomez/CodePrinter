@@ -73,7 +73,7 @@ CodePrinter.defineMode('CSS', {
             } else if (this.operators.hasOwnProperty(found)) {
                 stream.wrap(this.operators[found]);
             } else if (found === '/*') {
-                stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
+                stream.eatWhile(found, this.chars[found].end).wrap(this.chars[found].cls);
             } else {
                 stream.skip();
             }
