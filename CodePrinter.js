@@ -273,10 +273,12 @@ window.CodePrinter = (function($) {
         isFullscreen: false,
         init: function(source) {
             this.data = new Data();
-            source = decodeEntities(source).split(eol);
+            source = decodeEntities(source).split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
-            var self = this, i = -1, l = source.length, tab = this.tabString(), fn;
+            var self = this, i = -1, fn,
+                l = source.length,
+                tab = this.tabString();
             
             while (++i < l) {
                 this.data.addLine(i, source[i].replaceAll(tab, '\t'));
@@ -1760,7 +1762,7 @@ window.CodePrinter = (function($) {
             return this.pos === 0;
         },
         toString: function() {
-            return $.browser.windows ? this.parsed.join('\r\n') : this.parsed.join('\n');
+            return this.parsed.join(eol);
         }
     };
     
@@ -2221,7 +2223,7 @@ window.CodePrinter = (function($) {
     function decodeEntities(text) {
         var d = document.createElement('div');
         d.innerHTML = text;
-        return d.innerText || d.textContent;
+        return (d.innerText || d.textContent).replace('\r', '');
     };
     function encodeEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
