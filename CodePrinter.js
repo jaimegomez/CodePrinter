@@ -108,6 +108,23 @@ window.CodePrinter = (function($) {
                 self.counter && (self.counter.parent.scrollTop = this.scrollTop);
                 self.render();
             },
+            dblclick: function() {
+                var bf = self.caret.textBefore(),
+                    af = self.caret.textAfter(),
+                    line = self.caret.line(),
+                    c = self.caret.column(),
+                    l = 1, r = 0, rgx = /[^\w\s]/;
+                
+                rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : rgx;
+                
+                while (l <= c && rgx.test(bf[c-l])) l++;
+                while (r < af.length && rgx.test(af[r])) r++;
+                
+                if (c-l+1 != c+r) {
+                    self.selection.setStart(line, c-l+1).setEnd(line, c+r);
+                    self.showSelection();
+                }
+            },
             mousedown: mouseController
         });
         
