@@ -7,7 +7,7 @@ window.CodePrinter = (function($) {
     var CodePrinter, Data, DataLine, Caret,
         Screen, Overlay, Counter, InfoBar, Finder, Stream,
         keydownMap, keypressMap, shortcuts, commands,
-        selection, tracking, eol, li_clone, pre_clone, selection_span,
+        selection, tracking, eol, div, li_clone, pre_clone, selection_span,
         DATA_RATIO = 10,
         DATA_MASTER_RATIO = 100;
     
@@ -283,6 +283,11 @@ window.CodePrinter = (function($) {
         showFinder: false,
         searchOnTheFly: false
     };
+    
+    div = document.createElement('div');
+    li_clone = document.createElement('li');
+    pre_clone = document.createElement('pre');
+    selection_span = document.createElement('span').addClass('cp-selection');
     
     CodePrinter.prototype = {
         isFullscreen: false,
@@ -888,8 +893,6 @@ window.CodePrinter = (function($) {
         }
     });
     
-    pre_clone = document.createElement('pre');
-    
     DataLine = function(parent) {
         this.extend({
             setText: function(str) {
@@ -1170,8 +1173,8 @@ window.CodePrinter = (function($) {
     
     Screen = function(cp) {
         var self = this;
-        this.parent = document.createElement('div').addClass('cp-screen');
-        this.element = document.createElement('div').addClass('cp-codelines');
+        this.parent = div.cloneNode().addClass('cp-screen');
+        this.element = div.cloneNode().addClass('cp-codelines');
         this.lines = $([]);
         this.root = cp;
         cp.wrapper.append(this.parent.append(this.element));
@@ -1249,7 +1252,7 @@ window.CodePrinter = (function($) {
     };
     
     Overlay = function(cp, classes, removable) {
-        this.node = document.createElement('div').addClass('cp-overlay '+classes);
+        this.node = div.cloneNode().addClass('cp-overlay '+classes);
         this.isRemovable = !!removable;
         this.root = cp;
         return this;
@@ -1270,12 +1273,10 @@ window.CodePrinter = (function($) {
         }
     };
     
-    li_clone = document.createElement('li');
-    
     Counter = function(cp) {
         var self = this, ln = cp.screen.lines.length;
         self.element = document.createElement('ol');
-        self.parent = document.createElement('div').addClass('cp-counter').append(self.element);
+        self.parent = div.cloneNode().addClass('cp-counter').append(self.element);
         self.list = $([]);
         self.root = cp;
         cp.container.prepend(self.parent);
@@ -1341,7 +1342,7 @@ window.CodePrinter = (function($) {
             info = document.createElement('span').addClass('cpi-info');
         
         mode.innerHTML = cp.options.mode;
-        this.element = document.createElement('div').addClass('cpi-bar').append(mode, act, info);
+        this.element = div.cloneNode().addClass('cpi-bar').append(mode, act, info);
         this.root = cp;
         
         this.segments = {
@@ -1402,10 +1403,10 @@ window.CodePrinter = (function($) {
             findnext = document.createElement('button').addClass('cpf-button cpf-findnext'),
             findprev = document.createElement('button').addClass('cpf-button cpf-findprev'),
             closebutton = document.createElement('button').addClass('cpf-button cpf-close'),
-            leftbox = document.createElement('div').addClass('cpf-leftbox'),
-            flexbox = document.createElement('div').addClass('cpf-flexbox'),
+            leftbox = div.cloneNode().addClass('cpf-leftbox'),
+            flexbox = div.cloneNode().addClass('cpf-flexbox'),
             input = document.createElement('input').addClass('cpf-input'),
-            bar = document.createElement('div').addClass('cpf-bar'),
+            bar = div.cloneNode().addClass('cpf-bar'),
             overlay = new Overlay(cp, 'cpf-overlay', false),
             keyMap = {
                 13: function() {
@@ -2104,8 +2105,6 @@ window.CodePrinter = (function($) {
             return true;
         }
     };
-
-    selection_span = document.createElement('span').addClass('cp-selection');
     
     selection = function() {
         this.start = {};
@@ -2224,11 +2223,11 @@ window.CodePrinter = (function($) {
     };
     
     var buildDOM = (function(){
-        var m = document.createElement('div').addClass('codeprinter'),
-            c = document.createElement('div').addClass('cp-container'),
-            w = document.createElement('div').addClass('cp-wrapper'),
+        var m = div.cloneNode().addClass('codeprinter'),
+            c = div.cloneNode().addClass('cp-container'),
+            w = div.cloneNode().addClass('cp-wrapper'),
             i = document.createElement('textarea').addClass('cp-input'),
-            r = document.createElement('div').addClass('cp-caret');
+            r = div.cloneNode().addClass('cp-caret');
         w.appendChild(r);
         c.appendChild(w);
         m.appendChild(i);
@@ -2277,7 +2276,7 @@ window.CodePrinter = (function($) {
         return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
     };
     function decodeEntities(text) {
-        var d = document.createElement('div');
+        var d = div.cloneNode();
         d.innerHTML = text;
         return (d.innerText || d.textContent).replace('\r', '');
     };
