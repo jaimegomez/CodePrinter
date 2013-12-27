@@ -509,10 +509,7 @@ window.CodePrinter = (function($) {
         },
         setTheme: function(name) {
             typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
-            name = name.toLowerCase().replace(' ', '-');
-            this.theme ? this.mainElement.removeClass('cps-'+this.theme) : 0;
-            this.mainElement.addClass('cps-'+name);
-            this.theme = name;
+            this.mainElement.removeClass('cps-'+this.options.theme).addClass('cps-'+(this.options.theme = name).toLowerCase().replace(' ', '-'));
         },
         setMode: function(mode) {
             mode = mode.toLowerCase();
