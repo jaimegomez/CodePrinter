@@ -253,7 +253,7 @@ window.CodePrinter = (function($) {
         return self;
     };
     
-    CodePrinter.version = '0.5.4';
+    CodePrinter.version = '0.5.5';
     
     CodePrinter.defaults = {
         path: '',
