@@ -32,7 +32,6 @@ window.CodePrinter = (function($) {
         self.screen = new Screen(self);
         self.mainElement.CodePrinter = self;
         
-        
         if (typeof element === 'string') {
             data = element;
         } else if (element.nodeType) {
@@ -58,9 +57,8 @@ window.CodePrinter = (function($) {
         
         options.fontSize != 11 && options.fontSize > 0 && this.setFontSize(options.fontSize);
         options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
-        options.width > 0 && (self.wrapper.style.width = parseInt(options.width) + 'px');
-        options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
-        
+        self.setWidth(options.width);
+        self.setHeight(options.height);
         self.setTheme(options.theme);
         
         var mouseController = function(e) {
@@ -322,12 +320,13 @@ window.CodePrinter = (function($) {
             var sizes = this.sizes,
                 s = window.getComputedStyle(this.screen.element, null);
             
-            sizes.lineHeight = this.options.lineHeight;
+            sizes.lineHeight = sizes.lineHeight || this.options.lineHeight;
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.scrollTop = parseInt(s.getPropertyValue('top'));
             sizes.charWidth = getTextSize(this, 'c').width;
             sizes.counterWidth = this.counter ? this.counter.parent.offsetWidth : 0;
+            this.screen.fix();
             
             return this;
         },
@@ -394,7 +393,6 @@ window.CodePrinter = (function($) {
             this.render();
         },
         render: function() {
-            this.measureSizes();
             var screen = this.screen,
                 wst = this.wrapper.scrollTop,
                 wch = this.wrapper.clientHeight,
@@ -407,8 +405,7 @@ window.CodePrinter = (function($) {
                 for (; i < x; i++) {
                     screen.insert();
                 }
-                screen.parent.style.minHeight = (this.data.lines * this.sizes.lineHeight + this.sizes.paddingTop * 2) + 'px';
-                this.counter && this.counter.emit('width:changed');
+                this.measureSizes();
             } else {
                 x = Math.ceil((wst - this.sizes.scrollTop) / lh);
                 
@@ -529,6 +526,22 @@ window.CodePrinter = (function($) {
                 this.caret.refresh();
             }
         },
+        setWidth: function(size) {
+            if (size == 'auto') {
+                this.mainElement.style.removeProperty('width');
+            } else {
+                this.mainElement.style.width = (this.options.width = parseInt(size)) + 'px';
+            }
+            this.emit('width:changed');
+        },
+        setHeight: function(size) {
+            if (size == 'auto') {
+                this.wrapper.style.removeProperty('height');
+            } else {
+                this.wrapper.style.height = (this.options.height = parseInt(size)) + 'px';
+            }
+            this.emit('height:changed');
+        },
         getCurrentLine: function() {
             return this.caret.line();
         },
@@ -576,26 +589,14 @@ window.CodePrinter = (function($) {
         },
         insertNewLine: function(l) {
             l == null && (l = this.caret.line()+1);
-            var s = this.screen,
-                dl = this.data.addLine(l, '');
-            
-            if (l >= s.firstLine && l <= s.lastLine+1) {
-                s.splice(dl, l);
-            }
+            var dl = this.data.addLine(l, '');
+            this.screen.splice(dl, l);
             return this;
         },
         removeLine: function(l) {
             l == null && (l = this.caret.line());
-            var s = this.screen,
-                q = l - s.firstLine;
-            
             this.data.removeLine(l);
-            
-            if (q >= 0 && l <= s.lastLine) {
-                s.lines.get(q).remove(true);
-                s.lastLine--;
-                this.counter.decrease();
-            }
+            this.screen.remove(l);
             return this;
         },
         removeBeforeCursor: function(arg) {
@@ -717,10 +718,12 @@ window.CodePrinter = (function($) {
                     b = document.body;
                 this.tempnode = document.createTextNode('');
                 main.addClass('cp-fullscreen').style.margin = [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ');
+                main.style.width = "";
                 main.after(this.tempnode);
                 document.body.append(main);
                 this.isFullscreen = true;
                 this.render();
+                this.screen.fix();
                 this.caret.refresh();
             }
         },
@@ -732,6 +735,7 @@ window.CodePrinter = (function($) {
                 tmp.parentNode.removeChild(tmp);
                 delete this.tempnode;
                 this.isFullscreen = false;
+                this.setWidth(this.options.width);
                 this.render();
                 this.caret.refresh();
             }
@@ -745,7 +749,8 @@ window.CodePrinter = (function($) {
                 });
             }
             this.container.prepend(this.counter.parent);
-            this.wrapper.style.marginLeft = (this.sizes.counterWidth = this.counter.parent.offsetWidth) + 'px';
+            this.counter.parent.scrollTop = this.wrapper.scrollTop;
+            this.counter.emit('width:changed');
         },
         closeCounter: function() {
             this.counter && this.counter.parent.remove();
@@ -819,9 +824,6 @@ window.CodePrinter = (function($) {
                 b = this[h][t];
             
             if (b && b[u]) {
-                if (b[u].pre && b[u].pre.parentNode) {
-                    b[u].pre.parentNode.removeChild(b[u].pre);
-                }
                 var dl = b.splice(u, 1);
                 this.lines--;
                 this.emit('line:removed', { dataLine: dl[0], line: line });
@@ -1175,9 +1177,10 @@ window.CodePrinter = (function($) {
         var self = this;
         this.parent = div.cloneNode().addClass('cp-screen');
         this.element = div.cloneNode().addClass('cp-codelines');
+        this.fixer = div.cloneNode().addClass('cp-fixer');
         this.lines = $([]);
         this.root = cp;
-        cp.wrapper.append(this.parent.append(this.element));
+        cp.wrapper.append(this.parent.append(this.element.append(this.fixer)));
         
         return this;
     };
@@ -1185,19 +1188,25 @@ window.CodePrinter = (function($) {
         firstLine: 0,
         lastLine: -1,
         insert: function() {
-            var dl = this.root.data.getLine(++this.lastLine),
-                pre = dl.pre = pre_clone.cloneNode();
-            
-            this.root.parse(dl) && dl.touch();
-            this.lines.push(pre);
-            this.element.append(pre);
-            this.root.counter && this.root.counter.increase();
+            if (this.lastLine < this.root.data.lines - 1) {
+                var dl = this.root.data.getLine(++this.lastLine),
+                    pre = dl.pre = pre_clone.cloneNode();
+                
+                this.root.parse(dl) && dl.touch();
+                this.lines.push(pre);
+                this.element.append(pre);
+                this.root.counter && this.root.counter.increase();
+            }
         },
         splice: function(dl, i) {
             if (dl instanceof DataLine && i >= this.firstLine && i <= this.lastLine+1) {
                 var q = i - this.firstLine;
                 
-                if (q > this.lines.length / 2) {
+                if (this.lines.length < this.root.wrapper.clientHeight / this.root.sizes.lineHeight + this.root.options.linesOutsideOfView * 2) {
+                    dl.pre = pre_clone.cloneNode();
+                    this.lastLine++;
+                    this.root.counter && this.root.counter.increase();
+                } else if (i + this.root.options.linesOutsideOfView >= this.root.data.lines) {
                     this.root.data.getLine(this.firstLine++).deleteNodeProperty();
                     dl.pre = this.lines.shift();
                     q--; this.lastLine++;
@@ -1212,15 +1221,36 @@ window.CodePrinter = (function($) {
                 q === 0 ? this.element.prepend(dl.pre) : this.lines.item(q-1).after(dl.pre);
             }
         },
+        remove: function(i) {
+            if (i >= this.firstLine && i <= this.lastLine) {
+                var r = this.root,
+                    q = i - this.firstLine;
+                if (this.firstLine == 0) {
+                    if (this.lastLine < r.data.lines) {
+                        var dl = r.data.getLine(this.lastLine);
+                        dl.pre = this.lines.splice(q, 1)[0];
+                        this.append(dl);
+                    } else {
+                        this.lines.get(q).remove(true);
+                        this.lastLine--;
+                        r.counter && r.counter.decrease();
+                    }
+                } else {
+                    var dl = r.data.getLine(--this.firstLine);
+                    dl.pre = this.lines.splice(q, 1)[0];
+                    this.prepend(dl);
+                    this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
+                    this.lastLine--;
+                    r.counter && r.counter.unshift();
+                }
+            }
+        },
         shift: function() {
             if (this.lastLine + 1 < this.root.data.lines) {
                 this.root.data.getLine(this.firstLine).deleteNodeProperty();
-                var dl = this.root.data.getLine(++this.lastLine),
-                    pre = dl.pre = this.lines.shift();
-                
-                this.root.parse(dl) && dl.touch();
-                this.lines.item(-1).after(pre);
-                this.lines.push(pre);
+                var dl = this.root.data.getLine(++this.lastLine);
+                dl.pre = this.lines.shift();
+                this.append(dl);
                 this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                 this.firstLine++;
                 this.root.counter && this.root.counter.shift();
@@ -1229,16 +1259,23 @@ window.CodePrinter = (function($) {
         unshift: function() {
             if (this.firstLine - 1 >= 0) {
                 this.root.data.getLine(this.lastLine).deleteNodeProperty();
-                var dl = this.root.data.getLine(--this.firstLine),
-                    pre = dl.pre = this.lines.pop();
-                
-                this.root.parse(dl) && dl.touch();
-                this.lines.item(0).before(pre);
-                this.lines.unshift(pre);
+                var dl = this.root.data.getLine(--this.firstLine);
+                dl.pre = this.lines.pop();
+                this.prepend(dl);
                 this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
                 this.lastLine--;
                 this.root.counter && this.root.counter.unshift();
             }
+        },
+        append: function(dl) {
+            this.root.parse(dl) && dl.touch();
+            this.lines.item(-1).after(dl.pre);
+            this.lines.push(dl.pre);
+        },
+        prepend: function(dl) {
+            this.root.parse(dl) && dl.touch();
+            this.lines.item(0).before(dl.pre);
+            this.lines.unshift(dl.pre);
         },
         getLine: function(line) {
             return line >= this.firstLine && line <= this.lastLine ? this.lines.item(line - this.firstLine) : null;
@@ -1248,6 +1285,10 @@ window.CodePrinter = (function($) {
             this.firstLine = 0;
             this.lastLine = -1;
             this.root.counter && this.root.counter.removeLines();
+        },
+        fix: function() {
+            this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px';
+            this.fixer.untie().css({ width: this.parent.clientWidth }).prependTo(this.element);
         }
     };
     

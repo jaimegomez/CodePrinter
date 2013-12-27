@@ -107,8 +107,8 @@
         top:-100px; left:-100px;
     }
     .cp-screen {
-        .block;
-        .size(100%, 100%);
+        .inline-block;
+        .size(auto, 100%);
         .margins(0, 0);
         .user-select(none);
         border-width:0;
@@ -127,9 +127,16 @@
         }
     }
     .cp-codelines {
-        .block;
+        .inline-block;
         .margins(0, @paddingY @paddingX);
         position:relative; top:0;
+        
+        .cp-fixer {
+            .margins(0 -@paddingX, 0);
+            height:0;
+            max-height:0;
+            border-width:0;
+        }
     }
     .cp-counter {
         .inline-block;
