@@ -241,6 +241,10 @@ window.CodePrinter = (function($) {
             }
         });
         
+        self.mainElement.on({ nodeInserted: function() {
+            self.print();
+        }});
+        
         self.init(data);
         
         return self;
@@ -782,10 +786,10 @@ window.CodePrinter = (function($) {
                 }
             }
         },
-        prependTo: function(node) { return node.prepend(this.mainElement) && this.measureSizes() && this.print(); },
-        appendTo: function(node) { return node.append(this.mainElement) && this.measureSizes() && this.print(); },
-        insertBefore: function(node) { return node.before(this.mainElement) && this.measureSizes() && this.print(); },
-        insertAfter: function(node) { return node.after(this.mainElement) && this.measureSizes() && this.print(); }
+        prependTo: function(node) { node.prepend(this.mainElement); return this; },
+        appendTo: function(node) { node.append(this.mainElement); return this; },
+        insertBefore: function(node) { node.before(this.mainElement); return this; },
+        insertAfter: function(node) { node.after(this.mainElement); return this; }
     };
     
     Data = function() {
@@ -2334,6 +2338,21 @@ window.CodePrinter = (function($) {
     function isCommandKey(e) {
         return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
     };
+    
+    $.registerEvent({
+        type: 'nodeInserted',
+        setupEvents: 'animationstart MSAnimationStart webkitAnimationStart',
+        setup: function(self) {
+            this.on(self.setupEvents, (self.handler = function(e) {
+                if (e.animationName == self.type) {
+                    $.callObservers(self.type, this);
+                }
+            }), $.flags.EVENT_DONT_OBSERVE | $.flags.EVENT_DONT_OFF_REPEATS);
+        },
+        teardown: function(self) {
+            this.off(self.setupEvents, self.handler);
+        }
+    });
     
     $.prototype.CodePrinter = function(opt) {
         var k = -1;
