@@ -1687,6 +1687,7 @@ window.CodePrinter = (function($) {
                                     return this;
                                 } else {
                                     this.eaten.push(str2);
+                                    this.pos = str2.length;
                                 }
                             } else {
                                 this.row--;
