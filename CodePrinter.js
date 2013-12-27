@@ -1670,10 +1670,11 @@ window.CodePrinter = (function($) {
                 if (indexTo === -1) {
                     if (force) {
                         this.eaten = [str.substr(indexFrom)];
-                        this.pos = 0;
+                        this.pos += pos + str2.length;
                         
                         while (this.getNextLine()) {
                             this.row++;
+                            this.pos = 0;
                             str2 = this.current();
                             if (str2 != null) {
                                 if (to instanceof RegExp) {
@@ -1696,7 +1697,6 @@ window.CodePrinter = (function($) {
                                 return this;
                             }
                         }
-                        this.pos = pos + str2.length;
                         return this;
                     } else if (req) {
                         indexTo = pos + str2.length;
