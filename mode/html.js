@@ -10,7 +10,7 @@ CodePrinter.defineMode('HTML', {
         while (found = stream.match(this.regexp)) {
             if (found.substr(0, 2) === '<!') {
                 if (found === '<!--') {
-                    stream.eat(found, '-->').wrap(['comment']);
+                    stream.eatWhile(found, '-->').wrap(['comment']);
                 } else {
                     stream.eat(found, '>').wrap(['special', 'doctype']);
                 }
@@ -38,6 +38,9 @@ CodePrinter.defineMode('HTML', {
                             stream.wrap(['other']);
                         }
                     }
+                } else {
+                    stream.restore().unwrap().wrap(['invalid']);
+                    continue;
                 }
                 !found && stream.restore();
             } else if (found[0] === '&') {

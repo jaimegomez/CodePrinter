@@ -6,7 +6,7 @@
 .cps-eclipse .cpf-bar { background:#FFFFFF; border-color:#AAAAAA; color:#000000; box-shadow:0 0 4px rgba(0,0,0,0.3); }
 .cps-eclipse .cp-caret { background:#000000; box-shadow:0 0 2px rgba(0,0,0,0.5); }
 .cps-eclipse .cp-selection { background:#C8D2DE; }
-.cps-eclipse .cp-highlight { box-shadow:0 1px 0 black; }
+.cps-eclipse .cp-highlight { border-bottom:1px solid black; }
 .cps-eclipse .cp-activeLine { background:rgba(0,0,255,0.2); box-shadow:none; }
 .cps-eclipse .cpf-input { background:#FAFAFA; border-color:#AAAAAA; }
 .cps-eclipse .cpf-occurrence { border-color:#AAAAAA; }

@@ -5,9 +5,9 @@
 window.CodePrinter = (function($) {
     
     var CodePrinter, Data, DataLine, Caret,
-        Screen, Counter, InfoBar, Finder, Stream,
+        Screen, Overlay, Counter, InfoBar, Finder, Stream,
         keydownMap, keypressMap, shortcuts, commands,
-        selection, eol, li_clone, pre_clone, selection_span,
+        selection, tracking, eol, div, li_clone, pre_clone, selection_span,
         DATA_RATIO = 10,
         DATA_MASTER_RATIO = 100;
     
@@ -29,43 +29,37 @@ window.CodePrinter = (function($) {
         
         self.caret = new Caret(self);
         buildDOM(self);
-        self.mainElement.codeprinter = self;
-        
-        self.data = new Data();
         self.screen = new Screen(self);
-        self.activeLine = {};
-        self.sizes = {};
+        self.mainElement.CodePrinter = self;
         
-        if (element.nodeType) {
+        if (typeof element === 'string') {
+            data = element;
+        } else if (element.nodeType) {
             element.before(self.mainElement);
+            self.measureSizes();
             options.extend($.parseData(element.data('codeprinter'), ','));
-            data = element.tagName.toLowerCase() === 'textarea' ? element.value : decodeEntities(element.innerHTML);
-            element.parentNode.removeChild(element);
-        } else if (typeof element === 'string') {
-            data = decodeEntities(element);
-            options.appendTo && options.appendTo.append(self.mainElement);
+            data = element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML;
+            element.remove();
         } else {
             return false;
         }
         
         screen = self.screen.element.addClass('cp-'+options.mode.toLowerCase());
-        sizes = self.sizes;
-        id = $.random(options.randomIDLength);
-        
-        self.setTheme(options.theme);
-        self.mainElement.id = id;
+        id = self.mainElement.id = $.random(options.randomIDLength);
+        sizes = self.sizes = { lineHeight: options.lineHeight };
+        self.activeLine = {};
+        self.overlays = [];
+        self.selection.overlay = new Overlay(self, 'cp-selection-overlay', false);
         
         options.lineNumbers && self.openCounter();
         options.infobar && self.openInfobar();
         options.showFinder && self.openFinder();
         
-        options.fontSize != 11 && options.fontSize > 0 && (screen.style.fontSize = parseInt(options.fontSize) + 'px');
-        options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;');
-        options.width > 0 && (self.wrapper.style.width = parseInt(options.width) + 'px');
-        options.height > 0 && (self.wrapper.style.height = parseInt(options.height) + 'px');
-        self.measureSizes();
-        
-        self.data.init(data.replace(/\t/g, this.tabString()));
+        options.fontSize != 11 && options.fontSize > 0 && this.setFontSize(options.fontSize);
+        options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
+        self.setWidth(options.width);
+        self.setHeight(options.height);
+        self.setTheme(options.theme);
         
         var mouseController = function(e) {
             if (e.button > 0 || e.which > 1)
@@ -73,30 +67,31 @@ window.CodePrinter = (function($) {
             
             var sl = this.scrollLeft,
                 st = this.scrollTop,
-                o = this.origin(),
+                o = this.bounds(),
                 x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft),
                 y = st + e.pageY - o.y - self.sizes.paddingTop,
                 l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1,
-                s = self.data.getLine(l).getElementText(),
+                s = self.getTextAtLine(l),
                 c = Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
             
             if (e.type === 'mousedown') {
                 var th = this;
                 d = true;
-                self.caret.deactivate().show();
+                self.input.value = '';
                 self.selection.setStart(l, c);
-                self.emit('caret:initialized');
+                self.caret.deactivate().show().emit('initialized');
                 this.on('mousemove', mouseController);
-                $.document.one('mouseup', function(e) {
+                document.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
                     th.off('mousemove', mouseController);
-                    self.emit('caret:stabilized');
-                    self.caret.activate();
+                    self.caret.emit('stabilized').activate();
                     return d = e.cancel();
                 });
             } else {
+                self.unselectLine();
                 self.selection.setEnd(l, c);
                 self.showSelection();
+                self.removeOverlays();
                 self.emit('caret:moved');
             }
             $.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus();
@@ -109,6 +104,23 @@ window.CodePrinter = (function($) {
                 self.counter && (self.counter.parent.scrollTop = this.scrollTop);
                 self.render();
             },
+            dblclick: function() {
+                var bf = self.caret.textBefore(),
+                    af = self.caret.textAfter(),
+                    line = self.caret.line(),
+                    c = self.caret.column(),
+                    l = 1, r = 0, rgx = /[^\w\s]/;
+                
+                rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : rgx;
+                
+                while (l <= c && rgx.test(bf[c-l])) l++;
+                while (r < af.length && rgx.test(af[r])) r++;
+                
+                if (c-l+1 != c+r) {
+                    self.selection.setStart(line, c-l+1).setEnd(line, c+r);
+                    self.showSelection();
+                }
+            },
             mousedown: mouseController
         });
         
@@ -120,10 +132,11 @@ window.CodePrinter = (function($) {
                     self.caret.deactivate().hide();
                     self.unselectLine();
                     self.selection.clear();
+                    self.removeOverlays();
                 }
             },
             keydown: function(e) {
-                var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
+                var k = e.getCharCode();
                 self.caret.deactivate().show();
                 pr = true;
                 
@@ -135,7 +148,7 @@ window.CodePrinter = (function($) {
                     self.shortcuts[k].call(self, e, this);
                     return pr = e.cancel();
                 }
-                if (k >= 17 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145) {
+                if (k >= 17 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145 || k == 224) {
                     return pr = e.cancel();
                 } else {
                     if (self.parser.keydownMap[k]) {
@@ -151,7 +164,7 @@ window.CodePrinter = (function($) {
                 return pr;
             },
             keypress: function(e) {
-                var k = e.charCode ? e.charCode : e.keyCode ? e.keyCode : 0,
+                var k = e.getCharCode(),
                     ch = String.fromCharCode(k);
                 
                 if (pr && e.ctrlKey != true && e.metaKey != true) {
@@ -176,43 +189,33 @@ window.CodePrinter = (function($) {
         });
         
         self.caret.on({
-            'text:changed': function() {
-                self.data.getLine(this.line()).setText(this.textAtCurrentLine());
+            'text:changed': function(line) {
+                line == null && (line = this.line());
+                self.data.getLine(line).setText(this.textAtCurrentLine(true));
                 self.finder && self.finder.find();
             },
             'position:changed': function(x, y) {
                 document.activeElement != self.input && self.input.focus();
                 if (self.options.autoScroll) {
                     var wrapper = self.wrapper,
-                        sL = wrapper.scrollLeft, sT = wrapper.scrollTop,
-                        cW = sL + wrapper.clientWidth, cH = sT + wrapper.clientHeight,
-                        ix = wrapper.clientWidth / 4, iy = wrapper.clientHeight / 4;
+                        sl = wrapper.scrollLeft, st = wrapper.scrollTop,
+                        cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
+                        ix = self.sizes.charWidth * 7, iy = self.sizes.lineHeight;
                     
-                    x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
-                    y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
+                    x = x + ix > cw ? x + ix - cw + sl + (cw - sl - self.sizes.paddingLeft) % ix :
+                        x - ix < sl ? x - ix - x % ix + self.sizes.paddingLeft : sl;
+                    y = y + 4 * iy > ch ? y + 4 * iy - ch + st + (ch - st - self.sizes.paddingTop) % iy :
+                        y - 3 * iy < st ? y - 3 * iy - y % iy + self.sizes.paddingTop : st;
                     
-                    $(wrapper).scrollTo(x, y, self.options.autoScrollSpeed);
+                    wrapper.scrollLeft = x;
+                    wrapper.scrollTop = y;
                 }
+                self.removeOverlays();
             },
             'line:changed': function(e) {
                 if (self.options.highlightCurrentLine) {
                     self.selectLine(e.current);
                 }
-            }
-        });
-        
-        self.data.on({
-            'text:changed': function(e) {
-                self.parse(e.dataLine);
-                self.caret.refresh();
-            },
-            'line:added': function() {
-                var s = self.screen.element;
-                s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-            },
-            'line:removed': function() {
-                var s = self.screen.element;
-                s.style.height = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
             }
         });
         
@@ -241,12 +244,16 @@ window.CodePrinter = (function($) {
             }
         });
         
-        self.print();
+        self.mainElement.on({ nodeInserted: function() {
+            self.print();
+        }});
+        
+        self.init(data);
         
         return self;
     };
     
-    CodePrinter.version = '0.5.4';
+    CodePrinter.version = '0.5.5';
     
     CodePrinter.defaults = {
         path: '',
@@ -267,9 +274,10 @@ window.CodePrinter = (function($) {
         lineNumbers: true,
         infobar: false,
         infobarOnTop: true,
-        showIndent: true,
+        showIndentation: true,
         scrollable: true,
-        highlightBrackets: false,
+        tracking: true,
+        highlightBrackets: true,
         highlightCurrentLine: true,
         blinkCaret: true,
         autoScroll: true,
@@ -281,71 +289,52 @@ window.CodePrinter = (function($) {
         searchOnTheFly: false
     };
     
+    div = document.createElement('div');
+    li_clone = document.createElement('li');
+    pre_clone = document.createElement('pre');
+    selection_span = document.createElement('span').addClass('cp-selection');
+    
     CodePrinter.prototype = {
         isFullscreen: false,
-        prepare: function() {
-            if (options.highlightBrackets) {
-                screen.delegate('click', '.cp-bracket', function() {
-                    overlay.find('.cp-highlight').removeClass('cp-highlight');
-                    
-                    var spans = screen.find('span.cp-bracket'),
-                        cls = this.hasClass('cp-curly') ? 'cp-curly' : this.hasClass('cp-round') ? 'cp-round' : this.hasClass('cp-square') ? 'cp-square' : false,
-                        index = 0, j = 0, span;
-                    
-                    if (cls === false) {
-                        return false;
-                    }
-                    spans = spans.filter('.'+cls);
-                    
-                    index = spans.indexOf(this);
-                    if (index === -1) {
-                        return false;
-                    }
-                    
-                    if (this.hasClass('cp-open')) {
-                        for (var i = index+1; i < spans.length; i++) {
-                            span = spans.eq(i);
-                            if (span.hasClass('cp-close')) {
-                                if (j === 0) {
-                                    span.addClass('cp-highlight');
-                                    break;
-                                } else {
-                                    j--;
-                                }
-                            } else {
-                                j++;
-                            }
-                        }
-                    } else {
-                        for (var i = index-1; i >= 0; i--) {
-                            span = spans.eq(i);
-                            if (span.hasClass('cp-open')) {
-                                if (j === 0) {
-                                    span.addClass('cp-highlight');
-                                    break;
-                                } else {
-                                    j--;
-                                }
-                            } else {
-                                j++;
-                            }
-                        }
-                    }
-                    this.addClass('cp-highlight');
-                });
+        init: function(source) {
+            this.data = new Data();
+            source = decodeEntities(source).split('\n');
+            this.screen.lastLine !== -1 && this.screen.removeLines();
+            
+            var self = this, i = -1, fn,
+                l = source.length,
+                tab = this.tabString();
+            
+            while (++i < l) {
+                this.data.addLine(i, source[i].replaceAll(tab, '\t'));
             }
+            
+            self.data.on({
+                'text:changed': function(dl) {
+                    self.parse(dl);
+                    self.caret.refresh();
+                },
+                'line:added': (fn = function() {
+                    var s = self.screen.parent;
+                    s.style.minHeight = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
+                }),
+                'line:removed': fn
+            });
+            
+            return this;
         },
         measureSizes: function() {
             var sizes = this.sizes,
                 s = window.getComputedStyle(this.screen.element, null);
             
-            sizes.lineHeight = this.options.lineHeight;
-            sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
+            sizes.lineHeight = sizes.lineHeight || this.options.lineHeight;
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.scrollTop = parseInt(s.getPropertyValue('top'));
             sizes.charWidth = getTextSize(this, 'c').width;
-            sizes.counterWidth = 0;
+            sizes.counterWidth = this.counter ? this.counter.parent.offsetWidth : 0;
+            this.screen.fix();
+            
             return this;
         },
         unselectLine: function() {
@@ -357,36 +346,58 @@ window.CodePrinter = (function($) {
             }
         },
         selectLine: function(l) {
-            if (this.options.highlightCurrentLine) {
+            if (this.options.highlightCurrentLine && !this.selection.isset()) {
                 this.unselectLine();
-                this.activeLine.pre = this.data.getLine(l).getElement().addClass('cp-activeLine');
-                this.counter && (this.activeLine.li = this.counter.list.filter(function(item) { return item.innerHTML == l+1; }).addClass('cp-activeLine'));
+                if (l >= this.screen.firstLine && l <= this.screen.lastLine) {
+                    this.activeLine.pre = this.screen.getLine(l).addClass('cp-activeLine');
+                    this.counter && (this.activeLine.li = this.counter.list.filter(function(item) { return item.innerHTML == l+1; }).addClass('cp-activeLine'));
+                }
             }
         },
         getSourceValue: function() {
             var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
             return value.replace(/\t/g, this.tabString());
         },
-        print: function(mode) {
-            if (!mode) {
-                mode = this.options.mode;
-            }
+        print: function(mode, source) {
+            mode && this.setMode(mode);
+            mode = this.options.mode;
+            source && this.init(source);
+            
             var self = this,
                 sT = document.body.scrollTop,
-                sL = document.body.scrollLeft,
-                h = CodePrinter.hasMode(mode);
+                sL = document.body.scrollLeft;
             
             CodePrinter.requireMode(mode, function(ModeObject) {
                 self.defineParser(ModeObject);
                 self.render();
                 
+                var data = self.data,
+                    l = self.screen.lastLine+1,
+                    p = getDataLinePosition(l),
+                    u = p[0], t = p[1], h = p[2],
+                    I = clearInterval(I) || setInterval(function() {
+                        t >= DATA_RATIO && ++h && (t = 0);
+                        if (!data[h] || !data[h][t]) {
+                            I = clearInterval(I);
+                            return false;
+                        }
+                        while (u < data[h][t].length) {
+                            self.parse(data.getLine(l));
+                            l++; u++;
+                        }
+                        t++;
+                        u = 0;
+                    }, 50);
+                
                 document.body.scrollTop = sT;
                 document.body.scrollLeft = sL;
             }, this);
+            
+            return this;
         },
         forcePrint: function() {
-            this.stream = null;
-            this.print();
+            this.screen.removeLines();
+            this.render();
         },
         render: function() {
             var screen = this.screen,
@@ -400,27 +411,29 @@ window.CodePrinter = (function($) {
             if (i < x) {
                 for (; i < x; i++) {
                     screen.insert();
-                    this.parse(screen.lastLine);
                 }
+                this.measureSizes();
             } else {
                 x = Math.ceil((wst - this.sizes.scrollTop) / lh);
                 
-                if (x > lv + 2) {
-                    while (x > lv) {
+                if (x > lv) {
+                    do {
                         screen.shift();
                         x--;
-                    }
-                } else if (x < lv - 2) {
-                    while (x < lv) {
+                    } while (x > lv);
+                } else if (x < lv) {
+                    do {
                         screen.unshift();
                         x++;
-                    }
+                    } while (x < lv);
                 }
+                this.selectLine(this.caret.line());
             }
         },
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
+                this.options.tracking && (this.caret.tracking = (new tracking(this)).extend(parser.tracking));
             }
         },
         parse: function(line, force) {
@@ -434,22 +447,31 @@ window.CodePrinter = (function($) {
                     if (dl.startPoint) {
                         return this.parse(dl.startPoint, true);
                     }
-                    var tmp = line, p,
-                        stream = new Stream(dl.text);
+                    var tmp = line, tabString = this.tabString(),
+                        stream = new Stream(dl.text),
+                        i = -1, p, ndl;
                     
                     stream.getNextLine = function() {
                         var nl = data.getLine(++tmp);
                         if (nl) {
                             nl.setStartPoint(dl);
                             this.value.push(nl.text);
+                            return this;
+                        } else {
+                            return false;
                         }
-                        return this;
                     };
                     
-                    var p = this.parser.fn(stream).parsed, i = -1;
+                    p = this.parser.fn(stream).parsed;
                     while (++i < p.length) {
-                        p[i] = this.options.showIndent ? indentGrid(p[i], this.options.tabWidth) : p[i];
+                        p[i] = p[i].replaceAll('\t', tabString);
+                        p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
                         data.getLine(line+i).setParsed(p[i]);
+                    }
+                    while (i < data.lines && (ndl = data.getLine(line+i)) && ndl.startPoint == dl) {
+                        delete ndl.startPoint;
+                        this.parse(ndl, true);
+                        i++;
                     }
                 }
             }
@@ -463,18 +485,81 @@ window.CodePrinter = (function($) {
         requireStyle: function(style, callback) {
             $.require(this.options.path+'theme/'+style+'.css', callback);
         },
-        tabString: function() {
-            return Array(this.options.tabWidth+1).join(' ');
+        tabString: function(m) {
+            m == null && (m = 1);
+            return m <= 0 ? '' : Array(m*this.options.tabWidth+1).join(' ');
+        },
+        setOptions: function(key, value) {
+            if (this.options[key] !== value) {
+                this.options[key] = value;
+                if (key === 'tracking' && value) {
+                    this.caret.tracking = (new tracking(this)).extend(this.parser && this.parser.tracking);
+                }
+            }
+        },
+        setTabWidth: function(tw) {
+            if (typeof tw === 'number' && tw >= 0) {
+                var self = this;
+                self.options.tabWidth = tw;
+                
+                self.data.foreach(function() {
+                    self.parse(this, true);
+                });
+            }
         },
         setTheme: function(name) {
             typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
-            name = name.toLowerCase().replace(' ', '-');
-            this.theme ? this.mainElement.removeClass('cps-'+this.theme) : 0;
-            this.mainElement.addClass('cps-'+name);
-            this.theme = name;
+            this.mainElement.removeClass('cps-'+this.options.theme.toLowerCase()).addClass('cps-'+(this.options.theme = name.replace(' ', '-')).toLowerCase());
+        },
+        setMode: function(mode) {
+            mode = mode.toLowerCase();
+            this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode);
+            this.options.mode = mode;
+        },
+        setFontSize: function(size) {
+            if (size >= this.options.minFontSize && size <= this.options.maxFontSize) {
+                var id = this.mainElement.id;
+                this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
+                size > this.options.fontSize ? ++this.sizes.lineHeight : size < this.options.fontSize ? --this.sizes.lineHeight : 0;
+                
+                id = '#'+id+' .cp-';
+                this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
+                this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
+                
+                this.wrapper.style.fontSize = (this.options.fontSize = size)+'px';
+                this.caret.refresh();
+            }
+        },
+        setWidth: function(size) {
+            if (size == 'auto') {
+                this.mainElement.style.removeProperty('width');
+            } else {
+                this.mainElement.style.width = (this.options.width = parseInt(size)) + 'px';
+            }
+            this.emit('width:changed');
+        },
+        setHeight: function(size) {
+            if (size == 'auto') {
+                this.wrapper.style.removeProperty('height');
+            } else {
+                this.wrapper.style.height = (this.options.height = parseInt(size)) + 'px';
+            }
+            this.emit('height:changed');
         },
         getCurrentLine: function() {
             return this.caret.line();
+        },
+        getTextAtLine: function(line) {
+            var l = this.data.getLine(line);
+            return l ? l.text.replaceAll('\t', this.tabString()) : '';
+        },
+        getIndentAtLine: function(line) {
+            var i = -1, dl = this.data.getLine(line);
+            if (dl) {
+                while (dl.text[++i] === '\t');
+                return i;
+            }
+            return 0;
         },
         textBeforeCursor: function(i) {
             var bf = this.caret.textBefore();
@@ -508,31 +593,14 @@ window.CodePrinter = (function($) {
         },
         insertNewLine: function(l) {
             l == null && (l = this.caret.line()+1);
-            var s = this.screen,
-                dl = this.data.addLine(l, ''),
-                pre = dl.getElement(),
-                q = l - s.firstLine;
-            
-            if (q >= 0 && l <= s.lastLine+1) {
-                q === 0 ? s.element.prepend(pre) : s.lines.eq(q-1).after(pre);
-                s.lines.splice(q, 0, pre);
-                s.lastLine++;
-                this.counter.increase();
-            }
+            var dl = this.data.addLine(l, '');
+            this.screen.splice(dl, l);
             return this;
         },
         removeLine: function(l) {
             l == null && (l = this.caret.line());
-            var s = this.screen,
-                q = l - s.firstLine;
-            
             this.data.removeLine(l);
-            
-            if (q >= 0 && l <= s.lastLine) {
-                s.lines.get(q).remove(true);
-                s.lastLine--;
-                this.counter.decrease();
-            }
+            this.screen.remove(l);
             return this;
         },
         removeBeforeCursor: function(arg) {
@@ -578,7 +646,7 @@ window.CodePrinter = (function($) {
                     while (arg > af.length && l+1 < this.data.lines) {
                         this.caret.setTextAfter('');
                         arg = arg - af.length - 1;
-                        af = this.data.getTextAtLine(l+1);
+                        af = this.getTextAtLine(l+1);
                         this.removeLine(l+1);
                     }
                     this.caret.setTextAtCurrentLine(bf, af.substr(arg));
@@ -593,19 +661,19 @@ window.CodePrinter = (function($) {
                     e = this.selection.getEnd();
                 
                 if (s.line != e.line) {
-                    var t = this.data.getTextAtLine(s.line).substr(s.column) + eol
+                    var t = this.getTextAtLine(s.line).substr(s.column) + eol
                     for (var i = s.line + 1; i < e.line; i++) {
-                        t = t + this.data.getTextAtLine(i) + eol;
+                        t = t + this.getTextAtLine(i) + eol;
                     }
-                    return t + this.data.getTextAtLine(e.line).substring(0, e.column);
+                    return t + this.getTextAtLine(e.line).substring(0, e.column);
                 } else {
-                    return this.data.getTextAtLine(s.line).substring(s.column, e.column);
+                    return this.getTextAtLine(s.line).substring(s.column, e.column);
                 }
             }
             return '';
         },
         showSelection: function() {
-            var span, sel, el = this.selection.element,
+            var span, sel, ov = this.selection.overlay,
                 s = this.selection.getStart(),
                 e = this.selection.getEnd();
             
@@ -614,16 +682,16 @@ window.CodePrinter = (function($) {
                 this.input.value = sel;
                 this.input.setSelectionRange(0, sel.length);
                 sel = sel.split(eol);
-                el.innerHTML = '';
+                ov.node.innerHTML = '';
                 
                 for (var i = 0; i < sel.length; i++) {
                     span = selection_span.cloneNode(false);
-                    span.textContent = sel[i];
+                    span.textContent = sel[i] || i === 0 ? sel[i] : ' ';
                     span.style.top = ((s.line + i) * this.sizes.lineHeight + this.sizes.paddingTop + this.sizes.scrollTop) + 'px';
                     span.style.left = ((i === 0 ? s.column * this.sizes.charWidth : 0) + this.sizes.paddingLeft) + 'px';
-                    el.append(span);
+                    ov.node.append(span);
                 }
-                el.parentNode == null && this.wrapper.append(el);
+                ov.reveal();
                 this.selection.isInversed() ? this.caret.position(s.line, s.column) : this.caret.position(e.line, e.column);
             }
         },
@@ -631,6 +699,7 @@ window.CodePrinter = (function($) {
             var l = this.getSelection().length;
             this.selection.isInversed() ? this.removeAfterCursor(l) : this.removeBeforeCursor(l);
             this.selection.clear();
+            this.selectLine(this.caret.line());
         },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
@@ -653,10 +722,13 @@ window.CodePrinter = (function($) {
                     b = document.body;
                 this.tempnode = document.createTextNode('');
                 main.addClass('cp-fullscreen').style.margin = [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ');
+                main.style.width = "";
                 main.after(this.tempnode);
                 document.body.append(main);
                 this.isFullscreen = true;
                 this.render();
+                this.screen.fix();
+                this.caret.refresh();
             }
         },
         exitFullscreen: function() {
@@ -667,7 +739,9 @@ window.CodePrinter = (function($) {
                 tmp.parentNode.removeChild(tmp);
                 delete this.tempnode;
                 this.isFullscreen = false;
+                this.setWidth(this.options.width);
                 this.render();
+                this.caret.refresh();
             }
         },
         openCounter: function() {
@@ -679,10 +753,11 @@ window.CodePrinter = (function($) {
                 });
             }
             this.container.prepend(this.counter.parent);
-            this.wrapper.style.marginLeft = (this.sizes.counterWidth = this.counter.parent.offsetWidth) + 'px';
+            this.counter.parent.scrollTop = this.wrapper.scrollTop;
+            this.counter.emit('width:changed');
         },
         closeCounter: function() {
-            this.counter && this.counter.parent().remove();
+            this.counter && this.counter.parent.remove();
             this.wrapper.style.marginLeft = (this.sizes.counterWidth = 0) + 'px';
         },
         openInfobar: function() {
@@ -696,12 +771,25 @@ window.CodePrinter = (function($) {
             this.finder = this.finder || new Finder(this);
             this.finder.clear();
             this.mainElement.append(this.finder.bar);
-            this.wrapper.append(this.finder.overlay);
+            this.finder.overlay.reveal();
             this.finder.input.focus();
         },
         closeFinder: function() {
             this.finder && this.finder.close();
-        }
+        },
+        removeOverlays: function() {
+            if (this.overlays) {
+                for (var i = 0; i < this.overlays.length; i++) {
+                    if (this.overlays[i].isRemovable) {
+                        this.overlays[i].remove();
+                    }
+                }
+            }
+        },
+        prependTo: function(node) { node.prepend(this.mainElement); return this; },
+        appendTo: function(node) { node.append(this.mainElement); return this; },
+        insertBefore: function(node) { node.before(this.mainElement); return this; },
+        insertAfter: function(node) { node.after(this.mainElement); return this; }
     };
     
     Data = function() {
@@ -709,15 +797,6 @@ window.CodePrinter = (function($) {
     };
     Data.prototype = [].extend({
         lines: 0,
-        init: function(value) {
-            value = value.split(eol);
-            var i = -1, l = value.length;
-            
-            while (++i < l) {
-                this.addLine(i, value[i]);
-            }
-            return this;
-        },
         addLine: function(line, txt) {
             var b, i, p = getDataLinePosition(line),
                 u = p[0], t = p[1], h = p[2],
@@ -749,9 +828,6 @@ window.CodePrinter = (function($) {
                 b = this[h][t];
             
             if (b && b[u]) {
-                if (b[u].pre && b[u].pre.parentNode) {
-                    b[u].pre.parentNode.removeChild(b[u].pre);
-                }
                 var dl = b.splice(u, 1);
                 this.lines--;
                 this.emit('line:removed', { dataLine: dl[0], line: line });
@@ -767,7 +843,7 @@ window.CodePrinter = (function($) {
                         b.push(r);
                         b = n;
                         t === DATA_RATIO - 1 && (t = -1) && h++;
-                        n = this[h][++t];
+                        n = this[h] && this[h][++t] || null;
                     }
                 }
             }
@@ -779,10 +855,6 @@ window.CodePrinter = (function($) {
             }
             return null;
         },
-        getTextAtLine: function(line) {
-            var l = this.getLine(line);
-            return l ? l.text : false;
-        },
         setParsedAtLine: function(line, str) {
             var l = this.getLine(line);
             l && l.setParsed(str);
@@ -793,7 +865,7 @@ window.CodePrinter = (function($) {
             return parseInt(''+ h + t + (this[h][t].length - 1));
         },
         indexOf: function(dl) {
-            var h , d, i = -1;
+            var h, d, i = -1;
             for (h = 0; h < this.length; h++) {
                 for (d = 0; d < this[h].length; d++) {
                     if ((i = this[h][d].indexOf(dl)) !== -1) {
@@ -804,17 +876,28 @@ window.CodePrinter = (function($) {
             return i;
         },
         toString: function() {
-            var r = [], h = 0, t = 0, i = 0;
+            var r = [], h = 0, t;
             for (; h < this.length; h++) {
-                for (; t < this[h].length; t++) {
-                    r.push.apply(r, $(this[h][t]).map('text'));
+                for (t = 0; t < this[h].length; t++) {
+                    r.push.apply(r, this[h][t].map(function(obj) {
+                        return obj.text;
+                    }));
                 }
             }
             return r.join(eol);
+        },
+        foreach: function(f) {
+            var h = 0, t, i;
+            for (; h < this.length; h++) {
+                for (t = 0; t < this[h].length; t++) {
+                    for (i = 0; i < this[h][t].length; i++) {
+                        f.call(this[h][t][i], this.data);
+                    }
+                }
+            }
+            return this;
         }
     });
-    
-    pre_clone = document.createElement('pre');
     
     DataLine = function(parent) {
         this.extend({
@@ -822,16 +905,19 @@ window.CodePrinter = (function($) {
                 if (this.text !== str) {
                     this.text = str;
                     this.changed = true;
-                    parent.emit('text:changed', { dataLine: this });
+                    parent.emit('text:changed', this);
                 }
             },
             setParsed: function(str) {
                 if (this.parsed !== str) {
                     this.parsed = str;
                     this.changed = false;
-                    this.getElement() && (this.pre.innerHTML = str || ' ');
-                    parent.emit('parsed:changed', { dataLine: this });
+                    this.touch();
+                    parent.emit('parsed:changed', this);
                 }
+            },
+            touch: function() {
+                this.pre && (this.pre.innerHTML = this.parsed || ' ');
             }
         });
         return this;
@@ -847,17 +933,10 @@ window.CodePrinter = (function($) {
         clearStartPoint: function() {
             this.startPoint = null;
         },
-        getElement: function() {
-            if (!this.pre) {
-                this.pre = pre_clone.cloneNode(false);
-                this.pre.innerHTML = this.parsed || this.text || ' ';
+        deleteNodeProperty: function() {
+            if (this.pre) {
+                delete this.pre;
             }
-            return this.pre;
-        },
-        getElementText: function() {
-            !this.pre && this.getElement();
-            var tc = this.pre.textContent != null ? this.pre.textContent : this.pre.innerText;
-            return tc === ' ' && this.text === '' ? '' : tc;
         },
         prepend: function(str) {
             return this.setText(str + this.text);
@@ -880,86 +959,116 @@ window.CodePrinter = (function($) {
         
         return this.extend({
             setTextBefore: function(str) {
+                var l = str.length;
                 str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
+                str = str.replaceAll(cp.tabString(), '\t');
                 if (before !== str) {
                     before = str;
-                    this.emit('text:changed');
-                    this.position(line, str.length);
+                    this.emit('text:changed', line);
+                    this.position(line, l);
                 }
                 return this;
             },
             setTextAfter: function(str) {
                 str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
+                str = str.replaceAll(cp.tabString(), '\t');
                 if (after !== str) {
                     after = str;
-                    this.emit('text:changed');
+                    this.emit('text:changed', line);
                 }
                 return this;
             },
             setTextAtCurrentLine: function(bf, af) {
+                var l = bf.length;
                 bf.indexOf('@') !== -1 && (bf = bf.replaceAll(['@a','@b'], [after, before]));
                 af.indexOf('@') !== -1 && (af = af.replaceAll(['@a','@b'], [after, before]));
+                bf = bf.replaceAll(cp.tabString(), '\t');
+                af = af.replaceAll(cp.tabString(), '\t');
                 if (before !== bf || after !== af) {
                     before = bf;
                     after = af;
-                    this.emit('text:changed');
-                    this.position(line, bf.length);
+                    this.emit('text:changed', line);
+                    this.position(line, l);
                 }
                 return this;
             },
             textBefore: function() {
-                return before;
+                return before.replaceAll('\t', cp.tabString());
             },
             textAfter: function() {
-                return after;
+                return after.replaceAll('\t', cp.tabString());
             },
-            textAtCurrentLine: function() {
-                return before + after;
+            textAtCurrentLine: function(b) {
+                return b ? before + after : this.textBefore() + this.textAfter();
+            },
+            show: function() {
+                this.element.style.opacity = 1;
+                return this;
+            },
+            hide: function() {
+                this.element.style.opacity = 0;
+                line = -1;
+                return this;
             },
             position: function(l, c, t) {
                 if (l == null && c == null) {
-                    return { line: line + 1, column: before.length + 1 };
+                    return { line: line ? line + 1 : 1, column: this.column() + 1 };
                 } else {
-                    typeof l !== 'number' && (l = line);
+                    typeof l !== 'number' && (l = line || 0);
                     l = Math.max(Math.min(l, cp.data.lines - 1), 0);
-                    typeof t !== 'string' && (t = cp.data.getLine(l).getElementText());
-                    typeof c !== 'number' && (c = column);
+                    typeof t !== 'string' && (t = cp.getTextAtLine(l));
+                    typeof c !== 'number' && (c = column || 0);
                     c < 0 && (c = t.length + c + 1);
                     
-                    var x = cp.sizes.charWidth * Math.min(c, t.length),
+                    var tabString = cp.tabString(),
+                        x = cp.sizes.charWidth * Math.min(c, t.length),
                         y = cp.sizes.lineHeight * l;
                     
-                    if (line != l) {
+                    if (line !== l) {
                         this.emit('line:changed', { current: l, last: line });
                         line = l;
                     }
-                    if (column != c) {
+                    if (column !== c) {
                         this.emit('column:changed', { current: c, last: column });
                         column = c;
                     }
                     
-                    before = t.substring(0, c);
-                    after = t.substr(c);
+                    before = t.substring(0, c).replaceAll(tabString, '\t');
+                    after = t.substr(c).replaceAll(tabString, '\t');
                     cp.selectLine(l);
+                    this.setPixelPosition(x, y);
                     
-                    return this.setPixelPosition(x, y);
+                    if (cp.options.tracking) {
+                        for (var s in this.tracking) {
+                            var a = before.endsWith(s), b = after.startsWith(s);
+                            if (a + b) {
+                                var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
+                                if (!r) {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    
+                    return this;
                 }
                 return this;
             },
             moveX: function(mv) {
-                var abs, l, t, cl = line;
+                var abs, t, cl = line,
+                    bf = this.textBefore(),
+                    af = this.textAfter();
                 
-                mv >= 0 || cl === 0 ? (abs = mv) && (t = after) : (abs = Math.abs(mv)) && (t = before);
+                mv >= 0 || cl === 0 ? (abs = mv) && (t = af) : (abs = Math.abs(mv)) && (t = bf);
                 
                 if (abs <= t.length) {
-                    return this.position(cl, Math.max(0, Math.min((before + after).length, column + mv)));
+                    return this.position(cl, Math.max(0, Math.min((bf + af).length, column) + mv));
                 }
                 while (abs > t.length) {
                     abs = abs - t.length - 1;
                     cl = cl + (mv > 0) - (mv < 0);
-                    l = cp.data.getLine(cl);
-                    if (l != null) {
-                        t = l.getElementText();
+                    if (cl < cp.data.lines) {
+                        t = cp.getTextAtLine(cl);
                     } else {
                         if (mv >= 0) {
                             --cl;
@@ -979,13 +1088,38 @@ window.CodePrinter = (function($) {
             },
             refresh: function() {
                 cp.sizes.charWidth = getTextSize(cp, 'c').width;
-                return this.position(line, column);
+                return this.position(line || 0, column || 0);
             },
             line: function() {
                 return line;
             },
             column: function() {
-                return before.length;
+                return this.textBefore().length;
+            },
+            eachCharacter: function(f, bf) {
+                var i = this.textBefore().length, n = 0, r = true,
+                    tabString = cp.tabString();
+                
+                if (bf) {
+                    i--;
+                    while (r !== false && line - n >= 0) {
+                        var t = cp.getTextAtLine(line - n);
+                        n > 0 && (i = t.length - 1);
+                        while (r !== false && i >= 0) {
+                            r = f.call(this, t[i], line - n, 1+i--, cp);
+                        }
+                        n++;
+                    }
+                } else {
+                    while (r !== false && line + n < cp.data.lines) {
+                        var t = cp.getTextAtLine(line + n);
+                        while (r !== false && i < t.length) {
+                            r = f.call(this, t[i], line + n, ++i, cp);
+                        }
+                        i = 0;
+                        n++;
+                    }
+                }
             }
         });
     };
@@ -1004,14 +1138,6 @@ window.CodePrinter = (function($) {
         }
     };
     Caret.prototype = {
-        show: function() {
-            this.element.style.opacity = 1;
-            return this;
-        },
-        hide: function() {
-            this.element.style.opacity = 0;
-            return this;
-        },
         activate: function() {
             if (this.root.options.blinkCaret) {
                 var elm = this.element, a = true;
@@ -1034,7 +1160,7 @@ window.CodePrinter = (function($) {
             y >= 0 && (css.top = y + this.root.sizes.paddingTop);
             
             Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(this.root, css) : css.height = this.root.sizes.lineHeight;
-            $(this.element).css(css);
+            this.element.css(css);
             this.show().activate();
             this.emit('position:changed', x, y);
             return this;
@@ -1043,16 +1169,22 @@ window.CodePrinter = (function($) {
             x && this.moveX(x);
             y && this.moveY(y);
             return this;
+        },
+        registerTracker: function(key, callback) {
+            if (this.tracking) {
+                this.tracking[key] = callback;
+            }
         }
     };
     
     Screen = function(cp) {
         var self = this;
-        this.parent = document.createElement('div').addClass('cp-screen');
-        this.element = document.createElement('div').addClass('cp-codelines');
+        this.parent = div.cloneNode().addClass('cp-screen');
+        this.element = div.cloneNode().addClass('cp-codelines');
+        this.fixer = div.cloneNode().addClass('cp-fixer');
         this.lines = $([]);
         this.root = cp;
-        cp.wrapper.append(this.parent.append(this.element));
+        cp.wrapper.append(this.parent.append(this.element.append(this.fixer)));
         
         return this;
     };
@@ -1060,49 +1192,136 @@ window.CodePrinter = (function($) {
         firstLine: 0,
         lastLine: -1,
         insert: function() {
-            var pre = this.root.data.getLine(++this.lastLine).getElement();
-            this.lines.push(pre);
-            this.element.append(pre);
-            this.root.counter && this.root.counter.increase();
+            if (this.lastLine < this.root.data.lines - 1) {
+                var dl = this.root.data.getLine(++this.lastLine),
+                    pre = dl.pre = pre_clone.cloneNode();
+                
+                this.root.parse(dl) && dl.touch();
+                this.lines.push(pre);
+                this.element.append(pre);
+                this.root.counter && this.root.counter.increase();
+            }
         },
         splice: function(dl, i) {
-            if (dl instanceof DataLine && i >= this.firstLine && i <= this.lastLine) {
-                var pre = dl.getElement(),
+            if (dl instanceof DataLine && i >= this.firstLine && i <= this.lastLine+1) {
+                var q = i - this.firstLine;
+                
+                if (this.lines.length < this.root.wrapper.clientHeight / this.root.sizes.lineHeight + this.root.options.linesOutsideOfView * 2) {
+                    dl.pre = pre_clone.cloneNode();
+                    this.lastLine++;
+                    this.root.counter && this.root.counter.increase();
+                } else if (i + this.root.options.linesOutsideOfView >= this.root.data.lines) {
+                    this.root.data.getLine(this.firstLine++).deleteNodeProperty();
+                    dl.pre = this.lines.shift();
+                    q--; this.lastLine++;
+                    this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
+                    this.root.counter && this.root.counter.shift();
+                } else {
+                    this.root.data.getLine(this.lastLine).deleteNodeProperty();
+                    dl.pre = this.lines.pop();
+                }
+                this.root.parse(dl) && dl.touch();
+                this.lines.splice(q, 0, dl.pre);
+                q === 0 ? this.element.prepend(dl.pre) : this.lines.item(q-1).after(dl.pre);
+            }
+        },
+        remove: function(i) {
+            if (i >= this.firstLine && i <= this.lastLine) {
+                var r = this.root,
                     q = i - this.firstLine;
-                this.lines.splice(q, 0, pre);
-                q === 0 ? this.element.prepend(pre) : this.lines.eq(q-1).after(pre);
+                if (this.firstLine == 0) {
+                    if (this.lastLine < r.data.lines) {
+                        var dl = r.data.getLine(this.lastLine);
+                        dl.pre = this.lines.splice(q, 1)[0];
+                        this.append(dl);
+                    } else {
+                        this.lines.get(q).remove(true);
+                        this.lastLine--;
+                        r.counter && r.counter.decrease();
+                    }
+                } else {
+                    var dl = r.data.getLine(--this.firstLine);
+                    dl.pre = this.lines.splice(q, 1)[0];
+                    this.prepend(dl);
+                    this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
+                    this.lastLine--;
+                    r.counter && r.counter.unshift();
+                }
             }
         },
         shift: function() {
             if (this.lastLine + 1 < this.root.data.lines) {
-                var pre = this.root.data.getLine(++this.lastLine).getElement();
-                this.lines.get(0).remove(true).push(pre);
-                this.element.append(pre);
+                this.root.data.getLine(this.firstLine).deleteNodeProperty();
+                var dl = this.root.data.getLine(++this.lastLine);
+                dl.pre = this.lines.shift();
+                this.append(dl);
                 this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                 this.firstLine++;
-                this.root.parse(this.lastLine);
                 this.root.counter && this.root.counter.shift();
             }
         },
         unshift: function() {
             if (this.firstLine - 1 >= 0) {
-                var pre = this.root.data.getLine(--this.firstLine).getElement();
-                this.lines.get(-1).remove(true).unshift(pre);
-                this.element.prepend(pre);
+                this.root.data.getLine(this.lastLine).deleteNodeProperty();
+                var dl = this.root.data.getLine(--this.firstLine);
+                dl.pre = this.lines.pop();
+                this.prepend(dl);
                 this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
                 this.lastLine--;
-                this.root.parse(this.firstLine);
                 this.root.counter && this.root.counter.unshift();
             }
+        },
+        append: function(dl) {
+            this.root.parse(dl) && dl.touch();
+            this.lines.item(-1).after(dl.pre);
+            this.lines.push(dl.pre);
+        },
+        prepend: function(dl) {
+            this.root.parse(dl) && dl.touch();
+            this.lines.item(0).before(dl.pre);
+            this.lines.unshift(dl.pre);
+        },
+        getLine: function(line) {
+            return line >= this.firstLine && line <= this.lastLine ? this.lines.item(line - this.firstLine) : null;
+        },
+        removeLines: function() {
+            this.lines.remove(true);
+            this.firstLine = 0;
+            this.lastLine = -1;
+            this.root.counter && this.root.counter.removeLines();
+        },
+        fix: function() {
+            this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px';
+            this.fixer.untie().css({ width: this.parent.clientWidth }).prependTo(this.element);
         }
     };
     
-    li_clone = document.createElement('li');
+    Overlay = function(cp, classes, removable) {
+        this.node = div.cloneNode().addClass('cp-overlay '+classes);
+        this.isRemovable = !!removable;
+        this.root = cp;
+        return this;
+    };
+    Overlay.prototype = {
+        reveal: function() {
+            if (!this.node.parentNode) {
+                this.root.overlays.push(this);
+                this.root.wrapper.append(this.node);
+                this.emit('overlay:revealed');
+            }
+        },
+        remove: function() {
+            var i = this.root.overlays.indexOf(this);
+            i != -1 && this.root.overlays.splice(i, 1);
+            this.node.remove();
+            this.emit('overlay:removed');
+        }
+    };
     
     Counter = function(cp) {
         var self = this, ln = cp.screen.lines.length;
         self.element = document.createElement('ol');
-        self.parent = document.createElement('div').addClass('cp-counter').append(self.element);
+        self.parent = div.cloneNode().addClass('cp-counter').append(self.element);
         self.list = $([]);
         self.root = cp;
         cp.container.prepend(self.parent);
@@ -1134,40 +1353,47 @@ window.CodePrinter = (function($) {
             (n-1).toString().length < n.toString().length && this.emit('width:changed');
         },
         shift: function() {
-            var fi = this.list.item(0),
-                c = parseInt(fi.innerHTML) + this.list.length;
+            var fi = this.list.shift(),
+                i = parseInt(fi.innerHTML),
+                c = i + this.list.length + 1;
             
             fi.innerHTML = c;
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
-            this.element.append(fi);
-            this.list.get(0).remove(true).push(fi);
-            this.element.append(fi).style.marginTop = this.root.sizes.scrollTop + 'px';
+            this.list.item(-1).after(fi);
+            this.list.push(fi);
+            this.element.style.marginTop = this.root.sizes.scrollTop + 'px';
+            c.toString().length > (c-1).toString().length && this.emit('width:changed');
         },
         unshift: function() {
-            var la = this.list.item(-1),
-                c = parseInt(la.innerHTML) - this.list.length;
+            var la = this.list.pop(),
+                i = parseInt(la.innerHTML),
+                c = i - this.list.length - 1;
             
             la.innerHTML = c;
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
-            this.element.prepend(la);
-            this.list.get(-1).remove(true).unshift(la);
-            this.element.prepend(la).style.marginTop = this.root.sizes.scrollTop + 'px';
+            this.list.item(0).before(la);
+            this.list.unshift(la);
+            this.element.style.marginTop = this.root.sizes.scrollTop + 'px';
+            i.toString().length > (i-1).toString().length && this.emit('width:changed');
+        },
+        removeLines: function() {
+            this.list.remove(true);
         }
     };
     
     InfoBar = function(cp) {
         var mode = document.createElement('span').addClass('cpi-mode'),
             act = document.createElement('span').addClass('cpi-actions'),
-            pos = document.createElement('span').addClass('cpi-position');
+            info = document.createElement('span').addClass('cpi-info');
         
         mode.innerHTML = cp.options.mode;
-        this.element = document.createElement('div').addClass('cpi-bar').append(mode, act, pos);
+        this.element = div.cloneNode().addClass('cpi-bar').append(mode, act, info);
         this.root = cp;
         
         this.segments = {
             mode: mode,
             actions: act,
-            position: pos
+            info: info
         };
         
         this.actions = {
@@ -1175,6 +1401,11 @@ window.CodePrinter = (function($) {
                 func: function() {
                     var newWindow = window.open('', '_blank');
                     newWindow.document.writeln('<pre style="font-size:12px;">' + encodeEntities(cp.data.toString()) + '</pre>');
+                }
+            },
+            fullscreen: {
+                func: function() {
+                    cp.isFullscreen ? cp.exitFullscreen() : cp.enterFullscreen();
                 }
             }
         };
@@ -1186,7 +1417,7 @@ window.CodePrinter = (function($) {
         if (cp.caret) {
             cp.caret.on({
                 'position:changed': function() {
-                    pos.innerHTML = 'Line ' + (this.line()+1) + ', Column ' + (this.column()+1);
+                    info.innerHTML = 'Line ' + (this.line()+1) + ', Column ' + (this.column()+1);
                 }
             });
         }
@@ -1206,6 +1437,9 @@ window.CodePrinter = (function($) {
                 element: el
             };
             return el;
+        },
+        update: function(str) {
+            this.segments.info.innerHTML = str;
         }
     };
     
@@ -1214,11 +1448,11 @@ window.CodePrinter = (function($) {
             findnext = document.createElement('button').addClass('cpf-button cpf-findnext'),
             findprev = document.createElement('button').addClass('cpf-button cpf-findprev'),
             closebutton = document.createElement('button').addClass('cpf-button cpf-close'),
-            leftbox = document.createElement('div').addClass('cpf-leftbox'),
-            flexbox = document.createElement('div').addClass('cpf-flexbox'),
+            leftbox = div.cloneNode().addClass('cpf-leftbox'),
+            flexbox = div.cloneNode().addClass('cpf-flexbox'),
             input = document.createElement('input').addClass('cpf-input'),
-            bar = document.createElement('div').addClass('cpf-bar'),
-            overlay = document.createElement('div').addClass('cpf-overlay cp-overlay'),
+            bar = div.cloneNode().addClass('cpf-bar'),
+            overlay = new Overlay(cp, 'cpf-overlay', false),
             keyMap = {
                 13: function() {
                     if (self.searched === this.value) {
@@ -1253,7 +1487,7 @@ window.CodePrinter = (function($) {
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
         closebutton.on({ click: function(e) { self.close(); }});
-        overlay.delegate('click', 'span', function(e) {
+        overlay.node.delegate('click', 'span', function(e) {
             if (this.position) {
                 cp.selection.setStart(this.position.ls, this.position.cs).setEnd(this.position.le, this.position.ce);
                 cp.showSelection();
@@ -1273,16 +1507,16 @@ window.CodePrinter = (function($) {
     Finder.prototype = {
         close: function() {
             this.bar.remove();
-            this.overlay.remove()
+            this.overlay.remove();
         },
         clear: function() {
             this.searched = null;
             this.searchResults.length = 0;
-            this.overlay.innerHTML = '';
+            this.overlay.node.innerHTML = '';
         },
         push: function(span) {
             this.searchResults.push(span);
-            this.overlay.append(span);
+            this.overlay.node.append(span);
         },
         find: function(find) {
             var root = this.root,
@@ -1294,30 +1528,34 @@ window.CodePrinter = (function($) {
             
             if (find) {
                 for (; line < root.data.lines; line++) {
-                    value = root.data.getTextAtLine(line);
+                    value = root.getTextAtLine(line);
                     ln = 0;
                     
                     while (value && (index = value.indexOf(find)) !== -1) {
                         var span = document.createElement('span').addClass('cpf-occurrence');
                         span.textContent = span.innerText = span.innerHTML = find;
+                        ln = ln + index;
                         span.extend({ position: {
                             ls: line, 
-                            cs: ln+index,
+                            cs: ln,
                             le: line,
-                            ce: ln+index + find.length
+                            ce: ln + find.length
                         }});
                         span.style.extend({
                             width: (siz.charWidth * find.length) + 'px',
                             height: siz.lineHeight + 'px',
                             top: (siz.paddingTop + line * siz.lineHeight + 1) + 'px',
-                            left: (siz.paddingLeft + siz.charWidth * (ln + index) + 1) + 'px'
+                            left: (siz.paddingLeft + siz.charWidth * ln + 1) + 'px'
                         });
                         this.push(span);
-                        value = value.substr((ln = index + find.length));
+                        ln = ln + find.length;
+                        value = value.substr(index + find.length);
                     }
                 }
+                this.overlay.reveal();
                 this.searched = find;
                 this.searchResults.removeClass('active').get(0).addClass('active');
+                this.scrollToActive();
             }
         },
         reload: function() {
@@ -1340,7 +1578,8 @@ window.CodePrinter = (function($) {
             }
         },
         scrollToActive: function() {
-            $(this.root.wrapper).scrollTo( 
+            this.root.infobar && this.root.infobar.update(this.searchResults.length ? (this.searchResults.g+1)+' of '+this.searchResults.length+' matches' : 'Unable to find '+this.searched);
+            this.root.wrapper.scrollTo( 
                 parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
                 parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
                 this.root.options.autoScrollSpeed
@@ -1354,13 +1593,14 @@ window.CodePrinter = (function($) {
         }
         this.value = value instanceof Array ? value : typeof value === 'string' ? [value] : [];
         this.parsed = [];
+        this.row = 0;
+        this.pos = 0;
         return this;
     };
     Stream.prototype = {
         found: '',
         eaten: '',
-        row: 0,
-        pos: 0,
+        wrapped: '',
         setRow: function(r, p) {
             if (r < 0 || r >= this.value.length) {
                 return false;
@@ -1395,6 +1635,7 @@ window.CodePrinter = (function($) {
             return this.found = f;
         },
         eat: function(from, to, req, force) {
+            this.eaten = [];
             var str = this.current().substr(this.pos),
                 indexFrom = 0, indexTo = 0, pos = 0;
             
@@ -1426,12 +1667,13 @@ window.CodePrinter = (function($) {
                 if (indexTo === -1) {
                     if (force) {
                         this.eaten = [str.substr(indexFrom)];
-                        this.pos = 0;
+                        this.pos += pos + str2.length;
                         
                         while (this.getNextLine()) {
                             this.row++;
+                            this.pos = 0;
                             str2 = this.current();
-                            if (str2) {
+                            if (str2 != null) {
                                 if (to instanceof RegExp) {
                                     if ((indexTo = str2.search(to)) !== -1) {
                                         to = to.exec(str2)[0];
@@ -1445,6 +1687,7 @@ window.CodePrinter = (function($) {
                                     return this;
                                 } else {
                                     this.eaten.push(str2);
+                                    this.pos = str2.length;
                                 }
                             } else {
                                 this.row--;
@@ -1452,8 +1695,6 @@ window.CodePrinter = (function($) {
                                 return this;
                             }
                         }
-                        this.row--;
-                        this.pos = pos + str2.length;
                         return this;
                     } else if (req) {
                         indexTo = pos + str2.length;
@@ -1501,12 +1742,12 @@ window.CodePrinter = (function($) {
                 suffix[i] = 'cp-'+suffix[i];
             }
             suffix = suffix.join(' ');
-            
+            this.wrapped = [];
             tmp.length > 1 && (this.row = this.row - tmp.length + 1);
             i = 0;
             
             while (true) {
-                this.append(tmp[i] ? span(tmp[i]) : '');
+                this.wrapped[i] = this.append(tmp[i] ? span(tmp[i]) : '');
                 if (++i < tmp.length) {
                     this.parsed[++this.row] = '';
                 } else {
@@ -1514,6 +1755,21 @@ window.CodePrinter = (function($) {
                 }
             }
             return this.reset();
+        },
+        unwrap: function() {
+            if (this.wrapped.length) {
+                var p = this.parsed[this.row];
+                if (p.endsWith(this.wrapped[0])) {
+                    this.parsed[this.row] = p.substr(0, p.length - this.wrapped[0].length);
+                }
+                this.eaten = this._eaten;
+                delete this._eaten;
+                this.wrapped = [];
+            }
+            return this;
+        },
+        isWrapped: function() {
+            return this.wrapped && this._eaten && !this.found;
         },
         append: function(txt) {
             if (typeof txt === 'string') {
@@ -1523,6 +1779,7 @@ window.CodePrinter = (function($) {
                     this.parsed[this.row] = this.parsed[this.row] + txt;
                 }
             }
+            return txt;
         },
         push: function() {
             var e = this.eaten;
@@ -1546,8 +1803,8 @@ window.CodePrinter = (function($) {
             return s instanceof RegExp ? af.search(s) === 0 : af.trim().indexOf(s) === 0;
         },
         isBefore: function(s) {
-            var bf = this.before(), t;
-            return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.lastIndexOf(s) === t.length - s.length;
+            var bf = this.before(), t, i;
+            return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.endsWith(s);
         },
         back: function() {
             if (this.eaten.length) {
@@ -1559,6 +1816,7 @@ window.CodePrinter = (function($) {
         },
         reset: function() {
             this.found = false;
+            this._eaten = this.eaten;
             this.eaten = [];
             return this;
         },
@@ -1566,6 +1824,7 @@ window.CodePrinter = (function($) {
             this.teared = this.current().substr(this.pos);
             this.append(this.teared);
             this.forward();
+            return this;
         },
         restore: function() {
             if (this.teared) {
@@ -1575,12 +1834,14 @@ window.CodePrinter = (function($) {
                 this.pos = this.value[this.row].length - this.teared.length;
                 this.teared = null;
             }
+            return this;
         },
         revert: function() {
             if (this.found) {
                 this.pos = this.pos - this.found.length;
                 this.found = false;
             }
+            return this;
         },
         skip: function(found) {
             var str = this.current().substr(this.pos);
@@ -1590,6 +1851,7 @@ window.CodePrinter = (function($) {
                 this.pos = this.pos + found.length;
                 this.found = false;
             }
+            return this;
         },
         peek: function(q) {
             q = q || 0;
@@ -1602,7 +1864,7 @@ window.CodePrinter = (function($) {
             return this.pos === 0;
         },
         toString: function() {
-            return $.browser.windows ? this.parsed.join('\r\n') : this.parsed.join('\n');
+            return this.parsed.join(eol);
         }
     };
     
@@ -1644,6 +1906,7 @@ window.CodePrinter = (function($) {
             '=': 'equal',
             '-': 'minus',
             '+': 'plus',
+            '*': 'multiply',
             '/': 'divider',
             '%': 'percentage',
             '<': 'lower',
@@ -1677,9 +1940,9 @@ window.CodePrinter = (function($) {
             return e && e.cancel();
         },
         9: function(e) {
-            var t = this.tabString();
             if (this.selection.isset()) {
-                var s = this.selection, i, l;
+                var t = '\t', w = this.options.tabWidth,
+                    s = this.selection, i, l;
                 
                 s.correct();
                 this.caret.position(s.start.line, s.start.column);
@@ -1689,9 +1952,9 @@ window.CodePrinter = (function($) {
                 if (e.shiftKey) {
                     var dl = this.data.getLine(i);
                     if (dl.text.indexOf(t) === 0) {
-                        dl.setText(dl.text.substr(t.length));
-                        s.start.column -= t.length;
-                        this.caret.moveX(-t.length);
+                        dl.setText(dl.text.substr(w));
+                        s.start.column -= w;
+                        this.caret.moveX(-w);
                     }
                     if (l - i++) {
                         for (; i < l; i++) {
@@ -1699,27 +1962,27 @@ window.CodePrinter = (function($) {
                         }
                         dl = this.data.getLine(i);
                         if (dl.text.indexOf(t) === 0) {
-                            dl.setText(dl.text.substr(t.length));
-                            s.end.column -= t.length;
+                            dl.setText(dl.text.substr(w));
+                            s.end.column -= w;
                         }
                     }
                 } else {
                     for (; i <= l; i++) {
                         this.data.getLine(i).prepend(t);
                     }
-                    s.start.column += t.length;
-                    s.end.column += t.length;
-                    this.caret.moveX(t.length);
+                    s.start.column += w;
+                    s.end.column += w;
+                    this.caret.moveX(w);
                 }
                 this.showSelection();
             } else {
-                e.shiftKey ? this.removeBeforeCursor(t) : this.insertText(t);
+                e.shiftKey ? this.removeBeforeCursor(this.tabString()) : this.insertText(this.tabString());
             }
             return e.cancel();
         },
         13: function(e) {
             var t = this.caret.textBefore().match(/^ +/),
-                a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0] : '');
+                a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0].substring(0, t[0].length - t[0].length % this.options.tabWidth) : '');
             
             if (this.textBeforeCursor(1) === '{') {
                 this.insertText(a + this.tabString());
@@ -1735,6 +1998,7 @@ window.CodePrinter = (function($) {
             }
         },
         27: function(e) {
+            this.isFullscreen && this.exitFullscreen();
             return e.cancel();
         },
         37: function(e, c) {
@@ -1742,9 +2006,11 @@ window.CodePrinter = (function($) {
             if (e.shiftKey && this.selection.start.line >= 0) {
                 this.selection.setEnd(this.caret.line(), this.caret.column());
                 this.showSelection();
+                this.unselectLine();
             } else {
                 this.selection.clear();
             }
+            return e.cancel();
         },
         46: function(e) {
             var t = this.caret.textAfter(),
@@ -1790,19 +2056,16 @@ window.CodePrinter = (function($) {
     shortcuts = function() {};
     shortcuts.prototype = {
         37: function() {
-            this.wrapper.scrollLeft = 0;
+            this.caret.position(this.caret.line(), 0);
         },
         38: function() {
             this.wrapper.scrollTop = 0;
             this.caret.position(0, 0);
         },
         39: function() {
-            var w = this.wrapper;
-            w.scrollLeft = w.scrollWidth;
+            this.caret.position(this.caret.line(), -1);
         },
         40: function() {
-            var w = this.wrapper;
-            w.scrollTop = w.scrollHeight;
             this.caret.position(this.data.lines - 1, -1);
         },
         70: function(e) {
@@ -1828,22 +2091,10 @@ window.CodePrinter = (function($) {
             this.forcePrint();
         },
         187: function() {
-            var id = this.mainElement.id;
-            if (this.sizes.fontSize < this.options.maxFontSize) {
-                this.wrapper.style.fontSize = (++this.sizes.fontSize)+'px';
-                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
-                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(++this.sizes.lineHeight)+'px;');
-                this.caret.refresh();
-            }
+            this.setFontSize(this.options.fontSize+1);
         },
         189: function() {
-            var id = this.mainElement.id;
-            if (this.sizes.fontSize > this.options.minFontSize) {
-                this.wrapper.style.fontSize = (--this.sizes.fontSize)+'px';
-                this.counter && (this.counter.parent.style.fontSize = this.sizes.fontSize+'px') && this.counter.emit('width:changed');
-                (id = '#'+id+' .cp-') && $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+(--this.sizes.lineHeight)+'px;');
-                this.caret.refresh();
-            }
+            this.setFontSize(this.options.fontSize-1);
         },
         229: function() {
             if (this.parser && this.parser.comment) {
@@ -1878,7 +2129,7 @@ window.CodePrinter = (function($) {
     commands = {
         65: function() {
             var ls = this.data.lines - 1;
-            this.selection.setStart(0, 0).setEnd(ls, this.data.getTextAtLine(ls).length);
+            this.selection.setStart(0, 0).setEnd(ls, this.getTextAtLine(ls).length);
             this.showSelection();
             this.emit('cmd.selectAll');
             return false;
@@ -1893,32 +2144,34 @@ window.CodePrinter = (function($) {
             return true;
         },
         88: function() {
-            this.keydownMap.touch(8, this, null);
-            this.selection.clear();
-            this.emit('cmd.cut');
+            if (this.selection.isset()) {
+                this.removeSelection();
+                this.emit('cmd.cut');
+            }
             return true;
         }
     };
-
-    selection_span = document.createElement('span').addClass('cp-selection');
     
     selection = function() {
-        this.element = document.createElement('div').addClass('cp-selection-overlay cp-overlay');
         this.start = {};
         this.end = {};
         return this;
     };
     selection.prototype = {
         clear: function() {
-            this.element.innerHTML = '';
+            this.overlay.node.innerHTML = '';
+            this.overlay.isRemovable = true;
             this.start = {};
             this.end = {};
+            this.emit('canceled');
             return this;
         },
         setStart: function(line, column) {
-            this.clear();
+            this.overlay.node.innerHTML != '' && this.clear();
+            this.overlay.isRemovable = false;
             this.start.line = line;
             this.start.column = column;
+            this.emit('started');
             return this;
         },
         setEnd: function(line, column) {
@@ -1952,29 +2205,75 @@ window.CodePrinter = (function($) {
         }
     };
     
+    tracking = function() {};
+    tracking.prototype = {
+        '(': function(cp, key, details) {
+            if (cp.options.highlightBrackets) {
+                var c = details.isAfter, sec = key === '(' ? ')' : String.fromCharCode(key.charCodeAt(0)+2);
+                
+                this.eachCharacter(function(ch, line, column, cp) {
+                    ch == key ? c++ : ch == sec && c--;
+                    if (!c) {
+                        var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
+                            pos0 = getPositionOf(cp, details.line, details.column),
+                            pos1 = getPositionOf(cp, line, column),
+                            span0 = createSpan(key, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
+                            span1 = createSpan(ch, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
+                        
+                        overlay.node.append(span0, span1);
+                        overlay.reveal();
+                        return false;
+                    }
+                });
+            }
+        },
+        ')': function(cp, key, details) {
+            if (cp.options.highlightBrackets) {
+                var c = details.isBefore, sec = key === ')' ? '(' : String.fromCharCode(key.charCodeAt(0)-2);
+                
+                this.eachCharacter(function(ch, line, column, cp) {
+                    ch == key ? c++ : ch == sec && c--;
+                    if (!c) {
+                        var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
+                            pos0 = getPositionOf(cp, line, column),
+                            pos1 = getPositionOf(cp, details.line, details.column),
+                            span0 = createSpan(ch, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
+                            span1 = createSpan(key, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
+                        
+                        overlay.node.append(span0, span1);
+                        overlay.reveal();
+                        return false;
+                    }
+                }, true);
+            }
+        }
+    };
+    tracking.prototype['{'] = tracking.prototype['['] = tracking.prototype['('];
+    tracking.prototype['}'] = tracking.prototype[']'] = tracking.prototype[')'];
+    
     eol = $.browser.windows ? '\r\n' : '\n';
     
     CodePrinter.requireMode = function(req, cb, del) {
-        return $.scripts.require('CodePrinter.'+req, cb, del);
+        return $.scripts.require('CodePrinter.'+req.toLowerCase(), cb, del);
     };
     CodePrinter.defineMode = function(name, obj, req) {
         var m = (new CodePrinter.Mode()).extend(obj);
         m.init instanceof Function && m.init();
-        $.scripts.define('CodePrinter.'+name, m, req);
+        $.scripts.define('CodePrinter.'+name.toLowerCase(), m, req);
     };
     CodePrinter.getMode = function(name) {
-        return $.scripts.get('CodePrinter.'+name);
+        return $.scripts.get('CodePrinter.'+name.toLowerCase());
     };
     CodePrinter.hasMode = function(name) {
-        return $.scripts.has('CodePrinter.'+name);
+        return $.scripts.has('CodePrinter.'+name.toLowerCase());
     };
     
     var buildDOM = (function(){
-        var m = document.createElement('div').addClass('codeprinter'),
-            c = document.createElement('div').addClass('cp-container'),
-            w = document.createElement('div').addClass('cp-wrapper'),
+        var m = div.cloneNode().addClass('codeprinter'),
+            c = div.cloneNode().addClass('cp-container'),
+            w = div.cloneNode().addClass('cp-wrapper'),
             i = document.createElement('textarea').addClass('cp-input'),
-            r = document.createElement('div').addClass('cp-caret');
+            r = div.cloneNode().addClass('cp-caret');
         w.appendChild(r);
         c.appendChild(w);
         m.appendChild(i);
@@ -2000,30 +2299,61 @@ window.CodePrinter = (function($) {
         pre.parentNode.removeChild(pre);
         return cr;
     };
+    function getPositionOf(cp, line, column)
+    {
+        return {
+            x: cp.sizes.paddingLeft + (column-1) * cp.sizes.charWidth,
+            y: cp.sizes.paddingTop + line * cp.sizes.lineHeight
+        };
+    };
+    function createSpan(text, classes, top, left, width, height)
+    {
+        var s = document.createElement('span').addClass(classes);
+        s.textContent = text;
+        s.style.extend({
+            top: top + 'px',
+            left: left + 'px',
+            width: width + 'px',
+            height: height + 'px'
+        });
+        return s;
+    };
     function getDataLinePosition(line) {
         return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
     };
-    function insertAfter(node, newNode) {
-        node.parentNode.insertBefore(newNode, node.nextSibling);
-    };
     function decodeEntities(text) {
-        var d = document.createElement('div');
+        var d = div.cloneNode();
         d.innerHTML = text;
-        return d.innerText || d.textContent;
+        return (d.innerText || d.textContent).replace('\r', '');
     };
     function encodeEntities(text) {
         return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
     };
     function indentGrid(text, width) {
-        var pos = text.search(/[^\s]/);
-        if(pos == -1) pos = text.length;
-        var tmp = [ text.substring(0, pos), text.substr(pos) ];
-        tmp[0] = tmp[0].replace(new RegExp("(\\s{"+ width +"})", "g"), '<span class="cp-tab">$1</span>');
+        var pos = text.search(/[^ ]/), tmp;
+        pos == -1 && (pos = text.length); 
+        tmp = [text.substring(0, pos), text.substr(pos)];
+        tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cp-tab">$1</span>');
         return tmp[0] + tmp[1];
     };
     function isCommandKey(e) {
         return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
     };
+    
+    $.registerEvent({
+        type: 'nodeInserted',
+        setupEvents: 'animationstart MSAnimationStart webkitAnimationStart',
+        setup: function(self) {
+            this.on(self.setupEvents, (self.handler = function(e) {
+                if (e.animationName == self.type) {
+                    $.callObservers(self.type, this);
+                }
+            }), $.flags.EVENT_DONT_OBSERVE | $.flags.EVENT_DONT_OFF_REPEATS);
+        },
+        teardown: function(self) {
+            this.off(self.setupEvents, self.handler);
+        }
+    });
     
     $.prototype.CodePrinter = function(opt) {
         var k = -1;

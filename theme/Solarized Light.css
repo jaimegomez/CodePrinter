@@ -5,6 +5,7 @@
 .cps-solarized-light .cpi-bar,
 .cps-solarized-light .cpf-bar { background:#fdf6e3; color:#586e75; border-color:#586e75; box-shadow:0 0 10px rgba(0,0,0,0.15); }
 .cps-solarized-light .cp-selection { background:rgba(89,109,115,0.4); }
+.cps-solarized-light .cp-highlight { border-bottom:1px solid black; }
 .cps-solarized-light .cp-activeLine { background:rgba(255,255,0,0.3); box-shadow:0 0 1px 1px rgba(255,165,0,0.8); }
 .cps-solarized-light .cpf-input { background:#ede6d3; }
 

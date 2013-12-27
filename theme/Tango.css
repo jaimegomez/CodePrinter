@@ -2,6 +2,7 @@
 
 .cps-tango .cp-wrapper { background:#FFFFFF; color:#000000; }
 .cps-tango .cp-selection { background:#EEEEEE; }
+.cps-tango .cp-highlight { border-bottom:1px solid black; }
 .cps-tango .cp-counter,
 .cps-tango .cpi-bar,
 .cps-tango .cpf-bar { background:#fff; border-color:#c0c0c0; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.1); }

@@ -4,7 +4,7 @@ CodePrinter.defineMode('C', {
 	controls: ['if','else','elseif','for','switch','while','do'],
 	keywords: ['return','new','using','namespace','this','sizeof','break','continue','static','struct','typedef','case','const','default','void','enum','extern','goto','register','union','auto','volatile'],
 	types: ['int','double','short','long','char','float','bool','unsigned','signed','struct'],
-	regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|"|'|{|}|\/|%|<|>|&|\||\.|,|:|;|\?|!/,
+	regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
 	
 	fn: function(stream) {
 		var found;
