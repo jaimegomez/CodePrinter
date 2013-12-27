@@ -13,7 +13,7 @@ CodePrinter.defineMode('Ruby', (function() {
     
     return {
         controls: ['end','if','else','elseif','def','undef','begin','for','do','while','case','unless','until','then'],
-        keywords: ['public','private','protected','alias','and','break','class','defined?','ensure','in','module','next','nil','not','or','redo','rescue','retry','return','self','super','when','yield'],
+        keywords: ['public','private','protected','alias','and','break','class','defined?','ensure','in','loop','module','next','nil','not','or','redo','rescue','retry','return','self','super','when','yield'],
         specials: ['puts','gets','print','proc','lambda','eval','fail'],
         regexp: /\w+\??|=begin|[^\w\s\/]|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\/(.*)\/[gimy]{0,4}/,
         

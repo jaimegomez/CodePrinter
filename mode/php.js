@@ -12,7 +12,7 @@ CodePrinter.defineMode('PHP', {
         
 		while (found = stream.match(this.regexp)) {
             if (found[0] === '$') {
-            	stream.wrap(['variable'])
+            	found == '$this' ? stream.wrap(['special', 'this']) : stream.wrap(['variable']);
             } else if (!isNaN(found)) {
                 if (found.substr(0, 2).toLowerCase() == '0x') {
                     stream.wrap(['numeric', 'hex']);
@@ -45,6 +45,8 @@ CodePrinter.defineMode('PHP', {
                     stream.wrap(['operator', this.operators[found]]);
                 } else if (this.brackets.hasOwnProperty(found)) {
                     stream.wrap(this.brackets[found]);
+                } else if (found == '"' || found == "'") {
+                    stream.eatWhile(found, this.chars[found].end).wrap(this.chars[found].cls);
                 } else {
                     stream.wrap(['punctuation', this.punctuations[found] || 'other']);
                 }
