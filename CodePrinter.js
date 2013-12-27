@@ -198,14 +198,17 @@ window.CodePrinter = (function($) {
                 document.activeElement != self.input && self.input.focus();
                 if (self.options.autoScroll) {
                     var wrapper = self.wrapper,
-                        sL = wrapper.scrollLeft, sT = wrapper.scrollTop,
-                        cW = sL + wrapper.clientWidth, cH = sT + wrapper.clientHeight,
-                        ix = wrapper.clientWidth / 5, iy = wrapper.clientHeight / 5;
+                        sl = wrapper.scrollLeft, st = wrapper.scrollTop,
+                        cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
+                        ix = self.sizes.charWidth * 7, iy = self.sizes.lineHeight;
                     
-                    x = x + ix > cW ? sL + x + ix - cW : x - ix < sL ? x - ix : sL;
-                    y = y + iy > cH ? sT + y + iy - cH : y - iy < sT ? y - iy : sT;
+                    x = x + ix > cw ? x + ix - cw + sl + (cw - sl - self.sizes.paddingLeft) % ix :
+                        x - ix < sl ? x - ix - x % ix + self.sizes.paddingLeft : sl;
+                    y = y + 4 * iy > ch ? y + 4 * iy - ch + st + (ch - st - self.sizes.paddingTop) % iy :
+                        y - 3 * iy < st ? y - 3 * iy - y % iy + self.sizes.paddingTop : st;
                     
-                    wrapper.scrollTo(x, y, self.options.autoScrollSpeed);
+                    wrapper.scrollLeft = x;
+                    wrapper.scrollTop = y;
                 }
                 self.removeOverlays();
             },
