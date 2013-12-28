@@ -1865,6 +1865,7 @@ window.CodePrinter = (function($) {
         },
         operators: {
             '=': 'equal',
+            '!': 'negation',
             '-': 'minus',
             '+': 'plus',
             '*': 'multiply',
