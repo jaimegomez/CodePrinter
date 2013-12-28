@@ -102,7 +102,16 @@ window.CodePrinter = (function($) {
         self.wrapper.listen({
             scroll: function() {
                 self.counter && (self.counter.parent.scrollTop = this.scrollTop);
-                self.render();
+                
+                var lv = parseInt(self.options.linesOutsideOfView),
+                    x = Math.ceil((this.scrollTop - self.sizes.scrollTop) / self.sizes.lineHeight);
+                
+                if (x > lv) {
+                    do self.screen.shift(); while (--x > lv);
+                } else if (x < lv) {
+                    do self.screen.unshift(); while (++x < lv);
+                }
+                self.selectLine(self.caret.line());
             },
             dblclick: function() {
                 var bf = self.caret.textBefore(),
@@ -363,7 +372,7 @@ window.CodePrinter = (function($) {
             
             CodePrinter.requireMode(mode, function(ModeObject) {
                 self.defineParser(ModeObject);
-                self.render();
+                self.screen.fill();
                 
                 var data = self.data,
                     l = self.screen.lastLine+1,
@@ -391,38 +400,7 @@ window.CodePrinter = (function($) {
         },
         forcePrint: function() {
             this.screen.removeLines();
-            this.render();
-        },
-        render: function() {
-            var screen = this.screen,
-                wst = this.wrapper.scrollTop,
-                wch = this.wrapper.clientHeight,
-                lh = this.sizes.lineHeight,
-                lv = parseInt(this.options.linesOutsideOfView),
-                x = Math.min(Math.ceil(wch / lh) + lv + (wst > 2 * lh ? lv : 0), this.data.lines-1),
-                i = screen.lastLine - screen.firstLine;
-            
-            if (i < x) {
-                for (; i < x; i++) {
-                    screen.insert();
-                }
-                this.measureSizes();
-            } else {
-                x = Math.ceil((wst - this.sizes.scrollTop) / lh);
-                
-                if (x > lv) {
-                    do {
-                        screen.shift();
-                        x--;
-                    } while (x > lv);
-                } else if (x < lv) {
-                    do {
-                        screen.unshift();
-                        x++;
-                    } while (x < lv);
-                }
-                this.selectLine(this.caret.line());
-            }
+            this.screen.fill();
         },
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
@@ -720,8 +698,7 @@ window.CodePrinter = (function($) {
                 main.after(this.tempnode);
                 document.body.append(main);
                 this.isFullscreen = true;
-                this.render();
-                this.screen.fix();
+                this.screen.fill();
                 this.caret.refresh();
             }
         },
@@ -734,7 +711,7 @@ window.CodePrinter = (function($) {
                 delete this.tempnode;
                 this.isFullscreen = false;
                 this.setWidth(this.options.width);
-                this.render();
+                this.screen.fill();
                 this.caret.refresh();
             }
         },
@@ -1185,6 +1162,16 @@ window.CodePrinter = (function($) {
     Screen.prototype = {
         firstLine: 0,
         lastLine: -1,
+        fill: function() {
+            var r = this.root, w = r.wrapper,
+                lv = parseInt(r.options.linesOutsideOfView),
+                x = Math.min(Math.ceil(w.clientHeight / r.sizes.lineHeight) + 2 * lv, r.data.lines-1),
+                i = this.lines.length;
+            
+            for (; i <= x; i++) this.insert();
+            this.fix();
+            return this;
+        },
         insert: function() {
             if (this.lastLine < this.root.data.lines - 1) {
                 var dl = this.root.data.getLine(++this.lastLine),
@@ -1287,6 +1274,7 @@ window.CodePrinter = (function($) {
         fix: function() {
             this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px';
             this.fixer.untie().css({ width: this.parent.clientWidth }).prependTo(this.element);
+            return this;
         }
     };
     
@@ -2280,7 +2268,7 @@ window.CodePrinter = (function($) {
             cp.caret.element = cp.wrapper.firstChild.addClass('cp-caret-'+cp.options.caretStyle);
         }
     })();
-    function getTextSize(cp, text) {
+    function calculateCharDimensions(cp, text) {
         var h = 0, w = 0, cr,
             pre = document.createElement('pre').addClass('cp-templine'),
             span = document.createElement('span');
@@ -2291,6 +2279,8 @@ window.CodePrinter = (function($) {
         cp.screen.parent.appendChild(pre);
         cr = span.getBoundingClientRect();
         pre.parentNode.removeChild(pre);
+        cp.sizes.charWidth = cr.width;
+        cp.sizes.charHeight = cr.height;
         return cr;
     };
     function getPositionOf(cp, line, column)
