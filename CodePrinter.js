@@ -248,6 +248,12 @@ window.CodePrinter = (function($) {
         });
         
         self.mainElement.on({ nodeInserted: function() {
+            var s = window.getComputedStyle(self.screen.element, null);
+            sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
+            sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
+            sizes.scrollTop = parseInt(s.getPropertyValue('top'));
+            calculateCharDimensions(self);
+            
             self.print();
         }});
         
@@ -323,20 +329,6 @@ window.CodePrinter = (function($) {
                 }),
                 'line:removed': fn
             });
-            
-            return this;
-        },
-        measureSizes: function() {
-            var sizes = this.sizes,
-                s = window.getComputedStyle(this.screen.element, null);
-            
-            sizes.lineHeight = sizes.lineHeight || this.options.lineHeight;
-            sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
-            sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
-            sizes.scrollTop = parseInt(s.getPropertyValue('top'));
-            sizes.charWidth = getTextSize(this, 'c').width;
-            sizes.counterWidth = this.counter ? this.counter.parent.offsetWidth : 0;
-            this.screen.fix();
             
             return this;
         },
@@ -1058,7 +1050,6 @@ window.CodePrinter = (function($) {
                 return this.position(mv, column);
             },
             refresh: function() {
-                cp.sizes.charWidth = getTextSize(cp, 'c').width;
                 return this.position(line || 0, column || 0);
             },
             line: function() {
