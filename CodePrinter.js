@@ -7,7 +7,7 @@ window.CodePrinter = (function($) {
     var CodePrinter, Data, DataLine, Caret,
         Screen, Overlay, Counter, InfoBar, Finder, Stream,
         keydownMap, keypressMap, shortcuts, commands,
-        selection, tracking, eol, div, li_clone, pre_clone, selection_span,
+        selection, tracking, eol, div, li_clone, pre_clone, span_clone,
         DATA_RATIO = 10,
         DATA_MASTER_RATIO = 100;
     
@@ -295,7 +295,7 @@ window.CodePrinter = (function($) {
     div = document.createElement('div');
     li_clone = document.createElement('li');
     pre_clone = document.createElement('pre');
-    selection_span = document.createElement('span').addClass('cp-selection');
+    span_clone = document.createElement('span');
     
     CodePrinter.prototype = {
         isFullscreen: false,
@@ -657,7 +657,7 @@ window.CodePrinter = (function($) {
                 ov.node.innerHTML = '';
                 
                 for (var i = 0; i < sel.length; i++) {
-                    span = selection_span.cloneNode(false);
+                    span = span_clone.cloneNode().addClass('cp-selection');
                     span.textContent = sel[i] || i === 0 ? sel[i] : ' ';
                     span.style.top = ((s.line + i) * this.sizes.lineHeight + this.sizes.paddingTop + this.sizes.scrollTop) + 'px';
                     span.style.left = ((i === 0 ? s.column * this.sizes.charWidth : 0) + this.sizes.paddingLeft) + 'px';
@@ -1364,9 +1364,9 @@ window.CodePrinter = (function($) {
     };
     
     InfoBar = function(cp) {
-        var mode = document.createElement('span').addClass('cpi-mode'),
-            act = document.createElement('span').addClass('cpi-actions'),
-            info = document.createElement('span').addClass('cpi-info');
+        var mode = span_clone.cloneNode().addClass('cpi-mode'),
+            act = span_clone.cloneNode().addClass('cpi-actions'),
+            info = span_clone.cloneNode().addClass('cpi-info');
         
         mode.innerHTML = cp.options.mode;
         this.element = div.cloneNode().addClass('cpi-bar').append(mode, act, info);
@@ -1514,7 +1514,7 @@ window.CodePrinter = (function($) {
                     ln = 0;
                     
                     while (value && (index = value.indexOf(find)) !== -1) {
-                        var span = document.createElement('span').addClass('cpf-occurrence');
+                        var span = span_clone.cloneNode().addClass('cpf-occurrence');
                         span.textContent = span.innerText = span.innerHTML = find;
                         ln = ln + index;
                         span.extend({ position: {
@@ -2270,8 +2270,8 @@ window.CodePrinter = (function($) {
     })();
     function calculateCharDimensions(cp, text) {
         var h = 0, w = 0, cr,
-            pre = document.createElement('pre').addClass('cp-templine'),
-            span = document.createElement('span');
+            pre = pre_clone.cloneNode().addClass('cp-templine'),
+            span = span_clone.cloneNode();
         
         text = text != null ? text : 'C';
         span.textContent = span.innerText = text;
