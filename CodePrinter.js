@@ -18,31 +18,13 @@ window.CodePrinter = (function($) {
             return new CodePrinter(element, options);
         }
         
-        var self = this, screen, sizes, data, id, d, pr;
+        var self = this, screen, sizes, data = '', id, d, pr;
         
-        self.keydownMap = new keydownMap;
-        self.keypressMap = new keypressMap;
-        self.shortcuts = new shortcuts;
-        self.selection = new selection;
+        options = self.options = {}.extend(CodePrinter.defaults, options, element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
-        options = self.options = {}.extend(CodePrinter.defaults, options);
-        
-        self.caret = new Caret(self);
         buildDOM(self);
-        self.screen = new Screen(self);
-        self.mainElement.CodePrinter = self;
         
-        if (typeof element === 'string') {
-            data = element;
-        } else if (element.nodeType) {
-            element.before(self.mainElement);
-            self.measureSizes();
-            options.extend($.parseData(element.data('codeprinter'), ','));
-            data = element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML;
-            element.remove();
-        } else {
-            return false;
-        }
+        self.mainElement.CodePrinter = self;
         
         screen = self.screen.element.addClass('cp-'+options.mode.toLowerCase());
         id = self.mainElement.id = $.random(options.randomIDLength);
@@ -257,9 +239,15 @@ window.CodePrinter = (function($) {
             self.print();
         }});
         
-        self.init(data);
+        if (typeof element === 'string') {
+            return self.init(element);
+        } else if (element.nodeType) {
+            self.init(element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML);
+            element.before(self.mainElement).remove();
+            return self;
+        }
         
-        return self;
+        return self.init(data);
     };
     
     CodePrinter.version = '0.5.5';
@@ -1141,12 +1129,8 @@ window.CodePrinter = (function($) {
     
     Screen = function(cp) {
         var self = this;
-        this.parent = div.cloneNode().addClass('cp-screen');
-        this.element = div.cloneNode().addClass('cp-codelines');
-        this.fixer = div.cloneNode().addClass('cp-fixer');
         this.lines = $([]);
         this.root = cp;
-        cp.wrapper.append(this.parent.append(this.element.append(this.fixer)));
         
         return this;
     };
@@ -2245,18 +2229,30 @@ window.CodePrinter = (function($) {
         var m = div.cloneNode().addClass('codeprinter'),
             c = div.cloneNode().addClass('cp-container'),
             w = div.cloneNode().addClass('cp-wrapper'),
-            i = document.createElement('textarea').addClass('cp-input'),
-            r = div.cloneNode().addClass('cp-caret');
-        w.appendChild(r);
+            s = div.cloneNode().addClass('cp-screen'),
+            l = div.cloneNode().addClass('cp-codelines');
+        w.appendChild(div.cloneNode().addClass('cp-caret'));
+        m.appendChild(document.createElement('textarea').addClass('cp-input'));
+        l.appendChild(div.cloneNode().addClass('cp-fixer'));
+        s.appendChild(l);
+        w.appendChild(s);
         c.appendChild(w);
-        m.appendChild(i);
         m.appendChild(c);
         return function(cp) {
+            cp.keydownMap = new keydownMap;
+            cp.keypressMap = new keypressMap;
+            cp.shortcuts = new shortcuts;
+            cp.selection = new selection;
+            cp.caret = new Caret(cp);
+            cp.screen = new Screen(cp);
             cp.mainElement = m.cloneNode(true);
             cp.input = cp.mainElement.firstChild;
             cp.container = cp.input.nextSibling;
             cp.wrapper = cp.container.firstChild;
-            cp.caret.element = cp.wrapper.firstChild.addClass('cp-caret-'+cp.options.caretStyle);
+            cp.caret.element = cp.wrapper.firstChild;
+            cp.screen.parent = cp.caret.element.nextSibling;
+            cp.screen.element = cp.screen.parent.firstChild;
+            cp.screen.fixer = cp.screen.element.firstChild;
         }
     })();
     function calculateCharDimensions(cp, text) {
