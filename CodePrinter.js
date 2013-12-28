@@ -704,6 +704,7 @@ window.CodePrinter = (function($) {
                 this.counter = new Counter(this);
                 this.counter.on('width:changed', function() {
                     self.wrapper.style.marginLeft = (self.sizes.counterWidth = self.counter.parent.offsetWidth) + 'px';
+                    self.data && self.screen.fix();
                 });
             }
             this.container.prepend(this.counter.parent);
@@ -712,7 +713,7 @@ window.CodePrinter = (function($) {
         },
         closeCounter: function() {
             this.counter && this.counter.parent.remove();
-            this.wrapper.style.marginLeft = (this.sizes.counterWidth = 0) + 'px';
+            this.counter.emit('width:changed');
         },
         openInfobar: function() {
             this.infobar = this.infobar || new InfoBar(this);
