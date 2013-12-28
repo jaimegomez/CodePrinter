@@ -471,14 +471,17 @@ window.CodePrinter = (function($) {
         setFontSize: function(size) {
             if (size >= this.options.minFontSize && size <= this.options.maxFontSize) {
                 var id = this.mainElement.id;
+                this.sizes.scrollTop = this.sizes.scrollTop / this.sizes.lineHeight;
                 this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
                 size > this.options.fontSize ? ++this.sizes.lineHeight : size < this.options.fontSize ? --this.sizes.lineHeight : 0;
-                
+                this.sizes.scrollTop *= this.sizes.lineHeight;
+                this.wrapper.style.top = this.sizes.scrollTop + 'px';
                 id = '#'+id+' .cp-';
                 this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
                 this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
-                
                 this.wrapper.style.fontSize = (this.options.fontSize = size)+'px';
+                calculateCharDimensions(this);
+                this.screen.fix();
                 this.caret.refresh();
             }
         },
