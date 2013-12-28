@@ -200,15 +200,9 @@ window.CodePrinter = (function($) {
                     var wrapper = self.wrapper,
                         sl = wrapper.scrollLeft, st = wrapper.scrollTop,
                         cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
-                        ix = self.sizes.charWidth * 7, iy = self.sizes.lineHeight;
-                    
-                    x = x + ix > cw ? x + ix - cw + sl + (cw - sl - self.sizes.paddingLeft) % ix :
-                        x - ix < sl ? x - ix - x % ix + self.sizes.paddingLeft : sl;
-                    y = y + 4 * iy > ch ? y + 4 * iy - ch + st + (ch - st - self.sizes.paddingTop) % iy :
-                        y - 3 * iy < st ? y - 3 * iy - y % iy + self.sizes.paddingTop : st;
-                    
-                    wrapper.scrollLeft = x;
-                    wrapper.scrollTop = y;
+                        ix = self.sizes.charWidth, iy = self.sizes.lineHeight;
+                    wrapper.scrollLeft = x + ix >= cw ? x + ix - cw + sl + (cw - sl - self.sizes.paddingLeft) % ix : x < sl ? x - x % ix : sl;
+                    wrapper.scrollTop = y + iy >= ch ? y + iy - ch + st + (ch - st - self.sizes.paddingTop) % iy : y < st ? y - y % iy : st;
                 }
                 self.removeOverlays();
             },
