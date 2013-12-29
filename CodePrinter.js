@@ -491,6 +491,7 @@ window.CodePrinter = (function($) {
             } else {
                 this.mainElement.style.width = (this.options.width = parseInt(size)) + 'px';
             }
+            this.screen.fix();
             this.emit('width:changed');
         },
         setHeight: function(size) {
@@ -704,7 +705,7 @@ window.CodePrinter = (function($) {
                 this.counter = new Counter(this);
                 this.counter.on('width:changed', function() {
                     self.wrapper.style.marginLeft = (self.sizes.counterWidth = self.counter.parent.offsetWidth) + 'px';
-                    self.data && self.screen.fix();
+                    self.screen.fix();
                 });
             }
             this.container.prepend(this.counter.parent);
@@ -1251,8 +1252,10 @@ window.CodePrinter = (function($) {
             this.root.counter && this.root.counter.removeLines();
         },
         fix: function() {
-            this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px';
-            this.fixer.untie().css({ width: this.parent.clientWidth }).prependTo(this.element);
+            if (this.root.data) {
+                this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px';
+                this.fixer.untie().css({ width: this.parent.clientWidth }).prependTo(this.element);
+            }
             return this;
         }
     };
