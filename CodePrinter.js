@@ -269,7 +269,9 @@ window.CodePrinter = (function($) {
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
         randomIDLength: 7,
+        firstLineNumber: 1,
         lineNumbers: true,
+        lineNumberFormatter: false,
         infobar: false,
         infobarOnTop: true,
         showIndentation: true,
@@ -1289,7 +1291,12 @@ window.CodePrinter = (function($) {
         self.parent = div.cloneNode().addClass('cp-counter').append(self.element);
         self.list = $([]);
         self.root = cp;
+        self.lastLine = cp.options.firstLineNumber - 1;
         cp.container.prepend(self.parent);
+        
+        if (cp.options.lineNumberFormatter instanceof Function) {
+            this.formatter = cp.options.lineNumberFormatter;
+        }
         
         this.element.delegate('click', 'li', function() {
             var l = parseInt(this.innerHTML) - 1;
@@ -1299,50 +1306,55 @@ window.CodePrinter = (function($) {
         });
         
         while (ln--) {
-            self.increase(cp.screen.firstLine+1);
+            self.increase();
         }
         return this;
     };
     Counter.prototype = {
-        increase: function(sL) {
+        increase: function() {
             var li = li_clone.cloneNode(false),
-                n = this.list.length > 0 ? parseInt(this.list.item(-1).innerHTML) + 1 : sL >= 0 ? sL : 1;
-            li.innerHTML = n;
+                f = this.formatter(++this.lastLine);
+            li.innerHTML = f;
             this.list.push(li);
             this.element.append(li);
-            n.toString().length > (n-1).toString().length && this.emit('width:changed');
+            f.toString().length > this.formatter(this.lastLine-1).toString().length && this.emit('width:changed');
         },
         decrease: function() {
-            var n = parseInt(this.list.get(-1).html());
-            this.list.remove(true);
-            (n-1).toString().length < n.toString().length && this.emit('width:changed');
+            var n = this.lastLine--;
+            this.list.get(-1).remove(true);
+            this.formatter(n-1).toString().length < this.formatter(n).toString().length && this.emit('width:changed');
         },
         shift: function() {
             var fi = this.list.shift(),
-                i = parseInt(fi.innerHTML),
-                c = i + this.list.length + 1;
+                c = ++this.lastLine,
+                f = this.formatter(c);
             
-            fi.innerHTML = c;
-            this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
+            fi.innerHTML = f;
+            this.root.options.highlightCurrentLine && (c === this.root.caret.line() + this.root.options.firstLineNumber ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
             this.list.item(-1).after(fi);
             this.list.push(fi);
             this.element.style.marginTop = this.root.sizes.scrollTop + 'px';
-            c.toString().length > (c-1).toString().length && this.emit('width:changed');
+            f.toString().length > this.formatter(c-1).toString().length && this.emit('width:changed');
         },
         unshift: function() {
             var la = this.list.pop(),
-                i = parseInt(la.innerHTML),
-                c = i - this.list.length - 1;
+                i = this.lastLine,
+                c = --this.lastLine - this.list.length;
             
-            la.innerHTML = c;
-            this.root.options.highlightCurrentLine && (c === this.root.caret.line() + 1 ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
+            la.innerHTML = this.formatter(c);
+            this.root.options.highlightCurrentLine && (c === this.root.caret.line() + this.root.options.firstLineNumber ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
             this.list.item(0).before(la);
             this.list.unshift(la);
             this.element.style.marginTop = this.root.sizes.scrollTop + 'px';
-            i.toString().length > (i-1).toString().length && this.emit('width:changed');
+            this.formatter(i).toString().length > this.formatter(i-1).toString().length && this.emit('width:changed');
         },
         removeLines: function() {
-            this.list.remove(true);
+            this.lastLine = this.root.options.firstLineNumber - 1;
+            this.list.getAll().remove(true);
+            this.emit('width:changed');
+        },
+        formatter: function(i) {
+            return i;
         }
     };
     
