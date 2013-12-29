@@ -189,11 +189,12 @@ window.CodePrinter = (function($) {
                 document.activeElement != self.input && self.input.focus();
                 if (self.options.autoScroll) {
                     var wrapper = self.wrapper,
+                        pl = self.sizes.paddingLeft, pt = self.sizes.paddingTop,
                         sl = wrapper.scrollLeft, st = wrapper.scrollTop,
                         cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
                         ix = self.sizes.charWidth, iy = self.sizes.lineHeight;
-                    wrapper.scrollLeft = x + ix >= cw ? x + ix - cw + sl + (cw - sl - self.sizes.paddingLeft) % ix : x < sl ? x - x % ix : sl;
-                    wrapper.scrollTop = y + iy >= ch ? y + iy - ch + st + (ch - st - self.sizes.paddingTop) % iy : y < st ? y - y % iy : st;
+                    wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
+                    wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
                 }
                 self.removeOverlays();
             },
@@ -1111,8 +1112,8 @@ window.CodePrinter = (function($) {
             var css = {},
                 stl = this.style || this.root.options.caretStyle;
             
-            x >= 0 && (css.left = x + this.root.sizes.paddingLeft);
-            y >= 0 && (css.top = y + this.root.sizes.paddingTop);
+            x >= 0 && (css.left = x = x + this.root.sizes.paddingLeft);
+            y >= 0 && (css.top = y = y + this.root.sizes.paddingTop);
             
             Caret.styles[stl] instanceof Function ? css = Caret.styles[stl].call(this.root, css) : css.height = this.root.sizes.lineHeight;
             this.element.css(css);
