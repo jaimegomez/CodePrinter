@@ -2,7 +2,7 @@
 
 CodePrinter.defineMode('JavaScript', {
     controls: ['if','else','elseif','for','switch','while','do'],
-    keywords: ['var','this','return','new','continue','break','instanceof','typeof','case','try','catch','debugger','default','delete','finally','in','throw','void','with'],
+    keywords: ['var','this','return','new','continue','break','instanceof','typeof','case','let','try','catch','debugger','default','delete','finally','in','throw','void','with'],
     specials: ['window','document','console','arguments','function','Object','Array','String','Number','Function','Math','JSON','RegExp','Date','Node','HTMLElement','Boolean','$','jQuery','Selector','Error','TypeError'],
     
     regexp: /\/\*|\/\/|\/(.*)\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
