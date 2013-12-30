@@ -25,7 +25,6 @@ window.CodePrinter = (function($) {
         buildDOM(self);
         
         self.mainElement.CodePrinter = self;
-        
         screen = self.screen.element.addClass('cp-'+options.mode.toLowerCase());
         id = self.mainElement.id = $.random(options.randomIDLength);
         sizes = self.sizes = { lineHeight: options.lineHeight };
@@ -116,6 +115,9 @@ window.CodePrinter = (function($) {
         });
         
         self.input.listen({
+            focus: function() {
+                self.caret.refresh();
+            },
             blur: function(e) {
                 if (d) {
                     this.focus();
@@ -197,6 +199,7 @@ window.CodePrinter = (function($) {
                     wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
                 }
                 self.removeOverlays();
+                self.selectLine(this.line());
             },
             'line:changed': function(e) {
                 if (self.options.highlightCurrentLine) {
@@ -240,12 +243,14 @@ window.CodePrinter = (function($) {
             self.print();
         }});
         
-        if (typeof element === 'string') {
-            return self.init(element);
-        } else if (element.nodeType) {
-            self.init(element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML);
-            element.before(self.mainElement).remove();
-            return self;
+        if (element) {
+            if (element.nodeType) {
+                self.init(element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML);
+                element.before(self.mainElement).remove();
+                return self;
+            } else if (element.toLowerCase) {
+                return self.init(element);
+            }
         }
         
         return self.init(data);
@@ -275,6 +280,7 @@ window.CodePrinter = (function($) {
         lineNumberFormatter: false,
         infobar: false,
         infobarOnTop: true,
+        autofocus: true,
         showIndentation: true,
         scrollable: true,
         tracking: true,
@@ -393,8 +399,10 @@ window.CodePrinter = (function($) {
             return this;
         },
         forcePrint: function() {
-            this.screen.removeLines();
-            this.screen.fill();
+            var self = this;
+            this.data.foreach(function() {
+                self.parse(this, true);
+            });
         },
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
@@ -1005,7 +1013,6 @@ window.CodePrinter = (function($) {
                     
                     before = t.substring(0, c).replaceAll(tabString, '\t');
                     after = t.substr(c).replaceAll(tabString, '\t');
-                    cp.selectLine(l);
                     this.setPixelPosition(x, y);
                     
                     if (cp.options.tracking) {
