@@ -6,26 +6,26 @@
 .cps-oblivion .cpf-bar { background:#1e1e1e; border-color:#d0d0d0; color:#d0d0d0; }
 .cps-oblivion .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-oblivion .cp-selection { background:black; }
-.cps-oblivion .cp-highlight { box-shadow:0 1px 0 white; }
+.cps-oblivion .cp-highlight { border-bottom:1px solid white; }
 .cps-oblivion .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-oblivion .cpf-input { background:#3e3e3e; border-color:#d0d0d0; }
 .cps-oblivion .cpf-occurrence { border-color:#ddd; }
 .cps-oblivion .cpf-occurrence.active { background:white; border-color:black; }
 
-.cps-oblivion .cp-tab { border-color:#445544; }
-.cps-oblivion .cp-bracket { color:#D8D8D8; }
-.cps-oblivion .cp-operator { color:#FFFFFF; }
-.cps-oblivion .cp-keyword { color:#D197D9; }
-.cps-oblivion .cp-control { color:#D197D9; }
-.cps-oblivion .cp-variable { color:#79ABFF; }
-.cps-oblivion .cp-boolean { color:#EFC090; }
-.cps-oblivion .cp-empty-value { color:#EFC090; }
-.cps-oblivion .cp-special { color:#D25252; }
-.cps-oblivion .cp-numeric { color:#7FB347; }
-.cps-oblivion .cp-fname { color:#BED6FF; }
-.cps-oblivion .cp-property { color:#BED6FF; }
-.cps-oblivion .cp-regexp { color:#EFC090; }
-.cps-oblivion .cp-escaped { color:#D25252; }
-.cps-oblivion .cp-phptag { color:#FF0000; }
-.cps-oblivion .cp-string { color:#FFC600; }
-.cps-oblivion .cp-comment { color:#C7DD0C; }
+.cps-oblivion .cpx-tab { border-color:#445544; }
+.cps-oblivion .cpx-bracket { color:#D8D8D8; }
+.cps-oblivion .cpx-operator { color:#FFFFFF; }
+.cps-oblivion .cpx-keyword { color:#D197D9; }
+.cps-oblivion .cpx-control { color:#D197D9; }
+.cps-oblivion .cpx-variable { color:#79ABFF; }
+.cps-oblivion .cpx-boolean { color:#EFC090; }
+.cps-oblivion .cpx-empty-value { color:#EFC090; }
+.cps-oblivion .cpx-special { color:#D25252; }
+.cps-oblivion .cpx-numeric { color:#7FB347; }
+.cps-oblivion .cpx-fname { color:#BED6FF; }
+.cps-oblivion .cpx-property { color:#BED6FF; }
+.cps-oblivion .cpx-regexp { color:#EFC090; }
+.cps-oblivion .cpx-escaped { color:#D25252; }
+.cps-oblivion .cpx-phptag { color:#FF0000; }
+.cps-oblivion .cpx-string { color:#FFC600; }
+.cps-oblivion .cpx-comment { color:#C7DD0C; }

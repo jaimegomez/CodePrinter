@@ -5,23 +5,24 @@
 .cps-solarized-light .cpi-bar,
 .cps-solarized-light .cpf-bar { background:#fdf6e3; color:#586e75; border-color:#586e75; box-shadow:0 0 10px rgba(0,0,0,0.15); }
 .cps-solarized-light .cp-selection { background:rgba(89,109,115,0.4); }
+.cps-solarized-light .cp-highlight { border-bottom:1px solid black; }
 .cps-solarized-light .cp-activeLine { background:rgba(255,255,0,0.3); box-shadow:0 0 1px 1px rgba(255,165,0,0.8); }
 .cps-solarized-light .cpf-input { background:#ede6d3; }
 
-.cps-solarized-light .cp-tab { border-color:#445544; }
-.cps-solarized-light .cp-bracket { color:#657A81; }
-.cps-solarized-light .cp-operator { color:#000000; }
-.cps-solarized-light .cp-keyword { color:#B58900; }
-.cps-solarized-light .cp-control { color:#D30102; }
-.cps-solarized-light .cp-variable { color:#B58900; }
-.cps-solarized-light .cp-boolean { color:#B58900; font-weight:bold; }
-.cps-solarized-light .cp-empty-value { color:#B58900; font-weight:bold; }
-.cps-solarized-light .cp-special { color:#D30102; font-style:italic; }
-.cps-solarized-light .cp-numeric { color:#2AA198; }
-.cps-solarized-light .cp-fname { color:#657A81; }
-.cps-solarized-light .cp-property { color:#333333; }
-.cps-solarized-light .cp-regexp { color:#2AA198; }
-.cps-solarized-light .cp-escaped { color:#D30102; }
-.cps-solarized-light .cp-phptag { color:#FF0000; }
-.cps-solarized-light .cp-string { color:#2AA198; }
-.cps-solarized-light .cp-comment { color:#93A1A1; font-style:italic; }
+.cps-solarized-light .cpx-tab { border-color:#445544; }
+.cps-solarized-light .cpx-bracket { color:#657A81; }
+.cps-solarized-light .cpx-operator { color:#000000; }
+.cps-solarized-light .cpx-keyword { color:#B58900; }
+.cps-solarized-light .cpx-control { color:#D30102; }
+.cps-solarized-light .cpx-variable { color:#B58900; }
+.cps-solarized-light .cpx-boolean { color:#B58900; font-weight:bold; }
+.cps-solarized-light .cpx-empty-value { color:#B58900; font-weight:bold; }
+.cps-solarized-light .cpx-special { color:#D30102; font-style:italic; }
+.cps-solarized-light .cpx-numeric { color:#2AA198; }
+.cps-solarized-light .cpx-fname { color:#657A81; }
+.cps-solarized-light .cpx-property { color:#333333; }
+.cps-solarized-light .cpx-regexp { color:#2AA198; }
+.cps-solarized-light .cpx-escaped { color:#D30102; }
+.cps-solarized-light .cpx-phptag { color:#FF0000; }
+.cps-solarized-light .cpx-string { color:#2AA198; }
+.cps-solarized-light .cpx-comment { color:#93A1A1; font-style:italic; }

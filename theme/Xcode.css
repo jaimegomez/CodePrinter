@@ -5,25 +5,26 @@
 .cps-xcode .cpi-bar,
 .cps-xcode .cpf-bar { background:#FFFFFF; color:#555555; border-color:#AFBFCF; }
 .cps-xcode .cp-selection { background:#BDD8F2; }
+.cps-xcode .cp-highlight { border-bottom:1px solid black; }
 .cps-xcode .cp-activeLine { background:rgba(200,180,255,0.3); }
 
-.cps-xcode .cp-tab { border-color:#BBBBBB; }
-.cps-xcode .cp-bracket { color:#000000; }
-.cps-xcode .cp-operator { color:#000000; }
-.cps-xcode .cp-variable { color:#000000; }
-.cps-xcode .cp-keyword { color:#B309A1; }
-.cps-xcode .cp-control { color:#B309A1; }
-.cps-xcode .cp-boolean { color:#B309A1; }
-.cps-xcode .cp-empty-value { color:#74482E; }
-.cps-xcode .cp-special { color:#6F33A7; }
-.cps-xcode .cp-directives { color:#78492B; }
-.cps-xcode .cp-numeric { color:#340DD4; }
-.cps-xcode .cp-fname { color:#4F8187; }
-.cps-xcode .cp-property { color:#37595D; }
-.cps-xcode .cp-regexp { color:#C81B28; }
-.cps-xcode .cp-escaped { color:#558186; }
-.cps-xcode .cp-phptag { color:#000000; }
-.cps-xcode .cp-string { color:#C81B28; }
-.cps-xcode .cp-single-quote { color:#2B3DD8; }
-.cps-xcode .cp-comment { color:#1D8711; }
-.cps-xcode .cp-invalid { background:#C81B28; }
+.cps-xcode .cpx-tab { border-color:#BBBBBB; }
+.cps-xcode .cpx-bracket { color:#000000; }
+.cps-xcode .cpx-operator { color:#000000; }
+.cps-xcode .cpx-variable { color:#000000; }
+.cps-xcode .cpx-keyword { color:#B309A1; }
+.cps-xcode .cpx-control { color:#B309A1; }
+.cps-xcode .cpx-boolean { color:#B309A1; }
+.cps-xcode .cpx-empty-value { color:#74482E; }
+.cps-xcode .cpx-special { color:#6F33A7; }
+.cps-xcode .cpx-directives { color:#78492B; }
+.cps-xcode .cpx-numeric { color:#340DD4; }
+.cps-xcode .cpx-fname { color:#4F8187; }
+.cps-xcode .cpx-property { color:#37595D; }
+.cps-xcode .cpx-regexp { color:#C81B28; }
+.cps-xcode .cpx-escaped { color:#558186; }
+.cps-xcode .cpx-phptag { color:#000000; }
+.cps-xcode .cpx-string { color:#C81B28; }
+.cps-xcode .cpx-single-quote { color:#2B3DD8; }
+.cps-xcode .cpx-comment { color:#1D8711; }
+.cps-xcode .cpx-invalid { background:#C81B28; }
