@@ -12,22 +12,22 @@
 .cps-vibrant-ink .cpf-input { background:#373832; border-color:#555; }
 .cps-vibrant-ink .cpf-occurrence { background:#616161; color:#fff; border:none; margin:0; }
 
-.cps-vibrant-ink .cp-tab { border-color:#6A6A6A; }
-.cps-vibrant-ink .cp-bracket { color:#FFFFFF; }
-.cps-vibrant-ink .cp-operator { color:#FFFFFF; }
-.cps-vibrant-ink .cp-keyword { color:#EC691E; }
-.cps-vibrant-ink .cp-control { color:#EC691E; }
-.cps-vibrant-ink .cp-variable { color:#3C758D; }
-.cps-vibrant-ink .cp-boolean { color:#EC691E; }
-.cps-vibrant-ink .cp-empty-value { color:#408000; }
-.cps-vibrant-ink .cp-special { color:#9CF828; }
-.cps-vibrant-ink .cp-numeric { color:#477488; }
-.cps-vibrant-ink .cp-fname { color:#B2DA16; }
-.cps-vibrant-ink .cp-property { color:#80FF00; }
-.cps-vibrant-ink .cp-regexp { color:#F7C527; }
-.cps-vibrant-ink .cp-escaped { color:#D9B0AC; }
-.cps-vibrant-ink .cp-phptag { color:#FFFFFF; }
-.cps-vibrant-ink .cp-string { color:#477488; }
-.cps-vibrant-ink .cp-comment { color:#8C3FC8; }
-.cps-vibrant-ink .cp-singleline-comment { color:#8146A2; }
-.cps-vibrant-ink .cp-invalid { background:#FF0000; }
+.cps-vibrant-ink .cpx-tab { border-color:#6A6A6A; }
+.cps-vibrant-ink .cpx-bracket { color:#FFFFFF; }
+.cps-vibrant-ink .cpx-operator { color:#FFFFFF; }
+.cps-vibrant-ink .cpx-keyword { color:#EC691E; }
+.cps-vibrant-ink .cpx-control { color:#EC691E; }
+.cps-vibrant-ink .cpx-variable { color:#3C758D; }
+.cps-vibrant-ink .cpx-boolean { color:#EC691E; }
+.cps-vibrant-ink .cpx-empty-value { color:#408000; }
+.cps-vibrant-ink .cpx-special { color:#9CF828; }
+.cps-vibrant-ink .cpx-numeric { color:#477488; }
+.cps-vibrant-ink .cpx-fname { color:#B2DA16; }
+.cps-vibrant-ink .cpx-property { color:#80FF00; }
+.cps-vibrant-ink .cpx-regexp { color:#F7C527; }
+.cps-vibrant-ink .cpx-escaped { color:#D9B0AC; }
+.cps-vibrant-ink .cpx-phptag { color:#FFFFFF; }
+.cps-vibrant-ink .cpx-string { color:#477488; }
+.cps-vibrant-ink .cpx-comment { color:#8C3FC8; }
+.cps-vibrant-ink .cpx-singleline-comment { color:#8146A2; }
+.cps-vibrant-ink .cpx-invalid { background:#FF0000; }

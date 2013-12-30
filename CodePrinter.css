@@ -495,7 +495,7 @@
 .codeprinter .cp-activeLine {
   background: rgba(230, 239, 255, 0.6);
 }
-.codeprinter .cp-tab {
+.codeprinter .cpx-tab {
   margin: 0 0 0 -1px;
   padding: 0;
   border-color: transparent;
@@ -504,67 +504,69 @@
 .codeprinter .cp-highlight {
   color: transparent;
 }
-.codeprinter .cp-tab {
-  border-left-color: #c8c8c8;
+.codeprinter .cpx-tab {
+  margin: 0 0 0 -1px;
+  padding: 0;
+  border-left: 1px dotted #c8c8c8;
 }
-.codeprinter .cp-bracket {
+.codeprinter .cpx-bracket {
   color: #000000;
 }
-.codeprinter .cp-bracket-curly {
+.codeprinter .cpx-bracket-curly {
   color: #111111;
 }
-.codeprinter .cp-bracket-square {
+.codeprinter .cpx-bracket-square {
   color: #222222;
 }
-.codeprinter .cp-operator {
+.codeprinter .cpx-operator {
   color: #0487FA;
 }
-.codeprinter .cp-variable {
+.codeprinter .cpx-variable {
   color: #1a19ff;
 }
-.codeprinter .cp-keyword {
+.codeprinter .cpx-keyword {
   color: #025BB9;
 }
-.codeprinter .cp-control {
+.codeprinter .cpx-control {
   color: #025BB9;
 }
-.codeprinter .cp-boolean {
+.codeprinter .cpx-boolean {
   color: #025BB9;
 }
-.codeprinter .cp-empty-value {
+.codeprinter .cpx-empty-value {
   color: #025BB9;
 }
-.codeprinter .cp-special {
+.codeprinter .cpx-special {
   color: #C93800;
 }
-.codeprinter .cp-numeric {
+.codeprinter .cpx-numeric {
   color: #E68D3F;
 }
-.codeprinter .cp-hex {
+.codeprinter .cpx-hex {
   color: #531B93;
 }
-.codeprinter .cp-fname {
+.codeprinter .cpx-fname {
   color: #003f83;
 }
-.codeprinter .cp-property {
+.codeprinter .cpx-property {
   color: #028EC4;
 }
-.codeprinter .cp-regexp {
+.codeprinter .cpx-regexp {
   color: #6F9D00;
 }
-.codeprinter .cp-escaped {
+.codeprinter .cpx-escaped {
   color: #436300;
 }
-.codeprinter .cp-phptag {
+.codeprinter .cpx-phptag {
   color: #FF0000;
 }
-.codeprinter .cp-string {
+.codeprinter .cpx-string {
   color: #6F9D00;
 }
-.codeprinter .cp-comment {
+.codeprinter .cpx-comment {
   color: #999999;
 }
-.codeprinter .cp-invalid {
+.codeprinter .cpx-invalid {
   background: #E63B00;
   color: #F9F9F2;
 }
@@ -574,14 +576,17 @@
 .codeprinter.cps-default .cp-highlight {
   border-bottom: 1px solid black;
 }
-.codeprinter.cps-default .cp-control,
-.codeprinter.cps-default .cp-phptag {
+.codeprinter.cps-default .cpx-control,
+.codeprinter.cps-default .cpx-phptag {
   font-weight: bold;
 }
-.codeprinter.cps-default .cp-special,
-.codeprinter.cps-default .cp-hex,
-.codeprinter.cps-default .cp-comment {
+.codeprinter.cps-default .cpx-special,
+.codeprinter.cps-default .cpx-hex,
+.codeprinter.cps-default .cpx-comment {
   font-style: italic;
+}
+.codeprinter.cps-default .cpx-broket {
+  color: #025BB9;
 }
 .codeprinter.cp-fullscreen {
   display: block;

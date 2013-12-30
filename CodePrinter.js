@@ -1716,7 +1716,7 @@ window.CodePrinter = (function($) {
             suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
             
             for (i = 0; i < suffix.length; i++) {
-                suffix[i] = 'cp-'+suffix[i];
+                suffix[i] = 'cpx-'+suffix[i];
             }
             suffix = suffix.join(' ');
             this.wrapped = [];
@@ -2325,7 +2325,7 @@ window.CodePrinter = (function($) {
         var pos = text.search(/[^ ]/), tmp;
         pos == -1 && (pos = text.length); 
         tmp = [text.substring(0, pos), text.substr(pos)];
-        tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cp-tab">$1</span>');
+        tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
         return tmp[0] + tmp[1];
     };
     function isCommandKey(e) {

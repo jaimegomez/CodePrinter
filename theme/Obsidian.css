@@ -12,27 +12,27 @@
 .cps-obsidian .cpf-occurrence { border-color:#ddd; }
 .cps-obsidian .cpf-occurrence.active { background:#616161; color:#fff; }
 
-.cps-obsidian .cp-tab { border-color:#445544; }
-.cps-obsidian .cp-bracket { color:#E8E2B7; }
-.cps-obsidian .cp-operator { color:#E8E2B7; }
-.cps-obsidian .cp-keyword { color:#93C763; }
-.cps-obsidian .cp-control { color:#93C763; }
-.cps-obsidian .cp-variable { color:#79ABFF; }
-.cps-obsidian .cp-boolean { color:#EFC090; }
-.cps-obsidian .cp-empty-value { color:#EFC090; }
-.cps-obsidian .cp-special { color:#A082BD; }
-.cps-obsidian .cp-numeric { color:#FFCD22; }
-.cps-obsidian .cp-fname { color:#678CB1; }
-.cps-obsidian .cp-property { color:#678CB1; }
-.cps-obsidian .cp-regexp { color:#D25252; }
-.cps-obsidian .cp-escaped { color:#EFC090; }
-.cps-obsidian .cp-phptag { color:#FFFFFF; }
-.cps-obsidian .cp-string { color:#EC7600; }
-.cps-obsidian .cp-comment { color:#7D8C93; }
+.cps-obsidian .cpx-tab { border-color:#445544; }
+.cps-obsidian .cpx-bracket { color:#E8E2B7; }
+.cps-obsidian .cpx-operator { color:#E8E2B7; }
+.cps-obsidian .cpx-keyword { color:#93C763; }
+.cps-obsidian .cpx-control { color:#93C763; }
+.cps-obsidian .cpx-variable { color:#79ABFF; }
+.cps-obsidian .cpx-boolean { color:#EFC090; }
+.cps-obsidian .cpx-empty-value { color:#EFC090; }
+.cps-obsidian .cpx-special { color:#A082BD; }
+.cps-obsidian .cpx-numeric { color:#FFCD22; }
+.cps-obsidian .cpx-fname { color:#678CB1; }
+.cps-obsidian .cpx-property { color:#678CB1; }
+.cps-obsidian .cpx-regexp { color:#D25252; }
+.cps-obsidian .cpx-escaped { color:#EFC090; }
+.cps-obsidian .cpx-phptag { color:#FFFFFF; }
+.cps-obsidian .cpx-string { color:#EC7600; }
+.cps-obsidian .cpx-comment { color:#7D8C93; }
 
-.cps-obsidian .cp-control,
-.cps-obsidian .cp-boolean,
-.cps-obsidian .cp-phptag { font-weight:bold; }
+.cps-obsidian .cpx-control,
+.cps-obsidian .cpx-boolean,
+.cps-obsidian .cpx-phptag { font-weight:bold; }
 
-.cps-obsidian .cp-string,
-.cps-obsidian .cp-fname { font-style:italic; }
+.cps-obsidian .cpx-string,
+.cps-obsidian .cpx-fname { font-style:italic; }
