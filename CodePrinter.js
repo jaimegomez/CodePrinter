@@ -255,7 +255,7 @@ window.CodePrinter = (function($) {
     
     CodePrinter.defaults = {
         path: '',
-        mode: 'javascript',
+        mode: 'plaintext',
         theme: 'default',
         caretStyle: 'vertical',
         width: 'auto',
@@ -268,6 +268,7 @@ window.CodePrinter = (function($) {
         linesOutsideOfView: 12,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
+        parserLoadingTimeout: 500,
         randomIDLength: 7,
         firstLineNumber: 1,
         lineNumbers: true,
@@ -349,35 +350,45 @@ window.CodePrinter = (function($) {
             mode = this.options.mode;
             source && this.init(source);
             
-            var self = this,
+            var self = this, timeout,
                 sT = document.body.scrollTop,
-                sL = document.body.scrollLeft;
+                sL = document.body.scrollLeft,
+                callback = function(ModeObject) {
+                    timeout = clearTimeout(timeout);
+                    self.defineParser(ModeObject);
+                    self.screen.fill();
+                    
+                    var data = self.data,
+                        l = self.screen.lastLine+1,
+                        p = getDataLinePosition(l),
+                        u = p[0], t = p[1], h = p[2],
+                        I = clearInterval(I) || setInterval(function() {
+                            t >= DATA_RATIO && ++h && (t = 0);
+                            if (!data[h] || !data[h][t]) {
+                                I = clearInterval(I);
+                                return false;
+                            }
+                            while (u < data[h][t].length) {
+                                self.parse(data.getLine(l));
+                                l++; u++;
+                            }
+                            t++;
+                            u = 0;
+                        }, 50);
+                    
+                    document.body.scrollTop = sT;
+                    document.body.scrollLeft = sL;
+                    self.options.autofocus && self.input.focus();
+                };
             
-            CodePrinter.requireMode(mode, function(ModeObject) {
-                self.defineParser(ModeObject);
-                self.screen.fill();
-                
-                var data = self.data,
-                    l = self.screen.lastLine+1,
-                    p = getDataLinePosition(l),
-                    u = p[0], t = p[1], h = p[2],
-                    I = clearInterval(I) || setInterval(function() {
-                        t >= DATA_RATIO && ++h && (t = 0);
-                        if (!data[h] || !data[h][t]) {
-                            I = clearInterval(I);
-                            return false;
-                        }
-                        while (u < data[h][t].length) {
-                            self.parse(data.getLine(l));
-                            l++; u++;
-                        }
-                        t++;
-                        u = 0;
-                    }, 50);
-                
-                document.body.scrollTop = sT;
-                document.body.scrollLeft = sL;
-            }, this);
+            if (mode == 'plaintext') {
+                callback.call(this, new CodePrinter.Mode());
+            } else {
+                timeout = setTimeout(function() {
+                    callback.call(self, new CodePrinter.Mode());
+                }, self.options.parserLoadingTimeout);
+                CodePrinter.requireMode(mode, callback, this);
+            }
             
             return this;
         },
@@ -1160,7 +1171,7 @@ window.CodePrinter = (function($) {
                 var dl = this.root.data.getLine(++this.lastLine),
                     pre = dl.pre = pre_clone.cloneNode();
                 
-                this.root.parse(dl) && dl.touch();
+                this.root.parse(dl, true) && dl.touch();
                 this.lines.push(pre);
                 this.element.append(pre);
                 this.root.counter && this.root.counter.increase();
@@ -1897,6 +1908,7 @@ window.CodePrinter = (function($) {
             return toString ? s.toString() : s;
         },
         fn: function(stream) {
+            stream.parsed = stream.value;
             return stream;
         }
     };
@@ -2300,7 +2312,7 @@ window.CodePrinter = (function($) {
     };
     function createSpan(text, classes, top, left, width, height)
     {
-        var s = document.createElement('span').addClass(classes);
+        var s = span_clone.cloneNode().addClass(classes);
         s.textContent = text;
         s.style.extend({
             top: top + 'px',
