@@ -6,7 +6,7 @@ window.CodePrinter = (function($) {
     
     var CodePrinter, Data, DataLine, Caret,
         Screen, Overlay, Counter, InfoBar, Finder, Stream,
-        keydownMap, keypressMap, shortcuts, commands,
+        keydownMap, keypressMap, shortcuts, commands, history,
         selection, tracking, eol, div, li_clone, pre_clone, span_clone,
         DATA_RATIO = 10,
         DATA_MASTER_RATIO = 100;
@@ -273,6 +273,8 @@ window.CodePrinter = (function($) {
         linesOutsideOfView: 12,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
+        historyStackSize: 50,
+        historyDelay: 500,
         parserLoadingTimeout: 500,
         randomIDLength: 7,
         firstLineNumber: 1,
@@ -305,6 +307,7 @@ window.CodePrinter = (function($) {
         isFullscreen: false,
         init: function(source) {
             this.data = new Data();
+            this.history = new history(this.options.historyStackSize, this.options.historyDelay);
             source = decodeEntities(source).split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
@@ -328,6 +331,33 @@ window.CodePrinter = (function($) {
                 'line:removed': fn
             });
             
+            self.history.on({
+                undo: function() {
+                    var a, i = arguments.length;
+                    while (i--) {
+                        a = arguments[i];
+                        self.caret.position(a.line, a.column);
+                        if (a.added) {
+                            self.removeAfterCursor(a.text);
+                        } else {
+                            self.insertText(a.text);
+                        }
+                    }
+                },
+                redo: function() {
+                    var a, i = arguments.length;
+                    while (i--) {
+                        a = arguments[i];
+                        self.caret.position(a.line, a.column);
+                        if (a.added) {
+                            self.insertText(a.text);
+                        } else {
+                            self.removeAfterCursor(a.text);
+                        }
+                    }
+                }
+            });
+            
             return this;
         },
         unselectLine: function() {
@@ -343,7 +373,7 @@ window.CodePrinter = (function($) {
                 this.unselectLine();
                 if (l >= this.screen.firstLine && l <= this.screen.lastLine) {
                     this.activeLine.pre = this.screen.getLine(l).addClass('cp-activeLine');
-                    this.counter && (this.activeLine.li = this.counter.list.filter(function(item) { return item.innerHTML == l+1; }).addClass('cp-activeLine'));
+                    this.counter && (this.activeLine.li = this.counter.getLine(l).addClass('cp-activeLine'));
                 }
             }
         },
@@ -555,6 +585,7 @@ window.CodePrinter = (function($) {
                 bf = this.caret.textBefore(),
                 af = this.caret.textAfter();
             
+            text.length && this.history.pushChanges(this.caret.line(), bf.length, text, true);
             this.caret.setTextBefore(bf + s[0]);
             
             if (s.length > 1) {
@@ -582,12 +613,23 @@ window.CodePrinter = (function($) {
             return this;
         },
         removeBeforeCursor: function(arg) {
-            var r, bf = this.caret.textBefore();
+            var r = '', bf = this.caret.textBefore();
             if (typeof arg === 'string') {
-                var l = bf.length - arg.length;
-                if (bf.lastIndexOf(arg) === l) {
-                    this.caret.setTextBefore(bf.substring(0, l));
-                    r = arg;
+                arg = arg.split(eol);
+                var i = arg.length - 1, x,
+                    af = this.caret.textAfter(),
+                    l = this.caret.line();
+                while ((x = bf.length - arg[i].length) >= 0 && i && (bf.lastIndexOf(arg[i--]) === x || !arg.length)) {
+                    r = '\n' + bf.substr(x) + r;
+                    this.caret.setTextBefore(bf.substring(0, x));
+                    this.removeLine(l);
+                    bf = this.caret.position(--l, -1).textBefore();
+                }
+                if (bf.lastIndexOf(arg[i]) === x) {
+                    this.caret.setTextBefore(bf.substring(0, x));
+                    r = arg[i] + r;
+                } else {
+                    this.caret.setTextBefore(bf);
                 }
             } else if (typeof arg === 'number') {
                 if (arg <= bf.length) {
@@ -597,22 +639,38 @@ window.CodePrinter = (function($) {
                         l = this.caret.line();
                     
                     while (arg > bf.length && l-1 >= 0) {
+                        r = '\n' + bf + r;
                         this.removeLine();
                         arg = arg - bf.length - 1;
                         bf = this.caret.position(--l, -1).textBefore();
                     }
                     this.caret.setTextAtCurrentLine(bf.substring(0, bf.length - arg), af);
                 }
-                r = bf.substr(bf.length - arg);
+                r = bf.substr(bf.length - arg) + r;
             }
-            r && this.emit('removed.before', r);
+            if (r) {
+                this.history.pushChanges(this.caret.line(), this.caret.column(), r, false);
+                this.emit('removed.before', r);
+            }
         },
         removeAfterCursor: function(arg) {
-            var r, af = this.caret.textAfter();
+            var r = '', af = this.caret.textAfter();
             if (typeof arg === 'string') {
-                if (af.indexOf(arg) === 0) {
-                    this.caret.setTextAfter(af.substr(arg.length));
-                    r = arg;
+                var i = 0,
+                    bf = this.caret.textBefore(),
+                    l = this.caret.line();
+                arg = arg.split(eol);
+                while (i < arg.length - 1 && (af.indexOf(arg[i]) === 0 || !arg[i].length)) {
+                    r = r + arg[i] + '\n';
+                    this.caret.setTextAfter(af.substr(arg[i++].length));
+                    af = this.getTextAtLine(l+1);
+                    this.removeLine(l+1);
+                }
+                if (af.indexOf(arg[i]) === 0) {
+                    this.caret.setTextAfter(af.substr(arg[i].length));
+                    r = r + af.substring(0, arg[i].length);
+                } else {
+                    this.caret.setTextAfter(af);
                 }
             } else if (typeof arg === 'number') {
                 if (arg <= af.length) {
@@ -622,16 +680,20 @@ window.CodePrinter = (function($) {
                         l = this.caret.line();
                     
                     while (arg > af.length && l+1 < this.data.lines) {
+                        r = r + af + '\n';
                         this.caret.setTextAfter('');
                         arg = arg - af.length - 1;
                         af = this.getTextAtLine(l+1);
                         this.removeLine(l+1);
                     }
-                    this.caret.setTextAtCurrentLine(bf, af.substr(arg));
+                    this.caret.setTextAfter(af.substr(arg));
                 }
-                r = af.substring(0, arg);
+                r = r + af.substring(0, arg);
             }
-            r && this.emit('removed.after', r);
+            if (r) {
+                this.history.pushChanges(this.caret.line(), this.caret.column(), r, false);
+                this.emit('removed.after', r);
+            }
         },
         getSelection: function() {
             if (this.selection.isset()) {
@@ -1371,6 +1433,9 @@ window.CodePrinter = (function($) {
             this.list.getAll().remove(true);
             this.emit('width:changed');
         },
+        getLine: function(line) {
+            return line >= this.lastLine - this.list.length && line <= this.lastLine ? this.list.item(line - this.lastLine + this.list.length) : null;
+        },
         formatter: function(i) {
             return i;
         }
@@ -2087,6 +2152,9 @@ window.CodePrinter = (function($) {
         82: function() {
             this.forcePrint();
         },
+        90: function(e) {
+            e.shiftKey ? this.history.redo() : this.history.undo();
+        },
         187: function() {
             this.setFontSize(this.options.fontSize+1);
         },
@@ -2146,6 +2214,92 @@ window.CodePrinter = (function($) {
                 this.emit('cmd.cut');
             }
             return true;
+        },
+        90: function(e) {
+            e.shiftKey ? this.history.redo() : this.history.undo();
+            return false;
+        }
+    };
+    
+    history = function(stackSize, delay) {
+        this.states = [];
+        this.initialState = [];
+        this.index = 0;
+        this.muted = false;
+        
+        this.pushChanges = function(line, column, text, added) {
+            if (!this.muted && arguments.length == 4) {
+                var self = this,
+                    changes = { line: line, column: column, text: text, added: added };
+                
+                if (this.index < this.states.length - 1) {
+                    ++this.index;
+                    this.states.splice(this.index, this.states.length - this.index);
+                }
+                if (!this.states[this.index] || this.toRemove) {
+                    this.states[this.index] = [changes];
+                    this.toRemove = false;
+                } else {
+                    var last = this.states[this.index].last(),
+                        b = false;
+                    if (last.line == line && added == last.added) {
+                        if (b = (last.column + last.text.length == column)) {
+                            last.text += text;
+                        } else if (b = (column + text.length == last.column)) {
+                            last.text = text + last.text;
+                            last.column = column;
+                        }
+                    }
+                    !b && this.states[this.index].push(changes);
+                }
+                this.timeout = clearTimeout(this.timeout) || setTimeout(function() {
+                    self.save();
+                }, delay);
+            }
+            return this;
+        };
+        this.save = function() {
+            ++this.index;
+            while (this.states.length >= stackSize) {
+                this.shift();
+            }
+            return this;
+        };
+    };
+    history.prototype = {
+        getState: function(index) {
+            return this.states[index];
+        },
+        shift: function() {
+            if (this.states[0]) {
+                this.initialState.push.apply(this.initialState, this.states[0]);
+                this.states.shift();
+                --this.index;
+            }
+        },
+        undo: function() {
+            if (this.index >= 0 && this.index <= this.states.length) {
+                this.timeout = clearTimeout(this.timeout);
+                (!this.states[this.index] || !this.states[this.index].length) && --this.index;
+                this.mute().emit('undo', this.states[this.index--]).unmute();
+                this.toRemove = true;
+            }
+        },
+        redo: function() {
+            this.index < 0 && (this.index = 0);
+            if (this.index < this.states.length) {
+                this.timeout = clearTimeout(this.timeout);
+                this.mute().emit('redo', this.states[this.index++]).unmute();
+                this.toRemove = true;
+            }
+        },
+        mute: function() {
+            this.muted = true;
+            return this;
+        },
+        unmute: function() {
+            this.muted = false;
+            return this;
         }
     };
     
