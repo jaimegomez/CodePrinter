@@ -456,7 +456,7 @@ window.CodePrinter = (function($) {
             return this;
         },
         requireStyle: function(style, callback) {
-            $.require(this.options.path+'theme/'+style+'.css', callback);
+            $.require($.glue(this.options.path, 'theme', style+'.css'), callback);
         },
         tabString: function(m) {
             m == null && (m = 1);
