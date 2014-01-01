@@ -60,12 +60,12 @@ window.CodePrinter = (function($) {
                 d = true;
                 self.input.value = '';
                 self.selection.setStart(l, c);
-                self.caret.deactivate().show().emit('initialized');
+                self.caret.deactivate().show();
                 this.on('mousemove', mouseController);
                 document.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
                     th.off('mousemove', mouseController);
-                    self.caret.emit('stabilized').activate();
+                    self.caret.activate();
                     return d = e.cancel();
                 });
             } else {
@@ -73,7 +73,6 @@ window.CodePrinter = (function($) {
                 self.selection.setEnd(l, c);
                 self.showSelection();
                 self.removeOverlays();
-                self.emit('caret:moved');
             }
             $.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus();
             
