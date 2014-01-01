@@ -436,6 +436,8 @@ window.CodePrinter = (function($) {
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
+                this.keydownMap = (new keydownMap).extend(parser.keydownMap);
+                this.keypressMap = (new keypressMap).extend(parser.keypressMap);
                 this.options.tracking && (this.caret.tracking = (new tracking(this)).extend(parser.tracking));
             }
         },
@@ -2432,8 +2434,6 @@ window.CodePrinter = (function($) {
         c.appendChild(w);
         m.appendChild(c);
         return function(cp) {
-            cp.keydownMap = new keydownMap;
-            cp.keypressMap = new keypressMap;
             cp.shortcuts = new shortcuts;
             cp.selection = new selection;
             cp.caret = new Caret(cp);
