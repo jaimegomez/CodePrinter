@@ -25,7 +25,6 @@ window.CodePrinter = (function($) {
         buildDOM(self);
         
         self.mainElement.CodePrinter = self;
-        
         screen = self.screen.element.addClass('cp-'+options.mode.toLowerCase());
         id = self.mainElement.id = $.random(options.randomIDLength);
         sizes = self.sizes = { lineHeight: options.lineHeight };
@@ -61,12 +60,12 @@ window.CodePrinter = (function($) {
                 d = true;
                 self.input.value = '';
                 self.selection.setStart(l, c);
-                self.caret.deactivate().show().emit('initialized');
+                self.caret.deactivate().show();
                 this.on('mousemove', mouseController);
                 document.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
                     th.off('mousemove', mouseController);
-                    self.caret.emit('stabilized').activate();
+                    self.caret.activate();
                     return d = e.cancel();
                 });
             } else {
@@ -74,7 +73,6 @@ window.CodePrinter = (function($) {
                 self.selection.setEnd(l, c);
                 self.showSelection();
                 self.removeOverlays();
-                self.emit('caret:moved');
             }
             $.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus();
             
@@ -116,6 +114,9 @@ window.CodePrinter = (function($) {
         });
         
         self.input.listen({
+            focus: function() {
+                self.caret.refresh();
+            },
             blur: function(e) {
                 if (d) {
                     this.focus();
@@ -197,6 +198,7 @@ window.CodePrinter = (function($) {
                     wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
                 }
                 self.removeOverlays();
+                self.selectLine(this.line());
             },
             'line:changed': function(e) {
                 if (self.options.highlightCurrentLine) {
@@ -240,22 +242,24 @@ window.CodePrinter = (function($) {
             self.print();
         }});
         
-        if (typeof element === 'string') {
-            return self.init(element);
-        } else if (element.nodeType) {
-            self.init(element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML);
-            element.before(self.mainElement).remove();
-            return self;
+        if (element) {
+            if (element.nodeType) {
+                self.init(element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML);
+                element.before(self.mainElement).remove();
+                return self;
+            } else if (element.toLowerCase) {
+                return self.init(element);
+            }
         }
         
         return self.init(data);
     };
     
-    CodePrinter.version = '0.5.6';
+    CodePrinter.version = '0.5.7';
     
     CodePrinter.defaults = {
         path: '',
-        mode: 'javascript',
+        mode: 'plaintext',
         theme: 'default',
         caretStyle: 'vertical',
         width: 'auto',
@@ -268,12 +272,14 @@ window.CodePrinter = (function($) {
         linesOutsideOfView: 12,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
+        parserLoadingTimeout: 500,
         randomIDLength: 7,
         firstLineNumber: 1,
         lineNumbers: true,
         lineNumberFormatter: false,
         infobar: false,
         infobarOnTop: true,
+        autofocus: true,
         showIndentation: true,
         scrollable: true,
         tracking: true,
@@ -349,41 +355,53 @@ window.CodePrinter = (function($) {
             mode = this.options.mode;
             source && this.init(source);
             
-            var self = this,
+            var self = this, timeout,
                 sT = document.body.scrollTop,
-                sL = document.body.scrollLeft;
+                sL = document.body.scrollLeft,
+                callback = function(ModeObject) {
+                    timeout = clearTimeout(timeout);
+                    self.defineParser(ModeObject);
+                    self.screen.fill();
+                    
+                    var data = self.data,
+                        l = self.screen.lastLine+1,
+                        p = getDataLinePosition(l),
+                        u = p[0], t = p[1], h = p[2],
+                        I = clearInterval(I) || setInterval(function() {
+                            t >= DATA_RATIO && ++h && (t = 0);
+                            if (!data[h] || !data[h][t]) {
+                                I = clearInterval(I);
+                                return false;
+                            }
+                            while (u < data[h][t].length) {
+                                self.parse(data.getLine(l));
+                                l++; u++;
+                            }
+                            t++;
+                            u = 0;
+                        }, 50);
+                    
+                    document.body.scrollTop = sT;
+                    document.body.scrollLeft = sL;
+                    self.options.autofocus && self.input.focus();
+                };
             
-            CodePrinter.requireMode(mode, function(ModeObject) {
-                self.defineParser(ModeObject);
-                self.screen.fill();
-                
-                var data = self.data,
-                    l = self.screen.lastLine+1,
-                    p = getDataLinePosition(l),
-                    u = p[0], t = p[1], h = p[2],
-                    I = clearInterval(I) || setInterval(function() {
-                        t >= DATA_RATIO && ++h && (t = 0);
-                        if (!data[h] || !data[h][t]) {
-                            I = clearInterval(I);
-                            return false;
-                        }
-                        while (u < data[h][t].length) {
-                            self.parse(data.getLine(l));
-                            l++; u++;
-                        }
-                        t++;
-                        u = 0;
-                    }, 50);
-                
-                document.body.scrollTop = sT;
-                document.body.scrollLeft = sL;
-            }, this);
+            if (mode == 'plaintext') {
+                callback.call(this, new CodePrinter.Mode());
+            } else {
+                timeout = setTimeout(function() {
+                    callback.call(self, new CodePrinter.Mode());
+                }, self.options.parserLoadingTimeout);
+                CodePrinter.requireMode(mode, callback, this);
+            }
             
             return this;
         },
         forcePrint: function() {
-            this.screen.removeLines();
-            this.screen.fill();
+            var self = this;
+            this.data.foreach(function() {
+                self.parse(this, true);
+            });
         },
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
@@ -438,7 +456,7 @@ window.CodePrinter = (function($) {
             return this;
         },
         requireStyle: function(style, callback) {
-            $.require(this.options.path+'theme/'+style+'.css', callback);
+            $.require($.glue(this.options.path, 'theme', style+'.css'), callback);
         },
         tabString: function(m) {
             m == null && (m = 1);
@@ -994,7 +1012,6 @@ window.CodePrinter = (function($) {
                     
                     before = t.substring(0, c).replaceAll(tabString, '\t');
                     after = t.substr(c).replaceAll(tabString, '\t');
-                    cp.selectLine(l);
                     this.setPixelPosition(x, y);
                     
                     if (cp.options.tracking) {
@@ -1160,7 +1177,7 @@ window.CodePrinter = (function($) {
                 var dl = this.root.data.getLine(++this.lastLine),
                     pre = dl.pre = pre_clone.cloneNode();
                 
-                this.root.parse(dl) && dl.touch();
+                this.root.parse(dl, true) && dl.touch();
                 this.lines.push(pre);
                 this.element.append(pre);
                 this.root.counter && this.root.counter.increase();
@@ -1257,7 +1274,7 @@ window.CodePrinter = (function($) {
         fix: function() {
             if (this.root.data) {
                 this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px';
-                this.fixer.untie().css({ width: this.parent.clientWidth }).prependTo(this.element);
+                this.fixer.untie().css({ width: this.root.wrapper.clientWidth - 2 * this.root.sizes.paddingLeft }).prependTo(this.element);
             }
             return this;
         }
@@ -1716,7 +1733,7 @@ window.CodePrinter = (function($) {
             suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
             
             for (i = 0; i < suffix.length; i++) {
-                suffix[i] = 'cp-'+suffix[i];
+                suffix[i] = 'cpx-'+suffix[i];
             }
             suffix = suffix.join(' ');
             this.wrapped = [];
@@ -1897,6 +1914,7 @@ window.CodePrinter = (function($) {
             return toString ? s.toString() : s;
         },
         fn: function(stream) {
+            stream.parsed = stream.value;
             return stream;
         }
     };
@@ -2300,7 +2318,7 @@ window.CodePrinter = (function($) {
     };
     function createSpan(text, classes, top, left, width, height)
     {
-        var s = document.createElement('span').addClass(classes);
+        var s = span_clone.cloneNode().addClass(classes);
         s.textContent = text;
         s.style.extend({
             top: top + 'px',
@@ -2325,7 +2343,7 @@ window.CodePrinter = (function($) {
         var pos = text.search(/[^ ]/), tmp;
         pos == -1 && (pos = text.length); 
         tmp = [text.substring(0, pos), text.substr(pos)];
-        tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cp-tab">$1</span>');
+        tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
         return tmp[0] + tmp[1];
     };
     function isCommandKey(e) {

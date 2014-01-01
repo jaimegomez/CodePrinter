@@ -12,24 +12,24 @@
 .cps-eclipse .cpf-occurrence { border-color:#AAAAAA; }
 .cps-eclipse .cpf-occurrence.active { background:white; border-color:black; }
 
-.cps-eclipse .cp-tab { border-color:#D8D8D8; }
-.cps-eclipse .cp-bracket { color:#000000; }
-.cps-eclipse .cp-operator { color:#0000FF; }
-.cps-eclipse .cp-keyword,
-.cps-eclipse .cp-control,
-.cps-eclipse .cp-boolean,
-.cps-eclipse .cp-special { color:#7F0055; font-weight:bold; }
-.cps-eclipse .cp-variable { color:#000099; font-style:italic; }
-.cps-eclipse .cp-empty-value { color:#AF0000; }
-.cps-eclipse .cp-special { font-style:italic; }
-.cps-eclipse .cp-special.cp-doctype { color:#006600; font-style:normal; font-weight:normal; }
-.cps-eclipse .cp-numeric { color:#557F5F; font-weight:bold; }
-.cps-eclipse .cp-hex { color:#990099; font-weight:normal; }
-.cps-eclipse .cp-fname { color:#006600; }
-.cps-eclipse .cp-property { color:#006600; }
-.cps-eclipse .cp-regexp { color:#FF0000; }
-.cps-eclipse .cp-escaped { color:#990099; }
-.cps-eclipse .cp-phptag { color:#000000; }
-.cps-eclipse .cp-string { color:#0000C0; }
-.cps-eclipse .cp-comment { color:#3F5FD1; }
-.cps-eclipse .cp-line-comment { color:#637F5F; }
+.cps-eclipse .cpx-tab { border-color:#D8D8D8; }
+.cps-eclipse .cpx-bracket { color:#000000; }
+.cps-eclipse .cpx-operator { color:#0000FF; }
+.cps-eclipse .cpx-keyword,
+.cps-eclipse .cpx-control,
+.cps-eclipse .cpx-boolean,
+.cps-eclipse .cpx-special { color:#7F0055; font-weight:bold; }
+.cps-eclipse .cpx-variable { color:#000099; font-style:italic; }
+.cps-eclipse .cpx-empty-value { color:#AF0000; }
+.cps-eclipse .cpx-special { font-style:italic; }
+.cps-eclipse .cpx-special.cpx-doctype { color:#006600; font-style:normal; font-weight:normal; }
+.cps-eclipse .cpx-numeric { color:#557F5F; font-weight:bold; }
+.cps-eclipse .cpx-hex { color:#990099; font-weight:normal; }
+.cps-eclipse .cpx-fname { color:#006600; }
+.cps-eclipse .cpx-property { color:#006600; }
+.cps-eclipse .cpx-regexp { color:#FF0000; }
+.cps-eclipse .cpx-escaped { color:#990099; }
+.cps-eclipse .cpx-phptag { color:#000000; }
+.cps-eclipse .cpx-string { color:#0000C0; }
+.cps-eclipse .cpx-comment { color:#3F5FD1; }
+.cps-eclipse .cpx-line-comment { color:#637F5F; }
