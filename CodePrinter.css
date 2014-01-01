@@ -6,7 +6,7 @@
 .codeprinter-source {
   display: block;
   padding: 5px 15px;
-  background: #ffffff;
+  background: #fcfcfc;
   border: 1px solid #c0c0c0;
   color: #777777;
   font-family: Menlo, Monaco, monospace, Courier;
@@ -18,36 +18,32 @@
   white-space: pre;
 }
 .codeprinter {
-  display: block;
-  white-space: nowrap;
   margin: 0;
   padding: 0;
-  border-color: #c0c0c0;
-  border-width: 1px;
-  border-style: solid;
+  border: 1px solid #c0c0c0;
   min-width: 50px;
   min-height: 20px;
   overflow: hidden;
   position: relative;
   top: 0;
-  animation-duration: 0.001s;
-  -o-animation-duration: 0.001s;
-  -ms-animation-duration: 0.001s;
-  -moz-animation-duration: 0.001s;
-  -webkit-animation-duration: 0.001s;
-  animation-name: nodeInserted;
-  -o-animation-name: nodeInserted;
-  -ms-animation-name: nodeInserted;
-  -moz-animation-name: nodeInserted;
-  -webkit-animation-name: nodeInserted;
+  animation: nodeInserted 0.001s;
+  -o-animation: nodeInserted 0.001s;
+  -ms-animation: nodeInserted 0.001s;
+  -moz-animation: nodeInserted 0.001s;
+  -webkit-animation: nodeInserted 0.001s;
 }
 .codeprinter,
 .codeprinter * {
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: subpixel-antialiased;
 }
+.codeprinter div,
+.codeprinter .cp-input {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
 .codeprinter .cp-container {
-  display: block;
   display: -webkit-box;
   display: -moz-box;
   display: -ms-flexbox;
@@ -58,7 +54,6 @@
   -ms-flex-flow: column;
   -o-flex-flow: column;
   flex-flow: column;
-  width: auto;
   height: 100%;
   position: relative;
   font-family: Menlo, Monaco, monospace, Courier;
@@ -69,8 +64,6 @@
 }
 .codeprinter .cp-container .cp-templine {
   display: inline-block;
-  margin: 0;
-  padding: 0;
   white-space: pre;
   position: absolute;
   top: -100px;
@@ -78,7 +71,6 @@
   visibility: hidden;
 }
 .codeprinter .cp-wrapper {
-  display: block;
   display: -webkit-box;
   display: -moz-box;
   display: -ms-flexbox;
@@ -94,16 +86,8 @@
   -ms-flex-flow: column;
   -o-flex-flow: column;
   flex-flow: column;
-  width: auto;
   height: 100%;
-  margin: 0;
-  padding: 0;
-  -webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
-  -ms-box-sizing: border-box;
-  -o-box-sizing: border-box;
-  box-sizing: border-box;
-  background: #ffffff;
+  background: #fcfcfc;
   border: none;
   min-width: 120px;
   min-height: 60px;
@@ -122,9 +106,6 @@
   vertical-align: top;
   width: 10px;
   height: 20px;
-  margin: 0;
-  padding: 0;
-  pointer-events: none;
   background: none;
   color: transparent;
   resize: none;
@@ -134,18 +115,17 @@
   position: absolute;
   top: -100px;
   left: -100px;
+  pointer-events: none;
 }
 .codeprinter .cp-screen {
-  display: inline-block;
-  width: auto;
-  height: 100%;
-  margin: 0;
-  padding: 0;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   -o-user-select: none;
   user-select: none;
+  display: inline-block;
+  vertical-align: top;
+  height: 100%;
   border-width: 0;
   color: inherit;
   z-index: 5;
@@ -156,52 +136,33 @@
 }
 .codeprinter .cp-screen pre {
   display: block;
-  width: auto;
-  height: auto;
   margin: 0 -15px;
   padding: 0 15px;
   color: inherit;
 }
 .codeprinter .cp-codelines {
   display: inline-block;
-  margin: 0;
+  vertical-align: top;
   padding: 5px 15px;
   position: relative;
   top: 0;
 }
 .codeprinter .cp-codelines .cp-fixer {
-  margin: 0 -15px;
-  padding: 0;
   height: 0;
   max-height: 0;
   border-width: 0;
 }
 .codeprinter .cp-counter {
-  display: inline-block;
-  vertical-align: top;
-  margin: 0;
-  padding: 0;
-  width: auto;
-  height: auto;
-  background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
-  background-image: -webkit-linear-gradient(right, #f0f0f0, #fafafa);
-  background-image: -moz-linear-gradient(right, #f0f0f0, #fafafa);
-  background-image: -ms-linear-gradient(right, #f0f0f0, #fafafa);
-  background-image: -o-linear-gradient(right, #f0f0f0, #fafafa);
-  background-image: linear-gradient(right, #f0f0f0, #fafafa);
-  border-color: #c0c0c0;
-  border-width: 0 1px 0 0;
-  border-style: solid;
-  -webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -moz-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   -o-user-select: none;
   user-select: none;
+  display: inline-block;
+  vertical-align: top;
+  background: #fcfcfc;
+  border-right: 1px solid #c0c0c0;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
   color: #777777;
   min-width: 36px;
   z-index: 6;
@@ -230,7 +191,6 @@
   list-style-type: none;
 }
 .codeprinter .cp-overlay {
-  pointer-events: none;
   background: none !important;
   z-index: 6;
   position: absolute;
@@ -238,6 +198,7 @@
   right: 0;
   bottom: 0;
   left: 0;
+  pointer-events: none;
 }
 .codeprinter .cp-overlay span {
   margin: 0;
@@ -252,7 +213,6 @@
   color: transparent;
 }
 .codeprinter .cpi-bar {
-  display: block;
   display: -webkit-box;
   display: -moz-box;
   display: -ms-flexbox;
@@ -263,29 +223,16 @@
   -ms-flex-flow: row;
   -o-flex-flow: row;
   flex-flow: row;
-  width: auto;
-  height: 12px;
-  margin: 0;
-  padding: 2px 5px;
-  background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
-  background-image: -webkit-linear-gradient(bottom, #f0f0f0, #fafafa);
-  background-image: -moz-linear-gradient(bottom, #f0f0f0, #fafafa);
-  background-image: -ms-linear-gradient(bottom, #f0f0f0, #fafafa);
-  background-image: -o-linear-gradient(bottom, #f0f0f0, #fafafa);
-  background-image: linear-gradient(bottom, #f0f0f0, #fafafa);
-  border-color: #c0c0c0;
-  border-width: 0 0 1px 0;
-  border-style: solid;
-  -webkit-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
-  -moz-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
-  -ms-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
-  -o-box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
-  box-shadow: 0 0 7px rgba(0, 0, 0, 0.15);
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
   -o-user-select: none;
   user-select: none;
+  padding: 2px 5px;
+  height: 12px;
+  background: #fcfcfc;
+  border-bottom: 1px solid #c0c0c0;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
   font-family: Verdana;
   font-size: 9px;
   color: #777777;
@@ -296,7 +243,6 @@
 }
 .codeprinter .cpi-bar span {
   margin: 0 5px;
-  padding: 0;
   font-size: 9px;
 }
 .codeprinter .cpi-bar .cpi-info {
@@ -308,16 +254,15 @@
   text-align: right;
 }
 .codeprinter .cpi-bar a {
-  margin: 0 5px;
-  padding: 0;
   -webkit-transition: color 0.3s ease-in-out;
   -moz-transition: color 0.3s ease-in-out;
   -ms-transition: color 0.3s ease-in-out;
   -o-transition: color 0.3s ease-in-out;
   transition: color 0.3s ease-in-out;
+  margin: 0 5px;
+  padding: 0;
   font-size: 9px;
   color: inherit;
-  box-sizing: content-box;
 }
 .codeprinter .cpi-bar a:hover {
   color: #444444;
@@ -330,28 +275,9 @@
   display: -webkit-flex;
   display: flex;
   width: 100%;
-  height: auto;
-  margin: 0;
-  padding: 0;
-  background-image: -webkit-gradient(linear, left top, left bottom, from(#f0f0f0), to(#fafafa));
-  background-image: -webkit-linear-gradient(top, #f0f0f0, #fafafa);
-  background-image: -moz-linear-gradient(top, #f0f0f0, #fafafa);
-  background-image: -ms-linear-gradient(top, #f0f0f0, #fafafa);
-  background-image: -o-linear-gradient(top, #f0f0f0, #fafafa);
-  background-image: linear-gradient(top, #f0f0f0, #fafafa);
-  border-color: #c0c0c0;
-  border-width: 1px 0 0 0;
-  border-style: solid;
-  -webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
-  -ms-box-sizing: border-box;
-  -o-box-sizing: border-box;
-  box-sizing: border-box;
-  -webkit-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -moz-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -ms-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  -o-box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  background: #fcfcfc;
+  border-top: 1px solid #c0c0c0;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
   font-size: 12px;
   color: black;
   position: relative;
@@ -359,13 +285,7 @@
   -webkit-transform: translate3d(0, 0, 0);
 }
 .codeprinter .cpf-bar .cpf-leftbox {
-  margin: 0;
   padding: 0 5px;
-  -webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
-  -ms-box-sizing: border-box;
-  -o-box-sizing: border-box;
-  box-sizing: border-box;
 }
 .codeprinter .cpf-bar .cpf-flexbox {
   -webkit-flex: 1;
@@ -373,29 +293,18 @@
   -ms-flex: 1;
   -o-flex: 1;
   flex: 1;
-  -webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
-  -ms-box-sizing: border-box;
-  -o-box-sizing: border-box;
-  box-sizing: border-box;
   min-width: 100px;
 }
 .codeprinter .cpf-input {
   display: block;
-  width: 100%;
-  height: 23px;
   margin: 0;
   padding: 3px 8px;
-  border-color: #c0c0c0;
-  border-width: 0 0 0 1px;
-  border-style: solid;
-  border-radius: 0;
-  -webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
-  -ms-box-sizing: border-box;
-  -o-box-sizing: border-box;
-  box-sizing: border-box;
+  width: 100%;
+  height: 15px;
   min-width: 100px;
+  border: 1px solid #c0c0c0;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
   font-size: inherit;
   color: inherit;
   outline: none;
@@ -405,13 +314,6 @@
   vertical-align: middle;
   margin: 0;
   padding: 3px 5px;
-  width: auto;
-  height: auto;
-  -webkit-box-shadow: none;
-  -moz-box-shadow: none;
-  -ms-box-shadow: none;
-  -o-box-shadow: none;
-  box-shadow: none;
   background: none;
   border-width: 0;
   font-size: inherit;
@@ -421,12 +323,10 @@
   display: inline-block;
   vertical-align: top;
   margin: 0 0 0 -1px;
-  padding: 0 0;
-  border-color: #666666;
-  border-width: 1px;
-  border-style: solid;
-  border-radius: 4px;
+  padding: 0;
   background: none;
+  border: 1px solid #666666;
+  border-radius: 4px;
   color: transparent;
   position: absolute;
   top: 0;
@@ -434,34 +334,24 @@
   z-index: 10;
 }
 .codeprinter .cpf-occurrence.active {
-  -webkit-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
-  -moz-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
-  -ms-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
-  -o-box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
   background: #fdd017;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
   color: black;
   pointer-events: all;
 }
 .codeprinter .cp-caret {
-  width: 1px;
-  height: 10px;
-  background-color: #000000;
-  -webkit-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-  -moz-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-  -ms-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-  -o-box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-  position: absolute;
-  top: -50px;
-  right: 0;
-  bottom: 0;
-  left: 0;
   -webkit-transition: opacity 0.3s ease-in-out;
   -moz-transition: opacity 0.3s ease-in-out;
   -ms-transition: opacity 0.3s ease-in-out;
   -o-transition: opacity 0.3s ease-in-out;
   transition: opacity 0.3s ease-in-out;
+  width: 1px;
+  height: 10px;
+  background: #000000;
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+  position: absolute;
+  top: -50px;
+  left: -50px;
   z-index: 100;
 }
 .codeprinter .cp-screen,
@@ -524,15 +414,9 @@
 .codeprinter .cpx-variable {
   color: #1a19ff;
 }
-.codeprinter .cpx-keyword {
-  color: #025BB9;
-}
-.codeprinter .cpx-control {
-  color: #025BB9;
-}
-.codeprinter .cpx-boolean {
-  color: #025BB9;
-}
+.codeprinter .cpx-keyword,
+.codeprinter .cpx-control,
+.codeprinter .cpx-boolean,
 .codeprinter .cpx-empty-value {
   color: #025BB9;
 }
@@ -589,7 +473,6 @@
   color: #025BB9;
 }
 .codeprinter.cp-fullscreen {
-  display: block;
   display: -webkit-box;
   display: -moz-box;
   display: -ms-flexbox;
@@ -653,103 +536,4 @@
   to {
     clip: rect(0px, auto, auto, auto);
   }
-}
-/* ########### */
-/* LESS MIXINS */
-.block {
-  display: block;
-}
-.inline {
-  display: inline;
-}
-.inline-block {
-  display: inline-block;
-}
-.flexbox {
-  display: -webkit-box;
-  display: -moz-box;
-  display: -ms-flexbox;
-  display: -webkit-flex;
-  display: flex;
-}
-.hidden {
-  display: none;
-}
-.table {
-  display: table;
-}
-.table-cell {
-  display: table-cell;
-}
-.table-row {
-  display: table-row;
-}
-.vertical-top {
-  vertical-align: top;
-}
-.vertical-middle {
-  vertical-align: middle;
-}
-.vertical-bottom {
-  vertical-align: bottom;
-}
-.align-left {
-  text-align: left;
-}
-.align-center {
-  text-align: center;
-}
-.align-right {
-  text-align: right;
-}
-.bold {
-  font-weight: bold;
-}
-.italic {
-  font-style: italic;
-}
-.text-muted {
-  color: #999999;
-}
-.text-warning {
-  color: #c09853;
-}
-.text-error {
-  color: #b94a48;
-}
-.text-info {
-  color: #3a87ad;
-}
-.text-success {
-  color: #468847;
-}
-.no-rounded {
-  border-radius: 0;
-}
-.mini-rounded {
-  border-radius: 2px;
-}
-.small-rounded {
-  border-radius: 4px;
-}
-.medium-rounded {
-  border-radius: 8px;
-}
-.large-rounded {
-  border-radius: 15px;
-}
-.xl-rounded {
-  border-radius: 20px;
-}
-.xxl-rounded {
-  border-radius: 30px;
-}
-.not-allowed {
-  cursor: not-allowed;
-}
-.non-events {
-  pointer-events: none;
-}
-.nowrap {
-  white-space: nowrap;
 }
