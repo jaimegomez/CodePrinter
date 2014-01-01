@@ -1274,7 +1274,7 @@ window.CodePrinter = (function($) {
         fix: function() {
             if (this.root.data) {
                 this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px';
-                this.fixer.untie().css({ width: this.parent.clientWidth }).prependTo(this.element);
+                this.fixer.untie().css({ width: this.root.wrapper.clientWidth - 2 * this.root.sizes.paddingLeft }).prependTo(this.element);
             }
             return this;
         }
