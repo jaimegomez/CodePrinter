@@ -60,12 +60,12 @@ window.CodePrinter = (function($) {
                 d = true;
                 self.input.value = '';
                 self.selection.setStart(l, c);
-                self.caret.deactivate().show().emit('initialized');
+                self.caret.deactivate().show();
                 this.on('mousemove', mouseController);
                 document.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
                     th.off('mousemove', mouseController);
-                    self.caret.emit('stabilized').activate();
+                    self.caret.activate();
                     return d = e.cancel();
                 });
             } else {
@@ -73,7 +73,6 @@ window.CodePrinter = (function($) {
                 self.selection.setEnd(l, c);
                 self.showSelection();
                 self.removeOverlays();
-                self.emit('caret:moved');
             }
             $.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus();
             
@@ -256,7 +255,7 @@ window.CodePrinter = (function($) {
         return self.init(data);
     };
     
-    CodePrinter.version = '0.5.6';
+    CodePrinter.version = '0.5.7';
     
     CodePrinter.defaults = {
         path: '',
@@ -487,7 +486,7 @@ window.CodePrinter = (function($) {
             return this;
         },
         requireStyle: function(style, callback) {
-            $.require(this.options.path+'theme/'+style+'.css', callback);
+            $.require($.glue(this.options.path, 'theme', style+'.css'), callback);
         },
         tabString: function(m) {
             m == null && (m = 1);
@@ -1337,7 +1336,7 @@ window.CodePrinter = (function($) {
         fix: function() {
             if (this.root.data) {
                 this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px';
-                this.fixer.untie().css({ width: this.parent.clientWidth }).prependTo(this.element);
+                this.fixer.untie().css({ width: this.root.wrapper.clientWidth - 2 * this.root.sizes.paddingLeft }).prependTo(this.element);
             }
             return this;
         }
