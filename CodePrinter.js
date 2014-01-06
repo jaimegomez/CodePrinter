@@ -884,10 +884,14 @@ window.CodePrinter = (function($) {
                     
                     while (n) {
                         r = n.shift();
-                        b.push(r);
-                        b = n;
-                        t === DATA_RATIO - 1 && (t = -1) && h++;
-                        n = this[h] && this[h][++t] || null;
+                        if (r) {
+                            b.push(r);
+                            b = n;
+                            t === DATA_RATIO - 1 && (t = -1) && h++;
+                            n = this[h] && this[h][++t] || null;
+                        } else {
+                            n = false;
+                        }
                     }
                 }
             }
