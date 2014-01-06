@@ -306,10 +306,10 @@ window.CodePrinter = (function($) {
     
     CodePrinter.prototype = {
         isFullscreen: false,
-        init: function(source) {
+        init: function(source, decoded) {
             this.data = new Data();
             this.history = new history(this.options.historyStackSize, this.options.historyDelay);
-            source = decodeEntities(source).split('\n');
+            source = (decoded ? source : decodeEntities(source)).split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
             var self = this, i = -1, fn,
