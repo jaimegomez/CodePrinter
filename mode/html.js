@@ -1,7 +1,7 @@
 /* CodePrinter - HTML mode */
 
 CodePrinter.defineMode('HTML', {
-    regexp: /<!--|<!\w+|<\/?|&.+;/,
+    regexp: /<!--|<!\w+|<\/?|&[^;]+;/,
     regexp2: /[a-zA-Z\-]+|=|"|'|<|\/?\s*>/,
     
     fn: function(stream) {
