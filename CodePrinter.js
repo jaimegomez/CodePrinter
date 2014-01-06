@@ -66,6 +66,7 @@ window.CodePrinter = (function($) {
                     !self.selection.isset() && self.selection.clear();
                     th.off('mousemove', mouseController);
                     self.caret.activate();
+                    document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
                     return d = e.cancel();
                 });
             } else {
@@ -74,7 +75,6 @@ window.CodePrinter = (function($) {
                 self.showSelection();
                 self.removeOverlays();
             }
-            $.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus();
             
             self.caret.position(l, c);
         };
