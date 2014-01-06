@@ -386,6 +386,7 @@ window.CodePrinter = (function($) {
             mode && this.setMode(mode);
             mode = this.options.mode;
             source && this.init(source);
+            this.screen.removeLines();
             
             var self = this, timeout,
                 sT = document.body.scrollTop,
