@@ -26,11 +26,6 @@
   overflow: hidden;
   position: relative;
   top: 0;
-  animation: nodeInserted 0.001s;
-  -o-animation: nodeInserted 0.001s;
-  -ms-animation: nodeInserted 0.001s;
-  -moz-animation: nodeInserted 0.001s;
-  -webkit-animation: nodeInserted 0.001s;
 }
 .codeprinter,
 .codeprinter * {
@@ -496,6 +491,13 @@
   -ms-flex: 1;
   -o-flex: 1;
   flex: 1;
+}
+.codeprinter.cp-animation {
+  animation: nodeInserted 0.001s;
+  -o-animation: nodeInserted 0.001s;
+  -ms-animation: nodeInserted 0.001s;
+  -moz-animation: nodeInserted 0.001s;
+  -webkit-animation: nodeInserted 0.001s;
 }
 @keyframes nodeInserted {
   from {

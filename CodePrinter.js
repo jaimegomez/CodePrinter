@@ -20,7 +20,7 @@ window.CodePrinter = (function($) {
         
         var self = this, screen, sizes, data = '', id, d, pr;
         
-        options = self.options = {}.extend(CodePrinter.defaults, options, element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
+        options = self.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
         buildDOM(self);
         
@@ -234,6 +234,7 @@ window.CodePrinter = (function($) {
         });
         
         self.mainElement.on({ nodeInserted: function() {
+            this.removeClass('cp-animation');
             var s = window.getComputedStyle(self.screen.element, null);
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
@@ -2424,7 +2425,7 @@ window.CodePrinter = (function($) {
     };
     
     var buildDOM = (function(){
-        var m = div.cloneNode().addClass('codeprinter'),
+        var m = div.cloneNode().addClass('codeprinter cp-animation'),
             c = div.cloneNode().addClass('cp-container'),
             w = div.cloneNode().addClass('cp-wrapper'),
             s = div.cloneNode().addClass('cp-screen'),
