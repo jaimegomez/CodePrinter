@@ -2074,6 +2074,18 @@ window.CodePrinter = (function($) {
             this.isFullscreen && this.exitFullscreen();
             return e.cancel();
         },
+        33: function() {
+            this.wrapper.scrollTop -= this.wrapper.clientHeight;
+        },
+        34: function() {
+            this.wrapper.scrollTop += this.wrapper.clientHeight;
+        },
+        35: function() {
+            this.caret.position(this.data.lines - 1, -1);
+        },
+        36: function() {
+            this.caret.position(0, 0);
+        },
         37: function(e, c) {
             c%2 ? this.caret.move(c-38, 0) : this.caret.move(0, c-39);
             if (e.shiftKey && this.selection.start.line >= 0) {
