@@ -6,8 +6,8 @@ window.CodePrinter = (function($) {
     
     var CodePrinter, Data, DataLine, Caret,
         Screen, Overlay, Counter, InfoBar, Finder, Stream,
-        keydownMap, keypressMap, shortcuts, commands, history,
-        selection, tracking, eol, div, li_clone, pre_clone, span_clone,
+        keydownMap, keypressMap, shortcuts, commands, history, selection,
+        tracking, extensions, eol, div, li_clone, pre_clone, span_clone,
         DATA_RATIO = 10,
         DATA_MASTER_RATIO = 100;
     
@@ -41,6 +41,7 @@ window.CodePrinter = (function($) {
         self.setWidth(options.width);
         self.setHeight(options.height);
         self.setTheme(options.theme);
+        self.setMode(options.mode);
         
         var mouseController = function(e) {
             if (e.button > 0 || e.which > 1)
@@ -520,7 +521,7 @@ window.CodePrinter = (function($) {
             this.mainElement.removeClass('cps-'+this.options.theme.toLowerCase()).addClass('cps-'+(this.options.theme = name.replace(' ', '-')).toLowerCase());
         },
         setMode: function(mode) {
-            mode = mode.toLowerCase();
+            mode = extensions[mode.toLowerCase()] || 'plaintext';
             this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode);
             this.options.mode = mode;
         },
@@ -2412,6 +2413,22 @@ window.CodePrinter = (function($) {
     tracking.prototype['{'] = tracking.prototype['['] = tracking.prototype['('];
     tracking.prototype['}'] = tracking.prototype[']'] = tracking.prototype[')'];
     
+    extensions = {
+        'js': 'javascript',
+        'json': 'javascript',
+        'javascript': 'javascript',
+        'php': 'php',
+        'html': 'html',
+        'htm': 'html',
+        'css': 'css',
+        'less': 'css',
+        'h': 'c',
+        'c': 'c',
+        'cpp': 'c',
+        'ruby': 'ruby',
+        'rb': 'ruby'
+    };
+    
     eol = $.browser.windows ? '\r\n' : '\n';
     
     CodePrinter.requireMode = function(req, cb, del) {
@@ -2427,6 +2444,9 @@ window.CodePrinter = (function($) {
     };
     CodePrinter.hasMode = function(name) {
         return $.scripts.has('CodePrinter.'+name.toLowerCase());
+    };
+    CodePrinter.registerExtension = function(ext, parserName) {
+        extensions[ext.toLowerCase()] = parserName.toLowerCase();
     };
     
     var buildDOM = (function(){
