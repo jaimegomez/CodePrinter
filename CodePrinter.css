@@ -175,6 +175,7 @@
   padding: 5px 0;
   text-align: right;
   list-style-type: none;
+  position: relative;
 }
 .codeprinter .cp-counter li {
   margin: 0;

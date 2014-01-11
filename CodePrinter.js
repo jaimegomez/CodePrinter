@@ -82,8 +82,6 @@ window.CodePrinter = (function($) {
         
         self.wrapper.listen({
             scroll: function() {
-                self.counter && (self.counter.parent.scrollTop = this.scrollTop);
-                
                 var lv = parseInt(self.options.linesOutsideOfView),
                     x = Math.ceil((this.scrollTop - self.sizes.scrollTop) / self.sizes.lineHeight);
                 
@@ -93,6 +91,7 @@ window.CodePrinter = (function($) {
                     do self.screen.unshift(); while (++x < lv);
                 }
                 self.selectLine(self.caret.line());
+                this.timeout = clearTimeout(this.timeout) || setTimeout(function() { self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop); }, 5);
             },
             dblclick: function() {
                 var bf = self.caret.textBefore(),
@@ -413,7 +412,7 @@ window.CodePrinter = (function($) {
                             }
                             t++;
                             u = 0;
-                        }, 50);
+                        }, 10);
                     
                     document.body.scrollTop = sT;
                     document.body.scrollLeft = sL;
@@ -1228,7 +1227,7 @@ window.CodePrinter = (function($) {
     
     Screen = function(cp) {
         var self = this;
-        this.lines = $([]);
+        this.lines = [];
         this.root = cp;
         
         return this;
@@ -1327,20 +1326,26 @@ window.CodePrinter = (function($) {
             }
         },
         append: function(dl) {
+            this.element.removeChild(dl.pre);
             this.root.parse(dl) && dl.touch();
-            this.lines.item(-1).after(dl.pre);
             this.lines.push(dl.pre);
+            this.element.appendChild(dl.pre);
         },
         prepend: function(dl) {
+            this.element.removeChild(dl.pre);
             this.root.parse(dl) && dl.touch();
-            this.lines.item(0).before(dl.pre);
             this.lines.unshift(dl.pre);
+            this.element.insertBefore(dl.pre, this.element.firstChild);
         },
         getLine: function(line) {
-            return line >= this.firstLine && line <= this.lastLine ? this.lines.item(line - this.firstLine) : null;
+            return line >= this.firstLine && line <= this.lastLine ? this.lines[line - this.firstLine] : null;
         },
         removeLines: function() {
-            this.lines.remove(true);
+            var i = this.lines.length;
+            while (i--) {
+                this.lines[i].untie();
+                this.lines.splice(i, 1);
+            }
             this.firstLine = 0;
             this.lastLine = -1;
             this.root.counter && this.root.counter.removeLines();
@@ -1380,7 +1385,7 @@ window.CodePrinter = (function($) {
         var self = this, ln = cp.screen.lines.length;
         self.element = document.createElement('ol');
         self.parent = div.cloneNode().addClass('cp-counter').append(self.element);
-        self.list = $([]);
+        self.list = [];
         self.root = cp;
         self.lastLine = cp.options.firstLineNumber - 1;
         cp.container.prepend(self.parent);
@@ -1420,32 +1425,37 @@ window.CodePrinter = (function($) {
                 c = ++this.lastLine,
                 f = this.formatter(c);
             
-            fi.innerHTML = f;
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + this.root.options.firstLineNumber ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
-            this.list.item(-1).after(fi);
+            this.element.removeChild(fi);
+            fi.innerHTML = f;
+            this.element.insertBefore(fi, null);
             this.list.push(fi);
-            this.element.style.marginTop = this.root.sizes.scrollTop + 'px';
+            this.element.style.top = this.root.sizes.scrollTop + 'px';
             f.toString().length > this.formatter(c-1).toString().length && this.emit('width:changed');
         },
         unshift: function() {
             var la = this.list.pop(),
-                i = this.lastLine,
                 c = --this.lastLine - this.list.length;
             
-            la.innerHTML = this.formatter(c);
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + this.root.options.firstLineNumber ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
-            this.list.item(0).before(la);
+            this.element.removeChild(la);
+            la.innerHTML = this.formatter(c);
+            this.element.insertBefore(la, this.element.firstChild);
             this.list.unshift(la);
-            this.element.style.marginTop = this.root.sizes.scrollTop + 'px';
-            this.formatter(i).toString().length > this.formatter(i-1).toString().length && this.emit('width:changed');
+            this.element.style.top = this.root.sizes.scrollTop + 'px';
+            this.formatter(this.lastLine+1).toString().length > this.formatter(this.lastLine).toString().length && this.emit('width:changed');
         },
         removeLines: function() {
             this.lastLine = this.root.options.firstLineNumber - 1;
-            this.list.getAll().remove(true);
+            var i = this.list.length;
+            while (i--) {
+                this.list[i].untie();
+                this.list.splice(i, 1);
+            }
             this.emit('width:changed');
         },
         getLine: function(line) {
-            return line >= this.lastLine - this.list.length && line <= this.lastLine ? this.list.item(line - this.lastLine + this.list.length) : null;
+            return line >= this.lastLine - this.list.length && line <= this.lastLine ? this.list[line - this.lastLine + this.list.length] : null;
         },
         formatter: function(i) {
             return i;
@@ -2049,7 +2059,7 @@ window.CodePrinter = (function($) {
                 }
                 this.showSelection();
             } else {
-                e.shiftKey ? this.removeBeforeCursor(this.tabString()) : this.insertText(this.tabString());
+                !e.ctrlKey && (e.shiftKey ? this.removeBeforeCursor(this.tabString()) : this.insertText(this.tabString()));
             }
             return e.cancel();
         },
