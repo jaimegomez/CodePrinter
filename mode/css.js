@@ -1,73 +1,25 @@
 /* CodePrinter - CSS Mode */
 
 CodePrinter.defineMode('CSS', {
-    colors: ['white','black','transparent','green','yellow','red','blue','orange','pink','cyan','violet','brown','gray','silver','gold','aqua','lime','navy','indigo','teal','fuchsia','magenta','beige','azure','khaki','sienna','skyblue'],
-    keywords: ['inherit','italic','normal','bold','underline','none','all','solid','dotted','dashed'],
-    regexp: /\/\*|#[\w\-]+|\.[\w\-]+|\b[\w\-]+|@\w+|{|}|:|;|<|>/,
-	values: /\/\*|\;|,|#[0-9a-fA-F]+|\-?\d+[a-zA-Z%]*|\-?\d*\.\d+[a-zA-Z%]*|\b[a-zA-Z\-]+\b|'|"/,
+    tags: ['html','body','div','a','ol','ul','li','span','p','h1','h2','h3','h4','h5','h6','img','input','textarea','button','form','label','select','option','optgroup','nav','header','section','footer','code','pre','table','tr','th','td','thead','tbody','tfoot','frameset','frame','iframe'],
+    regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@\w+|[^\w\s]/,
+	values: /\/\*|\;|,|#[0-9a-fA-F]+|\-?\d+[a-zA-Z%]*|\-?\d*\.\d+[a-zA-Z%]*|[@!]?[a-zA-Z\-]+\b|'|"/,
     units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
     
     fn: function(stream) {
         var found;
         
         while (found = stream.match(this.regexp)) {
-            if (found[0] === '#') {
-                stream.wrap(['special', 'css-id']);
-            } else if (found[0] === '.') {
-                stream.wrap(['special', 'css-class']);
+            if (this.symbols.hasOwnProperty(found[0])) {
+                this.symbols[found[0]].call(this, stream, found);
             } else if (/^[\w\-]+$/i.test(found)) {
-                if (stream.isAfter(':')) {
-                    stream.wrap(['property', 'property-'+found]);
-                } else if (found.indexOf('-') === -1) {
-                    stream.wrap(['css-tag']);
+                if (this.tags.indexOf(found) !== -1) {
+                    stream.wrap(['keyword', 'css-tag']);
                 } else {
-                    stream.skip();
-                }
-            } else if (found[0] === '@') {
-                if (found === '@media') {
-                    stream.wrap(['control', 'control-media']);
-                } else {
-                    stream.wrap(['variable', 'variable-'+found.substr(1)]);
+                    stream.wrap(['special', 'special-'+found]);
                 }
             } else if (this.punctuations.hasOwnProperty(found)) {
                 stream.wrap(['punctuation', this.punctuations[found]]);
-                
-                if (found === ':') {
-                    while (found = stream.match(this.values)) {
-                        if (found == ';') {
-                            stream.wrap(['punctuation', this.punctuations[found]]);
-                            break;
-                        } else if (this.colors.indexOf(found) !== -1) {
-                            stream.wrap(['keyword', 'color-'+found]);
-                        } else if (this.keywords.indexOf(found) !== -1) {
-                            stream.wrap(['keyword', 'keyword-'+found]);
-                        } else if (found[0] === '#') {
-                            if (found.length === 4 || found.length === 7) {
-                                stream.wrap(['numeric', 'hex']);
-                            } else {
-                                stream.wrap(['invalid']);
-                            }
-                        } else if (/\d/.test(found)) {
-                            if (!isNaN(found)) {
-                                stream.wrap(['numeric']);
-                            } else if (this.units.test(found)) {
-                                var f2 = found.match(this.units)[0];
-                                stream.wrap(['numeric', 'unit-'+f2]);
-                            } else {
-                                stream.wrap(['numeric']);
-                            }
-                        } else if (this.punctuations.hasOwnProperty(found)) {
-                            stream.wrap(['punctuation', this.punctuations[found]]);
-                        } else if (this.chars.hasOwnProperty(found)) {
-                            stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
-                        } else if (stream.isAfter('(')) {
-                            stream.wrap(['fname', 'fname-'+found]);
-                        } else {
-                            stream.wrap(['value']);
-                        }
-                    }
-                    !found && stream.restore();
-                }
             } else if (this.brackets.hasOwnProperty(found)) {
                 stream.wrap(this.brackets[found]);
             } else if (this.operators.hasOwnProperty(found)) {
@@ -80,6 +32,57 @@ CodePrinter.defineMode('CSS', {
         }
         
         return stream;
+    },
+    symbols: {
+        ':': function(stream, found) {
+            var aft = stream.after()
+            , i1 = aft.indexOf('{')
+            , i2 = aft.indexOf(';');
+            if (i2 !== -1 && (i1 === -1 || i2 < i1)) {
+                stream.eat(found[0]).wrap(['punctuation', this.punctuations[found[0]]]);
+                
+                while (found = stream.match(this.values)) {
+                    if (found == ';') {
+                        stream.wrap(['punctuation', this.punctuations[found]]);
+                        break;
+                    } else if (found[0] === '#') {
+                        if (found.length === 4 || found.length === 7) {
+                            stream.wrap(['numeric', 'hex']);
+                        } else {
+                            stream.wrap(['invalid']);
+                        }
+                    } else if (found[0] === '@') {
+                        stream.wrap(['variable', 'variable-'+found.substr(1)]);
+                    } else if (found[0] === '!') {
+                        stream.wrap(['value', 'css-important']);
+                    } else if (/\d/.test(found)) {
+                        if (!isNaN(found)) {
+                            stream.wrap(['numeric']);
+                        } else if (this.units.test(found)) {
+                            var f2 = found.match(this.units)[0];
+                            stream.wrap(['numeric', 'unit-'+f2]);
+                        } else {
+                            stream.wrap(['numeric']);
+                        }
+                    } else if (this.punctuations.hasOwnProperty(found)) {
+                        stream.wrap(['punctuation', this.punctuations[found]]);
+                    } else if (this.chars.hasOwnProperty(found)) {
+                        stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
+                    } else if (stream.isAfter('(')) {
+                        stream.wrap(['fname', 'fname-'+found]);
+                    } else {
+                        stream.wrap(['escaped','value']);
+                    }
+                }
+                !found && stream.restore();
+            } else {
+                stream.wrap(['string', 'css-pseudo']);
+            }
+        },
+        '#': function(stream) { stream.wrap(['property', 'css-id']); },
+        '.': function(stream) { stream.wrap(['property', 'css-class']); },
+        '*': function(stream) { stream.wrap(['keyword', 'css-tag']); },
+        '@': function(stream, found) { found === '@media' ? stream.wrap(['control', 'control-media']) : stream.wrap(['variable', 'variable-'+found.substr(1)]); }
     },
     keypressMap: {
         58: function() {
