@@ -315,11 +315,11 @@
   font-size: inherit;
   color: inherit;
 }
-.codeprinter .cpf-occurrence {
+.codeprinter span.cpf-occurrence {
   display: inline-block;
   vertical-align: top;
   margin: 0 0 0 -1px;
-  padding: 0;
+  padding: 1px 0 0 0;
   background: none;
   border: 1px solid #666666;
   border-radius: 4px;
@@ -329,7 +329,7 @@
   left: 0;
   z-index: 10;
 }
-.codeprinter .cpf-occurrence.active {
+.codeprinter span.cpf-occurrence.active {
   background: #fdd017;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
   color: black;
@@ -455,6 +455,9 @@
 }
 .codeprinter.cps-default .cp-highlight {
   border-bottom: 1px solid black;
+}
+.codeprinter.cps-default .cpf-occurrence {
+  margin: -2px 0 0 -2px;
 }
 .codeprinter.cps-default .cpx-control,
 .codeprinter.cps-default .cpx-phptag {
