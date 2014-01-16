@@ -276,7 +276,7 @@ window.CodePrinter = (function($) {
         autoScrollSpeed: 20,
         historyStackSize: 50,
         historyDelay: 500,
-        parserLoadingTimeout: 500,
+        parserLoadingTimeout: 1000,
         randomIDLength: 7,
         firstLineNumber: 1,
         lineNumbers: true,
