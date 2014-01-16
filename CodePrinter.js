@@ -983,7 +983,7 @@ window.CodePrinter = (function($) {
                 }
             },
             touch: function() {
-                this.pre && (this.pre.innerHTML = this.parsed || ' ');
+                this.pre instanceof HTMLElement && (this.pre.innerHTML = this.parsed || ' ');
             }
         });
         return this;
