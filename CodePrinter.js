@@ -717,6 +717,17 @@ window.CodePrinter = (function($) {
                 this.emit('removed.after', r);
             }
         },
+        getValue: function() {
+            var t, r = [], h = 0, tabString = this.tabString();
+            for (; h < this.data.length; h++) {
+                for (t = 0; t < this.data[h].length; t++) {
+                    r.push.apply(r, this.data[h][t].map(function(obj) {
+                        return obj.text.replaceAll('\t', tabString);
+                    }));
+                }
+            }
+            return r.join(eol);
+        },
         getSelection: function() {
             if (this.selection.isset()) {
                 var s = this.selection.getStart(),
@@ -940,17 +951,6 @@ window.CodePrinter = (function($) {
                 }
             }
             return i;
-        },
-        toString: function() {
-            var r = [], h = 0, t;
-            for (; h < this.length; h++) {
-                for (t = 0; t < this[h].length; t++) {
-                    r.push.apply(r, this[h][t].map(function(obj) {
-                        return obj.text;
-                    }));
-                }
-            }
-            return r.join(eol);
         },
         foreach: function(f) {
             var h = 0, t, i;
@@ -1499,7 +1499,7 @@ window.CodePrinter = (function($) {
             plaintext: {
                 func: function() {
                     var newWindow = window.open('', '_blank');
-                    newWindow.document.writeln('<pre style="font-size:12px;">' + encodeEntities(cp.data.toString()) + '</pre>');
+                    newWindow.document.writeln('<pre style="font-size:12px;">' + encodeEntities(cp.getValue()) + '</pre>');
                 }
             },
             fullscreen: {
