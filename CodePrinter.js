@@ -616,6 +616,24 @@ window.CodePrinter = (function($) {
             this.screen.remove(l);
             return this;
         },
+        swapLineUp: function() {
+            var cur, up, l = this.caret.line();
+            if (l) {
+                cur = this.data.getLine(l);
+                up = this.data.getLine(l-1);
+                swapLines(cur, up);
+                this.caret.moveY(-1);
+            }
+        },
+        swapLineDown: function() {
+            var cur, down, l = this.caret.line();
+            if (l < this.data.lines - 1) {
+                cur = this.data.getLine(l);
+                down = this.data.getLine(l+1);
+                swapLines(cur, down);
+                this.caret.moveY(1);
+            }
+        },
         removeBeforeCursor: function(arg) {
             var r = '', bf = this.caret.textBefore();
             if (typeof arg === 'string') {
@@ -2153,15 +2171,14 @@ window.CodePrinter = (function($) {
         37: function() {
             this.caret.position(this.caret.line(), 0);
         },
-        38: function() {
-            this.wrapper.scrollTop = 0;
-            this.caret.position(0, 0);
+        38: function(e) {
+            e.altKey ? this.swapLineUp() : (this.wrapper.scrollTop = 0 && this.caret.position(0, 0));
         },
         39: function() {
             this.caret.position(this.caret.line(), -1);
         },
-        40: function() {
-            this.caret.position(this.data.lines - 1, -1);
+        40: function(e) {
+            e.altKey ? this.swapLineDown() : this.caret.position(this.data.lines - 1, -1);
         },
         70: function(e) {
             if (e.shiftKey) {
@@ -2550,6 +2567,12 @@ window.CodePrinter = (function($) {
         tmp = [text.substring(0, pos), text.substr(pos)];
         tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
         return tmp[0] + tmp[1];
+    };
+    function swapLines(x, y) {
+        var tmp = { text: x.text, parsed: x.parsed };
+        x.extend({ text: y.text, parsed: y.parsed });
+        y.extend({ text: tmp.text, parsed: tmp.parsed });
+        x.touch() || y.touch();
     };
     function isCommandKey(e) {
         return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
