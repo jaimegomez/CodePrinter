@@ -1245,7 +1245,6 @@ window.CodePrinter = (function($) {
     
     Screen = function(cp) {
         var self = this;
-        this.lines = [];
         this.root = cp;
         
         return this;
@@ -1257,7 +1256,7 @@ window.CodePrinter = (function($) {
             var r = this.root, w = r.wrapper,
                 lv = parseInt(r.options.linesOutsideOfView),
                 x = Math.min(Math.ceil(w.clientHeight / r.sizes.lineHeight) + 2 * lv, r.data.lines-1),
-                i = this.lines.length;
+                i = this.length();
             
             for (; i <= x; i++) this.insert();
             this.fix();
@@ -1269,7 +1268,6 @@ window.CodePrinter = (function($) {
                     pre = dl.pre = pre_clone.cloneNode();
                 
                 this.root.parse(dl, true) && dl.touch();
-                this.lines.push(pre);
                 this.element.append(pre);
                 this.root.counter && this.root.counter.increase();
             }
@@ -1278,23 +1276,22 @@ window.CodePrinter = (function($) {
             if (dl instanceof DataLine && i >= this.firstLine && i <= this.lastLine+1) {
                 var q = i - this.firstLine;
                 
-                if (this.lines.length < this.root.wrapper.clientHeight / this.root.sizes.lineHeight + this.root.options.linesOutsideOfView * 2) {
+                if (this.length() < this.root.wrapper.clientHeight / this.root.sizes.lineHeight + this.root.options.linesOutsideOfView * 2) {
                     dl.pre = pre_clone.cloneNode();
                     this.lastLine++;
                     this.root.counter && this.root.counter.increase();
                 } else if (i + this.root.options.linesOutsideOfView >= this.root.data.lines) {
                     this.root.data.getLine(this.firstLine++).deleteNodeProperty();
-                    dl.pre = this.lines.shift();
+                    dl.pre = this.element.firstChild.next();
                     q--; this.lastLine++;
                     this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                     this.root.counter && this.root.counter.shift();
                 } else {
                     this.root.data.getLine(this.lastLine).deleteNodeProperty();
-                    dl.pre = this.lines.pop();
+                    dl.pre = this.element.lastChild;
                 }
                 this.root.parse(dl) && dl.touch();
-                this.lines.splice(q, 0, dl.pre);
-                q === 0 ? this.element.prepend(dl.pre) : this.lines.item(q-1).after(dl.pre);
+                q === 0 ? this.element.prepend(dl.pre) : this.element.kids()[q].after(dl.pre);
             }
         },
         remove: function(i) {
@@ -1304,17 +1301,17 @@ window.CodePrinter = (function($) {
                 if (this.firstLine == 0) {
                     if (this.lastLine < r.data.lines) {
                         var dl = r.data.getLine(this.lastLine);
-                        dl.pre = this.lines.splice(q, 1)[0];
-                        this.append(dl);
+                        dl.pre = this.element.kids()[q+1];
+                        this.link(dl, true);
                     } else {
-                        this.lines.get(q).remove(true);
+                        this.element.kids()[q+1].untie();
                         this.lastLine--;
                         r.counter && r.counter.decrease();
                     }
                 } else {
                     var dl = r.data.getLine(--this.firstLine);
-                    dl.pre = this.lines.splice(q, 1)[0];
-                    this.prepend(dl);
+                    dl.pre = this.element.kids()[q+1];
+                    this.link(dl);
                     this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
                     this.lastLine--;
                     r.counter && r.counter.unshift();
@@ -1325,8 +1322,8 @@ window.CodePrinter = (function($) {
             if (this.lastLine + 1 < this.root.data.lines) {
                 this.root.data.getLine(this.firstLine).deleteNodeProperty();
                 var dl = this.root.data.getLine(++this.lastLine);
-                dl.pre = this.lines.shift();
-                this.append(dl);
+                dl.pre = this.element.firstChild.next();
+                this.link(dl, true);
                 this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                 this.firstLine++;
                 this.root.counter && this.root.counter.shift();
@@ -1336,34 +1333,26 @@ window.CodePrinter = (function($) {
             if (this.firstLine - 1 >= 0) {
                 this.root.data.getLine(this.lastLine).deleteNodeProperty();
                 var dl = this.root.data.getLine(--this.firstLine);
-                dl.pre = this.lines.pop();
-                this.prepend(dl);
+                dl.pre = this.element.lastChild;
+                this.link(dl);
                 this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
                 this.lastLine--;
                 this.root.counter && this.root.counter.unshift();
             }
         },
-        append: function(dl) {
+        link: function(dl, append) {
             this.element.removeChild(dl.pre);
             this.root.parse(dl) && dl.touch();
-            this.lines.push(dl.pre);
-            this.element.appendChild(dl.pre);
-        },
-        prepend: function(dl) {
-            this.element.removeChild(dl.pre);
-            this.root.parse(dl) && dl.touch();
-            this.lines.unshift(dl.pre);
-            this.element.insertBefore(dl.pre, this.element.firstChild);
+            this.element.insertBefore(dl.pre, append ? null : this.element.firstChild.next());
         },
         getLine: function(line) {
-            return line >= this.firstLine && line <= this.lastLine ? this.lines[line - this.firstLine] : null;
+            return line >= this.firstLine && line <= this.lastLine ? this.element.kids().item(line - this.firstLine + 1) : null;
+        },
+        length: function() {
+            return this.lastLine - this.firstLine + 1;
         },
         removeLines: function() {
-            var i = this.lines.length;
-            while (i--) {
-                this.lines[i].untie();
-                this.lines.splice(i, 1);
-            }
+            this.element.innerHTML = '';
             this.firstLine = 0;
             this.lastLine = -1;
             this.root.counter && this.root.counter.removeLines();
@@ -1400,10 +1389,9 @@ window.CodePrinter = (function($) {
     };
     
     Counter = function(cp) {
-        var self = this, ln = cp.screen.lines.length;
+        var self = this, ln = cp.screen.length();
         self.element = document.createElement('ol');
         self.parent = div.cloneNode().addClass('cp-counter').append(self.element);
-        self.list = [];
         self.root = cp;
         self.lastLine = cp.options.firstLineNumber - 1;
         cp.container.prepend(self.parent);
@@ -1429,17 +1417,16 @@ window.CodePrinter = (function($) {
             var li = li_clone.cloneNode(false),
                 f = this.formatter(++this.lastLine);
             li.innerHTML = f;
-            this.list.push(li);
-            this.element.append(li);
+            this.element.appendChild(li, null);
             f.toString().length > this.formatter(this.lastLine-1).toString().length && this.emit('width:changed');
         },
         decrease: function() {
             var n = this.lastLine--;
-            this.list.get(-1).remove(true);
+            this.element.lastChild.untie();
             this.formatter(n-1).toString().length < this.formatter(n).toString().length && this.emit('width:changed');
         },
         shift: function() {
-            var fi = this.list.shift(),
+            var fi = this.element.firstChild,
                 c = ++this.lastLine,
                 f = this.formatter(c);
             
@@ -1447,33 +1434,28 @@ window.CodePrinter = (function($) {
             this.element.removeChild(fi);
             fi.innerHTML = f;
             this.element.insertBefore(fi, null);
-            this.list.push(fi);
             this.element.style.top = this.root.sizes.scrollTop + 'px';
             f.toString().length > this.formatter(c-1).toString().length && this.emit('width:changed');
         },
         unshift: function() {
-            var la = this.list.pop(),
-                c = --this.lastLine - this.list.length;
+            var la = this.element.lastChild,
+                c = this.lastLine-- - this.element.kids().length;
             
             this.root.options.highlightCurrentLine && (c === this.root.caret.line() + this.root.options.firstLineNumber ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
             this.element.removeChild(la);
             la.innerHTML = this.formatter(c);
             this.element.insertBefore(la, this.element.firstChild);
-            this.list.unshift(la);
             this.element.style.top = this.root.sizes.scrollTop + 'px';
             this.formatter(this.lastLine+1).toString().length > this.formatter(this.lastLine).toString().length && this.emit('width:changed');
         },
         removeLines: function() {
             this.lastLine = this.root.options.firstLineNumber - 1;
-            var i = this.list.length;
-            while (i--) {
-                this.list[i].untie();
-                this.list.splice(i, 1);
-            }
+            this.element.innerHTML = '';
             this.emit('width:changed');
         },
         getLine: function(line) {
-            return line >= this.lastLine - this.list.length && line <= this.lastLine ? this.list[line - this.lastLine + this.list.length] : null;
+            var kids = this.element.kids();
+            return line >= this.lastLine - kids.length && line <= this.lastLine ? kids.item(line - this.lastLine - kids.length) : null;
         },
         formatter: function(i) {
             return i;
