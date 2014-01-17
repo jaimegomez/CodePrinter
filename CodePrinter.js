@@ -246,7 +246,7 @@ window.CodePrinter = (function($) {
         
         if (element) {
             if (element.nodeType) {
-                self.init(element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML);
+                self.init((element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML).decode());
                 element.before(self.mainElement).remove();
                 return self;
             } else if (element.toLowerCase) {
@@ -306,10 +306,10 @@ window.CodePrinter = (function($) {
     
     CodePrinter.prototype = {
         isFullscreen: false,
-        init: function(source, decoded) {
+        init: function(source) {
             this.data = new Data();
             this.history = new history(this.options.historyStackSize, this.options.historyDelay);
-            source = (decoded ? source : decodeEntities(source)).split('\n');
+            source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
             var self = this, i = -1, fn,
@@ -379,7 +379,7 @@ window.CodePrinter = (function($) {
             }
         },
         getSourceValue: function() {
-            var value = this.isWritable ? this.source.value() : decodeEntities(this.source.html());
+            var value = this.isWritable ? this.source.value() : this.source.innerHTML.decode();
             return value.replace(/\t/g, this.tabString());
         },
         print: function(mode, source) {
@@ -1481,7 +1481,7 @@ window.CodePrinter = (function($) {
             plaintext: {
                 func: function() {
                     var newWindow = window.open('', '_blank');
-                    newWindow.document.writeln('<pre style="font-size:12px;">' + encodeEntities(cp.getValue()) + '</pre>');
+                    newWindow.document.writeln('<pre style="font-size:12px;">' + cp.getValue().encode() + '</pre>');
                 }
             },
             fullscreen: {
@@ -1812,7 +1812,7 @@ window.CodePrinter = (function($) {
             var i = 0,
                 tmp = this.eaten,
                 span = function(txt) {
-                    txt = encodeEntities(txt);
+                    txt = txt.encode();
                     fn instanceof Function && (txt = fn.call(txt, suffix));
                     return '<span class="'+suffix+'">' + txt + '</span>';
                 };
@@ -1869,7 +1869,7 @@ window.CodePrinter = (function($) {
                     if (this.parsed[i] == null) {
                         this.parsed[i] = '';
                     }
-                    this.parsed[i] += encodeEntities(e[j]);
+                    this.parsed[i] += e[j].encode();
                 }
             }
         },
@@ -2534,14 +2534,6 @@ window.CodePrinter = (function($) {
     };
     function getDataLinePosition(line) {
         return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
-    };
-    function decodeEntities(text) {
-        var d = div.cloneNode();
-        d.innerHTML = text;
-        return (d.innerText || d.textContent).replace('\r', '');
-    };
-    function encodeEntities(text) {
-        return text ? text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
     };
     function indentGrid(text, width) {
         var pos = text.search(/[^ ]/), tmp;
