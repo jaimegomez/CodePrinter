@@ -801,6 +801,7 @@ window.CodePrinter = (function($) {
                 this.isFullscreen = true;
                 this.screen.fill();
                 this.caret.refresh();
+                this.emit('fullscreen:entered');
             }
         },
         exitFullscreen: function() {
@@ -814,6 +815,7 @@ window.CodePrinter = (function($) {
                 this.setWidth(this.options.width);
                 this.screen.fill();
                 this.caret.refresh();
+                this.emit('fullscreen:leaved');
             }
         },
         openCounter: function() {
