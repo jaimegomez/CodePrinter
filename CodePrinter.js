@@ -504,6 +504,7 @@ window.CodePrinter = (function($) {
                     this.caret.tracking = (new tracking(this)).extend(this.parser && this.parser.tracking);
                 }
             }
+            return this;
         },
         setTabWidth: function(tw) {
             if (typeof tw === 'number' && tw >= 0) {
@@ -514,15 +515,18 @@ window.CodePrinter = (function($) {
                     self.parse(this, true);
                 });
             }
+            return this;
         },
         setTheme: function(name) {
             typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
             this.mainElement.removeClass('cps-'+this.options.theme.toLowerCase()).addClass('cps-'+(this.options.theme = name.replace(' ', '-')).toLowerCase());
+            return this;
         },
         setMode: function(mode) {
             mode = extensions[mode.toLowerCase()] || 'plaintext';
             this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode);
             this.options.mode = mode;
+            return this;
         },
         setFontSize: function(size) {
             if (size >= this.options.minFontSize && size <= this.options.maxFontSize) {
@@ -540,6 +544,7 @@ window.CodePrinter = (function($) {
                 this.screen.fix();
                 this.caret.refresh();
             }
+            return this;
         },
         setWidth: function(size) {
             if (size == 'auto') {
@@ -549,6 +554,7 @@ window.CodePrinter = (function($) {
             }
             this.screen.fix();
             this.emit('width:changed');
+            return this;
         },
         setHeight: function(size) {
             if (size == 'auto') {
@@ -557,6 +563,7 @@ window.CodePrinter = (function($) {
                 this.wrapper.style.height = (this.options.height = parseInt(size)) + 'px';
             }
             this.emit('height:changed');
+            return this;
         },
         getCurrentLine: function() {
             return this.caret.line();
