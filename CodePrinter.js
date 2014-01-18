@@ -1028,7 +1028,7 @@ window.CodePrinter = (function($) {
     };
     
     Caret = function(cp) {
-        var line = 0, column = 0, before = '', after = '';
+        var line = 0, column = 0, before = '', after = '', tmp;
         
         this.root = cp;
         
@@ -1076,55 +1076,58 @@ window.CodePrinter = (function($) {
             textAtCurrentLine: function(b) {
                 return b ? before + after : this.textBefore() + this.textAfter();
             },
+            getPosition: function() {
+                return { line: line ? line + 1 : 1, column: this.column() + 1 };
+            },
             position: function(l, c, t) {
-                if (l == null && c == null) {
-                    return { line: line ? line + 1 : 1, column: this.column() + 1 };
-                } else {
-                    typeof l !== 'number' && (l = line || 0);
-                    l = Math.max(Math.min(l, cp.data.lines - 1), 0);
-                    typeof t !== 'string' && (t = cp.getTextAtLine(l));
-                    typeof c !== 'number' && (c = column || 0);
-                    c < 0 && (c = t.length + c + 1);
-                    
-                    var tabString = cp.tabString(),
-                        x = cp.sizes.charWidth * Math.min(c, t.length),
-                        y = cp.sizes.lineHeight * l;
-                    
-                    if (line !== l) {
-                        this.emit('line:changed', { current: l, last: line });
-                        line = l;
-                    }
-                    if (column !== c) {
-                        this.emit('column:changed', { current: c, last: column });
-                        column = c;
-                    }
-                    
-                    before = t.substring(0, c).replaceAll(tabString, '\t');
-                    after = t.substr(c).replaceAll(tabString, '\t');
-                    this.setPixelPosition(x, y);
-                    
-                    if (cp.options.tracking) {
-                        for (var s in this.tracking) {
-                            var a = before.endsWith(s), b = after.startsWith(s);
-                            if (a + b) {
-                                var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
-                                if (!r) {
-                                    break;
-                                }
+                typeof l !== 'number' && (l = line || 0);
+                l = Math.max(Math.min(l, cp.data.lines - 1), 0);
+                typeof t !== 'string' && (t = cp.getTextAtLine(l));
+                typeof c !== 'number' && (c = column || 0);
+                c < 0 && (c = t.length + c + 1);
+                
+                var tabString = cp.tabString(),
+                    x = cp.sizes.charWidth * Math.min(c, t.length),
+                    y = cp.sizes.lineHeight * l;
+                
+                if (line !== l) {
+                    this.emit('line:changed', { current: l, last: line });
+                    line = l;
+                }
+                if (column !== c) {
+                    this.emit('column:changed', { current: c, last: column });
+                    column = c;
+                }
+                
+                before = t.substring(0, c).replaceAll(tabString, '\t');
+                after = t.substr(c).replaceAll(tabString, '\t');
+                this.setPixelPosition(x, y);
+                
+                if (cp.options.tracking) {
+                    for (var s in this.tracking) {
+                        var a = before.endsWith(s), b = after.startsWith(s);
+                        if (a + b) {
+                            var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
+                            if (!r) {
+                                break;
                             }
                         }
                     }
-                    
-                    return this;
                 }
                 return this;
             },
             moveX: function(mv) {
-                var abs, t, cl = line,
+                var abs, t = '', cl = line,
                     bf = this.textBefore(),
                     af = this.textAfter();
                 
-                mv >= 0 || cl === 0 ? (abs = mv) && (t = af) : (abs = Math.abs(mv)) && (t = bf);
+                if (mv >= 0 || cl === 0) {
+                    abs = mv;
+                    t = af;
+                } else {
+                    abs = Math.abs(mv);
+                    t = bf;
+                }
                 
                 if (abs <= t.length) {
                     return this.position(cl, Math.max(0, Math.min((bf + af).length, column) + mv));
@@ -1184,6 +1187,13 @@ window.CodePrinter = (function($) {
                         n++;
                     }
                 }
+            },
+            saveColumn: function() {
+                tmp = column;
+            },
+            restoreColumn: function() {
+                tmp != null && this.position(null, tmp);
+                tmp = null;
             }
         });
     };
