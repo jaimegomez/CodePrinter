@@ -626,19 +626,14 @@ window.CodePrinter = (function($) {
         swapLineUp: function() {
             var cur, up, l = this.caret.line();
             if (l) {
-                cur = this.data.getLine(l);
-                up = this.data.getLine(l-1);
-                swapLines(cur, up);
+                swapLines(this, l-1);
                 this.caret.moveY(-1);
             }
         },
         swapLineDown: function() {
             var cur, down, l = this.caret.line();
             if (l < this.data.lines - 1) {
-                cur = this.data.getLine(l);
-                down = this.data.getLine(l+1);
-                swapLines(cur, down);
-                this.caret.moveY(1);
+                swapLines(this, l);
             }
         },
         removeBeforeCursor: function(arg) {
@@ -2561,11 +2556,15 @@ window.CodePrinter = (function($) {
         tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
         return tmp[0] + tmp[1];
     };
-    function swapLines(x, y) {
-        var tmp = { text: x.text, parsed: x.parsed };
-        x.extend({ text: y.text, parsed: y.parsed });
-        y.extend({ text: tmp.text, parsed: tmp.parsed });
-        x.touch() || y.touch();
+    function swapLines(cp, line) {
+        var spaces = cp.tabString()
+        , x = cp.data.getLine(line).text.replace(/\t/g, spaces)
+        , y = cp.data.getLine(line+1).text.replace(/\t/g, spaces);
+        cp.caret.saveColumn();
+        cp.caret.position(line+1, -1);
+        cp.removeBeforeCursor(x + '\n' + y);
+        cp.insertText(y + '\n' + x);
+        cp.caret.restoreColumn();
     };
     function isCommandKey(e) {
         return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
