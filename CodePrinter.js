@@ -25,7 +25,6 @@ window.CodePrinter = (function($) {
         buildDOM(self);
         
         self.mainElement.CodePrinter = self;
-        screen = self.screen.element.addClass('cp-'+options.mode.toLowerCase());
         id = self.mainElement.id = $.random(options.randomIDLength);
         sizes = self.sizes = { lineHeight: options.lineHeight };
         self.activeLine = {};
@@ -1444,7 +1443,6 @@ window.CodePrinter = (function($) {
                 c = ++this.lastLine,
                 f = this.formatter(c);
             
-            this.root.options.highlightCurrentLine && (c === this.root.caret.line() + this.root.options.firstLineNumber ? fi.addClass('cp-activeLine') : fi.removeClass('cp-activeLine'));
             this.element.removeChild(fi);
             fi.innerHTML = f;
             this.element.insertBefore(fi, null);
@@ -1455,7 +1453,6 @@ window.CodePrinter = (function($) {
             var la = this.element.lastChild,
                 c = this.lastLine-- - this.element.kids().length;
             
-            this.root.options.highlightCurrentLine && (c === this.root.caret.line() + this.root.options.firstLineNumber ? la.addClass('cp-activeLine') : la.removeClass('cp-activeLine'));
             this.element.removeChild(la);
             la.innerHTML = this.formatter(c);
             this.element.insertBefore(la, this.element.firstChild);
