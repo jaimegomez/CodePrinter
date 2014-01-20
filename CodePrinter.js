@@ -2204,7 +2204,7 @@ window.CodePrinter = (function($) {
         189: function() {
             this.setFontSize(this.options.fontSize-1);
         },
-        229: function() {
+        191: function() {
             if (this.parser && this.parser.comment) {
                 var c = this.parser.comment,
                     m = '[text content]',
@@ -2233,6 +2233,7 @@ window.CodePrinter = (function($) {
             }
         }
     };
+    shortcuts.prototype[229] = shortcuts.prototype[191];
     
     commands = {
         65: function() {
