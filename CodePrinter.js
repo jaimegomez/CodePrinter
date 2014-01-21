@@ -2410,8 +2410,8 @@ window.CodePrinter = (function($) {
                     ch == key ? c++ : ch == sec && c--;
                     if (!c) {
                         var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
-                            pos0 = getPositionOf(cp, details.line, details.column),
-                            pos1 = getPositionOf(cp, line, column),
+                            pos0 = getPositionOf(cp, details.line, details.column-1),
+                            pos1 = getPositionOf(cp, line, column-1),
                             span0 = createSpan(key, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
                             span1 = createSpan(ch, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
                         
@@ -2430,8 +2430,8 @@ window.CodePrinter = (function($) {
                     ch == key ? c++ : ch == sec && c--;
                     if (!c) {
                         var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
-                            pos0 = getPositionOf(cp, line, column),
-                            pos1 = getPositionOf(cp, details.line, details.column),
+                            pos0 = getPositionOf(cp, line, column-1),
+                            pos1 = getPositionOf(cp, details.line, details.column-1),
                             span0 = createSpan(ch, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
                             span1 = createSpan(key, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
                         
@@ -2528,7 +2528,7 @@ window.CodePrinter = (function($) {
     function getPositionOf(cp, line, column)
     {
         return {
-            x: cp.sizes.paddingLeft + (column-1) * cp.sizes.charWidth,
+            x: cp.sizes.paddingLeft + column * cp.sizes.charWidth,
             y: cp.sizes.paddingTop + line * cp.sizes.lineHeight
         };
     };
