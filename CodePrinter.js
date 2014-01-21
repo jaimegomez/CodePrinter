@@ -759,10 +759,8 @@ window.CodePrinter = (function($) {
                 ov.node.innerHTML = '';
                 
                 for (var i = 0; i < sel.length; i++) {
-                    span = span_clone.cloneNode().addClass('cp-selection');
-                    span.textContent = sel[i] || i === 0 ? sel[i] : ' ';
-                    span.style.top = ((s.line + i) * this.sizes.lineHeight + this.sizes.paddingTop + this.sizes.scrollTop) + 'px';
-                    span.style.left = ((i === 0 ? s.column * this.sizes.charWidth : 0) + this.sizes.paddingLeft) + 'px';
+                    var pos = getPositionOf(this, s.line+i, i === 0 ? s.column : 0);
+                    span = createSpan(sel[i] || i === 0 ? sel[i] : ' ', 'cp-selection', pos.y, pos.x);
                     ov.node.append(span);
                 }
                 ov.reveal();
