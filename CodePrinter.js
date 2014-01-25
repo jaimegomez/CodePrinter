@@ -46,26 +46,26 @@ window.CodePrinter = (function($) {
             if (e.button > 0 || e.which > 1)
                 return false;
             
-            var sl = this.scrollLeft,
-                st = this.scrollTop,
-                o = this.bounds(),
-                x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft),
-                y = st + e.pageY - o.y - self.sizes.paddingTop,
+            var sl = self.wrapper.scrollLeft,
+                st = self.wrapper.scrollTop,
+                o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds(),
+                x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft),
+                y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight,
                 l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1,
                 s = self.getTextAtLine(l),
                 c = Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
             
             if (e.type === 'mousedown') {
-                var th = this;
                 d = true;
                 self.input.value = '';
                 self.selection.setStart(l, c);
                 self.caret.deactivate().show();
-                this.on('mousemove', mouseController);
-                document.one('mouseup', function(e) {
+                window.on('mousemove', mouseController);
+                window.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
-                    th.off('mousemove', mouseController);
+                    window.off('mousemove', mouseController);
                     self.caret.activate();
+                    self.sizes.bounds = null;
                     document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
                     return d = e.cancel();
                 });
