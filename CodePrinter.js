@@ -760,7 +760,7 @@ window.CodePrinter = (function($) {
                 
                 for (var i = 0; i < sel.length; i++) {
                     var pos = getPositionOf(this, s.line+i, i === 0 ? s.column : 0);
-                    span = createSpan(sel[i] || i === 0 ? sel[i] : ' ', 'cp-selection', pos.y, pos.x);
+                    span = createSpan(!sel[i] && i+1 < sel.length ? ' ' : sel[i], 'cp-selection', pos.y, pos.x);
                     ov.node.append(span);
                 }
                 ov.reveal();
