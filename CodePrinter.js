@@ -72,8 +72,8 @@ window.CodePrinter = (function($) {
             } else {
                 self.unselectLine();
                 self.selection.setEnd(l, c);
+                e.type === 'mouseup' && self.removeOverlays();
                 self.showSelection();
-                self.removeOverlays();
             }
             
             self.caret.position(l, c);
@@ -369,11 +369,13 @@ window.CodePrinter = (function($) {
             }
         },
         selectLine: function(l) {
-            if (this.options.highlightCurrentLine && !this.selection.isset()) {
+            if (this.options.highlightCurrentLine) {
                 this.unselectLine();
-                if (l >= this.screen.firstLine && l <= this.screen.lastLine) {
-                    this.activeLine.pre = this.screen.getLine(l).addClass('cp-activeLine');
-                    this.counter && (this.activeLine.li = this.counter.getLine(l).addClass('cp-activeLine'));
+                if (!this.selection.isset()) {
+                    if (l >= this.screen.firstLine && l <= this.screen.lastLine) {
+                        this.activeLine.pre = this.screen.getLine(l).addClass('cp-activeLine');
+                        this.counter && (this.activeLine.li = this.counter.getLine(l).addClass('cp-activeLine'));
+                    }
                 }
             }
         },
@@ -568,7 +570,7 @@ window.CodePrinter = (function($) {
             return this.caret.line();
         },
         getTextAtLine: function(line) {
-            var l = this.data.getLine(line);
+            var l = this.data.getLine(line < 0 ? this.data.lines + line : line);
             return l ? l.text.replaceAll('\t', this.tabString()) : '';
         },
         getIndentAtLine: function(line) {
@@ -731,8 +733,11 @@ window.CodePrinter = (function($) {
         },
         getSelection: function() {
             if (this.selection.isset()) {
-                var s = this.selection.getStart(),
-                    e = this.selection.getEnd();
+                if (this.isAllSelected()) {
+                    return this.getValue();
+                }
+                var s = this.selection.start,
+                    e = this.selection.end;
                 
                 if (s.line != e.line) {
                     var t = this.getTextAtLine(s.line).substr(s.column) + eol
@@ -746,13 +751,20 @@ window.CodePrinter = (function($) {
             }
             return '';
         },
-        showSelection: function() {
-            var span, sel, ov = this.selection.overlay,
-                s = this.selection.getStart(),
-                e = this.selection.getEnd();
-            
-            if (s && e) {
-                sel = this.getSelection();
+        isAllSelected: function() {
+            this.selection.correct();
+            var s = this.selection.start
+            , e = this.selection.end;
+            return s.line === 0 && s.column === 0 && e.line === this.data.lines-1 && e.column === this.getTextAtLine(-1).length;
+        },
+        showSelection: function() {            
+            if (this.selection.isset()) {
+                this.selection.correct();
+                var span
+                , s = this.selection.start
+                , ov = this.selection.overlay
+                , sel = this.getSelection();
+                
                 this.input.value = sel;
                 this.input.setSelectionRange(0, sel.length);
                 sel = sel.split(eol);
@@ -764,7 +776,6 @@ window.CodePrinter = (function($) {
                     ov.node.append(span);
                 }
                 ov.reveal();
-                this.selection.isInversed() ? this.caret.position(s.line, s.column) : this.caret.position(e.line, e.column);
             }
         },
         removeSelection: function() {
