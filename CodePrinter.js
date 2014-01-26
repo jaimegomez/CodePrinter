@@ -302,12 +302,11 @@ window.CodePrinter = (function($) {
             source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
-            var self = this, i = -1, fn,
-                l = source.length,
-                tab = this.tabString();
+            var self = this, i = -1, fn
+            , l = source.length;
             
             while (++i < l) {
-                this.data.addLine(i, source[i].replaceAll(tab, '\t'));
+                this.data.addLine(i, source[i].replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t'));
             }
             
             self.data.on({
