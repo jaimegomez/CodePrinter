@@ -1663,7 +1663,7 @@ window.CodePrinter = (function($) {
         },
         scrollToActive: function() {
             this.root.infobar && this.root.infobar.update(this.searchResults.length ? (this.searchResults.g+1)+' of '+this.searchResults.length+' matches' : 'Unable to find '+this.searched);
-            this.root.wrapper.scrollTo( 
+            $(this.root.wrapper).add(this.root.counter && this.root.counter.parent).scrollTo(
                 parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
                 parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
                 this.root.options.autoScrollSpeed
