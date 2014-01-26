@@ -18,7 +18,7 @@ window.CodePrinter = (function($) {
             return new CodePrinter(element, options);
         }
         
-        var self = this, screen, sizes, data = '', id, d, pr;
+        var self = this, screen, sizes, data = '', id, d, pr, fn;
         
         options = self.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
@@ -196,29 +196,19 @@ window.CodePrinter = (function($) {
             }
         });
         
+        fn = function(b) {
+            b = b ? ['Before','After'] : ['After','Before'];
+            return function(t) {
+                var p = self.parser;
+                if (p && p['onRemoved'+b[0]] && p['onRemoved'+b[0]][t]) {
+                    p = p['onRemoved'+b[0]][t];
+                    typeof p === 'string' || typeof p === 'number' ? self['remove'+b[1]+'Cursor'](p) : p instanceof Function && p.call(self, t);
+                }
+            };
+        };
         self.on({
-            'removed.before': function(t) {
-                var p = self.parser;
-                if (p && p.onRemovedBefore && p.onRemovedBefore[t]) {
-                    p = p.onRemovedBefore[t];
-                    if (typeof p === 'string' || typeof p === 'number') {
-                        self.removeAfterCursor(p);
-                    } else if (p instanceof Function) {
-                        p.call(self, t);
-                    }
-                }
-            },
-            'removed.after': function(t) {
-                var p = self.parser;
-                if (p && p.onRemovedAfter && p.onRemovedAfter[t]) {
-                    p = p.onRemovedAfter[t];
-                    if (typeof p === 'string' || typeof p === 'number') {
-                        self.removeBeforeCursor(p);
-                    } else if (p instanceof Function) {
-                        p.call(self, t);
-                    }
-                }
-            }
+            'removed.before': fn(true),
+            'removed.after': fn(false)
         });
         
         self.mainElement.on({ nodeInserted: function() {
