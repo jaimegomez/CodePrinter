@@ -31,17 +31,6 @@ window.CodePrinter = (function($) {
         self.overlays = [];
         self.selection.overlay = new Overlay(self, 'cp-selection-overlay', false);
         
-        options.lineNumbers && self.openCounter();
-        options.infobar && self.openInfobar();
-        options.showFinder && self.openFinder();
-        
-        options.fontSize != 11 && options.fontSize > 0 && this.setFontSize(options.fontSize);
-        options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
-        self.setWidth(options.width);
-        self.setHeight(options.height);
-        self.setTheme(options.theme);
-        self.setMode(options.mode);
-        
         var mouseController = function(e) {
             if (e.button > 0 || e.which > 1)
                 return false;
@@ -234,6 +223,18 @@ window.CodePrinter = (function($) {
         
         self.mainElement.on({ nodeInserted: function() {
             this.removeClass('cp-animation');
+            
+            options.lineNumbers && self.openCounter();
+            options.infobar && self.openInfobar();
+            options.showFinder && self.openFinder();
+            
+            options.fontSize != 11 && options.fontSize > 0 && this.setFontSize(options.fontSize);
+            options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
+            self.setWidth(options.width);
+            self.setHeight(options.height);
+            self.setTheme(options.theme);
+            self.setMode(options.mode);
+            
             var s = window.getComputedStyle(self.screen.element, null);
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
