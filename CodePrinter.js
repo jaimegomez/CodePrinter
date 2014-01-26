@@ -369,10 +369,6 @@ window.CodePrinter = (function($) {
                 }
             }
         },
-        getSourceValue: function() {
-            var value = this.isWritable ? this.source.value() : this.source.innerHTML.decode();
-            return value.replace(/\t/g, this.tabString());
-        },
         print: function(mode, source) {
             mode && this.setMode(mode);
             mode = this.options.mode;
