@@ -722,32 +722,28 @@ window.CodePrinter = (function($) {
                 if (this.isAllSelected()) {
                     return this.getValue();
                 }
-                var s = this.selection.start,
-                    e = this.selection.end;
+                var c = this.selection.coords();
                 
-                if (s.line != e.line) {
-                    var t = this.getTextAtLine(s.line).substr(s.column) + eol
-                    for (var i = s.line + 1; i < e.line; i++) {
+                if (c[0].line != c[1].line) {
+                    var t = this.getTextAtLine(c[0].line).substr(c[0].column) + eol
+                    for (var i = c[0].line + 1; i < c[1].line; i++) {
                         t = t + this.getTextAtLine(i) + eol;
                     }
-                    return t + this.getTextAtLine(e.line).substring(0, e.column);
+                    return t + this.getTextAtLine(c[1].line).substring(0, c[1].column);
                 } else {
-                    return this.getTextAtLine(s.line).substring(s.column, e.column);
+                    return this.getTextAtLine(c[0].line).substring(c[0].column, c[1].column);
                 }
             }
             return '';
         },
         isAllSelected: function() {
-            this.selection.correct();
-            var s = this.selection.start
-            , e = this.selection.end;
-            return s.line === 0 && s.column === 0 && e.line === this.data.lines-1 && e.column === this.getTextAtLine(-1).length;
+            var c = this.selection.coords();
+            return c[0].line === 0 && c[0].column === 0 && c[1].line === this.data.lines-1 && c[1].column === this.getTextAtLine(-1).length;
         },
         showSelection: function() {            
             if (this.selection.isset()) {
-                this.selection.correct();
                 var span
-                , s = this.selection.start
+                , s = this.selection.getStart()
                 , ov = this.selection.overlay
                 , sel = this.getSelection();
                 
@@ -758,7 +754,7 @@ window.CodePrinter = (function($) {
                 
                 for (var i = 0; i < sel.length; i++) {
                     var pos = getPositionOf(this, s.line+i, i === 0 ? s.column : 0);
-                    span = createSpan(!sel[i] && i+1 < sel.length ? ' ' : sel[i], 'cp-selection', pos.y, pos.x);
+                    span = createSpan(i+1 < sel.length ? sel[i] + ' ' : sel[i], 'cp-selection', pos.y, pos.x);
                     ov.node.append(span);
                 }
                 ov.reveal();
@@ -2231,6 +2227,7 @@ window.CodePrinter = (function($) {
         65: function() {
             var ls = this.data.lines - 1;
             this.selection.setStart(0, 0).setEnd(ls, this.getTextAtLine(ls).length);
+            this.caret.position(ls, -1);
             this.showSelection();
             this.emit('cmd.selectAll');
             return false;
@@ -2376,6 +2373,9 @@ window.CodePrinter = (function($) {
         },
         getEnd: function() {
             return this.isInversed() ? this.start : this.end;
+        },
+        coords: function() {
+            return this.isInversed() ? [this.end, this.start] : [this.start, this.end];
         },
         isInversed: function() {
             return this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column);
