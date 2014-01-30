@@ -150,9 +150,13 @@
   -ms-flex-flow: column;
   -o-flex-flow: column;
   flex-flow: column;
+  display: inline-block;
+  vertical-align: top;
+  min-width: 100%;
   padding: 5px 15px;
   position: relative;
   top: 0;
+  box-sizing: border-box;
 }
 .codeprinter .cp-codelines .cp-fixer {
   height: 0;
