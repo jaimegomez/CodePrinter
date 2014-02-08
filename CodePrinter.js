@@ -430,6 +430,7 @@ window.CodePrinter = (function($) {
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
+                this.memory = parser.alloc instanceof Function && parser.alloc() || {};
                 this.keydownMap = (new keydownMap).extend(parser.keydownMap);
                 this.keypressMap = (new keypressMap).extend(parser.keypressMap);
                 this.options.tracking && (this.caret.tracking = (new tracking(this)).extend(parser.tracking));
@@ -461,7 +462,7 @@ window.CodePrinter = (function($) {
                         }
                     };
                     
-                    p = this.parser.fn(stream).parsed;
+                    p = this.parser.fn(stream, this.memory).parsed;
                     while (++i < p.length) {
                         p[i] = p[i].replaceAll('\t', tabString);
                         p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
@@ -2005,7 +2006,7 @@ window.CodePrinter = (function($) {
             '|': 'verticalbar'
         },
         parse: function(text, toString) {
-            var s = this.fn(new Stream(text));
+            var s = this.fn(new Stream(text), {});
             return toString ? s.toString() : s;
         },
         fn: function(stream) {
