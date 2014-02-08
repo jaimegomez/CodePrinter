@@ -823,13 +823,17 @@ window.CodePrinter = (function($) {
                     self.screen.fix();
                 });
             }
+            this.counter.isVisible = true;
             this.container.prepend(this.counter.parent);
             this.counter.parent.scrollTop = this.wrapper.scrollTop;
             this.counter.emit('width:changed');
         },
         closeCounter: function() {
-            this.counter && this.counter.parent.remove();
-            this.counter.emit('width:changed');
+            if (this.counter) {
+                this.counter.isVisible = false;
+                this.counter.parent.remove();
+                this.counter.emit('width:changed');
+            }
         },
         openInfobar: function() {
             this.infobar = this.infobar || new InfoBar(this);
@@ -1418,6 +1422,7 @@ window.CodePrinter = (function($) {
         return this;
     };
     Counter.prototype = {
+        isVisible: false,
         increase: function() {
             var li = li_clone.cloneNode(false),
                 f = this.formatter(++this.lastLine);
