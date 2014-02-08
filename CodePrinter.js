@@ -1709,6 +1709,7 @@ window.CodePrinter = (function($) {
             return this.value[this.row || 0];
         },
         match: function(rgx) {
+            this.found.length && this.wrap('other');
             var s = this.current().substr(this.pos),
                 f = false;
             
@@ -1834,16 +1835,13 @@ window.CodePrinter = (function($) {
             suffix = suffix.join(' ');
             this.wrapped = [];
             tmp.length > 1 && (this.row = this.row - tmp.length + 1);
-            i = 0;
+            i = -1;
             
-            while (true) {
+            while (++i < tmp.length - 1) {
                 this.wrapped[i] = this.append(tmp[i] ? span(tmp[i]) : '');
-                if (++i < tmp.length) {
-                    this.parsed[++this.row] = '';
-                } else {
-                    break;
-                }
+                this.parsed[++this.row] = '';
             }
+            this.wrapped[i] = this.append(tmp[i] ? span(tmp[i]) : '');
             return this.reset();
         },
         unwrap: function() {
