@@ -376,8 +376,8 @@ window.CodePrinter = (function($) {
             this.screen.removeLines();
             
             var self = this, timeout,
-                sT = document.body.scrollTop,
-                sL = document.body.scrollLeft,
+                sT = document.scrollTop(),
+                sL = document.scrollLeft(),
                 callback = function(ModeObject) {
                     timeout = clearTimeout(timeout);
                     self.defineParser(ModeObject);
@@ -401,8 +401,8 @@ window.CodePrinter = (function($) {
                             u = 0;
                         }, 10);
                     
-                    document.body.scrollTop = sT;
-                    document.body.scrollLeft = sL;
+                    document.scrollTop(sT);
+                    document.scrollLeft(sL);
                     self.options.autofocus && self.caret.position(0, 0);
                 };
             
