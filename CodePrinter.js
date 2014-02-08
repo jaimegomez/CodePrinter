@@ -2460,7 +2460,8 @@ window.CodePrinter = (function($) {
         'c': 'c',
         'cpp': 'c',
         'ruby': 'ruby',
-        'rb': 'ruby'
+        'rb': 'ruby',
+        'java': 'java'
     };
     
     eol = $.browser.windows ? '\r\n' : '\n';
