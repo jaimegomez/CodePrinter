@@ -18,7 +18,7 @@ window.CodePrinter = (function($) {
             return new CodePrinter(element, options);
         }
         
-        var self = this, screen, sizes, data = '', id, d, pr, fn;
+        var self = this, screen, sizes, data = '', id, d, pr, fn, s = 0;
         
         options = self.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
@@ -78,8 +78,12 @@ window.CodePrinter = (function($) {
                 } else if (x < lv) {
                     do self.screen.unshift(); while (++x < lv);
                 }
-                self.selectLine(self.caret.line());
-                this.timeout = clearTimeout(this.timeout) || setTimeout(function() { self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop); }, 5);
+                s++;
+                if (s > 10) {
+                    s = 0;
+                    self.caret.isActive && self.selectLine(self.caret.line());
+                }
+                this.timeout = clearTimeout(this.timeout) || setTimeout(function() { self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop); }, 2);
             },
             dblclick: function() {
                 var bf = self.caret.textBefore(),
