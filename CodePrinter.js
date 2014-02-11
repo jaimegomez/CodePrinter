@@ -125,9 +125,8 @@ window.CodePrinter = (function($) {
                 self.caret.deactivate().show();
                 pr = true;
                 
-                if (isCommandKey(e) && commands[k]) {
-                    pr = commands[k].call(self, this, e, k);
-                    return pr;
+                if (isCommandKey(e)) {
+                    return pr = commands[k] ? commands[k].call(self, this, e, k) : false;
                 }
                 if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
                     self.shortcuts[k].call(self, e, this);
