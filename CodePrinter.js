@@ -78,11 +78,7 @@ window.CodePrinter = (function($) {
                 } else if (x < lv) {
                     do self.screen.unshift(); while (++x < lv);
                 }
-                s++;
-                if (s > 10) {
-                    s = 0;
-                    self.caret.isActive && self.selectLine(self.caret.line());
-                }
+                ++s > 4 && (s = 0)+1 && self.caret.isActive && self.selectLine(self.caret.line());
                 this.timeout = clearTimeout(this.timeout) || setTimeout(function() { self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop); }, 2);
             },
             dblclick: function() {
