@@ -1340,7 +1340,7 @@ window.CodePrinter = (function($) {
             }
         },
         shift: function() {
-            if (this.lastLine + 1 < this.root.data.lines) {
+            if (this.element.childNodes.length && this.lastLine + 1 < this.root.data.lines) {
                 this.root.data.getLine(this.firstLine).deleteNodeProperty();
                 var dl = this.root.data.getLine(++this.lastLine);
                 dl.pre = this.element.firstChild;
@@ -1351,7 +1351,7 @@ window.CodePrinter = (function($) {
             }
         },
         unshift: function() {
-            if (this.firstLine - 1 >= 0) {
+            if (this.element.childNodes.length && this.firstLine - 1 >= 0) {
                 this.root.data.getLine(this.lastLine).deleteNodeProperty();
                 var dl = this.root.data.getLine(--this.firstLine);
                 dl.pre = this.element.lastChild;
@@ -1374,6 +1374,7 @@ window.CodePrinter = (function($) {
         },
         removeLines: function() {
             this.element.innerHTML = '';
+            this.element.style.top = (this.root.sizes.scrollTop = 0) + 'px';
             this.firstLine = 0;
             this.lastLine = -1;
             this.root.counter && this.root.counter.removeLines();
@@ -1445,29 +1446,34 @@ window.CodePrinter = (function($) {
             this.formatter(n-1).toString().length < this.formatter(n).toString().length && this.emit('width:changed');
         },
         shift: function() {
-            var fi = this.element.firstChild,
-                c = ++this.lastLine,
-                f = this.formatter(c);
-            
-            this.element.removeChild(fi);
-            fi.innerHTML = f;
-            this.element.insertBefore(fi, null);
-            this.element.style.top = this.root.sizes.scrollTop + 'px';
-            f.toString().length > this.formatter(c-1).toString().length && this.emit('width:changed');
+            if (this.element.childNodes.length) {
+                var fi = this.element.firstChild,
+                    c = ++this.lastLine,
+                    f = this.formatter(c);
+                
+                this.element.removeChild(fi);
+                fi.innerHTML = f;
+                this.element.insertBefore(fi, null);
+                this.element.style.top = this.root.sizes.scrollTop + 'px';
+                f.toString().length > this.formatter(c-1).toString().length && this.emit('width:changed');
+            }
         },
         unshift: function() {
-            var la = this.element.lastChild,
-                c = this.lastLine-- - this.element.kids().length;
-            
-            this.element.removeChild(la);
-            la.innerHTML = this.formatter(c);
-            this.element.insertBefore(la, this.element.firstChild);
-            this.element.style.top = this.root.sizes.scrollTop + 'px';
-            this.formatter(this.lastLine+1).toString().length > this.formatter(this.lastLine).toString().length && this.emit('width:changed');
+            if (this.element.childNodes.length) {
+                var la = this.element.lastChild,
+                    c = this.lastLine-- - this.element.kids().length;
+                
+                this.element.removeChild(la);
+                la.innerHTML = this.formatter(c);
+                this.element.insertBefore(la, this.element.firstChild);
+                this.element.style.top = this.root.sizes.scrollTop + 'px';
+                this.formatter(this.lastLine+1).toString().length > this.formatter(this.lastLine).toString().length && this.emit('width:changed');
+            }
         },
         removeLines: function() {
             this.lastLine = this.root.options.firstLineNumber - 1;
             this.element.innerHTML = '';
+            this.element.style.top = this.root.sizes.scrollTop + 'px';
             this.emit('width:changed');
         },
         getLine: function(line) {
