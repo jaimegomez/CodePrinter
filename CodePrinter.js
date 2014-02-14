@@ -774,16 +774,21 @@ window.CodePrinter = (function($) {
         },
         removeSelection: function() {
             this.selection.correct();
-            var s = this.selection.getStart()
-            , e = this.selection.getEnd();
-            
-            for (var i = e.line - 1; i > s.line; i--) {
-                this.removeLine(i);
-                this.selection.end.line--;
+            if (this.isAllSelected()) {
+                this.init('');
+                this.caret.position(0, 0);
+            } else {
+                var s = this.selection.getStart()
+                , e = this.selection.getEnd();
+                
+                for (var i = e.line - 1; i > s.line; i--) {
+                    this.removeLine(i);
+                    this.selection.end.line--;
+                }
+                var l = this.getSelection().length;
+                this.caret.position(this.selection.end.line, this.selection.end.column);
+                this.removeBeforeCursor(l);
             }
-            var l = this.getSelection().length;
-            this.caret.position(this.selection.end.line, this.selection.end.column);
-            this.removeBeforeCursor(l);
             this.selection.clear();
             this.selectLine(this.caret.line());
         },
