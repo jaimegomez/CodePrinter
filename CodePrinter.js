@@ -35,14 +35,14 @@ window.CodePrinter = (function($) {
             if (e.button > 0 || e.which > 1)
                 return false;
             
-            var sl = self.wrapper.scrollLeft,
-                st = self.wrapper.scrollTop,
-                o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds(),
-                x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft),
-                y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight,
-                l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1,
-                s = self.getTextAtLine(l),
-                c = Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
+            var sl = self.wrapper.scrollLeft
+            , st = self.wrapper.scrollTop
+            , o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds()
+            , x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft)
+            , y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
+            , l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1
+            , s = self.getTextAtLine(l)
+            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
             
             if (e.type === 'mousedown') {
                 d = true;
@@ -61,8 +61,19 @@ window.CodePrinter = (function($) {
             } else {
                 self.unselectLine();
                 self.selection.setEnd(l, c);
-                e.type === 'mouseup' && self.removeOverlays();
                 self.showSelection();
+                
+                if (e.type === 'mousemove') {
+                    if (st > 0 && st < self.wrapper.scrollHeight - self.wrapper.clientHeight && e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight - self.sizes.paddingTop) {
+                        var i = e.clientY <= o.y + self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - self.sizes.lineHeight ? 1 : 0;
+                        i !== 0 && setTimeout(function() {
+                            self.wrapper.scrollTop += i * self.sizes.lineHeight;
+                            mouseController.call(window, e);
+                        }, 50);
+                    }
+                } else {
+                    self.removeOverlays();
+                }
             }
             
             self.caret.position(l, c);
