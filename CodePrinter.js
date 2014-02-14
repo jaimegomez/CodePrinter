@@ -318,6 +318,7 @@ window.CodePrinter = (function($) {
             while (++i < l) {
                 this.data.addLine(i, source[i].replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t'));
             }
+            this.screen.fill();
             
             self.data.on({
                 'text:changed': function(dl) {
