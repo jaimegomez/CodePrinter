@@ -779,16 +779,19 @@ window.CodePrinter = (function($) {
                 this.init('');
                 this.caret.position(0, 0);
             } else {
-                var s = this.selection.getStart()
-                , e = this.selection.getEnd();
+                var s = this.selection.start
+                , e = this.selection.end;
                 
-                for (var i = e.line - 1; i > s.line; i--) {
-                    this.removeLine(i);
-                    this.selection.end.line--;
+                this.caret.position(s.line, s.column);
+                if (s.line == e.line) {
+                    this.removeAfterCursor(e.column - s.column);
+                } else {
+                    this.removeAfterCursor(this.getTextAtLine(s.line).substr(s.column) + '\n');
+                    while (--e.line > s.line) {
+                        this.removeAfterCursor(this.caret.textAfter() + '\n');
+                    }
+                    this.removeAfterCursor(e.column);
                 }
-                var l = this.getSelection().length;
-                this.caret.position(this.selection.end.line, this.selection.end.column);
-                this.removeBeforeCursor(l);
             }
             this.selection.clear();
             this.selectLine(this.caret.line());
