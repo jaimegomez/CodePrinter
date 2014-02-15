@@ -18,7 +18,7 @@ window.CodePrinter = (function($) {
             return new CodePrinter(element, options);
         }
         
-        var self = this, screen, sizes, data = '', id, d, pr, fn, s = 0;
+        var self = this, screen, sizes, data = '', id, d, pr, fn, moveevent, s = 0;
         
         options = self.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
@@ -54,25 +54,26 @@ window.CodePrinter = (function($) {
                     !self.selection.isset() && self.selection.clear();
                     window.off('mousemove', mouseController);
                     self.caret.activate();
-                    self.sizes.bounds = null;
+                    self.sizes.bounds = moveevent = null;
+                    self.removeOverlays();
                     document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
                     return d = e.cancel();
                 });
             } else {
+                moveevent = e;
                 self.unselectLine();
                 self.selection.setEnd(l, c);
                 self.showSelection();
                 
-                if (e.type === 'mousemove') {
-                    if (st > 0 && st < self.wrapper.scrollHeight - self.wrapper.clientHeight && e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight - self.sizes.paddingTop) {
-                        var i = e.clientY <= o.y + self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - self.sizes.lineHeight ? 1 : 0;
-                        i !== 0 && setTimeout(function() {
+                if (e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight) {
+                    var i = e.clientY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
+                    i && setTimeout(function() {
+                        if (moveevent) {
                             self.wrapper.scrollTop += i * self.sizes.lineHeight;
-                            mouseController.call(window, e);
-                        }, 50);
-                    }
-                } else {
-                    self.removeOverlays();
+                            mouseController.call(window, moveevent);
+                        }
+                    }, 300);
+                    return e.cancel();
                 }
             }
             
