@@ -2315,7 +2315,7 @@ window.CodePrinter = (function($) {
                     var last = this.states[this.index].last(),
                         b = false;
                     if (last.line == line && added == last.added) {
-                        if (b = (last.column + last.text.length == column)) {
+                        if (b = (last.column == column)) {
                             last.text += text;
                         } else if (b = (column + text.length == last.column)) {
                             last.text = text + last.text;
