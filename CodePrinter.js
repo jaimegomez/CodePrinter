@@ -811,6 +811,12 @@ window.CodePrinter = (function($) {
             this.shortcuts.extend(arg);
             return this;
         },
+        call: function(code, shiftKey, metaKey) {
+            var obj = metaKey ? commands : this.shortcuts;
+            if (code && obj && obj[code]) {
+                return obj[code].call(this, { shiftKey: shiftKey, metaKey: metaKey }, this.input);
+            }
+        },
         enterFullscreen: function() {
             if (! this.isFullscreen) {
                 var main = this.mainElement,
