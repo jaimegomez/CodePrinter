@@ -20,16 +20,17 @@ window.CodePrinter = (function($) {
         
         var self = this, screen, sizes, data = '', id, d, pr, fn, moveevent, s = 0;
         
-        options = self.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
+        options = this.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
-        buildDOM(self);
+        buildDOM(this);
         
-        self.mainElement.CodePrinter = self;
-        id = self.mainElement.id = $.random(options.randomIDLength);
-        sizes = self.sizes = { lineHeight: options.lineHeight };
-        self.activeLine = {};
-        self.overlays = [];
-        self.selection.overlay = new Overlay(self, 'cp-selection-overlay', false);
+        this.mainElement.CodePrinter = this;
+        id = this.mainElement.id = $.random(options.randomIDLength);
+        sizes = this.sizes = { lineHeight: options.lineHeight };
+        this.activeLine = {};
+        this.overlays = [];
+        this.selection.overlay = new Overlay(this, 'cp-selection-overlay', false);
+        this.history = new history(options.historyStackSize, options.historyDelay);
         
         var mouseController = function(e) {
             if (e.button > 0 || e.which > 1)
@@ -80,7 +81,7 @@ window.CodePrinter = (function($) {
             self.caret.position(l, c);
         };
         
-        self.wrapper.listen({
+        this.wrapper.listen({
             scroll: function() {
                 var lv = parseInt(self.options.linesOutsideOfView),
                     x = Math.ceil((this.scrollTop - self.sizes.scrollTop) / self.sizes.lineHeight);
@@ -113,7 +114,7 @@ window.CodePrinter = (function($) {
             mousedown: mouseController
         });
         
-        self.input.listen({
+        this.input.listen({
             focus: function() {
                 !self.caret.isActive && self.caret.show().activate();
                 self.selectLine(self.caret.line());
@@ -180,7 +181,7 @@ window.CodePrinter = (function($) {
             }
         });
         
-        self.caret.on({
+        this.caret.on({
             'text:changed': function(line) {
                 line == null && (line = this.line());
                 self.data.getLine(line).setText(this.textAtCurrentLine(true));
@@ -217,12 +218,12 @@ window.CodePrinter = (function($) {
                 }
             };
         };
-        self.on({
+        this.on({
             'removed.before': fn(true),
             'removed.after': fn(false)
         });
         
-        self.mainElement.on({ nodeInserted: function() {
+        this.mainElement.on({ nodeInserted: function() {
             this.removeClass('cp-animation');
             
             options.lineNumbers && self.openCounter();
@@ -247,15 +248,15 @@ window.CodePrinter = (function($) {
         
         if (element) {
             if (element.nodeType) {
-                self.init((element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML).decode());
-                element.before(self.mainElement).remove();
-                return self;
+                this.init((element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML).decode());
+                element.before(this.mainElement).remove();
+                return this;
             } else if (element.toLowerCase) {
-                return self.init(element);
+                return this.init(element);
             }
         }
         
-        return self.init(data);
+        return this.init(data);
     };
     
     CodePrinter.version = '0.6.0';
@@ -309,7 +310,6 @@ window.CodePrinter = (function($) {
         isFullscreen: false,
         init: function(source) {
             this.data = new Data();
-            this.history = new history(this.options.historyStackSize, this.options.historyDelay);
             source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
