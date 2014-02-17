@@ -776,6 +776,7 @@ window.CodePrinter = (function($) {
         removeSelection: function() {
             this.selection.correct();
             if (this.isAllSelected()) {
+                this.history.pushChanges(0, 0, this.getValue(), false);
                 this.init('');
                 this.caret.position(0, 0);
             } else {
@@ -2356,7 +2357,7 @@ window.CodePrinter = (function($) {
             }
         },
         undo: function() {
-            if (this.index >= 0 && this.index <= this.states.length) {
+            if (this.index >= 0 && this.index <= this.states.length && this.states.length) {
                 this.timeout = clearTimeout(this.timeout);
                 (!this.states[this.index] || !this.states[this.index].length) && --this.index;
                 this.mute().emit('undo', this.states[this.index--]).unmute();
