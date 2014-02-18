@@ -490,6 +490,9 @@ window.CodePrinter = (function($) {
             this.parse(line);
             return this;
         },
+        focus: function() {
+            setTimeout($.invoke(this.input.focus, this.input), 1);
+        },
         requireStyle: function(style, callback) {
             $.require($.glue(this.options.path, 'theme', style+'.css'), callback);
         },
