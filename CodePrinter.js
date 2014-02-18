@@ -49,7 +49,7 @@ window.CodePrinter = (function($) {
                 d = true;
                 self.input.value = '';
                 self.selection.setStart(l, c);
-                self.caret.deactivate().show();
+                self.caret.deactivate().show().position(l, c);
                 window.on('mousemove', mouseController);
                 window.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
@@ -65,6 +65,7 @@ window.CodePrinter = (function($) {
                 self.unselectLine();
                 self.selection.setEnd(l, c);
                 self.showSelection();
+                self.caret.position(l, c);
                 
                 if (e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight) {
                     var i = e.clientY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
@@ -77,8 +78,6 @@ window.CodePrinter = (function($) {
                     return e.cancel();
                 }
             }
-            
-            self.caret.position(l, c);
         };
         
         this.wrapper.listen({
