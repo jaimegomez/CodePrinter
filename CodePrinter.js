@@ -31,6 +31,8 @@ window.CodePrinter = (function($) {
         this.overlays = [];
         this.selection.overlay = new Overlay(this, 'cp-selection-overlay', false);
         this.history = new history(options.historyStackSize, options.historyDelay);
+        this.setTheme(options.theme);
+        this.setMode(options.mode);
         
         var mouseController = function(e) {
             if (e.button > 0 || e.which > 1)
@@ -233,8 +235,6 @@ window.CodePrinter = (function($) {
             options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
             self.setWidth(options.width);
             self.setHeight(options.height);
-            self.setTheme(options.theme);
-            self.setMode(options.mode);
             
             var s = window.getComputedStyle(self.screen.element, null);
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
@@ -526,7 +526,7 @@ window.CodePrinter = (function($) {
         },
         setMode: function(mode) {
             mode = extensions[mode.toLowerCase()] || 'plaintext';
-            this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode);
+            this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode.toLowerCase());
             this.options.mode = mode;
             return this;
         },
@@ -2509,7 +2509,7 @@ window.CodePrinter = (function($) {
         return $.scripts.require('CodePrinter.'+req.toLowerCase(), cb, del);
     };
     CodePrinter.defineMode = function(name, obj, req) {
-        var m = (new CodePrinter.Mode()).extend(obj);
+        var m = (new CodePrinter.Mode()).extend(obj, { name: name });
         m.init instanceof Function && m.init();
         $.scripts.define('CodePrinter.'+name.toLowerCase(), m, req);
     };
