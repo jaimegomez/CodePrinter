@@ -130,26 +130,11 @@
   position: relative;
 }
 .codeprinter .cp-screen pre {
-  -webkit-flex: 1;
-  -moz-flex: 1;
-  -ms-flex: 1;
-  -o-flex: 1;
-  flex: 1;
   margin: 0 -15px;
   padding: 0 15px;
   color: inherit;
 }
 .codeprinter .cp-codelines {
-  display: -webkit-box;
-  display: -moz-box;
-  display: -ms-flexbox;
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-flow: column;
-  -moz-flex-flow: column;
-  -ms-flex-flow: column;
-  -o-flex-flow: column;
-  flex-flow: column;
   display: inline-block;
   vertical-align: top;
   min-width: 100%;
@@ -157,11 +142,6 @@
   position: relative;
   top: 0;
   box-sizing: border-box;
-}
-.codeprinter .cp-codelines .cp-fixer {
-  height: 0;
-  max-height: 0;
-  border-width: 0;
 }
 .codeprinter .cp-counter {
   -webkit-user-select: none;
