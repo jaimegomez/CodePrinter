@@ -18,7 +18,7 @@ window.CodePrinter = (function($) {
             return new CodePrinter(element, options);
         }
         
-        var self = this, screen, sizes, data = '', id, d, pr, fn, moveevent, s = 0;
+        var self = this, screen, sizes, data = '', id, pr, fn, s = 0;
         
         options = this.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
@@ -33,54 +33,6 @@ window.CodePrinter = (function($) {
         this.history = new history(options.historyStackSize, options.historyDelay);
         this.setTheme(options.theme);
         this.setMode(options.mode);
-        
-        var mouseController = function(e) {
-            if (e.button > 0 || e.which > 1)
-                return false;
-            
-            var sl = self.wrapper.scrollLeft
-            , st = self.wrapper.scrollTop
-            , o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds()
-            , x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft)
-            , y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
-            , l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1
-            , s = self.getTextAtLine(l)
-            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
-            
-            if (e.type === 'mousedown') {
-                d = true;
-                self.input.value = '';
-                self.selection.setStart(l, c);
-                self.caret.deactivate().show().position(l, c);
-                window.on('mousemove', mouseController);
-                window.one('mouseup', function(e) {
-                    !self.selection.isset() && self.selection.clear();
-                    window.off('mousemove', mouseController);
-                    self.caret.activate();
-                    self.sizes.bounds = moveevent = null;
-                    self.removeOverlays();
-                    document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
-                    return d = e.cancel();
-                });
-            } else {
-                moveevent = e;
-                self.unselectLine();
-                self.selection.setEnd(l, c);
-                self.showSelection();
-                self.caret.position(l, c);
-                
-                if (e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight) {
-                    var i = e.clientY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
-                    i && setTimeout(function() {
-                        if (moveevent) {
-                            self.wrapper.scrollTop += i * self.sizes.lineHeight;
-                            mouseController.call(window, moveevent);
-                        }
-                    }, 300);
-                    return e.cancel();
-                }
-            }
-        };
         
         this.wrapper.listen({
             scroll: function() {
@@ -112,7 +64,7 @@ window.CodePrinter = (function($) {
                     self.showSelection();
                 }
             },
-            mousedown: mouseController
+            mousedown: mouseController(self)
         });
         
         this.input.listen({
@@ -121,7 +73,7 @@ window.CodePrinter = (function($) {
                 self.selectLine(self.caret.line());
             },
             blur: function(e) {
-                if (d) {
+                if (self.isMouseDown) {
                     this.focus();
                 } else {
                     self.caret.deactivate().hide();
@@ -2549,6 +2501,57 @@ window.CodePrinter = (function($) {
             cp.screen.element = cp.screen.parent.firstChild;
         }
     })();
+    var mouseController = function(self) {
+        var moveevent
+        , fn = function(e) {
+            if (e.button > 0 || e.which > 1)
+                return false;
+            
+            var sl = self.wrapper.scrollLeft
+            , st = self.wrapper.scrollTop
+            , o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds()
+            , x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft)
+            , y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
+            , l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1
+            , s = self.getTextAtLine(l)
+            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
+            
+            if (e.type === 'mousedown') {
+                self.isMouseDown = true;
+                self.input.value = '';
+                self.selection.setStart(l, c);
+                self.caret.deactivate().show().position(l, c);
+                window.on('mousemove', fn);
+                window.one('mouseup', function(e) {
+                    !self.selection.isset() && self.selection.clear();
+                    window.off('mousemove', fn);
+                    self.caret.activate();
+                    self.sizes.bounds = moveevent = null;
+                    self.removeOverlays();
+                    document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
+                    return self.isMouseDown = e.cancel();
+                });
+            } else {
+                moveevent = e;
+                self.unselectLine();
+                self.selection.setEnd(l, c);
+                self.showSelection();
+                self.caret.position(l, c);
+                
+                if (e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight) {
+                    var i = e.clientY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
+                    i && setTimeout(function() {
+                        if (moveevent) {
+                            self.wrapper.scrollTop += i * self.sizes.lineHeight;
+                            fn.call(window, moveevent);
+                        }
+                    }, 300);
+                    return e.cancel();
+                }
+            }
+        }
+        return fn;
+    }
     function calculateCharDimensions(cp, text) {
         var h = 0, w = 0, cr,
             pre = pre_clone.cloneNode().addClass('cp-templine'),
