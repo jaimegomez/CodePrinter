@@ -2,12 +2,17 @@
 
 CodePrinter.defineMode('Java', {
     controls: ['if','else','while','for','case','switch','try','catch','finally'],
-    keywords: ['abstract','assert','break','class','const','continue','default','enum','extends','final','goto','implements','import','instanceof','interface','native','new','package','private','protected','public','return','static','strictfp','super','synchronized','this','throw','throws','transient','void','volatile'],
+    keywords: ['abstract','assert','break','class','const','continue','default','enum','extends','final','goto','implements','instanceof','interface','native','new','package','private','protected','public','return','static','strictfp','super','synchronized','this','throw','throws','transient','void','volatile'],
     types: ['byte','short','int','long','float','double','boolean','char'],
     specials: ['java','System','String'],
     regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
     
-    fn: function(stream) {
+    alloc: function() {
+        return {
+            importClasses: []
+        }
+    },
+    fn: function(stream, memory) {
         var found;
         
         while (found = stream.match(this.regexp)) {
@@ -28,20 +33,22 @@ CodePrinter.defineMode('Java', {
                     stream.wrap(['control', found]);
                 } else if (this.types.indexOf(found) !== -1) {
                     stream.wrap(['keyword', 'type', found]);
-                } else if (this.specials.indexOf(found) !== -1) {
+                } else if (this.specials.indexOf(found) !== -1 || (!stream.isBefore('.') && !stream.isAfter(';') && memory.importClasses.indexOf(found) !== -1)) {
                     stream.wrap(['special', found]);
                 } else if (this.keywords.indexOf(found) !== -1) {
                     stream.wrap(['keyword', found]);
+                } else if (found == 'import') {
+                    stream.wrap(['keyword', found]);
+                    if (found = stream.match(/^.*[\s\.]([a-zA-Z0-9]+);$/, 1)) {
+                        memory.importClasses.put(found);
+                        stream.reset();
+                    } else {
+                        stream.restore();
+                    }
                 } else if (stream.isAfter('(')) {
                     stream.wrap(['fname', 'fname-'+found]);
                 } else {
                     stream.wrap(['other']);
-                }
-            } else if (found[0] === '#') {
-                var fo = found.substr(1);
-                stream.wrap(['special', 'directives', fo]);
-                if (fo === 'include') {
-                    stream.eat(stream.after()).wrap(['string']);
                 }
             } else if (found.length == 1) {
                 if (this.punctuations.hasOwnProperty(found)) {
@@ -63,7 +70,6 @@ CodePrinter.defineMode('Java', {
                 stream.wrap(['other']);
             }
         }
-        
         return stream;
     },
     comment: '//'
