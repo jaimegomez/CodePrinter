@@ -26,6 +26,7 @@
   overflow: hidden;
   position: relative;
   top: 0;
+  z-index: 50;
 }
 .codeprinter,
 .codeprinter * {
@@ -36,7 +37,6 @@
 .codeprinter .cp-input {
   margin: 0;
   padding: 0;
-  border: none;
 }
 .codeprinter .cp-container {
   display: -webkit-box;
@@ -50,6 +50,7 @@
   -o-flex-flow: column;
   flex-flow: column;
   height: 100%;
+  background: #fcfcfc;
   position: relative;
   font-family: Menlo, Monaco, monospace, Courier;
   font-size: 11px;
@@ -82,15 +83,12 @@
   -o-flex-flow: column;
   flex-flow: column;
   height: 100%;
-  background: #fcfcfc;
   border: none;
   min-width: 120px;
   min-height: 60px;
   position: relative;
   z-index: 4;
   overflow: scroll;
-  overflow-x: scroll;
-  overflow-y: scroll;
   cursor: text;
 }
 .codeprinter .cp-wrapper * {
@@ -102,6 +100,7 @@
   width: 10px;
   height: 20px;
   background: none;
+  border: none;
   color: transparent;
   resize: none;
   outline: none;
@@ -125,23 +124,19 @@
   color: inherit;
   z-index: 5;
   overflow: visible;
-  overflow-x: visible;
-  overflow-y: visible;
-  position: relative;
-}
-.codeprinter .cp-screen pre {
-  margin: 0 -15px;
-  padding: 0 15px;
-  color: inherit;
 }
 .codeprinter .cp-codelines {
   display: inline-block;
   vertical-align: top;
   min-width: 100%;
   padding: 5px 15px;
-  position: relative;
-  top: 0;
   box-sizing: border-box;
+  position: relative;
+}
+.codeprinter .cp-codelines pre {
+  margin: 0 -15px;
+  padding: 0 15px;
+  color: inherit;
 }
 .codeprinter .cp-counter {
   -webkit-user-select: none;
@@ -151,11 +146,11 @@
   user-select: none;
   display: inline-block;
   vertical-align: top;
+  min-width: 36px;
   background: #fcfcfc;
   border-right: 1px solid #c0c0c0;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
   color: #777777;
-  min-width: 36px;
   z-index: 6;
   overflow: hidden;
   position: absolute;
@@ -356,13 +351,13 @@
   word-wrap: normal;
   white-space: pre;
 }
-.codeprinter .cp-screen pre,
+.codeprinter .cp-codelines pre,
 .codeprinter .cp-input,
 .codeprinter .cp-counter,
 .codeprinter .cp-selection {
   line-height: 15px;
 }
-.codeprinter .cp-screen pre,
+.codeprinter .cp-codelines pre,
 .codeprinter .cp-counter li,
 .codeprinter .cp-overlay span {
   font-family: inherit;
