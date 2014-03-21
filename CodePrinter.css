@@ -34,7 +34,12 @@
   -webkit-font-smoothing: subpixel-antialiased;
 }
 .codeprinter div,
-.codeprinter .cp-input {
+.codeprinter .cp-input,
+.codeprinter .cp-counter ol,
+.codeprinter .cp-counter li,
+.codeprinter .cpf-occurrence,
+.codeprinter .cpf-input,
+.codeprinter .cpf-button {
   margin: 0;
   padding: 0;
 }
@@ -162,14 +167,12 @@
 }
 .codeprinter .cp-counter ol {
   display: block;
-  margin: 0;
   padding: 5px 0;
   text-align: right;
   list-style-type: none;
   position: relative;
 }
 .codeprinter .cp-counter li {
-  margin: 0;
   padding: 0 6px 0 15px;
   text-align: right;
   color: inherit;
@@ -284,7 +287,6 @@
 }
 .codeprinter .cpf-input {
   display: block;
-  margin: 0;
   padding: 3px 8px;
   width: 100%;
   height: 15px;
@@ -299,28 +301,27 @@
 .codeprinter .cpf-button {
   display: inline-block;
   vertical-align: middle;
-  margin: 0;
   padding: 3px 5px;
   background: none;
   border-width: 0;
   font-size: inherit;
   color: inherit;
 }
-.codeprinter span.cpf-occurrence {
+.codeprinter .cpf-occurrence {
   display: inline-block;
   vertical-align: top;
-  margin: 0 0 0 -1px;
-  padding: 1px 0 0 0;
+  margin: -1px 0 0 -1px !important;
   background: none;
   border: 1px solid #666666;
-  border-radius: 4px;
+  border-radius: 3px;
+  box-sizing: border-box;
   color: transparent;
   position: absolute;
   top: 0;
   left: 0;
   z-index: 10;
 }
-.codeprinter span.cpf-occurrence.active {
+.codeprinter .cpf-occurrence.active {
   background: #fdd017;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
   color: black;
@@ -341,6 +342,13 @@
   top: -50px;
   left: -50px;
   z-index: 100;
+}
+.codeprinter .cp-caret-block {
+  -webkit-transition: all 0 ease-in-out;
+  -moz-transition: all 0 ease-in-out;
+  -ms-transition: all 0 ease-in-out;
+  -o-transition: all 0 ease-in-out;
+  transition: all 0 ease-in-out;
 }
 .codeprinter .cp-screen,
 .codeprinter .cp-input,
@@ -447,9 +455,6 @@
 }
 .codeprinter.cps-default .cp-highlight {
   border-bottom: 1px solid black;
-}
-.codeprinter.cps-default .cpf-occurrence {
-  margin: -2px 0 0 -2px;
 }
 .codeprinter.cps-default .cpx-control,
 .codeprinter.cps-default .cpx-phptag {
