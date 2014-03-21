@@ -1,7 +1,7 @@
 /*  CodePrinter
-*   LESS(CSS) document
+*   CSS document
 *   
-*   version     0.6.0
+*   version     0.6.1
 */
 .codeprinter-source {
   display: block;
@@ -26,6 +26,7 @@
   overflow: hidden;
   position: relative;
   top: 0;
+  z-index: 50;
 }
 .codeprinter,
 .codeprinter * {
@@ -33,10 +34,14 @@
   -webkit-font-smoothing: subpixel-antialiased;
 }
 .codeprinter div,
-.codeprinter .cp-input {
+.codeprinter .cp-input,
+.codeprinter .cp-counter ol,
+.codeprinter .cp-counter li,
+.codeprinter .cpf-occurrence,
+.codeprinter .cpf-input,
+.codeprinter .cpf-button {
   margin: 0;
   padding: 0;
-  border: none;
 }
 .codeprinter .cp-container {
   display: -webkit-box;
@@ -50,6 +55,7 @@
   -o-flex-flow: column;
   flex-flow: column;
   height: 100%;
+  background: #fcfcfc;
   position: relative;
   font-family: Menlo, Monaco, monospace, Courier;
   font-size: 11px;
@@ -82,15 +88,12 @@
   -o-flex-flow: column;
   flex-flow: column;
   height: 100%;
-  background: #fcfcfc;
   border: none;
   min-width: 120px;
   min-height: 60px;
   position: relative;
   z-index: 4;
   overflow: scroll;
-  overflow-x: scroll;
-  overflow-y: scroll;
   cursor: text;
 }
 .codeprinter .cp-wrapper * {
@@ -102,6 +105,7 @@
   width: 10px;
   height: 20px;
   background: none;
+  border: none;
   color: transparent;
   resize: none;
   outline: none;
@@ -125,43 +129,19 @@
   color: inherit;
   z-index: 5;
   overflow: visible;
-  overflow-x: visible;
-  overflow-y: visible;
-  position: relative;
-}
-.codeprinter .cp-screen pre {
-  -webkit-flex: 1;
-  -moz-flex: 1;
-  -ms-flex: 1;
-  -o-flex: 1;
-  flex: 1;
-  margin: 0 -15px;
-  padding: 0 15px;
-  color: inherit;
 }
 .codeprinter .cp-codelines {
-  display: -webkit-box;
-  display: -moz-box;
-  display: -ms-flexbox;
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-flow: column;
-  -moz-flex-flow: column;
-  -ms-flex-flow: column;
-  -o-flex-flow: column;
-  flex-flow: column;
   display: inline-block;
   vertical-align: top;
   min-width: 100%;
   padding: 5px 15px;
-  position: relative;
-  top: 0;
   box-sizing: border-box;
+  position: relative;
 }
-.codeprinter .cp-codelines .cp-fixer {
-  height: 0;
-  max-height: 0;
-  border-width: 0;
+.codeprinter .cp-codelines pre {
+  margin: 0 -15px;
+  padding: 0 15px;
+  color: inherit;
 }
 .codeprinter .cp-counter {
   -webkit-user-select: none;
@@ -171,11 +151,11 @@
   user-select: none;
   display: inline-block;
   vertical-align: top;
+  min-width: 36px;
   background: #fcfcfc;
   border-right: 1px solid #c0c0c0;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
   color: #777777;
-  min-width: 36px;
   z-index: 6;
   overflow: hidden;
   position: absolute;
@@ -187,14 +167,12 @@
 }
 .codeprinter .cp-counter ol {
   display: block;
-  margin: 0;
   padding: 5px 0;
   text-align: right;
   list-style-type: none;
   position: relative;
 }
 .codeprinter .cp-counter li {
-  margin: 0;
   padding: 0 6px 0 15px;
   text-align: right;
   color: inherit;
@@ -309,7 +287,6 @@
 }
 .codeprinter .cpf-input {
   display: block;
-  margin: 0;
   padding: 3px 8px;
   width: 100%;
   height: 15px;
@@ -324,28 +301,27 @@
 .codeprinter .cpf-button {
   display: inline-block;
   vertical-align: middle;
-  margin: 0;
   padding: 3px 5px;
   background: none;
   border-width: 0;
   font-size: inherit;
   color: inherit;
 }
-.codeprinter span.cpf-occurrence {
+.codeprinter .cpf-occurrence {
   display: inline-block;
   vertical-align: top;
-  margin: 0 0 0 -1px;
-  padding: 1px 0 0 0;
+  margin: -1px 0 0 -1px !important;
   background: none;
   border: 1px solid #666666;
-  border-radius: 4px;
+  border-radius: 3px;
+  box-sizing: border-box;
   color: transparent;
   position: absolute;
   top: 0;
   left: 0;
   z-index: 10;
 }
-.codeprinter span.cpf-occurrence.active {
+.codeprinter .cpf-occurrence.active {
   background: #fdd017;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
   color: black;
@@ -367,6 +343,13 @@
   left: -50px;
   z-index: 100;
 }
+.codeprinter .cp-caret-block {
+  -webkit-transition: all 0 ease-in-out;
+  -moz-transition: all 0 ease-in-out;
+  -ms-transition: all 0 ease-in-out;
+  -o-transition: all 0 ease-in-out;
+  transition: all 0 ease-in-out;
+}
 .codeprinter .cp-screen,
 .codeprinter .cp-input,
 .codeprinter .cp-counter,
@@ -376,13 +359,13 @@
   word-wrap: normal;
   white-space: pre;
 }
-.codeprinter .cp-screen pre,
+.codeprinter .cp-codelines pre,
 .codeprinter .cp-input,
 .codeprinter .cp-counter,
 .codeprinter .cp-selection {
   line-height: 15px;
 }
-.codeprinter .cp-screen pre,
+.codeprinter .cp-codelines pre,
 .codeprinter .cp-counter li,
 .codeprinter .cp-overlay span {
   font-family: inherit;
@@ -472,9 +455,6 @@
 }
 .codeprinter.cps-default .cp-highlight {
   border-bottom: 1px solid black;
-}
-.codeprinter.cps-default .cpf-occurrence {
-  margin: -2px 0 0 -2px;
 }
 .codeprinter.cps-default .cpx-control,
 .codeprinter.cps-default .cpx-phptag {

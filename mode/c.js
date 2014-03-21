@@ -3,7 +3,7 @@
 CodePrinter.defineMode('C', {
 	controls: ['if','else','elseif','for','switch','while','do','try','catch'],
 	keywords: ['return','this','new','break','continue','case','sizeof','const','using','namespace','alignas','alignof','and','and_eq','asm','auto','bitand','bitor','compli','constexpr','const_cast','decltype','default','delete','dynamic_cast','explicit','export','extern','friend','goto','inline','mutable','noexcept','not','not_eq','nullptr','operator','or','or_eq','private','protected','public','register','reinterpret_cast','static','static_assert','static_cast','template','thread_local','throw','typedef','typeid','typename','union','virtual','volatile','xor','xor_eq'],
-	types: ['int','double','short','long','char','float','bool','unsigned','signed','enum','struct','class','char16_t','char32_t','wchar_t'],
+	types: ['void','int','double','short','long','char','float','bool','unsigned','signed','enum','struct','class','char16_t','char32_t','wchar_t'],
     specials: ['cout','cin','endl','string','vector','ostream','istream','ofstream','ifstream'],
 	regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
 	

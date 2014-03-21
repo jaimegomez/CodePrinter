@@ -7,7 +7,12 @@ CodePrinter.defineMode('JavaScript', {
     
     regexp: /\/\*|\/\/|\/(.*)\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
     
-    fn: function(stream) {
+    alloc: function() {
+        return {
+            properties: []
+        };
+    },
+    fn: function(stream, memory) {
         var found;
         
         while (found = stream.match(this.regexp)) {
@@ -34,11 +39,14 @@ CodePrinter.defineMode('JavaScript', {
                     stream.wrap(['keyword', found]);
                 } else if (stream.isAfter('(')) {
                     stream.wrap('fname');
-                } else if (stream.isBefore('.') && stream.isAfter('=') || stream.isAfter(':')) {
-                    stream.wrap('property');
-                } else {
-                    stream.wrap('word');
-                } 
+                } else if (stream.isBefore('.')) {
+                    if (memory.properties.indexOf(found) !== -1) {
+                        stream.wrap('property');
+                    } else if (stream.isAfter('=') || stream.isAfter(':')) {
+                        stream.wrap('property');
+                        memory.properties.push(found);
+                    }
+                }
             } else if (found.length == 1) {
                 if (this.operators.hasOwnProperty(found)) {
                     stream.wrap(['operator', this.operators[found]]);
@@ -50,8 +58,6 @@ CodePrinter.defineMode('JavaScript', {
                     stream.eat(found, this.chars[found].end, function() {
                         return this.wrap(['invalid']).reset();
                     }).wrap(this.chars[found].cls);
-                } else {
-                    stream.wrap(['other']);
                 }
             } else if (this.chars.hasOwnProperty(found)) {
                 stream.eatWhile(found, this.chars[found].end).wrap(this.chars[found].cls);
@@ -59,8 +65,6 @@ CodePrinter.defineMode('JavaScript', {
                 stream.wrap(['regexp'], function(cls) {
                     return this.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="'+cls+'">');
                 });
-            } else {
-                stream.wrap(['other']);
             }
         }
         
