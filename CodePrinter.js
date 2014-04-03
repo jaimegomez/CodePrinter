@@ -340,39 +340,39 @@ window.CodePrinter = (function($) {
             mode = this.options.mode;
             source && this.init(source);
             
-            var self = this, timeout,
-                sT = document.scrollTop(),
-                sL = document.scrollLeft(),
-                callback = function(ModeObject) {
-                    timeout = clearTimeout(timeout);
-                    self.defineParser(ModeObject);
-                    self.screen.fill();
-                    
-                    var data = self.data, i = -1,
-                        l = self.screen.lastLine+1,
-                        p = getDataLinePosition(l),
-                        u = p[0], t = p[1], h = p[2],
-                        I = clearInterval(I) || setInterval(function() {
-                            t >= DATA_RATIO && ++h && (t = 0);
-                            if (!data[h] || !data[h][t]) {
-                                I = clearInterval(I);
-                                return false;
-                            }
-                            while (u < data[h][t].length) {
-                                self.parse(l, data.getLine(l));
-                                l++; u++;
-                            }
-                            t++;
-                            u = 0;
-                        }, 10);
-                    
-                    while (++i < l) {
-                        self.parse(i, data.getLine(i), true);
-                    }
-                    document.scrollTop(sT);
-                    document.scrollLeft(sL);
-                    self.options.autofocus && self.caret.position(0, 0);
-                };
+            var self = this, timeout
+            , sT = document.scrollTop()
+            , sL = document.scrollLeft()
+            , callback = function(ModeObject) {
+                timeout = clearTimeout(timeout);
+                self.defineParser(ModeObject);
+                self.screen.fill();
+                
+                var data = self.data, i = -1,
+                    l = self.screen.lastLine+1,
+                    p = getDataLinePosition(l),
+                    u = p[0], t = p[1], h = p[2],
+                    I = clearInterval(I) || setInterval(function() {
+                        t >= DATA_RATIO && ++h && (t = 0);
+                        if (!data[h] || !data[h][t]) {
+                            I = clearInterval(I);
+                            return false;
+                        }
+                        while (u < data[h][t].length) {
+                            self.parse(l, data.getLine(l));
+                            l++; u++;
+                        }
+                        t++;
+                        u = 0;
+                    }, 10);
+                
+                while (++i < l) {
+                    self.parse(i, data.getLine(i), true);
+                }
+                document.scrollTop(sT);
+                document.scrollLeft(sL);
+                self.options.autofocus && self.caret.position(0, 0);
+            }
             
             this.screen.removeLines();
             callback.call(this, new CodePrinter.Mode());
@@ -478,7 +478,8 @@ window.CodePrinter = (function($) {
             return this;
         },
         setMode: function(mode) {
-            mode = extensions[mode.toLowerCase()] || 'plaintext';
+            var mlc = mode.toLowerCase();
+            mode = extensions[mlc] || mlc || 'plaintext';
             this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode.toLowerCase());
             this.options.mode = mode;
             return this;
@@ -1132,7 +1133,7 @@ window.CodePrinter = (function($) {
             },
             moveY: function(mv) {
                 mv = line + mv;
-                mv = mv < 0 ? 0 : mv > this.root.data.lines ? this.root.data.lines : mv;
+                mv = mv < 0 ? (column = 0) : mv >= this.root.data.lines ? (column = -1) && this.root.data.lines-1 : mv;
                 return this.position(mv, column);
             },
             refresh: function() {
@@ -1208,7 +1209,7 @@ window.CodePrinter = (function($) {
         },
         activate: function() {
             if (this.root.options.blinkCaret) {
-                var elm = this.element, a = true, fn = function() { a = !a; elm.style.opacity = +a; };
+                var elm = this.element, a = false, fn = function() { a = !a; elm.style.opacity = +a; };
                 this.interval = clearInterval(this.interval) || fn() || setInterval(fn, this.root.options.caretBlinkSpeed);
             }
             this.isActive = true;
@@ -1331,7 +1332,7 @@ window.CodePrinter = (function($) {
                 this.root.data.getLine(this.firstLine).deleteNodeProperty();
                 var dl = this.root.data.getLine(++this.lastLine);
                 dl.pre = this.lines[0];
-                this.link(dl, this.lines.length-1);
+                this.link(dl, this.lines.length);
                 this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                 this.firstLine++;
                 this.root.counter && this.root.counter.shift();
@@ -2145,7 +2146,7 @@ window.CodePrinter = (function($) {
         },
         34: function(e, k, ch) {
             if (this.options.insertClosingQuotes) {
-                this.textAfterCursor(1) !== ch ? this.insertText(ch + ch, -1) : this.caret.moveX(1);
+                this.textAfterCursor(1) !== ch ? this.caret.textAtCurrentLine().count(ch) % 2 ? this.insertText(ch, 0) : this.insertText(ch + ch, -1) : this.caret.moveX(1);
                 return false;
             }
         },
@@ -2460,18 +2461,12 @@ window.CodePrinter = (function($) {
     extensions = {
         'js': 'javascript',
         'json': 'javascript',
-        'javascript': 'javascript',
-        'php': 'php',
-        'html': 'html',
         'htm': 'html',
-        'css': 'css',
         'less': 'css',
         'h': 'c',
-        'c': 'c',
         'cpp': 'c',
-        'ruby': 'ruby',
         'rb': 'ruby',
-        'java': 'java'
+        'pl': 'perl'
     };
     
     eol = $.browser.windows ? '\r\n' : '\n';
@@ -2586,15 +2581,13 @@ window.CodePrinter = (function($) {
         cp.sizes.charHeight = cr.height;
         return cr;
     };
-    function getPositionOf(cp, line, column)
-    {
+    function getPositionOf(cp, line, column) {
         return {
             x: cp.sizes.paddingLeft + column * cp.sizes.charWidth,
             y: cp.sizes.paddingTop + line * cp.sizes.lineHeight
         };
     };
-    function createSpan(text, classes, top, left, width, height)
-    {
+    function createSpan(text, classes, top, left, width, height) {
         var s = span.cloneNode().addClass(classes);
         s.textContent = text;
         s.style.extend({
