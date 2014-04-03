@@ -1089,7 +1089,7 @@ window.CodePrinter = (function($) {
                 if (cp.options.tracking) {
                     for (var s in this.tracking) {
                         var a = before.endsWith(s), b = after.startsWith(s);
-                        if (a + b) {
+                        if (a || b) {
                             var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
                             if (!r) {
                                 break;
@@ -2540,9 +2540,9 @@ window.CodePrinter = (function($) {
                 window.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
                     window.off('mousemove', fn);
-                    self.caret.activate();
-                    self.sizes.bounds = moveevent = null;
                     self.removeOverlays();
+                    self.caret.activate().position(l, c);
+                    self.sizes.bounds = moveevent = null;
                     document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
                     return self.isMouseDown = e.cancel();
                 });
