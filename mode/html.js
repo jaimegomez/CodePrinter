@@ -10,15 +10,15 @@ CodePrinter.defineMode('HTML', {
         while (found = stream.match(this.regexp)) {
             if (found.substr(0, 2) === '<!') {
                 if (found === '<!--') {
-                    stream.eatWhile(found, '-->').wrap(['comment']);
+                    stream.eatWhile(found, '-->').wrap('comment');
                 } else {
-                    stream.eat(found, '>').wrap(['special', 'doctype']);
+                    stream.eat(found, '>').wrap('special', 'doctype');
                 }
             } else if (found[0] === '<') {
-                stream.wrap(['broket', 'open']);
+                stream.wrap('broket', 'open');
                 
                 if (found = stream.match(/^\b[a-zA-Z]+/)) {
-                    stream.wrap(['keyword', found]);
+                    stream.wrap('keyword', found);
                     
                     while (found = stream.match(this.regexp2)) {
                         if (found === '<') {
@@ -26,27 +26,27 @@ CodePrinter.defineMode('HTML', {
                             break;
                         }
                         if (/^\w+$/.test(found)) {
-                            stream.wrap(['property', found]);
+                            stream.wrap('property', found);
                         } else if (found === '=') {
-                            stream.wrap(['operator', 'equal']);
+                            stream.wrap('operator', 'equal');
                         } else if (this.chars.hasOwnProperty(found)) {
-                            stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
+                            stream.eat(found, this.chars[found].end).applyWrap(this.chars[found].cls);
                         } else if (found[found.length-1] === '>') {
-                            stream.wrap(['broket', 'close']);
+                            stream.wrap('broket', 'close');
                             break;
                         } else {
-                            stream.wrap(['other']);
+                            stream.wrap('other');
                         }
                     }
                 } else {
-                    stream.restore().unwrap().wrap(['invalid']);
+                    stream.restore().unwrap().wrap('invalid');
                     continue;
                 }
                 !found && stream.restore();
             } else if (found[0] === '&') {
-                stream.wrap(['escaped']);
+                stream.wrap('escaped');
             } else {
-                stream.wrap(['other']);
+                stream.wrap('other');
             }
         }
         

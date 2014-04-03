@@ -18,25 +18,25 @@ CodePrinter.defineMode('JavaScript', {
         while (found = stream.match(this.regexp)) {
             if (!isNaN(found) || found == 'NaN' || found == 'Infinity') {
                 if (found.substr(0, 2).toLowerCase() == '0x') {
-                    stream.wrap(['numeric', 'hex']);
+                    stream.wrap('numeric', 'hex');
                 } else {
                     if ((found+'').indexOf('.') === -1) {
-                        stream.wrap(['numeric', 'int']);
+                        stream.wrap('numeric', 'int');
                     } else {
-                        stream.wrap(['numeric', 'float']);
+                        stream.wrap('numeric', 'float');
                     }
                 }
             } else if (/^[\w\-\$]+/i.test(found)) {
                 if (found == 'true' || found == 'false') {
-                    stream.wrap(['boolean', found]);
+                    stream.wrap('boolean', found);
                 } else if (found == 'null' || found == 'undefined') {
-                    stream.wrap(['empty-value', found]);
+                    stream.wrap('empty-value', found);
                 } else if (this.controls.indexOf(found) !== -1) {
-                    stream.wrap(['control', found]);
+                    stream.wrap('control', found);
                 } else if (this.specials.indexOf(stream.found) !== -1) {
-                    stream.wrap(['special', stream.found]);
+                    stream.wrap('special', stream.found);
                 } else if (this.keywords.indexOf(found) !== -1) {
-                    stream.wrap(['keyword', found]);
+                    stream.wrap('keyword', found);
                 } else if (stream.isAfter('(')) {
                     stream.wrap('fname');
                 } else if (stream.isBefore('.')) {
@@ -49,20 +49,20 @@ CodePrinter.defineMode('JavaScript', {
                 }
             } else if (found.length == 1) {
                 if (this.operators.hasOwnProperty(found)) {
-                    stream.wrap(['operator', this.operators[found]]);
+                    stream.wrap('operator', this.operators[found]);
                 } else if (this.punctuations.hasOwnProperty(found)) {
-                    stream.wrap(['punctuation', this.punctuations[found]]);
+                    stream.wrap('punctuation', this.punctuations[found]);
                 } else if (this.brackets.hasOwnProperty(found)) {
-                    stream.wrap(this.brackets[found]);
+                    stream.applyWrap(this.brackets[found]);
                 } else if (found === '"' || found === "'") {
                     stream.eat(found, this.chars[found].end, function() {
-                        return this.wrap(['invalid']).reset();
-                    }).wrap(this.chars[found].cls);
+                        return this.wrap('invalid').reset();
+                    }).applyWrap(this.chars[found].cls);
                 }
             } else if (this.chars.hasOwnProperty(found)) {
-                stream.eatWhile(found, this.chars[found].end).wrap(this.chars[found].cls);
+                stream.eatWhile(found, this.chars[found].end).applyWrap(this.chars[found].cls);
             } else if (found[0] == '/') {
-                stream.wrap(['regexp'], function(cls) {
+                stream.wrap('regexp', function(cls) {
                     return this.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="'+cls+'">');
                 });
             }

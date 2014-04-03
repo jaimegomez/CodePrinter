@@ -14,18 +14,18 @@ CodePrinter.defineMode('CSS', {
                 this.symbols[found[0]].call(this, stream, found);
             } else if (/^[\w\-]+$/i.test(found)) {
                 if (this.tags.indexOf(found) !== -1) {
-                    stream.wrap(['keyword', 'css-tag']);
+                    stream.wrap('keyword', 'css-tag');
                 } else {
-                    stream.wrap(['special', 'special-'+found]);
+                    stream.wrap('special', 'special-'+found);
                 }
             } else if (this.punctuations.hasOwnProperty(found)) {
-                stream.wrap(['punctuation', this.punctuations[found]]);
+                stream.wrap('punctuation', this.punctuations[found]);
             } else if (this.brackets.hasOwnProperty(found)) {
-                stream.wrap(this.brackets[found]);
+                stream.applyWrap(this.brackets[found]);
             } else if (this.operators.hasOwnProperty(found)) {
                 stream.wrap(this.operators[found]);
             } else if (found === '/*') {
-                stream.eatWhile(found, this.chars[found].end).wrap(this.chars[found].cls);
+                stream.eatWhile(found, this.chars[found].end).applyWrap(this.chars[found].cls);
             } else {
                 stream.skip();
             }
@@ -39,50 +39,50 @@ CodePrinter.defineMode('CSS', {
             , i1 = aft.indexOf('{')
             , i2 = aft.indexOf(';');
             if (i2 !== -1 && (i1 === -1 || i2 < i1)) {
-                stream.eat(found[0]).wrap(['punctuation', this.punctuations[found[0]]]);
+                stream.eat(found[0]).wrap('punctuation', this.punctuations[found[0]]);
                 
                 while (found = stream.match(this.values)) {
                     if (found == ';') {
-                        stream.wrap(['punctuation', this.punctuations[found]]);
+                        stream.wrap('punctuation', this.punctuations[found]);
                         break;
                     } else if (found[0] === '#') {
                         if (found.length === 4 || found.length === 7) {
-                            stream.wrap(['numeric', 'hex']);
+                            stream.wrap('numeric', 'hex');
                         } else {
-                            stream.wrap(['invalid']);
+                            stream.wrap('invalid');
                         }
                     } else if (found[0] === '@') {
-                        stream.wrap(['variable', 'variable-'+found.substr(1)]);
+                        stream.wrap('variable', 'variable-'+found.substr(1));
                     } else if (found[0] === '!') {
-                        stream.wrap(['value', 'css-important']);
+                        stream.wrap('value', 'css-important');
                     } else if (/\d/.test(found)) {
                         if (!isNaN(found)) {
-                            stream.wrap(['numeric']);
+                            stream.wrap('numeric');
                         } else if (this.units.test(found)) {
                             var f2 = found.match(this.units)[0];
-                            stream.wrap(['numeric', 'unit-'+f2]);
+                            stream.wrap('numeric', 'unit-'+f2);
                         } else {
-                            stream.wrap(['numeric']);
+                            stream.wrap('numeric');
                         }
                     } else if (this.punctuations.hasOwnProperty(found)) {
-                        stream.wrap(['punctuation', this.punctuations[found]]);
+                        stream.wrap('punctuation', this.punctuations[found]);
                     } else if (this.chars.hasOwnProperty(found)) {
-                        stream.eat(found, this.chars[found].end).wrap(this.chars[found].cls);
+                        stream.eat(found, this.chars[found].end).applyWrap(this.chars[found].cls);
                     } else if (stream.isAfter('(')) {
-                        stream.wrap(['fname', 'fname-'+found]);
+                        stream.wrap('fname', 'fname-'+found);
                     } else {
-                        stream.wrap(['escaped','value']);
+                        stream.wrap('escaped','value');
                     }
                 }
                 !found && stream.restore();
             } else {
-                stream.wrap(['string', 'css-pseudo']);
+                stream.wrap('string', 'css-pseudo');
             }
         },
-        '#': function(stream) { stream.wrap(['property', 'css-id']); },
-        '.': function(stream) { stream.wrap(['property', 'css-class']); },
-        '*': function(stream) { stream.wrap(['keyword', 'css-tag']); },
-        '@': function(stream, found) { found === '@media' ? stream.wrap(['control', 'control-media']) : stream.wrap(['variable', 'variable-'+found.substr(1)]); }
+        '#': function(stream) { stream.wrap('property', 'css-id'); },
+        '.': function(stream) { stream.wrap('property', 'css-class'); },
+        '*': function(stream) { stream.wrap('keyword', 'css-tag'); },
+        '@': function(stream, found) { found === '@media' ? stream.wrap('control', 'control-media') : stream.wrap('variable', 'variable-'+found.substr(1)); }
     },
     keypressMap: {
         58: function() {

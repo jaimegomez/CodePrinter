@@ -1813,7 +1813,7 @@ window.CodePrinter = (function($) {
         eatWhile: function(from, to) {
             return this.eat(from, to, true, true);
         },
-        wrap: function(suffix, fn) {
+        wrap: function() {
             if (!this.eaten.length) {
                 if (this.found) {
                     this.eat(this.found);
@@ -1821,20 +1821,23 @@ window.CodePrinter = (function($) {
                     return this;
                 }
             }
-            var i = 0,
-                tmp = this.eaten,
-                spa = function(txt) {
-                    txt = txt.encode();
-                    fn instanceof Function && (txt = fn.call(txt, suffix));
-                    return '<span class="'+suffix+'">' + txt + '</span>';
-                };
-            
-            suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
-            
-            for (i = 0; i < suffix.length; i++) {
-                suffix[i] = 'cpx-'+suffix[i];
+            var i = 0
+            , fn = arguments[arguments.length-1] instanceof Function ? arguments[arguments.length-1] : null
+            , tmp = this.eaten
+            , suffix = ''
+            , spa = function(txt) {
+                txt = txt.encode();
+                fn instanceof Function && (txt = fn.call(txt, suffix));
+                return '<span class="'+suffix+'">' + txt + '</span>';
             }
-            suffix = suffix.join(' ');
+            
+            for (i = 0; i < arguments.length; i++) {
+                if (typeof arguments[i] === 'string') {
+                    suffix += ' cpx-'+arguments[i];
+                }
+            }
+            suffix = suffix.substr(1);
+            
             this.wrapped = [];
             tmp.length > 1 && (this.row = this.row - tmp.length + 1);
             i = -1;
@@ -1845,6 +1848,9 @@ window.CodePrinter = (function($) {
             }
             this.wrapped[i] = this.append(tmp[i] ? spa(tmp[i]) : '');
             return this.reset();
+        },
+        applyWrap: function(array) {
+            return this.wrap.apply(this, array);
         },
         unwrap: function() {
             if (this.wrapped.length) {
