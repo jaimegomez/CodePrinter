@@ -18,10 +18,10 @@
 .cps-sublime .cpx-operator { color:#FF007F; }
 .cps-sublime .cpx-keyword { color:#FF007F; }
 .cps-sublime .cpx-control { color:#FF007F; }
-.cps-sublime .cpx-variable { color:#FFFFFF; font-style:italic; }
+.cps-sublime .cpx-variable { color:#FFFFFF; }
 .cps-sublime .cpx-boolean { color:#888DFF; }
 .cps-sublime .cpx-empty-value { color:#888DFF; }
-.cps-sublime .cpx-special { color:#52E3F6; font-style:italic; }
+.cps-sublime .cpx-special { color:#52E3F6; }
 .cps-sublime .cpx-numeric { color:#C48CFF; }
 .cps-sublime .cpx-hex { color:#888DFF; }
 .cps-sublime .cpx-fname { color:#B2DA16; }
@@ -31,3 +31,6 @@
 .cps-sublime .cpx-phptag { color:#FFFFFF; }
 .cps-sublime .cpx-string { color:#E0D670; }
 .cps-sublime .cpx-comment { color:#75705D; }
+
+.cps-sublime .cpx-variable,
+.cps-sublime .cpx-special { font-style:italic; }
