@@ -499,6 +499,7 @@ window.CodePrinter = (function($) {
                 calculateCharDimensions(this);
                 this.screen.fix();
                 this.caret.refresh();
+                this.finder && this.finder.searched && this.finder.reload();
             }
             return this;
         },
