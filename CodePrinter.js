@@ -548,6 +548,32 @@ window.CodePrinter = (function($) {
         textNearCursor: function(i) {
             return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
         },
+        searchLeft: function(pattern, line, column) {
+            var i = -1, dl;
+            pattern = pattern instanceof RegExp ? pattern : new RegExp('\\b'+pattern+'\\b.*$');
+            line = Math.max(0, Math.min(line, this.data.lines - 1));
+            while ((dl = this.data.getLine(line--)) && (i = dl.text.replace(/\t/g, cp.tabString()).substring(0, column).search(pattern)) === -1) {
+                column = Infinity;
+            }
+            return [line + 1, i];
+        },
+        searchRight: function(pattern, line, column) {
+            var i = -1, dl;
+            pattern = pattern instanceof RegExp ? pattern : new RegExp('\\b'+pattern+'\\b');
+            line = Math.max(0, Math.min(line, this.data.lines - 1));
+            while ((dl = this.data.getLine(line++)) && (i = dl.text.replace(/\t/g, cp.tabString()).substr(column).search(pattern)) === -1) {
+                column = 0;
+            }
+            return [line - 1, i + column];
+        },
+        substring: function(from, to) {
+            var str = '', tS = this.tabString();
+            while (from[0] < to[0]) {
+                str += this.data.getLine(from[0]++).text.replace(/\t/g, tS).substr(from[1]) + '\n';
+                from[1] = 0;
+            }
+            return str += this.data.getLine(to[0]).text.replace(/\t/g, tS).substring(from[1], to[1]);
+        },
         insertText: function(text, mx) {
             var pos, s = text.split(eol)
             , bf = this.caret.textBefore()
