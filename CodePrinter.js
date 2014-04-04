@@ -1086,10 +1086,10 @@ window.CodePrinter = (function($) {
                 return this;
             },
             textBefore: function() {
-                return before.replaceAll('\t', cp.tabString());
+                return before.replace(/\t/g, cp.tabString());
             },
             textAfter: function() {
-                return after.replaceAll('\t', cp.tabString());
+                return after.replace(/\t/g, cp.tabString());
             },
             textAtCurrentLine: function(b) {
                 return b ? before + after : this.textBefore() + this.textAfter();
@@ -1123,9 +1123,14 @@ window.CodePrinter = (function($) {
                 
                 if (cp.options.tracking) {
                     for (var s in this.tracking) {
-                        var a = before.endsWith(s), b = after.startsWith(s);
-                        if (a || b) {
-                            var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
+                        var a, b, len = s.length, i = 0;
+                        do {
+                            a = len == i || before.endsWith(s.substring(0, len - i));
+                            b = after.startsWith(s.substring(len - i, len));
+                        } while ((!a || !b) && ++i <= len);
+                        
+                        if (a && b) {
+                            var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i });
                             if (!r) {
                                 break;
                             }
@@ -2458,7 +2463,7 @@ window.CodePrinter = (function($) {
                     ch == key ? c++ : ch == sec && c--;
                     if (!c) {
                         var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
-                            pos0 = getPositionOf(cp, details.line, details.column-1),
+                            pos0 = getPositionOf(cp, details.line, details.columnStart),
                             pos1 = getPositionOf(cp, line, column-1),
                             span0 = createSpan(key, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
                             span1 = createSpan(ch, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
@@ -2479,7 +2484,7 @@ window.CodePrinter = (function($) {
                     if (!c) {
                         var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
                             pos0 = getPositionOf(cp, line, column-1),
-                            pos1 = getPositionOf(cp, details.line, details.column-1),
+                            pos1 = getPositionOf(cp, details.line, details.columnStart),
                             span0 = createSpan(ch, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
                             span1 = createSpan(key, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
                         
@@ -2575,8 +2580,7 @@ window.CodePrinter = (function($) {
                 window.one('mouseup', function(e) {
                     !self.selection.isset() && self.selection.clear();
                     window.off('mousemove', fn);
-                    self.removeOverlays();
-                    self.caret.activate().position(l, c);
+                    self.caret.activate();
                     self.sizes.bounds = moveevent = null;
                     document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
                     return self.isMouseDown = e.cancel();
