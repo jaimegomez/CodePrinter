@@ -780,6 +780,15 @@ window.CodePrinter = (function($) {
             this.selection.clear();
             this.selectLine(this.caret.line());
         },
+        createHighlightOverlay: function(/* arrays, ... */) {
+            var overlay = new Overlay(cp, 'cp-highlight-overlay', true);
+            for (var i = 0; i < arguments.length; i++) {
+                var pos = getPositionOf(cp, arguments[i][0], arguments[i][1]);
+                overlay.node.append(createSpan(arguments[i][2], 'cp-highlight', pos.y, pos.x, arguments[i][2].length * this.sizes.charWidth, this.sizes.lineHeight));
+            }
+            overlay.reveal();
+            return this;
+        },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
             this.keydownMap.extend(arg);
