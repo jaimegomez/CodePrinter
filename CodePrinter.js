@@ -2109,33 +2109,18 @@ window.CodePrinter = (function($) {
                 l = s.end.line;
                 
                 if (e.shiftKey) {
-                    var dl = this.data.getLine(i);
-                    if (dl.text.indexOf(t) === 0) {
-                        dl.setText(dl.text.substr(w));
+                    if (this.data.getLine(i).text.indexOf('\t') === 0) {
                         s.start.column -= w;
-                        this.caret.moveX(-w);
                     }
-                    if (l - i++) {
-                        for (; i < l; i++) {
-                            this.data.getLine(i).lbreak(t);
-                        }
-                        dl = this.data.getLine(i);
-                        if (dl.text.indexOf(t) === 0) {
-                            dl.setText(dl.text.substr(w));
-                            s.end.column -= w;
-                        }
-                    }
+                    do this.decreaseIndentAtLine(i); while (++i <= l);
                 } else {
-                    for (; i <= l; i++) {
-                        this.data.getLine(i).prepend(t);
-                    }
                     s.start.column += w;
                     s.end.column += w;
-                    this.caret.moveX(w);
+                    do this.increaseIndentAtLine(i); while (++i <= l);
                 }
                 this.showSelection();
             } else {
-                !e.ctrlKey && (e.shiftKey ? this.removeBeforeCursor(this.tabString()) : this.insertText(this.tabString()));
+                !e.ctrlKey && (e.shiftKey ? this.caret.setTextBefore(this.caret.textBefore().lbreak(this.tabString())) : this.insertText(this.tabString()));
             }
             return e.cancel();
         },
