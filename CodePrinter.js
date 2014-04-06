@@ -537,6 +537,22 @@ window.CodePrinter = (function($) {
             }
             return 0;
         },
+        increaseIndentAtLine: function(line) {
+            var dl = this.data.getLine(line);
+            if (dl) {
+                dl.text = '\t' + dl.text;
+                this.parse(line, dl, true);
+                this.caret.line() == line && this.caret.moveX(this.options.tabWidth);
+            }
+        },
+        decreaseIndentAtLine: function(line) {
+            var dl = this.data.getLine(line);
+            if (dl && dl.text.indexOf('\t') === 0) {
+                dl.text = dl.text.substr(1);
+                this.parse(line, dl, true);
+                this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
+            }
+        },
         textBeforeCursor: function(i) {
             var bf = this.caret.textBefore();
             return i > 0 ? bf.slice(-i) : bf;
