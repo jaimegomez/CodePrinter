@@ -590,6 +590,31 @@ window.CodePrinter = (function($) {
             }
             return str += this.data.getLine(to[0]).text.replace(/\t/g, tS).substring(from[1], to[1]);
         },
+        isIgnoredArea: function(ignore, line, col) {
+            if (ignore && ignore.length) {
+                var i = 0, cur, el = pre.cloneNode()
+                , dl = this.data.getLine(line);
+                if (dl.parsed) {
+                    pre.innerHTML = dl.parsed;
+                    if (pre.childNodes.length) {
+                        do {
+                            cur = pre.childNodes[i];
+                            col -= cur.textContent.length;
+                        } while (col > 0 && ++i < pre.childNodes.length);
+                        
+                        if (col <= 0) {
+                            if (cur.nodeType === 3) {
+                                return false;
+                            } else {
+                                var classes = cur.className.replaceAll('cpx-', '').split(' ');
+                                return classes.diff(ignore).length !== classes.length;
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        },
         insertText: function(text, mx) {
             var pos, s = text.split(eol)
             , bf = this.caret.textBefore()
