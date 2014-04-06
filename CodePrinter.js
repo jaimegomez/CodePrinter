@@ -564,20 +564,20 @@ window.CodePrinter = (function($) {
         textNearCursor: function(i) {
             return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
         },
-        searchLeft: function(pattern, line, column) {
-            var i = -1, dl;
-            pattern = pattern instanceof RegExp ? pattern : new RegExp('\\b'+pattern+'\\b.*$');
+        searchLeft: function(pattern, line, column, ignore) {
+            var i = -1, dl, tS = this.tabString();
+            pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b(?!\\b'+pattern+'\\b).*$' : pattern.escape()+'(?!.*'+pattern.escape()+').*$');
             line = Math.max(0, Math.min(line, this.data.lines - 1));
-            while ((dl = this.data.getLine(line--)) && (i = dl.text.replace(/\t/g, cp.tabString()).substring(0, column).search(pattern)) === -1) {
+            while ((dl = this.data.getLine(line--)) && ((i = dl.text.replace(/\t/g, tS).substring(0, column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line+1, i))) {
                 column = Infinity;
             }
             return [line + 1, i];
         },
-        searchRight: function(pattern, line, column) {
-            var i = -1, dl;
-            pattern = pattern instanceof RegExp ? pattern : new RegExp('\\b'+pattern+'\\b');
+        searchRight: function(pattern, line, column, ignore) {
+            var i = -1, dl, tS = this.tabString();
+            pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b' : pattern.escape());
             line = Math.max(0, Math.min(line, this.data.lines - 1));
-            while ((dl = this.data.getLine(line++)) && (i = dl.text.replace(/\t/g, cp.tabString()).substr(column).search(pattern)) === -1) {
+            while ((dl = this.data.getLine(line++)) && ((i = dl.text.replace(/\t/g, tS).substr(column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line-1, i + column))) {
                 column = 0;
             }
             return [line - 1, i + column];
