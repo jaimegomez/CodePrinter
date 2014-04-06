@@ -2457,43 +2457,69 @@ window.CodePrinter = (function($) {
     tracking = function() {};
     tracking.prototype = {
         '(': function(cp, key, details) {
-            if (cp.options.highlightBrackets) {
-                var c = details.isAfter, sec = key === '(' ? ')' : String.fromCharCode(key.charCodeAt(0)+2);
+            var ignore;
+            if (cp.options.highlightBrackets && !cp.isIgnoredArea(ignore = ['string', 'comment', 'regexp'], details.line, details.columnStart)) {
+                var sec = key === '(' ? ')' : String.fromCharCode(key.charCodeAt(0)+2)
+                , counter = 1
+                , line = details.line
+                , col = details.columnEnd;
                 
-                this.eachCharacter(function(ch, line, column, cp) {
-                    ch == key ? c++ : ch == sec && c--;
-                    if (!c) {
-                        var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
-                            pos0 = getPositionOf(cp, details.line, details.columnStart),
-                            pos1 = getPositionOf(cp, line, column-1),
-                            span0 = createSpan(key, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
-                            span1 = createSpan(ch, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
-                        
-                        overlay.node.append(span0, span1);
-                        overlay.reveal();
-                        return false;
+                do {
+                    var a = cp.searchRight(sec, line, col, ignore)
+                    , b = cp.searchRight(key, line, col, ignore);
+                    
+                    if (a[0] >= 0 && a[1] >= 0) {
+                        if (b[0] >= 0 && b[1] >= 0 && (b[0] < a[0] || b[0] == a[0] && b[1] < a[1])) {
+                            ++counter;
+                            a = b;
+                        } else {
+                            --counter;
+                        }
+                        line = a[0];
+                        col = a[1] + 1;
+                    } else {
+                        counter = 0;
                     }
-                });
+                } while (counter != 0);
+                
+                cp.createHighlightOverlay(
+                    [details.line, details.columnStart, key],
+                    [line, col - 1, sec]
+                );
+                return false;
             }
         },
         ')': function(cp, key, details) {
-            if (cp.options.highlightBrackets) {
-                var c = details.isBefore, sec = key === ')' ? '(' : String.fromCharCode(key.charCodeAt(0)-2);
+            var ignore;
+            if (cp.options.highlightBrackets && !cp.isIgnoredArea(ignore = ['string', 'comment', 'regexp'], details.line, details.columnEnd)) {
+                var sec = key === ')' ? '(' : String.fromCharCode(key.charCodeAt(0)-2)
+                , counter = 1
+                , line = details.line
+                , col = details.columnStart;
                 
-                this.eachCharacter(function(ch, line, column, cp) {
-                    ch == key ? c++ : ch == sec && c--;
-                    if (!c) {
-                        var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
-                            pos0 = getPositionOf(cp, line, column-1),
-                            pos1 = getPositionOf(cp, details.line, details.columnStart),
-                            span0 = createSpan(ch, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
-                            span1 = createSpan(key, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
-                        
-                        overlay.node.append(span0, span1);
-                        overlay.reveal();
-                        return false;
+                do {
+                    var a = cp.searchLeft(sec, line, col, ignore)
+                    , b = cp.searchLeft(key, line, col, ignore);
+                    
+                    if (a[0] >= 0 && a[1] >= 0) {
+                        if (b[0] >= 0 && b[1] >= 0 && (b[0] > a[0] || b[0] == a[0] && b[1] > a[1])) {
+                            ++counter;
+                            a = b;
+                        } else {
+                            --counter;
+                        }
+                        line = a[0];
+                        col = a[1];
+                    } else {
+                        counter = 0;
                     }
-                }, true);
+                } while (counter != 0);
+                
+                cp.createHighlightOverlay(
+                    [line, col, sec],
+                    [details.line, details.columnStart, key]
+                );
+                return false;
             }
         }
     };
