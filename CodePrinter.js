@@ -1171,7 +1171,7 @@ window.CodePrinter = (function($) {
                         } while ((!a || !b) && ++i <= len);
                         
                         if (a && b) {
-                            var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i });
+                            var r = this.tracking[s].call(this, cp, s, { line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i });
                             if (!r) {
                                 break;
                             }
@@ -1245,7 +1245,7 @@ window.CodePrinter = (function($) {
                     while (r !== false && line + n < cp.data.lines) {
                         var t = cp.getTextAtLine(line + n);
                         while (r !== false && i < t.length) {
-                            r = f.call(this, t[i], line + n, ++i, cp);
+                            r = f.call(this, t[i], line + n, i++, cp);
                         }
                         i = 0;
                         n++;
