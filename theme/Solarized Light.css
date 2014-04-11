@@ -19,7 +19,7 @@
 .cps-solarized-light .cpx-empty-value { color:#B58900; font-weight:bold; }
 .cps-solarized-light .cpx-special { color:#D30102; font-style:italic; }
 .cps-solarized-light .cpx-numeric { color:#2AA198; }
-.cps-solarized-light .cpx-fname { color:#657A81; }
+.cps-solarized-light .cpx-function { color:#657A81; }
 .cps-solarized-light .cpx-property { color:#333333; }
 .cps-solarized-light .cpx-regexp { color:#2AA198; }
 .cps-solarized-light .cpx-escaped { color:#D30102; }
