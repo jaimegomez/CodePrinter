@@ -3,6 +3,7 @@
 CodePrinter.defineMode('HTML', {
     regexp: /<!--|<!\w+|<\/?|&[^;]+;/,
     regexp2: /[a-zA-Z\-]+|=|"|'|<|\/?\s*>/,
+    comment: '<!--[text content]-->',
     
     fn: function(stream) {
         var found;
@@ -29,8 +30,8 @@ CodePrinter.defineMode('HTML', {
                             stream.wrap('property', found);
                         } else if (found === '=') {
                             stream.wrap('operator', 'equal');
-                        } else if (this.chars.hasOwnProperty(found)) {
-                            stream.eat(found, this.chars[found].end).applyWrap(this.chars[found].cls);
+                        } else if (this.expressions.hasOwnProperty(found)) {
+                            stream.eat(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
                         } else if (found[found.length-1] === '>') {
                             stream.wrap('broket', 'close');
                             break;
@@ -79,6 +80,5 @@ CodePrinter.defineMode('HTML', {
             }
             return false;
         }
-    },
-    comment: '<!--[text content]-->'
+    }
 });

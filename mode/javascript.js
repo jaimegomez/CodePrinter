@@ -4,8 +4,8 @@ CodePrinter.defineMode('JavaScript', {
     controls: ['if','else','elseif','for','switch','while','do'],
     keywords: ['var','return','new','continue','break','instanceof','typeof','case','let','try','catch','debugger','default','delete','finally','in','throw','void','with'],
     specials: ['this','window','document','console','arguments','function','Object','Array','String','Number','Function','Math','JSON','RegExp','Date','Node','HTMLElement','Boolean','$','jQuery','Selector','Error','TypeError'],
-    
     regexp: /\/\*|\/\/|\/(.*)\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
+    comment: '//',
     
     alloc: function() {
         return {
@@ -28,17 +28,17 @@ CodePrinter.defineMode('JavaScript', {
                 }
             } else if (/^[\w\-\$]+/i.test(found)) {
                 if (found == 'true' || found == 'false') {
-                    stream.wrap('boolean', found);
+                    stream.wrap('boolean');
                 } else if (found == 'null' || found == 'undefined') {
-                    stream.wrap('empty-value', found);
+                    stream.wrap('empty-value');
                 } else if (this.controls.indexOf(found) !== -1) {
-                    stream.wrap('control', found);
-                } else if (this.specials.indexOf(stream.found) !== -1) {
-                    stream.wrap('special', stream.found);
+                    stream.wrap('control');
+                } else if (this.specials.indexOf(found) !== -1) {
+                    stream.wrap('special');
                 } else if (this.keywords.indexOf(found) !== -1) {
-                    stream.wrap('keyword', found);
+                    stream.wrap('keyword');
                 } else if (stream.isAfter('(')) {
-                    stream.wrap('fname');
+                    stream.wrap('function');
                 } else if (stream.isBefore('.')) {
                     if (memory.properties.indexOf(found) !== -1) {
                         stream.wrap('property');
@@ -55,20 +55,18 @@ CodePrinter.defineMode('JavaScript', {
                 } else if (this.brackets.hasOwnProperty(found)) {
                     stream.applyWrap(this.brackets[found]);
                 } else if (found === '"' || found === "'") {
-                    stream.eat(found, this.chars[found].end, function() {
+                    stream.eat(found, this.expressions[found].ending, function() {
                         return this.wrap('invalid').reset();
-                    }).applyWrap(this.chars[found].cls);
+                    }).applyWrap(this.expressions[found].classes);
                 }
-            } else if (this.chars.hasOwnProperty(found)) {
-                stream.eatWhile(found, this.chars[found].end).applyWrap(this.chars[found].cls);
+            } else if (this.expressions.hasOwnProperty(found)) {
+                stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
             } else if (found[0] == '/') {
                 stream.wrap('regexp', function(cls) {
                     return this.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="'+cls+'">');
                 });
             }
         }
-        
         return stream;
-    },
-    comment: '//'
+    }
 });

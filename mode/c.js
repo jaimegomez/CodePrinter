@@ -6,7 +6,8 @@ CodePrinter.defineMode('C', {
 	types: ['void','int','double','short','long','char','float','bool','unsigned','signed','enum','struct','class','char16_t','char32_t','wchar_t'],
     specials: ['cout','cin','endl','string','vector','ostream','istream','ofstream','ifstream'],
 	regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
-	
+	comment: '//',
+    
 	fn: function(stream) {
 		var found;
 		
@@ -21,26 +22,25 @@ CodePrinter.defineMode('C', {
                         stream.wrap('numeric', 'float');
                     }
                 }
-            } else if (/^[a-zA-Z0-9\_]+$/.test(found)) {
+            } else if (/^\w+$/.test(found)) {
                 if (found == 'true' || found == 'false') {
-                    stream.wrap('boolean', found);
+                    stream.wrap('boolean');
                 } else if (this.controls.indexOf(found) !== -1) {
-					stream.wrap('control', found);
+					stream.wrap('control');
 				} else if (this.types.indexOf(found) !== -1) {
-                    stream.wrap('keyword', 'type', found);
+                    stream.wrap('keyword', 'type');
                 } else if (this.specials.indexOf(found) !== -1) {
-                    stream.wrap('special', found);
+                    stream.wrap('special');
                 } else if (this.keywords.indexOf(found) !== -1) {
-					stream.wrap('keyword', found);
+					stream.wrap('keyword');
 				} else if (stream.isAfter('(')) {
-					stream.wrap('fname', 'fname-'+found);
+					stream.wrap('function');
 				} else {
 					stream.wrap('other');
 				}
             } else if (found[0] === '#') {
-				var fo = found.substr(1);
-				stream.wrap('special', 'directives', fo);
-				if (fo === 'include') {
+				stream.wrap('special', 'directives');
+				if (found === '#include') {
 					stream.eat(stream.after()).wrap('string');
 				}
 			} else if (found.length == 1) {
@@ -51,20 +51,18 @@ CodePrinter.defineMode('C', {
                 } else if (this.brackets.hasOwnProperty(found)) {
                     stream.applyWrap(this.brackets[found]);
                 } else if (found === '"' || found === "'") {
-                    stream.eat(found, this.chars[found].end, function() {
+                    stream.eat(found, this.expressions[found].ending, function() {
                         return this.wrap('invalid').reset();
-                    }).applyWrap(this.chars[found].cls);
+                    }).applyWrap(this.expressions[found].classes);
                 } else {
                     stream.wrap('other');
                 }
-            } else if (this.chars.hasOwnProperty(found)) {
-				stream.eatWhile(found, this.chars[found].end).applyWrap(this.chars[found].cls);
+            } else if (this.expressions.hasOwnProperty(found)) {
+				stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
 			} else {
 				stream.wrap('other');
 			}
 		}
-		
 		return stream;
-	},
-    comment: '//'
+	}
 });

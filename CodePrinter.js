@@ -14,10 +14,6 @@ window.CodePrinter = (function($) {
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
     CodePrinter = function(element, options) {
-        if (!(this instanceof CodePrinter)) {
-            return new CodePrinter(element, options);
-        }
-        
         var self = this, sizes, data = '', id, pr, fn, T, s = 0;
         
         options = this.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
@@ -138,9 +134,10 @@ window.CodePrinter = (function($) {
         });
         
         this.caret.on({
-            'text:changed': function(line) {
-                line == null && (line = this.line());
-                self.data.getLine(line).setText(this.textAtCurrentLine(true));
+            'text:changed': function(line, column) {
+                var dl = self.data.getLine(line);
+                dl.text = this.textAtCurrentLine(true);
+                self.parse(line, dl, true);
                 self.finder && self.finder.find();
             },
             'position:changed': function(x, y) {
@@ -784,6 +781,7 @@ window.CodePrinter = (function($) {
                 , ov = this.selection.overlay
                 , sel = this.getSelection();
                 
+                this.unselectLine();
                 this.input.value = sel;
                 this.input.setSelectionRange(0, sel.length);
                 sel = sel.split(eol);
@@ -822,9 +820,9 @@ window.CodePrinter = (function($) {
             this.selectLine(this.caret.line());
         },
         createHighlightOverlay: function(/* arrays, ... */) {
-            var overlay = new Overlay(cp, 'cp-highlight-overlay', true);
+            var overlay = new Overlay(this, 'cp-highlight-overlay', true);
             for (var i = 0; i < arguments.length; i++) {
-                var pos = getPositionOf(cp, arguments[i][0], arguments[i][1]);
+                var pos = getPositionOf(this, arguments[i][0], arguments[i][1]);
                 overlay.node.append(createSpan(arguments[i][2], 'cp-highlight', pos.y, pos.x, arguments[i][2].length * this.sizes.charWidth, this.sizes.lineHeight));
             }
             overlay.reveal();
@@ -1087,7 +1085,7 @@ window.CodePrinter = (function($) {
     };
     
     Caret = function(cp) {
-        var line = 0, column = 0, before = '', after = '', tmp;
+        var line = 0, column = 0, before = '', after = '', tmp, timeout;
         
         this.root = cp;
         
@@ -1098,7 +1096,7 @@ window.CodePrinter = (function($) {
                 str = str.replaceAll(cp.tabString(), '\t');
                 if (before !== str) {
                     before = str;
-                    this.emit('text:changed', line);
+                    this.emit('text:changed', line, column);
                     this.position(line, l);
                 }
                 return this;
@@ -1108,7 +1106,7 @@ window.CodePrinter = (function($) {
                 str = str.replaceAll(cp.tabString(), '\t');
                 if (after !== str) {
                     after = str;
-                    this.emit('text:changed', line);
+                    this.emit('text:changed', line, column);
                 }
                 return this;
             },
@@ -1121,7 +1119,7 @@ window.CodePrinter = (function($) {
                 if (before !== bf || after !== af) {
                     before = bf;
                     after = af;
-                    this.emit('text:changed', line);
+                    this.emit('text:changed', line, column);
                     this.position(line, l);
                 }
                 return this;
@@ -1139,6 +1137,7 @@ window.CodePrinter = (function($) {
                 return { line: line ? line + 1 : 1, column: this.column() + 1 };
             },
             position: function(l, c, t) {
+                timeout = clearTimeout(timeout);
                 typeof l !== 'number' && (l = line || 0);
                 l = Math.max(Math.min(l, cp.data.lines - 1), 0);
                 typeof t !== 'string' && (t = cp.getTextAtLine(l));
@@ -1171,10 +1170,8 @@ window.CodePrinter = (function($) {
                         } while ((!a || !b) && ++i <= len);
                         
                         if (a && b) {
-                            var r = this.tracking[s].call(this, cp, s, { line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i });
-                            if (!r) {
-                                break;
-                            }
+                            timeout = setTimeout($.invoke(this.tracking[s], this, [cp, s, { line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i }]), 40);
+                            break;
                         }
                     }
                 }
@@ -2047,18 +2044,12 @@ window.CodePrinter = (function($) {
         }
     };
     
-    CodePrinter.Mode = function() {
-        if (!(this instanceof CodePrinter.Mode)) {
-            return new CodePrinter.Mode();
-        }
-        this.keydownMap = {};
-        this.keypressMap = {};
-        this.onRemovedBefore = {'{':'}','(':')','[':']','"':'"',"'":"'"};
-        this.onRemovedAfter = {'}':'{',')':'(',']':'[','"':'"',"'":"'"};
-        return this;
-    };
-    
-    CodePrinter.Mode.prototype = {
+    var templateMode = {
+        keydownMap: {},
+        keypressMap: {},
+        onRemovedBefore: {'{':'}','(':')','[':']','"':'"',"'":"'"},
+        onRemovedAfter: {'}':'{',')':'(',']':'[','"':'"',"'":"'"},
+        comment: '//',
         brackets: {
             '{': ['bracket', 'bracket-curly', 'bracket-open'],
             '}': ['bracket', 'bracket-curly', 'bracket-close'],
@@ -2067,11 +2058,11 @@ window.CodePrinter = (function($) {
             '(': ['bracket', 'bracket-round', 'bracket-open'],
             ')': ['bracket', 'bracket-round', 'bracket-close']
         },
-        chars: { 
-            '//': { end: '\n', cls: ['comment', 'line-comment'] }, 
-            '/*': { end: '*/', cls: ['comment', 'multiline-comment'] },
-            "'": { end: /(^'|[^\\]')/, cls: ['string', 'single-quote'] },
-            '"': { end: /(^"|[^\\]")/, cls: ['string', 'double-quote'] }
+        expressions: {
+            '//': { ending: '\n', classes: ['comment', 'line-comment'] }, 
+            '/*': { ending: '*/', classes: ['comment', 'multiline-comment'] },
+            "'": { ending: /(^'|[^\\]')/, classes: ['string', 'single-quote'] },
+            '"': { ending: /(^"|[^\\]")/, classes: ['string', 'double-quote'] }
         },
         punctuations: {
             '.': 'dot',
@@ -2088,12 +2079,17 @@ window.CodePrinter = (function($) {
             '+': 'plus',
             '*': 'multiply',
             '/': 'divider',
+            '^': 'power',
             '%': 'percentage',
             '<': 'lower',
             '>': 'greater',
             '&': 'ampersand',
             '|': 'verticalbar'
-        },
+        }
+    }
+    
+    CodePrinter.Mode = function(name) { this.name = name; };
+    CodePrinter.Mode.prototype = {
         alloc: function() {
             return {};
         },
@@ -2230,7 +2226,7 @@ window.CodePrinter = (function($) {
             }
         }
     };
-    keypressMap.prototype[39] = keypressMap.prototype[34];
+    keypressMap.prototype[192] = keypressMap.prototype[39] = keypressMap.prototype[34];
     keypressMap.prototype[91] = keypressMap.prototype[123] = keypressMap.prototype[40];
     keypressMap.prototype[93] = keypressMap.prototype[125] = keypressMap.prototype[41];
     
@@ -2568,7 +2564,8 @@ window.CodePrinter = (function($) {
         return $.scripts.require('CodePrinter.'+req.toLowerCase(), cb, del);
     };
     CodePrinter.defineMode = function(name, obj, req) {
-        var m = (new CodePrinter.Mode()).extend(obj, { name: name });
+        var m = $.extend(new CodePrinter.Mode(name), templateMode, obj);
+        obj.extension && m.extend(obj.extension);
         m.init instanceof Function && m.init();
         $.scripts.define('CodePrinter.'+name.toLowerCase(), m, req);
     };

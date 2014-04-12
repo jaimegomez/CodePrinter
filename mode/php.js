@@ -6,7 +6,8 @@ CodePrinter.defineMode('PHP', {
     specials: ['class','function','interface','trait','self','parent','super'],
     constants: ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__'],
 	regexp: /\$[\w\d\_]+|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b|\/\*|\/\/|\?>|<\?php|<\?=?|[^\w\s]/,
-	
+	comment: '//',
+    
 	fn: function(stream) {
 		var found;
         
@@ -26,17 +27,17 @@ CodePrinter.defineMode('PHP', {
             } else if (/^\w+/i.test(found)) {
                 found = found.toLowerCase();
             	if (found == 'true' || found == 'false') {
-            		stream.wrap('boolean', found);
+            		stream.wrap('boolean');
             	} else if (this.controls.indexOf(found) !== -1) {
-            		stream.wrap('control', found);
+            		stream.wrap('control');
 	            } else if (this.specials.indexOf(found) !== -1) {
-                    stream.wrap('special', found);
+                    stream.wrap('special');
                 } else if (this.keywords.indexOf(found) !== -1) {
-	            	stream.wrap('keyword', found);
+	            	stream.wrap('keyword');
 	            } else if (stream.isAfter('(')) {
-            		stream.wrap('fname', found);
+            		stream.wrap('function');
             	} else if (this.constants.indexOf(found) !== -1) {
-                    stream.wrap('const', found.replace(/_/g, ''));
+                    stream.wrap('const');
                 } else {
 	            	stream.wrap('word');
 	            }
@@ -46,19 +47,18 @@ CodePrinter.defineMode('PHP', {
                 } else if (this.brackets.hasOwnProperty(found)) {
                     stream.applyWrap(this.brackets[found]);
                 } else if (found == '"' || found == "'") {
-                    stream.eatWhile(found, this.chars[found].end).applyWrap(this.chars[found].cls);
+                    stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
                 } else {
                     stream.wrap('punctuation', this.punctuations[found] || 'other');
                 }
             } else if (['?>','<?php','<?=','<?'].indexOf(found) !== -1) {
                 stream.wrap('phptag', found == '?>' ? 'closetag' : 'opentag');
-            } else if (this.chars.hasOwnProperty(found)) {
-                stream.eat(found, this.chars[found].end).applyWrap(this.chars[found].cls);
+            } else if (this.expressions.hasOwnProperty(found)) {
+                stream.eat(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
             } else {
             	stream.wrap('other');
             }
 		}
 		return stream;
-	},
-    comment: '//'
+	}
 });

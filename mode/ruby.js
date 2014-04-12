@@ -94,6 +94,7 @@ CodePrinter.defineMode('Ruby', (function() {
         keywords: ['public','private','protected','alias','and','break','class','defined?','ensure','in','loop','module','next','nil','not','or','redo','rescue','retry','return','self','super','when','yield'],
         specials: ['puts','gets','print','proc','lambda','eval','fail'],
         regexp: /\w+\??|=begin|[^\w\s\/]|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\/(.*)\/[gimy]{0,4}/,
+        comment: '#',
         
         fn: function(stream) {
             var found;
@@ -112,19 +113,19 @@ CodePrinter.defineMode('Ruby', (function() {
                 } else if (/^\w+/.test(found)) {
                     found = found.toLowerCase();
                     if (found == 'true' || found == 'false') {
-                        stream.wrap('boolean', found);
+                        stream.wrap('boolean');
                     } else if (this.controls.indexOf(found) !== -1) {
-                        stream.wrap('control', found);
+                        stream.wrap('control');
                     } else if (this.keywords.indexOf(found) !== -1) {
-                        stream.wrap('keyword', found);
+                        stream.wrap('keyword');
                     } else if (this.specials.indexOf(found) !== -1) {
-                        stream.wrap('special', found);
+                        stream.wrap('special');
                     } else if (stream.isBefore('def') || stream.isAfter('(')) {
-                        stream.wrap('fname', found);
+                        stream.wrap('function');
                     } else if (stream.isBefore('.') || stream.isBefore(':')) {
-                        stream.wrap('property', found);
+                        stream.wrap('property');
                     } else {
-                        stream.wrap('word', found);
+                        stream.wrap('word');
                     }
                 } else if (found.length == 1) {
                     if (this.punctuations.hasOwnProperty(found)) {
@@ -134,9 +135,9 @@ CodePrinter.defineMode('Ruby', (function() {
                     } else if (this.brackets.hasOwnProperty(found)) {
                         stream.applyWrap(this.brackets[found]);
                     } else if (found === '"' || found === "'") {
-                        stream.eat(found, this.chars[found].end, function() {
+                        stream.eat(found, this.expressions[found].ending, function() {
                             return this.wrap('invalid').reset();
-                        }).applyWrap(this.chars[found].cls);
+                        }).applyWrap(this.expressions[found].classes);
                     } else if (found == '#') {
                         stream.eatWhile(found, '\n').wrap('comment', 'line-comment');
                     } else {
@@ -158,7 +159,6 @@ CodePrinter.defineMode('Ruby', (function() {
             68: kpf,
             100: kpf
         },
-        tracking: tracking,
-        comment: '#'
-    };
+        tracking: tracking
+    }
 })());

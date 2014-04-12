@@ -5,6 +5,7 @@ CodePrinter.defineMode('CSS', {
     regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@\w+|[^\w\s]/,
 	values: /\/\*|\;|,|#[0-9a-fA-F]+|\-?\d+[a-zA-Z%]*|\-?\d*\.\d+[a-zA-Z%]*|[@!]?[a-zA-Z\-]+\b|'|"/,
     units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
+    comment: '/*[text content]*/',
     
     fn: function(stream) {
         var found;
@@ -25,7 +26,7 @@ CodePrinter.defineMode('CSS', {
             } else if (this.operators.hasOwnProperty(found)) {
                 stream.wrap(this.operators[found]);
             } else if (found === '/*') {
-                stream.eatWhile(found, this.chars[found].end).applyWrap(this.chars[found].cls);
+                stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
             } else {
                 stream.skip();
             }
@@ -66,10 +67,10 @@ CodePrinter.defineMode('CSS', {
                         }
                     } else if (this.punctuations.hasOwnProperty(found)) {
                         stream.wrap('punctuation', this.punctuations[found]);
-                    } else if (this.chars.hasOwnProperty(found)) {
-                        stream.eat(found, this.chars[found].end).applyWrap(this.chars[found].cls);
+                    } else if (this.expressions.hasOwnProperty(found)) {
+                        stream.eat(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
                     } else if (stream.isAfter('(')) {
-                        stream.wrap('fname', 'fname-'+found);
+                        stream.wrap('function');
                     } else {
                         stream.wrap('escaped','value');
                     }
@@ -84,19 +85,20 @@ CodePrinter.defineMode('CSS', {
         '*': function(stream) { stream.wrap('keyword', 'css-tag'); },
         '@': function(stream, found) { found === '@media' ? stream.wrap('control', 'control-media') : stream.wrap('variable', 'variable-'+found.substr(1)); }
     },
-    keypressMap: {
-        58: function() {
-            this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.insertText(':;', -1);
-        },
-        59: function() {
-            if (this.textAfterCursor(1) === ';') {
-                this.caret.moveX(1);
-                return false;
+    extension: {
+        keypressMap: {
+            58: function() {
+                this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.insertText(':;', -1);
+            },
+            59: function() {
+                if (this.textAfterCursor(1) === ';') {
+                    this.caret.moveX(1);
+                    return false;
+                }
+                this.insertText(';');
             }
-            this.insertText(';');
-        }
-    },
-    onRemovedBefore: { ':': ';' },
-    onRemovedAfter: { ';': ':' },
-    comment: '/*[text content]*/'
+        },
+        onRemovedBefore: { ':': ';' },
+        onRemovedAfter: { ';': ':' }
+    }
 });

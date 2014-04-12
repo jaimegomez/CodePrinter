@@ -5,6 +5,7 @@ CodePrinter.defineMode('Perl', {
     keywords: ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','m','ne','no','or','package','q','qq','qr','qw','qx','s','sub','tr','xor','y'],
     specials: ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','print','return'],
     regexp: /[\$\@\&]?\w+|[^\w\s\/]|\b[\d\_]*\.?[\d\_]+\b|\b0x[\da-fA-F\_]+\b/,
+    comment: '#',
     
     fn: function(stream) {
         var found;
@@ -31,7 +32,7 @@ CodePrinter.defineMode('Perl', {
                 } else if (this.specials.indexOf(found) !== -1) {
                     stream.wrap('special');
                 } else if (stream.isBefore('sub') || stream.isAfter('(')) {
-                    stream.wrap('fname');
+                    stream.wrap('function');
                 } else {
                     stream.wrap('word');
                 }
@@ -45,17 +46,16 @@ CodePrinter.defineMode('Perl', {
                 } else if (this.brackets.hasOwnProperty(found)) {
                     stream.applyWrap(this.brackets[found]);
                 } else if (found === '"' || found === "'") {
-                    stream.eat(found, this.chars[found].end, function() {
+                    stream.eat(found, this.expressions[found].ending, function() {
                         return this.wrap('invalid').reset();
-                    }).applyWrap(this.chars[found].cls);
+                    }).applyWrap(this.expressions[found].classes);
                 }
             } else if (found[0] == '$' || found[0] == '@') {
                 stream.wrap('variable');
             } else if (found[0] == '&') {
-                stream.wrap('fname');
+                stream.wrap('function');
             }
         }
         return stream;
-    },
-    comment: '#'
+    }
 });
