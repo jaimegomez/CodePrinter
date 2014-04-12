@@ -2555,7 +2555,8 @@ window.CodePrinter = (function($) {
         'h': 'c',
         'cpp': 'c',
         'rb': 'ruby',
-        'pl': 'perl'
+        'pl': 'perl',
+        'sh': 'bash'
     };
     
     eol = $.browser.windows ? '\r\n' : '\n';
