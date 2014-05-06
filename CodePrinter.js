@@ -34,6 +34,7 @@ loader(function($) {
         sizes = this.sizes = { lineHeight: options.lineHeight };
         this.activeLine = {};
         this.overlays = [];
+        this.snippets = [];
         this.selection.overlay = new Overlay(this, 'cp-selection-overlay', false);
         this.history = new history(options.historyStackSize, options.historyDelay);
         this.setTheme(options.theme);
@@ -189,6 +190,7 @@ loader(function($) {
             
             options.fontSize != 11 && options.fontSize > 0 && this.setFontSize(options.fontSize);
             options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
+            options.snippets && self.snippets.push.apply(self.snippets, options.snippets);
             self.setWidth(options.width);
             self.setHeight(options.height);
             
@@ -251,6 +253,7 @@ loader(function($) {
         indentNewLines: true,
         insertClosingBrackets: true,
         insertClosingQuotes: true,
+        tabTriggers: true,
         shortcuts: true,
         showFinder: false,
         searchOnTheFly: false
@@ -832,6 +835,32 @@ loader(function($) {
             }
             overlay.reveal();
             return this;
+        },
+        findSnippet: function(trigger) {
+            var result, fn = function(snippets, simple) {
+                if (snippets) {
+                    var b, i = -1;
+                    if (simple) {
+                        while ((b = ++i < snippets.length) && !snippets[i].startsWith(trigger));
+                        if (b) return { trigger: snippets[i], content: snippets[i] }
+                    } else {
+                        while ((b = ++i < snippets.length) && !snippets[i].trigger.startsWith(trigger));
+                        if (b) return snippets[i];
+                    }
+                }
+            }
+            if (this.parser) {
+                result = fn(this.parser.snippets) || fn(this.parser.keywords, true) || fn(this.parser.controls, true) || fn(this.parser.specials, true) || fn(this.memory.importClasses, true);
+            }
+            return result || fn(this.snippets);
+        },
+        registerSnippet: function() {
+            for (var i = 0; i < arguments.length; i++) {
+                var snippet = arguments[i];
+                if (snippet.content && snippet.trigger) {
+                    this.snippets.push(snippet);
+                }
+            }
         },
         registerKeydown: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
@@ -2146,7 +2175,16 @@ loader(function($) {
                 }
                 this.showSelection();
             } else {
-                !e.ctrlKey && (e.shiftKey ? this.caret.setTextBefore(this.caret.textBefore().lbreak(this.tabString())) : this.insertText(this.tabString()));
+                var bf = this.caret.textBefore();
+                if (this.options.tabTriggers) {
+                    var match = bf.match(/\b\w+$/), snippet = match && this.findSnippet(match[0]);
+                    if (snippet) {
+                        this.removeBeforeCursor(match[0]);
+                        this.insertText(snippet.content, snippet.cursorMove);
+                        return e.cancel();
+                    }
+                }
+                !e.ctrlKey && (e.shiftKey ? this.caret.setTextBefore(bf.lbreak(this.tabString())) : this.insertText(this.tabString()));
             }
             return e.cancel();
         },
