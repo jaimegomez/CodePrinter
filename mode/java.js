@@ -72,5 +72,17 @@ CodePrinter.defineMode('Java', {
             }
         }
         return stream;
-    }
+    },
+    snippets: [
+        {
+            trigger: 'print',
+            content: 'System.out.print();',
+            cursorMove: -2
+        },
+        {
+            trigger: 'println',
+            content: 'System.out.println();',
+            cursorMove: -2
+        }
+    ]
 });

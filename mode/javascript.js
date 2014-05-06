@@ -68,5 +68,12 @@ CodePrinter.defineMode('JavaScript', {
             }
         }
         return stream;
-    }
+    },
+    snippets: [
+        {
+            trigger: 'log',
+            content: 'console.log();',
+            cursorMove: -2
+        }
+    ]
 });

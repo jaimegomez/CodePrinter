@@ -64,5 +64,15 @@ CodePrinter.defineMode('C', {
 			}
 		}
 		return stream;
-	}
+	},
+    snippets: [
+        {
+            trigger: 'out',
+            content: 'cout <<'
+        },
+        {
+            trigger: 'in',
+            content: 'cin >>'
+        }
+    ]
 });
