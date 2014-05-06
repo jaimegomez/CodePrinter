@@ -173,6 +173,9 @@ loader(function($) {
             };
         };
         this.on({
+            'changed': function(e) {
+                this.history.pushChanges(e.line, e.column, e.text, e.append);
+            },
             'removed.before': fn(true),
             'removed.after': fn(false)
         });
@@ -262,6 +265,7 @@ loader(function($) {
         isFullscreen: false,
         init: function(source) {
             this.data = new Data();
+            this.emit('changed', { line: 0, column: 0, text: source, append: true });
             source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
@@ -273,7 +277,7 @@ loader(function($) {
             }
             this.screen.fill();
             
-            self.data.on({
+            this.data.on({
                 'text:changed': function(dl) {
                     self.parseByDataLine(dl);
                     self.caret.refresh();
@@ -285,7 +289,7 @@ loader(function($) {
                 'line:removed': fn
             });
             
-            self.history.on({
+            this.history.on({
                 undo: function() {
                     var a, i = arguments.length;
                     while (i--) {
@@ -619,7 +623,7 @@ loader(function($) {
             , af = this.caret.textAfter()
             , line = this.caret.line();
             
-            text.length && this.history.pushChanges(line, bf.length, text, true);
+            text.length && this.emit('changed', { line: line, column: bf.length, text: text, append: true });
             this.caret.setTextBefore(bf + s[0]);
             
             if (s.length > 1) {
@@ -695,7 +699,7 @@ loader(function($) {
                 r = bf.substr(bf.length - arg) + r;
             }
             if (r) {
-                this.history.pushChanges(this.caret.line(), this.caret.column(), r, false);
+                this.emit('changed', { line: this.caret.line(), column: this.caret.column(), text: r, append: false });
                 this.emit('removed.before', r);
             }
         },
@@ -737,7 +741,7 @@ loader(function($) {
                 r = r + af.substring(0, arg);
             }
             if (r) {
-                this.history.pushChanges(this.caret.line(), this.caret.column(), r, false);
+                this.emit('changed', { line: this.caret.line(), column: this.caret.column(), text: r, append: false });
                 this.emit('removed.after', r);
             }
         },
@@ -799,7 +803,7 @@ loader(function($) {
         removeSelection: function() {
             this.selection.correct();
             if (this.isAllSelected()) {
-                this.history.pushChanges(0, 0, this.getValue(), false);
+                this.emit('changed', { line: 0, column: 0, text: this.getValue(), append: false });
                 this.init('');
                 this.caret.position(0, 0);
             } else {
