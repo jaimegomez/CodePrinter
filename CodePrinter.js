@@ -2113,8 +2113,8 @@ loader(function($) {
         expressions: {
             '//': { ending: '\n', classes: ['comment', 'line-comment'] }, 
             '/*': { ending: '*/', classes: ['comment', 'multiline-comment'] },
-            "'": { ending: /(^'|[^\\]')/, classes: ['string', 'single-quote'] },
-            '"': { ending: /(^"|[^\\]")/, classes: ['string', 'double-quote'] }
+            "'": { ending: /(^'|[^\\]'|\\{2}')/, classes: ['string', 'single-quote'] },
+            '"': { ending: /(^"|[^\\]"|\\{2}")/, classes: ['string', 'double-quote'] }
         },
         punctuations: {
             '.': 'dot',
