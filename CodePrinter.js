@@ -492,6 +492,14 @@ loader(function($) {
             this.options.mode = mode;
             return this;
         },
+        setSyntax: function(mode) {
+            var oldMode = this.options.mode;
+            this.setMode(mode);
+            if (oldMode != this.options.mode) {
+                this.print();
+            }
+            return this;
+        },
         setFontSize: function(size) {
             if (size >= this.options.minFontSize && size <= this.options.maxFontSize) {
                 var id = this.mainElement.id;
