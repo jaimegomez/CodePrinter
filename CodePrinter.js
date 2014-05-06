@@ -2,8 +2,17 @@
 
 "use strict";
 
-window.CodePrinter = (function($) {
-    
+var loader = function(fn) {
+    if (typeof define != 'undefined') {
+        define('CodePrinter', ['Selector'], function($) { return window.CodePrinter = fn($); });
+    } else if (typeof module != 'undefined') {
+        module.exports = fn(Selector);
+    } else {
+        window.CodePrinter = fn(Selector);
+    }
+}
+
+loader(function($) {
     var CodePrinter, Data, DataLine, Caret,
         Screen, Overlay, Counter, InfoBar, Finder, Stream,
         keydownMap, keypressMap, shortcuts, commands, history, selection,
@@ -2736,4 +2745,4 @@ window.CodePrinter = (function($) {
     };
     
     return CodePrinter;
-})(Selector);
+});
