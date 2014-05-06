@@ -831,7 +831,8 @@ loader(function($) {
             this.selectLine(this.caret.line());
         },
         createHighlightOverlay: function(/* arrays, ... */) {
-            var overlay = new Overlay(this, 'cp-highlight-overlay', true);
+            if (this.highlightOverlay) this.highlightOverlay.remove();
+            var overlay = this.highlightOverlay = new Overlay(this, 'cp-highlight-overlay', false);
             for (var i = 0; i < arguments.length; i++) {
                 var pos = getPositionOf(this, arguments[i][0], arguments[i][1]);
                 overlay.node.append(createSpan(arguments[i][2], 'cp-highlight', pos.y, pos.x, arguments[i][2].length * this.sizes.charWidth, this.sizes.lineHeight));
@@ -1209,6 +1210,8 @@ loader(function($) {
                         if (a && b) {
                             timeout = setTimeout($.invoke(this.tracking[s], this, [cp, s, { line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i }]), 40);
                             break;
+                        } else if (cp.highlightOverlay) {
+                            cp.highlightOverlay.remove();
                         }
                     }
                 }
@@ -1380,10 +1383,10 @@ loader(function($) {
         firstLine: 0,
         lastLine: -1,
         fill: function() {
-            var r = this.root, w = r.wrapper,
-                lv = parseInt(r.options.linesOutsideOfView),
-                x = Math.min(Math.ceil(w.clientHeight / r.sizes.lineHeight) + 2 * lv, r.data.lines-1),
-                i = this.length();
+            var r = this.root, w = r.wrapper
+            , lv = parseInt(r.options.linesOutsideOfView)
+            , x = Math.min(Math.ceil(w.clientHeight / r.sizes.lineHeight) + 2 * lv, r.data.lines-1)
+            , i = this.length();
             
             while (i++ <= x) this.insert();
             this.fix();
@@ -1407,10 +1410,14 @@ loader(function($) {
                     this.root.counter && this.root.counter.increase();
                 } else if (i + this.root.options.linesOutsideOfView >= this.root.data.lines) {
                     this.root.data.getLine(this.firstLine++).deleteNodeProperty();
-                    dl.pre = this.lines[0];
-                    q--; this.lastLine++;
+                    dl.pre = this.lines.item(0);
+                    this.lastLine++;
                     this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                     this.root.counter && this.root.counter.shift();
+                    
+                    this.lines.shift();
+                    dl.pre.untie();
+                    --q;
                 } else {
                     this.root.data.getLine(this.lastLine).deleteNodeProperty();
                     dl.pre = this.lines.item(-1);
@@ -1466,9 +1473,9 @@ loader(function($) {
             }
         },
         link: function(dl, index, forceParse) {
-            this.root.parse(this.firstLine + index, dl, forceParse) && dl.touch();
-            this.element.insertAt(dl.pre, index);
+            this.element.insertBefore(dl.pre, this.lines[index]);
             this.lines.put(dl.pre, index);
+            this.root.parse(this.firstLine + index, dl, forceParse) && dl.touch();
         },
         getLine: function(line) {
             return line >= this.firstLine && line <= this.lastLine ? this.element.kids().item(line - this.firstLine) : null;
