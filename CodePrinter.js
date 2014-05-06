@@ -348,16 +348,18 @@ loader(function($) {
             var self = this, timeout
             , sT = document.scrollTop()
             , sL = document.scrollLeft()
-            , callback = function(ModeObject) {
+            , callback = function(ModeObject, interval) {
                 timeout = clearTimeout(timeout);
                 self.defineParser(ModeObject);
                 self.screen.fill();
                 
-                var data = self.data, i = -1,
-                    l = self.screen.lastLine+1,
-                    p = getDataLinePosition(l),
-                    u = p[0], t = p[1], h = p[2],
-                    I = clearInterval(I) || setInterval(function() {
+                var data = self.data, i = -1
+                , l = self.screen.lastLine+1;
+                
+                if (interval !== false) {
+                    var p = getDataLinePosition(l)
+                    , u = p[0], t = p[1], h = p[2]
+                    , I = clearInterval(I) || setInterval(function() {
                         t >= DATA_RATIO && ++h && (t = 0);
                         if (!data[h] || !data[h][t]) {
                             I = clearInterval(I);
@@ -370,6 +372,7 @@ loader(function($) {
                         t++;
                         u = 0;
                     }, 10);
+                }
                 
                 while (++i < l) {
                     self.parse(i, data.getLine(i), true);
@@ -380,7 +383,7 @@ loader(function($) {
             }
             
             this.screen.removeLines();
-            callback.call(this, new CodePrinter.Mode());
+            callback.call(this, new CodePrinter.Mode('plaintext'), false);
             
             if (mode != 'plaintext') {
                 CodePrinter.requireMode(mode, callback, this);
