@@ -655,6 +655,12 @@ loader(function($) {
             mx && this.caret.moveX(mx);
             return this;
         },
+        appendText: function(text) {
+            var dl, text = text.replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t');
+            (this.data.lines == 1 && (dl = this.data.getFirstLine()).text.length == 0) ? dl.setText(text) : this.data.addLine(this.data.lines, text);
+            this.screen.fill();
+            return this;
+        },
         insertNewLine: function(l) {
             var dl = this.data.addLine(l, '');
             this.screen.splice(dl, l);
@@ -1046,6 +1052,12 @@ loader(function($) {
                 return this[p[2]][p[1]][p[0]] || null;
             }
             return null;
+        },
+        getFirstLine: function() {
+            return this[0][0][0] || null;
+        },
+        getLastLine: function() {
+            return this.last().last().last() || null;
         },
         setParsedAtLine: function(line, str) {
             var l = this.getLine(line);
