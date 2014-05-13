@@ -175,7 +175,9 @@ loader(function($) {
         };
         this.on({
             'changed': function(e) {
-                this.history.pushChanges(e.line, e.column, e.text, e.append);
+                if (this.options.history) {
+                    this.history.pushChanges(e.line, e.column, e.text, e.append);
+                }
             },
             'removed.before': fn(true),
             'removed.after': fn(false)
@@ -246,6 +248,7 @@ loader(function($) {
         showIndentation: true,
         scrollable: true,
         tracking: true,
+        history: true,
         highlightBrackets: true,
         highlightCurrentLine: true,
         blinkCaret: true,
