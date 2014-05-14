@@ -2049,6 +2049,12 @@ loader(function($) {
             var bf = this.before(), t, i;
             return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.endsWith(s);
         },
+        cut: function(index) {
+            if (this.found && index >= 0) {
+                this.found = this.found.substring(0, index);
+            }
+            return this;
+        },
         back: function() {
             if (this.eaten.length) {
                 this.row = this.row - this.eaten.length + 1;
