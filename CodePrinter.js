@@ -13,12 +13,12 @@ var loader = function(fn) {
 }
 
 loader(function($) {
-    var CodePrinter, Data, DataLine, Caret,
-        Screen, Overlay, Counter, InfoBar, Finder, Stream,
-        keydownMap, keypressMap, shortcuts, commands, history, selection,
-        tracking, extensions, eol, div, li, pre, span,
-        DATA_RATIO = 10,
-        DATA_MASTER_RATIO = 100;
+    var CodePrinter, Data, DataLine, Caret
+    , Screen, Overlay, Counter, InfoBar, Finder, Stream
+    , keydownMap, keypressMap, shortcuts, commands, history, selection
+    , tracking, extensions, eol, div, li, pre, span
+    , DATA_RATIO = 10
+    , DATA_MASTER_RATIO = 100;
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
@@ -140,7 +140,7 @@ loader(function($) {
                 var dl = self.data.getLine(line);
                 dl.text = this.textAtCurrentLine(true);
                 self.parse(line, dl, true);
-                self.finder && self.finder.find();
+                self.finder && self.finder.isOpen && self.finder.find();
             },
             'position:changed': function(x, y) {
                 document.activeElement != self.input && self.input.focus();
@@ -366,6 +366,7 @@ loader(function($) {
                         t >= DATA_RATIO && ++h && (t = 0);
                         if (!data[h] || !data[h][t]) {
                             I = clearInterval(I);
+                            self.emit('printing:completed');
                             return false;
                         }
                         while (u < data[h][t].length) {
@@ -509,8 +510,7 @@ loader(function($) {
                 this.sizes.scrollTop = this.sizes.scrollTop / this.sizes.lineHeight;
                 this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
                 size > this.options.fontSize ? ++this.sizes.lineHeight : size < this.options.fontSize ? --this.sizes.lineHeight : 0;
-                this.sizes.scrollTop *= this.sizes.lineHeight;
-                this.wrapper.style.top = this.sizes.scrollTop + 'px';
+                this.screen.element.style.top = (this.sizes.scrollTop *= this.sizes.lineHeight) + 'px';
                 id = '#'+id+' .cp-';
                 this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
                 this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
@@ -967,9 +967,14 @@ loader(function($) {
             this.mainElement.append(this.finder.bar);
             this.finder.overlay.reveal();
             this.finder.input.focus();
+            this.finder.isOpen = true;
         },
         closeFinder: function() {
-            this.finder && this.finder.close();
+            if (this.finder && this.finder.isOpen) {
+                this.finder.bar.remove();
+                this.finder.overlay.remove();
+                this.finder.isOpen = false;
+            }
         },
         removeOverlays: function() {
             if (this.overlays) {
@@ -1439,7 +1444,7 @@ loader(function($) {
                     this.root.counter && this.root.counter.shift();
                     
                     this.lines.shift();
-                    dl.pre.untie();
+                    dl.pre.remove();
                     --q;
                 } else {
                     this.root.data.getLine(this.lastLine).deleteNodeProperty();
@@ -1458,7 +1463,7 @@ loader(function($) {
                         dl.pre = this.lines[q];
                         this.link(dl, this.lines.length);
                     } else {
-                        this.lines[q].untie();
+                        this.lines[q].remove();
                         this.lines.splice(q, 1);
                         this.lastLine--;
                         r.counter && r.counter.decrease();
@@ -1576,7 +1581,7 @@ loader(function($) {
         },
         decrease: function() {
             var n = this.lastLine--;
-            this.element.lastChild.untie();
+            this.element.lastChild.remove();
             this.formatter(n-1).toString().length < this.formatter(n).toString().length && this.emit('width:changed');
         },
         shift: function() {
@@ -1700,7 +1705,7 @@ loader(function($) {
                     }
                 },
                 27: function() {
-                    self.close();
+                    cp.closeFinder();
                 },
                 38: function() {
                     self.prev();
@@ -1724,7 +1729,7 @@ loader(function($) {
         }});
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
-        closebutton.on({ click: function(e) { self.close(); }});
+        closebutton.on({ click: function(e) { cp.closeFinder(); }});
         overlay.node.delegate('click', 'span', function(e) {
             if (this.position) {
                 cp.selection.setStart(this.position.ls, this.position.cs).setEnd(this.position.le, this.position.ce);
@@ -1741,12 +1746,8 @@ loader(function($) {
         self.searchResults = $([]);
         
         return self;
-    };
+    }
     Finder.prototype = {
-        close: function() {
-            this.bar.remove();
-            this.overlay.remove();
-        },
         clear: function() {
             this.searched = null;
             this.searchResults.length = 0;
@@ -1823,7 +1824,7 @@ loader(function($) {
                 this.root.options.autoScrollSpeed
             );
         }
-    };
+    }
     
     Stream = function(value) {
         if (!(this instanceof Stream)) {
@@ -1834,7 +1835,7 @@ loader(function($) {
         this.row = 0;
         this.pos = 0;
         return this;
-    };
+    }
     Stream.prototype = {
         found: '',
         eaten: '',
@@ -2115,7 +2116,7 @@ loader(function($) {
         toString: function() {
             return this.parsed.join(eol);
         }
-    };
+    }
     
     var templateMode = {
         keydownMap: {},
@@ -2174,9 +2175,9 @@ loader(function($) {
             stream.parsed = stream.value;
             return stream;
         }
-    };
+    }
     
-    keydownMap = function() {};
+    keydownMap = function() {}
     keydownMap.prototype = {
         touch: function(code, self, event) {
             if (this[code]) {
@@ -2279,10 +2280,10 @@ loader(function($) {
             this.selection.isset() ? this.removeSelection() : this.removeAfterCursor(r);
             return e.cancel();
         }
-    };
+    }
     keydownMap.prototype[40] = keydownMap.prototype[39] = keydownMap.prototype[38] = keydownMap.prototype[37];
     
-    keypressMap = function() {};
+    keypressMap = function() {}
     keypressMap.prototype = {
         touch: function(code, self, event, char) {
             if (this[code]) {
@@ -2307,12 +2308,12 @@ loader(function($) {
                 return false;
             }
         }
-    };
+    }
     keypressMap.prototype[192] = keypressMap.prototype[39] = keypressMap.prototype[34];
     keypressMap.prototype[91] = keypressMap.prototype[123] = keypressMap.prototype[40];
     keypressMap.prototype[93] = keypressMap.prototype[125] = keypressMap.prototype[41];
     
-    shortcuts = function() {};
+    shortcuts = function() {}
     shortcuts.prototype = {
         37: function() {
             this.caret.position(this.caret.line(), 0);
@@ -2385,7 +2386,7 @@ loader(function($) {
                 x && this.caret.moveX(x);
             }
         }
-    };
+    }
     shortcuts.prototype[229] = shortcuts.prototype[191];
     
     commands = {
@@ -2417,7 +2418,7 @@ loader(function($) {
             e.shiftKey ? this.history.redo() : this.history.undo();
             return false;
         }
-    };
+    }
     
     history = function(stackSize, delay) {
         this.states = [];
@@ -2463,7 +2464,7 @@ loader(function($) {
             }
             return this;
         };
-    };
+    }
     history.prototype = {
         getState: function(index) {
             return this.states[index];
@@ -2499,13 +2500,13 @@ loader(function($) {
             this.muted = false;
             return this;
         }
-    };
+    }
     
     selection = function() {
         this.start = {};
         this.end = {};
         return this;
-    };
+    }
     selection.prototype = {
         clear: function() {
             this.overlay.node.innerHTML = '';
@@ -2555,9 +2556,9 @@ loader(function($) {
         isset: function() {
             return this.start.line >= 0 && this.end.line >= 0;
         }
-    };
+    }
     
-    tracking = function() {};
+    tracking = function() {}
     tracking.prototype = {
         '(': function(cp, key, details) {
             var ignore;
@@ -2625,7 +2626,7 @@ loader(function($) {
                 return false;
             }
         }
-    };
+    }
     tracking.prototype['{'] = tracking.prototype['['] = tracking.prototype['('];
     tracking.prototype['}'] = tracking.prototype[']'] = tracking.prototype[')'];
     
@@ -2639,28 +2640,28 @@ loader(function($) {
         'rb': 'ruby',
         'pl': 'perl',
         'sh': 'bash'
-    };
+    }
     
     eol = $.browser.windows ? '\r\n' : '\n';
     
     CodePrinter.requireMode = function(req, cb, del) {
-        return $.scripts.require('CodePrinter.'+req.toLowerCase(), cb, del);
-    };
+        return $.scripts.require('CodePrinter/'+req.toLowerCase(), cb, del);
+    }
     CodePrinter.defineMode = function(name, obj, req) {
         var m = $.extend(new CodePrinter.Mode(name), templateMode, obj);
         obj.extension && m.extend(obj.extension);
         m.init instanceof Function && m.init();
-        $.scripts.define('CodePrinter.'+name.toLowerCase(), m, req);
-    };
+        $.scripts.define('CodePrinter/'+name.toLowerCase(), m, req);
+    }
     CodePrinter.getMode = function(name) {
-        return $.scripts.get('CodePrinter.'+name.toLowerCase());
-    };
+        return $.scripts.get('CodePrinter/'+name.toLowerCase());
+    }
     CodePrinter.hasMode = function(name) {
-        return $.scripts.has('CodePrinter.'+name.toLowerCase());
-    };
+        return $.scripts.has('CodePrinter/'+name.toLowerCase());
+    }
     CodePrinter.registerExtension = function(ext, parserName) {
         extensions[ext.toLowerCase()] = parserName.toLowerCase();
-    };
+    }
     
     var buildDOM = (function(){
         var m = div.cloneNode().addClass('codeprinter cp-animation'),
@@ -2752,13 +2753,13 @@ loader(function($) {
         cp.sizes.charWidth = cr.width;
         cp.sizes.charHeight = cr.height;
         return cr;
-    };
+    }
     function getPositionOf(cp, line, column) {
         return {
             x: cp.sizes.paddingLeft + column * cp.sizes.charWidth,
             y: cp.sizes.paddingTop + line * cp.sizes.lineHeight
         };
-    };
+    }
     function createSpan(text, classes, top, left, width, height) {
         var s = span.cloneNode().addClass(classes);
         s.textContent = text;
@@ -2769,17 +2770,17 @@ loader(function($) {
             height: height + 'px'
         });
         return s;
-    };
+    }
     function getDataLinePosition(line) {
         return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
-    };
+    }
     function indentGrid(text, width) {
         var pos = text.search(/[^ ]/), tmp;
         pos == -1 && (pos = text.length); 
         tmp = [text.substring(0, pos), text.substr(pos)];
         tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
         return tmp[0] + tmp[1];
-    };
+    }
     function swapLines(cp, line) {
         var spaces = cp.tabString()
         , x = cp.data.getLine(line).text.replace(/\t/g, spaces)
@@ -2789,10 +2790,10 @@ loader(function($) {
         cp.removeBeforeCursor(x + '\n' + y);
         cp.insertText(y + '\n' + x);
         cp.caret.restoreColumn();
-    };
+    }
     function isCommandKey(e) {
         return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
-    };
+    }
     
     $.registerEvent({
         type: 'nodeInserted',
@@ -2815,7 +2816,7 @@ loader(function($) {
             this[k].CodePrinter = new CodePrinter(this[k], opt);
         }
         return this;
-    };
+    }
     
     return CodePrinter;
 });
