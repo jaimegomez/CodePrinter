@@ -93,7 +93,7 @@
   min-height: 60px;
   position: relative;
   z-index: 4;
-  overflow: scroll;
+  overflow: auto;
   cursor: text;
 }
 .codeprinter .cp-wrapper * {
@@ -451,7 +451,7 @@
   color: #F9F9F2;
 }
 .codeprinter.cps-default .cp-activeLine {
-  box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.5);
 }
 .codeprinter.cps-default .cp-highlight {
   border-bottom: 1px solid black;
