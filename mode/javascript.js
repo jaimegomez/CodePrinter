@@ -4,7 +4,7 @@ CodePrinter.defineMode('JavaScript', {
     controls: ['if','else','elseif','for','switch','while','do'],
     keywords: ['var','return','new','continue','break','instanceof','typeof','case','let','try','catch','debugger','default','delete','finally','in','throw','void','with'],
     specials: ['this','window','document','console','arguments','function','Object','Array','String','Number','Function','Math','JSON','RegExp','Date','Node','HTMLElement','Boolean','$','jQuery','Selector','Error','TypeError'],
-    regexp: /\/\*|\/\/|\/(.*)\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
+    regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
     comment: '//',
     
     alloc: function() {
@@ -62,8 +62,9 @@ CodePrinter.defineMode('JavaScript', {
             } else if (this.expressions.hasOwnProperty(found)) {
                 stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
             } else if (found[0] == '/') {
+                stream.cut(found.search(/([^\\]\/[gimy]{0,4})/g) + RegExp.$1.length);
                 stream.wrap('regexp', function(cls) {
-                    return this.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="'+cls+'">');
+                    return this.replace(/(\\.)/g, '</span><span class="cpx-escaped">$1</span><span class="'+cls+'">');
                 });
             }
         }
