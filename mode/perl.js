@@ -2,9 +2,9 @@
 
 CodePrinter.defineMode('Perl', {
     controls: ['do','else','elsif','for','foreach','if','unless','until','while'],
-    keywords: ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','m','ne','no','or','package','q','qq','qr','qw','qx','s','sub','tr','xor','y'],
-    specials: ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','print','return'],
-    regexp: /[\$\@\&]?\w+|[^\w\s\/]|\b[\d\_]*\.?[\d\_]+\b|\b0x[\da-fA-F\_]+\b/,
+    keywords: ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','my','ne','no','or','package','q','qq','qr','qw','qx','s','sub','tr','xor','y'],
+    specials: ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','STDIN','STDOUT','STDERR','print','printf','sprintf','return'],
+    regexp: /m(\W).*\1[gimy]{0,4}|\/.*\/[gimy]{0,4}|[\$\@\&\%]?\w+|[^\w\s\/]|\b[\d\_]*\.?[\d\_]+\b|\b0x[\da-fA-F\_]+\b/,
     comment: '#',
     
     fn: function(stream) {
@@ -21,7 +21,7 @@ CodePrinter.defineMode('Perl', {
                         stream.wrap('numeric', 'float');
                     }
                 }
-            } else if (/^\w+/.test(found)) {
+            } else if (/^\w+$/.test(found)) {
                 found = found.toLowerCase();
                 if (found == 'true' || found == 'false') {
                     stream.wrap('boolean');
@@ -50,10 +50,19 @@ CodePrinter.defineMode('Perl', {
                         return this.wrap('invalid').reset();
                     }).applyWrap(this.expressions[found].classes);
                 }
-            } else if (found[0] == '$' || found[0] == '@') {
+            } else if (found[0] == '$' || found[0] == '@' || found[0] == '%') {
                 stream.wrap('variable');
             } else if (found[0] == '&') {
                 stream.wrap('function');
+            } else if (/^m(\W)|^\//.test(found)) {
+                if (found[0] == 'm') {
+                    stream.cut(2 + found.substr(2).search(new RegExp('([^\\\\]'+RegExp.$1.escape()+'[gimy]{0,4})')) + RegExp.$1.length);
+                } else {
+                    stream.cut(found.search(/([^\\]\/[gimy]{0,4})/) + RegExp.$1.length);
+                }
+                stream.wrap('regexp', function(cls) {
+                    return this.replace(/(\\.)/g, '</span><span class="cpx-escaped">$1</span><span class="'+cls+'">');
+                });
             }
         }
         return stream;
