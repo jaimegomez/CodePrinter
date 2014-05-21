@@ -57,5 +57,10 @@ CodePrinter.defineMode('Perl', {
             }
         }
         return stream;
+    },
+    extension: {
+        operators: {
+            '~': 'match'
+        }
     }
 });
