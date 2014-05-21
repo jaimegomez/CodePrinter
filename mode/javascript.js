@@ -75,6 +75,20 @@ CodePrinter.defineMode('JavaScript', {
             trigger: 'log',
             content: 'console.log();',
             cursorMove: -2
+        },
+        {
+            trigger: 'timeout',
+            content: 'setTimeout(function() {}, 100);',
+            cursorMove: -8
+        },
+        {
+            trigger: 'interval',
+            content: 'setInterval(function() {}, 100);',
+            cursorMove: -8
+        },
+        {
+            trigger: 'doc',
+            content: 'document.'
         }
     ]
 });

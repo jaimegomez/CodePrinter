@@ -75,6 +75,14 @@ CodePrinter.defineMode('Java', {
     },
     snippets: [
         {
+            trigger: 'in',
+            content: 'System.in'
+        },
+        {
+            trigger: 'out',
+            content: 'System.out'
+        },
+        {
             trigger: 'print',
             content: 'System.out.print();',
             cursorMove: -2
