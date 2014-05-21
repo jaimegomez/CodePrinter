@@ -2,7 +2,7 @@
 
 CodePrinter.defineMode('Java', {
     controls: ['if','else','while','for','case','switch','try','catch','finally'],
-    keywords: ['abstract','assert','break','class','const','continue','default','enum','extends','final','goto','implements','instanceof','interface','native','new','package','private','protected','public','return','static','strictfp','super','synchronized','this','throw','throws','transient','void','volatile'],
+    keywords: ['abstract','assert','break','const','continue','default','enum','extends','final','goto','implements','instanceof','interface','native','new','package','private','protected','public','return','static','strictfp','super','synchronized','this','throw','throws','transient','void','volatile'],
     types: ['byte','short','int','long','float','double','boolean','char'],
     specials: ['java','System','String'],
     regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
@@ -30,14 +30,24 @@ CodePrinter.defineMode('Java', {
             } else if (/^[a-zA-Z0-9\_]+$/.test(found)) {
                 if (found == 'true' || found == 'false') {
                     stream.wrap('boolean');
+                } else if (found == 'null') {
+                    stream.wrap('empty-value');
                 } else if (this.controls.indexOf(found) !== -1) {
                     stream.wrap('control');
                 } else if (this.types.indexOf(found) !== -1) {
                     stream.wrap('keyword', 'type');
-                } else if (this.specials.indexOf(found) !== -1 || (!stream.isBefore('.') && !stream.isAfter(';') && memory.importClasses.indexOf(found) !== -1)) {
-                    stream.wrap('special');
                 } else if (this.keywords.indexOf(found) !== -1) {
                     stream.wrap('keyword');
+                } else if (this.specials.indexOf(found) !== -1 || (!stream.isBefore('.') && !stream.isAfter(';') && memory.importClasses.indexOf(found) !== -1)) {
+                    stream.wrap('special');
+                } else if (found == 'class') {
+                    stream.wrap('keyword');
+                    if (found = stream.match(/^\s*(\w+)/, 1)) {
+                        memory.importClasses.put(found);
+                        stream.reset();
+                    } else {
+                        stream.restore();
+                    }
                 } else if (found == 'import') {
                     stream.wrap('keyword');
                     if (found = stream.match(/^.*[\s\.]([a-zA-Z0-9]+);$/, 1)) {
