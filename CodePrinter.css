@@ -419,6 +419,9 @@
 .codeprinter .cpx-special {
   color: #C93800;
 }
+.codeprinter .cpx-namespace {
+  color: #885D3B;
+}
 .codeprinter .cpx-numeric {
   color: #E68D3F;
 }
