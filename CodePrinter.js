@@ -181,7 +181,7 @@ loader(function($) {
         this.on({
             'changed': function(e) {
                 if (this.options.history) {
-                    this.history.pushChanges(e.line, e.column, e.text, e.append);
+                    this.history.pushChanges(e.line, e.column, this.convertToTabs(e.text), e.added);
                 }
             },
             'removed.before': fn(true),
@@ -285,7 +285,7 @@ loader(function($) {
             , l = source.length;
             
             while (++i < l) {
-                this.data.addLine(i, source[i].replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t'));
+                this.data.addLine(i, this.convertToTabs(source[i]));
             }
             this.screen.fill();
             
@@ -429,9 +429,9 @@ loader(function($) {
                     if (dl.startPoint) {
                         return this.parseByDataLine(dl.startPoint, true);
                     }
-                    var tmp = line, tabString = this.tabString(),
-                        stream = new Stream(dl.text),
-                        i = -1, p, ndl;
+                    var tmp = line
+                    , stream = new Stream(dl.text)
+                    , i = -1, p, ndl;
                     
                     stream.getNextLine = function() {
                         var nl = data.getLine(++tmp);
@@ -442,11 +442,11 @@ loader(function($) {
                         } else {
                             return false;
                         }
-                    };
+                    }
                     
                     p = this.parser.fn(stream, this.memory).parsed;
                     while (++i < p.length) {
-                        p[i] = p[i].replace(/\t/g, tabString);
+                        p[i] = this.convertToSpaces(p[i]);
                         p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
                         data.getLine(line+i).setParsed(p[i]);
                     }
@@ -551,7 +551,7 @@ loader(function($) {
         },
         getTextAtLine: function(line) {
             var l = this.data.getLine(line < 0 ? this.data.lines + line : line);
-            return l ? l.text.replaceAll('\t', this.tabString()) : '';
+            return l ? this.convertToSpaces(l.text) : '';
         },
         getIndentAtLine: function(line) {
             var i = -1, dl = this.data.getLine(line);
@@ -567,6 +567,7 @@ loader(function($) {
                 dl.text = '\t' + dl.text;
                 this.parse(line, dl, true);
                 this.caret.line() == line && this.caret.moveX(this.options.tabWidth);
+                this.emit('changed', { line: line, column: 0, text: '\t', added: true });
             }
         },
         decreaseIndentAtLine: function(line) {
@@ -575,6 +576,7 @@ loader(function($) {
                 dl.text = dl.text.substr(1);
                 this.parse(line, dl, true);
                 this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
+                this.emit('changed', { line: line, column: 0, text: '\t', added: false });
             }
         },
         increaseIndentOfSelection: function() {
@@ -618,30 +620,30 @@ loader(function($) {
             return l == line ? c < column : l < line;
         },
         searchLeft: function(pattern, line, column, ignore) {
-            var i = -1, dl, tS = this.tabString();
+            var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b(?!\\b'+pattern+'\\b).*$' : pattern.escape()+'(?!.*'+pattern.escape()+').*$');
             line = Math.max(0, Math.min(line, this.data.lines - 1));
-            while ((dl = this.data.getLine(line--)) && ((i = dl.text.replace(/\t/g, tS).substring(0, column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line+1, i))) {
+            while ((dl = this.data.getLine(line--)) && ((i = this.convertToSpaces(dl.text).substring(0, column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line+1, i))) {
                 column = Infinity;
             }
             return [line + 1, i];
         },
         searchRight: function(pattern, line, column, ignore) {
-            var i = -1, dl, tS = this.tabString();
+            var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b' : pattern.escape());
             line = Math.max(0, Math.min(line, this.data.lines - 1));
-            while ((dl = this.data.getLine(line++)) && ((i = dl.text.replace(/\t/g, tS).substr(column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line-1, i + column))) {
+            while ((dl = this.data.getLine(line++)) && ((i = this.convertToSpaces(dl.text).substr(column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line-1, i + column))) {
                 column = 0;
             }
             return [line - 1, i + column];
         },
         substring: function(from, to) {
-            var str = '', tS = this.tabString();
+            var str = '';
             while (from[0] < to[0]) {
-                str += this.data.getLine(from[0]++).text.replace(/\t/g, tS).substr(from[1]) + '\n';
+                str += this.convertToSpaces(this.data.getLine(from[0]++).text).substr(from[1]) + '\n';
                 from[1] = 0;
             }
-            return str += this.data.getLine(to[0]).text.replace(/\t/g, tS).substring(from[1], to[1]);
+            return str += this.convertToSpaces(this.data.getLine(to[0]).text).substring(from[1], to[1]);
         },
         isIgnoredArea: function(ignore, line, col) {
             if (ignore && ignore.length) {
@@ -669,12 +671,12 @@ loader(function($) {
             return false;
         },
         insertText: function(text, mx) {
-            var pos, s = text.split(eol)
+            var pos, s = this.convertToSpaces(text).split(eol)
             , bf = this.caret.textBefore()
             , af = this.caret.textAfter()
             , line = this.caret.line();
             
-            text.length && this.emit('changed', { line: line, column: bf.length, text: text, append: true });
+            text.length && this.emit('changed', { line: line, column: this.caret.column(true), text: text, added: true });
             this.caret.setTextBefore(bf + s[0]);
             
             if (s.length > 1) {
@@ -690,13 +692,13 @@ loader(function($) {
             return this;
         },
         appendText: function(text) {
-            var dl, text = text.replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t');
+            var dl, text = this.convertToTabs(text);
             (this.data.lines == 1 && (dl = this.data.getFirstLine()).text.length == 0) ? dl.setText(text) : this.data.addLine(this.data.lines, text);
             this.screen.fill();
             return this;
         },
-        insertNewLine: function(l) {
-            var dl = this.data.addLine(l, '');
+        insertNewLine: function(l, text) {
+            var dl = this.data.addLine(l, text || '');
             this.screen.splice(dl, l);
             return this;
         },
@@ -722,10 +724,10 @@ loader(function($) {
         removeBeforeCursor: function(arg) {
             var r = '', bf = this.caret.textBefore();
             if (typeof arg === 'string') {
-                arg = arg.split(eol);
-                var i = arg.length - 1, x,
-                    af = this.caret.textAfter(),
-                    l = this.caret.line();
+                arg = this.convertToSpaces(arg).split(eol);
+                var i = arg.length - 1, x
+                , af = this.caret.textAfter()
+                , l = this.caret.line();
                 while ((x = bf.length - arg[i].length) >= 0 && i && (bf.lastIndexOf(arg[i--]) === x || !arg.length)) {
                     r = '\n' + bf.substr(x) + r;
                     this.caret.setTextBefore(bf.substring(0, x));
@@ -742,8 +744,8 @@ loader(function($) {
                 if (arg <= bf.length) {
                     this.caret.setTextBefore(bf.substring(0, bf.length - arg));
                 } else {
-                    var af = this.caret.textAfter(),
-                        l = this.caret.line();
+                    var af = this.caret.textAfter()
+                    , l = this.caret.line();
                     
                     while (arg > bf.length && l-1 >= 0) {
                         r = '\n' + bf + r;
@@ -756,17 +758,16 @@ loader(function($) {
                 r = bf.substr(bf.length - arg) + r;
             }
             if (r) {
-                this.emit('changed', { line: this.caret.line(), column: this.caret.column(), text: r, append: false });
+                this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
                 this.emit('removed.before', r);
             }
         },
         removeAfterCursor: function(arg) {
             var r = '', af = this.caret.textAfter();
             if (typeof arg === 'string') {
-                var i = 0,
-                    bf = this.caret.textBefore(),
-                    l = this.caret.line();
-                arg = arg.split(eol);
+                var i = 0, l = this.caret.line()
+                , bf = this.caret.textBefore();
+                arg = this.convertToSpaces(arg).split(eol);
                 while (i < arg.length - 1 && (af.indexOf(arg[i]) === 0 || !arg[i].length)) {
                     r = r + arg[i] + '\n';
                     this.caret.setTextAfter(af.substr(arg[i++].length));
@@ -783,8 +784,8 @@ loader(function($) {
                 if (arg <= af.length) {
                     this.caret.setTextAfter(af.substr(arg));
                 } else {
-                    var bf = this.caret.textBefore(),
-                        l = this.caret.line();
+                    var bf = this.caret.textBefore()
+                    , l = this.caret.line();
                     
                     while (arg > af.length && l+1 < this.data.lines) {
                         r = r + af + '\n';
@@ -798,17 +799,19 @@ loader(function($) {
                 r = r + af.substring(0, arg);
             }
             if (r) {
-                this.emit('changed', { line: this.caret.line(), column: this.caret.column(), text: r, append: false });
+                this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
                 this.emit('removed.after', r);
             }
         },
-        getValue: function() {
-            var t, r = [], h = 0, tabString = this.tabString();
+        getValue: function(withTabs) {
+            var self = this, t, r = [], h = 0
+            , fn = withTabs
+            ? function(obj) { return obj.text; }
+            : function(obj) { return self.convertToSpaces(obj.text); };
+            
             for (; h < this.data.length; h++) {
                 for (t = 0; t < this.data[h].length; t++) {
-                    r.push.apply(r, this.data[h][t].map(function(obj) {
-                        return obj.text.replaceAll('\t', tabString);
-                    }));
+                    r.push.apply(r, this.data[h][t].map(fn));
                 }
             }
             return r.join(eol);
@@ -1009,6 +1012,12 @@ loader(function($) {
                 }
             }
         },
+        convertToSpaces: function(text) {
+            return text.replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
+        },
+        convertToTabs: function(text) {
+            return text.replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t');
+        },
         prependTo: function(node) { node.prepend(this.mainElement); return this; },
         appendTo: function(node) { node.append(this.mainElement); return this; },
         insertBefore: function(node) { node.before(this.mainElement); return this; },
@@ -1183,7 +1192,7 @@ loader(function($) {
             setTextBefore: function(str) {
                 var l = str.length;
                 str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
-                str = str.replaceAll(cp.tabString(), '\t');
+                str = cp.convertToTabs(str);
                 if (before !== str) {
                     before = str;
                     this.emit('text:changed', line, column);
@@ -1193,7 +1202,7 @@ loader(function($) {
             },
             setTextAfter: function(str) {
                 str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
-                str = str.replaceAll(cp.tabString(), '\t');
+                str = cp.convertToTabs(str);
                 if (after !== str) {
                     after = str;
                     this.emit('text:changed', line, column);
@@ -1204,8 +1213,8 @@ loader(function($) {
                 var l = bf.length;
                 bf.indexOf('@') !== -1 && (bf = bf.replaceAll(['@a','@b'], [after, before]));
                 af.indexOf('@') !== -1 && (af = af.replaceAll(['@a','@b'], [after, before]));
-                bf = bf.replaceAll(cp.tabString(), '\t');
-                af = af.replaceAll(cp.tabString(), '\t');
+                bf = cp.convertToTabs(bf);
+                af = cp.convertToTabs(af);
                 if (before !== bf || after !== af) {
                     before = bf;
                     after = af;
@@ -1215,10 +1224,10 @@ loader(function($) {
                 return this;
             },
             textBefore: function() {
-                return before.replace(/\t/g, cp.tabString());
+                return cp.convertToSpaces(before);
             },
             textAfter: function() {
-                return after.replace(/\t/g, cp.tabString());
+                return cp.convertToSpaces(after);
             },
             textAtCurrentLine: function(b) {
                 return b ? before + after : this.textBefore() + this.textAfter();
@@ -1234,9 +1243,8 @@ loader(function($) {
                 typeof c !== 'number' && (c = column || 0);
                 c < 0 && (c = t.length + c + 1);
                 
-                var tabString = cp.tabString(),
-                    x = cp.sizes.charWidth * Math.min(c, t.length),
-                    y = cp.sizes.lineHeight * l;
+                var x = cp.sizes.charWidth * Math.min(c, t.length)
+                , y = cp.sizes.lineHeight * l;
                 
                 if (line !== l) {
                     this.emit('line:changed', { current: l, last: line });
@@ -1247,8 +1255,8 @@ loader(function($) {
                     column = c;
                 }
                 
-                before = t.substring(0, c).replaceAll(tabString, '\t');
-                after = t.substr(c).replaceAll(tabString, '\t');
+                before = cp.convertToTabs(t.substring(0, c));
+                after = cp.convertToTabs(t.substr(c));
                 this.setPixelPosition(x, y);
                 
                 if (cp.options.tracking) {
@@ -2696,7 +2704,6 @@ loader(function($) {
         c.appendChild(w);
         m.appendChild(c);
         return function(cp) {
-            cp.shortcuts = new shortcuts;
             cp.selection = new selection;
             cp.caret = new Caret(cp);
             cp.screen = new Screen(cp);
@@ -2803,16 +2810,13 @@ loader(function($) {
     }
     function swapLines(cp, line) {
         var spaces = cp.tabString()
-        , x = cp.data.getLine(line).text.replace(/\t/g, spaces)
-        , y = cp.data.getLine(line+1).text.replace(/\t/g, spaces);
-        cp.caret.saveColumn();
+        , x = cp.convertToSpaces(cp.data.getLine(line).text)
+        , y = cp.convertToSpaces(cp.data.getLine(line+1).text);
+        cp.caret.savePosition(true);
         cp.caret.position(line+1, -1);
         cp.removeBeforeCursor(x + '\n' + y);
         cp.insertText(y + '\n' + x);
-        cp.caret.restoreColumn();
-    }
-    function isCommandKey(e) {
-        return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
+        cp.caret.restorePosition();
     }
     
     $.registerEvent({
