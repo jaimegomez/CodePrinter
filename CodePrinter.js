@@ -15,15 +15,15 @@ var loader = function(fn) {
 loader(function($) {
     var CodePrinter, Data, DataLine, Caret
     , Screen, Overlay, Counter, InfoBar, Finder, Stream
-    , keydownMap, keypressMap, shortcuts, commands, history, selection
-    , tracking, extensions, eol, div, li, pre, span
+    , keyMap, commands, history, selection, tracking
+    , extensions, eol, div, li, pre, span
     , DATA_RATIO = 10
     , DATA_MASTER_RATIO = 100;
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
     CodePrinter = function(element, options) {
-        var self = this, sizes, data = '', id, pr, fn, T, s = 0;
+        var self = this, sizes, data = '', id, allowKeyup, fn, T, s = 0;
         
         options = this.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
@@ -90,48 +90,44 @@ loader(function($) {
                 }
             },
             keydown: function(e) {
-                var k = e.getCharCode();
+                var kc, code = e.getCharCode()
+                , ch = String.fromCharCode(code)
+                , kc = e.getKeyCombination(self.options.keyCombinationFlag);
+                
                 self.caret.deactivate().show();
-                pr = true;
+                allowKeyup = true;
                 
-                T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keydownInactivityTimeout);
-                
-                if (isCommandKey(e)) {
-                    return pr = commands[k] ? commands[k].call(self, this, e, k) : false;
-                }
-                if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
-                    self.shortcuts[k].call(self, e, this);
-                    return pr = e.cancel();
-                }
-                if (k >= 17 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145 || k == 224) {
-                    return pr = e.cancel();
+                if (($.browser.macosx ? e.metaKey : e.ctrlKey) && ch in commands) {
+                    allowKeyup = commands[ch].call(self, e, code, ch);
                 } else {
-                    pr = self.keydownMap.touch(k, self, e);
-                    pr = pr == -1 ? true : pr;
-                    if (pr && self.selection.isset()) {
-                        self.removeSelection();
+                    if (code < 48 && !(kc in self.keyMap)) {
+                        kc = e.getKeyCombination(self.options.keyCombinationFlag | 4);
+                    }
+                    if (kc in self.keyMap) {
+                        allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                 }
-                return pr;
+                if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
+                    return allowKeyup = e.cancel();
+                }
+                self.selection.isset() && self.removeSelection();
+                return allowKeyup;
             },
             keypress: function(e) {
-                var k = e.getCharCode(),
-                    ch = String.fromCharCode(k);
+                var code = e.getCharCode()
+                , ch = String.fromCharCode(code);
                 
-                if (pr && e.ctrlKey != true && e.metaKey != true) {
-                    self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
-                    self.emit('keypress:'+k, { code: k, char: ch, event: e });
+                if (allowKeyup && e.ctrlKey != true && e.metaKey != true) {
+                    T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keydownInactivityTimeout);
+                    (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                     this.value = '';
                     return e.cancel();
                 }
             },
             keyup: function(e) {
                 self.caret.activate();
-                
-                if (this.value.length && pr) {
-                    self.insertText(this.value);
-                    this.value = '';
-                }
+                allowKeyup && this.value.length && self.insertText(this.value);
+                self.selection.isset() || (this.value = '');
             }
         });
         
@@ -260,6 +256,7 @@ loader(function($) {
         shortcuts: true,
         showFinder: false,
         searchOnTheFly: false
+        keyCombinationFlag: 1
     };
     
     div = document.createElement('div');
@@ -406,8 +403,7 @@ loader(function($) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
                 this.memory = parser.alloc();
-                this.keydownMap = (new keydownMap).extend(parser.keydownMap);
-                this.keypressMap = (new keypressMap).extend(parser.keypressMap);
+                this.keyMap = (new keyMap).extend(parser.keyMap);
                 this.options.tracking && (this.caret.tracking = (new tracking(this)).extend(parser.tracking));
             }
         },
@@ -572,6 +568,31 @@ loader(function($) {
                 this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
             }
         },
+        increaseIndentOfSelection: function() {
+            var w = this.options.tabWidth
+            , s = this.selection, i, l;
+            
+            this.caret.position(i = s.start.line, s.start.column);
+            l = s.end.line;
+            
+            s.start.column += w;
+            s.end.column += w;
+            do this.increaseIndentAtLine(i); while (++i <= l);
+            this.showSelection();
+        },
+        decreaseIndentOfSelection: function() {
+            var w = this.options.tabWidth
+            , s = this.selection, i, l;
+            
+            this.caret.position(i = s.start.line, s.start.column);
+            l = s.end.line;
+            
+            if (this.data.getLine(i).text.indexOf('\t') === 0) {
+                s.start.column -= w;
+            }
+            do this.decreaseIndentAtLine(i); while (++i <= l);
+            this.showSelection();
+        },
         textBeforeCursor: function(i) {
             var bf = this.caret.textBefore();
             return i > 0 ? bf.slice(-i) : bf;
@@ -582,6 +603,10 @@ loader(function($) {
         },
         textNearCursor: function(i) {
             return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
+        },
+        cursorIsBeforePosition: function(line, column) {
+            var l = this.caret.line(), c = this.caret.column();
+            return l == line ? c < column : l < line;
         },
         searchLeft: function(pattern, line, column, ignore) {
             var i = -1, dl, tS = this.tabString();
@@ -883,25 +908,15 @@ loader(function($) {
                 }
             }
         },
-        registerKeydown: function(arg) {
+        registerKey: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
-            this.keydownMap.extend(arg);
-            return this;
-        },
-        registerKeypress: function(arg) {
-            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
-            this.keypressMap.extend(arg);
-            return this;
-        },
-        registerShortcut: function(arg) {
-            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
-            this.shortcuts.extend(arg);
+            this.keyMap.extend(arg);
             return this;
         },
         call: function(code, shiftKey, metaKey) {
-            var obj = metaKey ? commands : this.shortcuts;
-            if (code && obj && obj[code]) {
-                return obj[code].call(this, { shiftKey: shiftKey, metaKey: metaKey }, this.input);
+            var obj = metaKey ? commands : this.keyMap;
+            if (code && obj && code in obj) {
+                return obj[code].call(this, { shiftKey: shiftKey, metaKey: metaKey }, 0, '');
             }
         },
         enterFullscreen: function() {
@@ -2119,8 +2134,7 @@ loader(function($) {
     }
     
     var templateMode = {
-        keydownMap: {},
-        keypressMap: {},
+        keyMap: {},
         onRemovedBefore: {'{':'}','(':')','[':']','"':'"',"'":"'"},
         onRemovedAfter: {'}':'{',')':'(',']':'[','"':'"',"'":"'"},
         comment: '//',
@@ -2177,43 +2191,27 @@ loader(function($) {
         }
     }
     
-    keydownMap = function() {}
-    keydownMap.prototype = {
-        touch: function(code, self, event) {
-            if (this[code]) {
-                return this[code].call(self, event, code);
-            }
-            return -1;
-        },
-        8: function(e) {
-            var t = this.caret.textBefore(),
-                m = t.match(/ +$/),
-                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
+    keyMap = function() {}
+    keyMap.prototype = {
+        'Backspace': function() {
+            var t = this.caret.textBefore()
+            , m = t.match(/ +$/)
+            , r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
             
             this.selection.isset() ? this.removeSelection() : this.removeBeforeCursor(r);
-            return e && e.cancel();
+            return false;
         },
-        9: function(e) {
+        'Ctrl+Backspace': function() {
+            this.caret.setTextBefore('');
+            return false;
+        },
+        'Alt+Backspace': function() {
+            this.caret.setTextAtCurrentLine('', '');
+            return false;
+        },
+        'Tab': function() {
             if (this.selection.isset()) {
-                var t = '\t', w = this.options.tabWidth,
-                    s = this.selection, i, l;
-                
-                s.correct();
-                this.caret.position(s.start.line, s.start.column);
-                i = s.start.line;
-                l = s.end.line;
-                
-                if (e.shiftKey) {
-                    if (this.data.getLine(i).text.indexOf('\t') === 0) {
-                        s.start.column -= w;
-                    }
-                    do this.decreaseIndentAtLine(i); while (++i <= l);
-                } else {
-                    s.start.column += w;
-                    s.end.column += w;
-                    do this.increaseIndentAtLine(i); while (++i <= l);
-                }
-                this.showSelection();
+                this.increaseIndentOfSelection();
             } else {
                 var bf = this.caret.textBefore();
                 if (this.options.tabTriggers) {
@@ -2221,16 +2219,24 @@ loader(function($) {
                     if (snippet) {
                         this.removeBeforeCursor(match[0]);
                         this.insertText(snippet.content, snippet.cursorMove);
-                        return e.cancel();
+                        return false;
                     }
                 }
-                !e.ctrlKey && (e.shiftKey ? this.caret.setTextBefore(bf.lbreak(this.tabString())) : this.insertText(this.tabString()));
+                this.insertText('\t');
             }
-            return e.cancel();
+            return false;
         },
-        13: function(e) {
-            var t = this.caret.textBefore().match(/^ +/),
-                a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0].substring(0, t[0].length - t[0].length % this.options.tabWidth) : '');
+        'Alt+Tab': function() {
+            this.selection.isset() ? this.increaseIndentOfSelection() : this.increaseIndentAtLine(this.caret.line());
+            return false;
+        },
+        'Shift+Tab': function(e) {
+            this.selection.isset() ? this.decreaseIndentOfSelection() : this.decreaseIndentAtLine(this.caret.line());
+            return false;
+        },
+        'Enter': function() {
+            var t = this.caret.textBefore().match(/^ +/)
+            , a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0].substring(0, t[0].length - t[0].length % this.options.tabWidth) : '');
             
             if (this.textBeforeCursor(1) === '{') {
                 this.insertText(a + this.tabString());
@@ -2238,183 +2244,188 @@ loader(function($) {
             } else {
                 this.insertText(a);
             }
-            return e.cancel();
+            return false;
         },
-        16: function() {
-            if (this.selection.start.line == null) {
-                this.selection.setStart(this.caret.line(), this.caret.column());
-            }
-        },
-        27: function(e) {
+        'Esc': function() {
             this.isFullscreen && this.exitFullscreen();
-            return e.cancel();
+            return false;
         },
-        33: function() {
+        'PageUp': function() {
             this.wrapper.scrollTop -= this.wrapper.clientHeight;
         },
-        34: function() {
+        'PageDown': function() {
             this.wrapper.scrollTop += this.wrapper.clientHeight;
         },
-        35: function() {
+        'End': function() {
             this.caret.position(this.data.lines - 1, -1);
         },
-        36: function() {
+        'Home': function() {
             this.caret.position(0, 0);
         },
-        37: function(e, c) {
-            c%2 ? this.caret.move(c-38, 0) : this.caret.move(0, c-39);
-            if (e.shiftKey && this.selection.start.line >= 0) {
-                this.selection.setEnd(this.caret.line(), this.caret.column());
-                this.showSelection();
-                this.unselectLine();
-            } else {
-                this.selection.clear();
-            }
-            return e.cancel();
+        'Left': function(e, c) {
+            c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
+            this.selection.clear();
+            return false;
         },
-        46: function(e) {
+        'Del': function() {
             var t = this.caret.textAfter(),
                 m = t.match(/^ +/),
-                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
+                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
             
             this.selection.isset() ? this.removeSelection() : this.removeAfterCursor(r);
-            return e.cancel();
-        }
-    }
-    keydownMap.prototype[40] = keydownMap.prototype[39] = keydownMap.prototype[38] = keydownMap.prototype[37];
-    
-    keypressMap = function() {}
-    keypressMap.prototype = {
-        touch: function(code, self, event, char) {
-            if (this[code]) {
-                return this[code].call(self, event, code, char);
-            }
+            return false;
         },
-        34: function(e, k, ch) {
+        '"': function(e, k, ch) {
             if (this.options.insertClosingQuotes) {
                 this.textAfterCursor(1) !== ch ? this.caret.textAtCurrentLine().count(ch) % 2 ? this.insertText(ch, 0) : this.insertText(ch + ch, -1) : this.caret.moveX(1);
                 return false;
             }
         },
-        40: function(e, k, ch) {
+        '(': function(e, k, ch) {
             if (this.options.insertClosingBrackets) {
                 this.insertText(ch + (k === 40 ? String.fromCharCode(41) : String.fromCharCode(k+2)), -1);
                 return false;
             }
         },
-        41: function(e, k, ch) {
+        ')': function(e, k, ch) {
             if (this.options.insertClosingBrackets && this.textAfterCursor(1) == ch) {
                 this.caret.moveX(1);
                 return false;
             }
-        }
-    }
-    keypressMap.prototype[192] = keypressMap.prototype[39] = keypressMap.prototype[34];
-    keypressMap.prototype[91] = keypressMap.prototype[123] = keypressMap.prototype[40];
-    keypressMap.prototype[93] = keypressMap.prototype[125] = keypressMap.prototype[41];
-    
-    shortcuts = function() {}
-    shortcuts.prototype = {
-        37: function() {
+        },
+        'Ctrl+Left': function() {
             this.caret.position(this.caret.line(), 0);
+            return false;
         },
-        38: function(e) {
-            e.altKey ? this.swapLineUp() : (this.wrapper.scrollTop = 0 && this.caret.position(0, 0));
+        'Ctrl+Up': function(e) {
+            this.wrapper.scrollTop = 0;
+            this.caret.position(0, 0);
+            return false;
         },
-        39: function() {
+        'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
+        'Ctrl+Right': function() {
             this.caret.position(this.caret.line(), -1);
+            return false;
         },
-        40: function(e) {
-            e.altKey ? this.swapLineDown() : this.caret.position(this.data.lines - 1, -1);
+        'Ctrl+Down': function(e) {
+            this.caret.position(this.data.lines - 1, -1);
+            return false;
         },
-        70: function(e) {
+        'Alt+Ctrl+Down': CodePrinter.prototype.swapLineDown,
+        'Ctrl+F': function(e) {
             if (e.shiftKey) {
                 this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
             } else {
                 !this.finder || this.finder.bar.parentNode == null ? this.openFinder() : this.finder.input.focus();
             }
         },
-        73: function() {
+        'Ctrl+I': function() {
             !this.infobar || this.infobar.element.parentNode == null ? this.openInfobar() : this.closeInfobar();
         },
-        74: function() {
+        'Ctrl+J': function() {
             var self = this, l = parseInt(prompt("Jump to line..."), 10) - 1;
             setTimeout(function() {
                 self.caret.position(l, 0);
             }, 1);
         },
-        78: function() {
+        'Ctrl+N': function() {
             !this.counter || this.counter.parent.parentNode == null ? this.openCounter() : this.closeCounter();
         },
-        82: function() {
+        'Ctrl+R': function() {
             this.forcePrint();
         },
-        90: function(e) {
-            e.shiftKey ? this.history.redo() : this.history.undo();
+        'Ctrl+Z': function() {
+            this.history.undo();
         },
-        187: function() {
+        'Shift+Ctrl+Z': function(e) {
+            this.history.redo();
+        },
+        'Ctrl++': function() {
             this.setFontSize(this.options.fontSize+1);
         },
-        189: function() {
+        'Ctrl+-': function() {
             this.setFontSize(this.options.fontSize-1);
         },
-        191: function() {
+        'Ctrl+/': function() {
             if (this.parser && this.parser.comment) {
-                var c = this.parser.comment,
-                    m = '[text content]',
-                    i = c.indexOf(m), j,
-                    s = c, e = '', x,
-                    t = this.caret.textAtCurrentLine(),
-                    l = this.caret.column();
+                var start, end, is, sm = 0, comment = this.parser.comment.split('[text content]');
                 
-                if (i !== -1) {
-                    s = c.substr(0, i);
-                    e = c.substr(i+m.length);
-                }    
-                j = t.indexOf(s);
-                if (j !== -1) {
-                    var k = e ? t.indexOf(e, j+s.length) : t.length;
-                    t = t.substring(0, j) + t.substring(j+s.length, k);
-                    x = l > j ? l > j+s.length ? -s.length : -l+j : 0;
+                if (is = this.selection.isset()) {
+                    start = this.selection.start.line;
+                    end = this.selection.end.line;
                 } else {
-                    var k = -1;
-                    while (t[++k] == ' ');
-                    t = t.substring(0, k) + s + t.substr(k) + e;
-                    x = l >= k ? s.length : 0;
+                    start = end = this.caret.line();
                 }
-                this.data.getLine(this.caret.line()).setText(t);
-                x && this.caret.moveX(x);
+                
+                for (var line = end; line >= start; line--) {
+                    var text = this.getTextAtLine(line)
+                    , i = text.search(/[^ ]/);
+                    if (i >= 0) {
+                        if (text.search(new RegExp('(^ *'+comment[0].escape()+')')) == 0) {
+                            var r1 = RegExp.$1;
+                            sm = -comment[0].length;
+                            this.erase(comment[0].length, line, r1.length);
+                            comment[1] && text.match(new RegExp('(\\s*'+comment[1].escape()+'\\s*)$')) && this.erase(RegExp.$1.length, line, text.length - r1.length);
+                        } else {
+                            sm = comment[0].length;
+                            this.put(comment[0], line, 0);
+                            comment[1] && this.put(comment[1], line, text.length + comment[0].length);
+                        }
+                    }
+                }
+                this.selection.move(sm);
+                this.showSelection();
             }
+        },
+        'Ctrl+[': function() {
+            this.selection.isset() ? this.decreaseIndentOfSelection() : this.decreaseIndentAtLine(this.caret.line());
+        },
+        'Ctrl+]': function() {
+            this.selection.isset() ? this.increaseIndentOfSelection() : this.increaseIndentAtLine(this.caret.line());
+        },
+        'Shift+Left': function(e, c) {
+            if (!this.selection.isset()) {
+                this.selection.setStart(this.caret.line(), this.caret.column());
+            }
+            c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
+            this.selection.setEnd(this.caret.line(), this.caret.column());
         }
     }
-    shortcuts.prototype[229] = shortcuts.prototype[191];
+    keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
+    keyMap.prototype['Shift+Down'] = keyMap.prototype['Shift+Right'] = keyMap.prototype['Shift+Up'] = keyMap.prototype['Shift+Left'];
+    keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
+    keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
+    keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
     
     commands = {
-        65: function() {
-            var ls = this.data.lines - 1;
-            this.selection.setStart(0, 0).setEnd(ls, this.getTextAtLine(ls).length);
-            this.caret.position(ls, -1);
-            this.showSelection();
-            this.emit('cmd.selectAll');
+        'A': function(e) {
+            if (!this.isAllSelected()) {
+                var ls = this.data.lines - 1;
+                this.selection.setRange(0, 0, ls, this.getTextAtLine(ls).length);
+                this.showSelection();
+                this.caret.deactivate().hide();
+                this.emit('cmd.selectAll');
+            }
             return false;
         },
-        67: function() {
+        'C': function(e) {
             this.emit('cmd.copy');
             return false;
         },
-        86: function() {
+        'V': function(e) {
             this.removeSelection();
             this.emit('cmd.paste');
+            setTimeout(this.input.emit.bind(this.input, 'keyup'), 5);
             return true;
         },
-        88: function() {
+        'X': function() {
             if (this.selection.isset()) {
                 this.removeSelection();
                 this.emit('cmd.cut');
             }
             return true;
         },
-        90: function(e) {
+        'Z': function(e) {
             e.shiftKey ? this.history.redo() : this.history.undo();
             return false;
         }
