@@ -240,7 +240,7 @@ loader(function($) {
         keydownInactivityTimeout: 1500,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
-        historyStackSize: 50,
+        historyStackSize: 100,
         historyDelay: 500,
         randomIDLength: 7,
         firstLineNumber: 1,
@@ -263,7 +263,7 @@ loader(function($) {
         tabTriggers: true,
         shortcuts: true,
         showFinder: false,
-        searchOnTheFly: false
+        searchOnTheFly: false,
         keyCombinationFlag: 1
     };
     
