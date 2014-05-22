@@ -276,7 +276,7 @@ loader(function($) {
         isFullscreen: false,
         init: function(source) {
             this.data = new Data();
-            this.emit('changed', { line: 0, column: 0, text: source, append: true });
+            this.history.init(source);
             source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
@@ -2460,11 +2460,6 @@ loader(function($) {
     }
     
     history = function(stackSize, delay) {
-        this.states = [];
-        this.initialState = [];
-        this.index = 0;
-        this.muted = false;
-        
         this.pushChanges = function(line, column, text, added) {
             if (!this.muted && arguments.length == 4) {
                 var self = this,
@@ -2474,14 +2469,16 @@ loader(function($) {
                     ++this.index;
                     this.states.splice(this.index, this.states.length - this.index);
                 }
-                if (!this.states[this.index] || this.toRemove) {
+                if (this.performed) {
+                    this.states = [];
+                    this.performed = false;
+                }
+                if (!this.states[this.index]) {
                     this.states[this.index] = [changes];
-                    this.toRemove = false;
                 } else {
-                    var last = this.states[this.index].last(),
-                        b = false;
+                    var last = this.states[this.index].last(), b = false;
                     if (last.line == line && added == last.added) {
-                        if (b = (last.column == column)) {
+                        if (b = (last.column + (added ? last.text.length : '') == column)) {
                             last.text += text;
                         } else if (b = (column + text.length == last.column)) {
                             last.text = text + last.text;
@@ -2495,16 +2492,22 @@ loader(function($) {
                 }, delay);
             }
             return this;
-        };
+        }
         this.save = function() {
             ++this.index;
             while (this.states.length >= stackSize) {
                 this.shift();
             }
             return this;
-        };
+        }
     }
     history.prototype = {
+        init: function(content) {
+            this.states = [];
+            this.initialState = [{ line: 0, column: 0, text: content, added: true }];
+            this.index = 0;
+            this.muted = false;
+        },
         getState: function(index) {
             return this.states[index];
         },
@@ -2520,7 +2523,7 @@ loader(function($) {
                 this.timeout = clearTimeout(this.timeout);
                 (!this.states[this.index] || !this.states[this.index].length) && --this.index;
                 this.mute().emit('undo', this.states[this.index--]).unmute();
-                this.toRemove = true;
+                this.performed = true;
             }
         },
         redo: function() {
@@ -2528,7 +2531,7 @@ loader(function($) {
             if (this.index < this.states.length) {
                 this.timeout = clearTimeout(this.timeout);
                 this.mute().emit('redo', this.states[this.index++]).unmute();
-                this.toRemove = true;
+                this.performed = true;
             }
         },
         mute: function() {
