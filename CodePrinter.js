@@ -55,11 +55,20 @@ loader(function($) {
                 this.timeout = clearTimeout(this.timeout) || setTimeout(function() { self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop); }, 2);
             },
             dblclick: function() {
-                var bf = self.caret.textBefore(),
-                    af = self.caret.textAfter(),
-                    line = self.caret.line(),
-                    c = self.caret.column(),
-                    l = 1, r = 0, rgx = /[^\w\s]/;
+                var bf = self.caret.textBefore()
+                , af = self.caret.textAfter()
+                , line = self.caret.line()
+                , c = self.caret.column()
+                , l = 1, r = 0, rgx = /[^\w\s]/, timeout;
+                
+                var tripleclick = function() {
+                    self.selection.setRange(line, 0, line+1, 0);
+                    self.showSelection(true);
+                    this.unlisten('click', tripleclick);
+                    timeout = clearTimeout(timeout);
+                }
+                this.listen({ 'click': tripleclick });
+                timeout = setTimeout(function() { self.wrapper.unlisten('click', tripleclick); }, 1000);
                 
                 rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : rgx;
                 
