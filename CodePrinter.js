@@ -76,7 +76,7 @@ loader(function($) {
                 while (r < af.length && rgx.test(af[r])) r++;
                 
                 if (c-l+1 != c+r) {
-                    self.selection.setStart(line, c-l+1).setEnd(line, c+r);
+                    self.selection.setRange(line, c-l+1, line, c+r);
                     self.showSelection();
                 }
             },
@@ -94,7 +94,6 @@ loader(function($) {
                 } else {
                     self.caret.deactivate().hide();
                     self.unselectLine();
-                    self.selection.clear();
                     self.removeOverlays();
                 }
             },
@@ -823,26 +822,29 @@ loader(function($) {
                 }
                 var c = this.selection.coords();
                 
-                if (c[0].line != c[1].line) {
-                    var t = this.getTextAtLine(c[0].line).substr(c[0].column) + eol
-                    for (var i = c[0].line + 1; i < c[1].line; i++) {
+                if (c[0][0] != c[1][0]) {
+                    var t = this.getTextAtLine(c[0][0]).substr(c[0][1]) + eol
+                    for (var i = c[0][0] + 1; i < c[1][0]; i++) {
                         t = t + this.getTextAtLine(i) + eol;
                     }
-                    return t + this.getTextAtLine(c[1].line).substring(0, c[1].column);
+                    return t + this.getTextAtLine(c[1][0]).substring(0, c[1][1]);
                 } else {
-                    return this.getTextAtLine(c[0].line).substring(c[0].column, c[1].column);
+                    return this.getTextAtLine(c[0][0]).substring(c[0][1], c[1][1]);
                 }
             }
             return '';
         },
         isAllSelected: function() {
-            var c = this.selection.coords();
-            return c[0].line === 0 && c[0].column === 0 && c[1].line === this.data.lines-1 && c[1].column === this.getTextAtLine(-1).length;
-        },
-        showSelection: function() {            
             if (this.selection.isset()) {
-                var sp
-                , s = this.selection.getStart()
+                var c = this.selection.coords();
+                return c && c[0][0] === 0 && c[0][1] === 0 && c[1][0] === this.data.lines-1 && c[1][1] === this.getTextAtLine(-1).length;
+            }
+            return false;
+        },
+        showSelection: function(moveCursorToEnd) {            
+            if (this.selection.isset()) {
+                var sp, s = this.selection.start
+                , e = this.selection.end
                 , ov = this.selection.overlay
                 , sel = this.getSelection();
                 
@@ -857,32 +859,34 @@ loader(function($) {
                     sp = createSpan(i+1 < sel.length ? sel[i] + ' ' : sel[i], 'cp-selection', pos.y, pos.x);
                     ov.node.append(sp);
                 }
+                moveCursorToEnd && this.caret.position(this.selection.end.line, this.selection.end.column);
                 ov.reveal();
             }
         },
         removeSelection: function() {
-            this.selection.correct();
-            if (this.isAllSelected()) {
-                this.emit('changed', { line: 0, column: 0, text: this.getValue(), append: false });
-                this.init('');
-                this.caret.position(0, 0);
-            } else {
-                var s = this.selection.start
-                , e = this.selection.end;
-                
-                this.caret.position(s.line, s.column);
-                if (s.line == e.line) {
-                    this.removeAfterCursor(e.column - s.column);
+            if (this.selection.isset()) {
+                if (this.isAllSelected()) {
+                    this.emit('changed', { line: 0, column: 0, text: this.getValue(true), added: false });
+                    this.init('');
+                    this.caret.position(0, 0);
                 } else {
-                    this.removeAfterCursor(this.getTextAtLine(s.line).substr(s.column) + '\n');
-                    while (--e.line > s.line) {
-                        this.removeAfterCursor(this.caret.textAfter() + '\n');
+                    var s = this.selection.start
+                    , e = this.selection.end;
+                    
+                    this.caret.position(s.line, s.column);
+                    if (s.line == e.line) {
+                        this.removeAfterCursor(e.column - s.column);
+                    } else {
+                        this.removeAfterCursor(this.getTextAtLine(s.line).substr(s.column) + '\n');
+                        while (--e.line > s.line) {
+                            this.removeAfterCursor(this.caret.textAfter() + '\n');
+                        }
+                        this.removeAfterCursor(e.column);
                     }
-                    this.removeAfterCursor(e.column);
                 }
+                this.selection.clear();
+                this.selectLine(this.caret.line());
             }
-            this.selection.clear();
-            this.selectLine(this.caret.line());
         },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
@@ -2531,58 +2535,49 @@ loader(function($) {
     }
     
     selection = function() {
-        this.start = {};
-        this.end = {};
+        var coords = [], make = function() {
+            if (coords.length == 2 && (coords[1][0] < coords[0][0] || coords[0][0] === coords[1][0] && coords[1][1] < coords[0][1])) {
+                this.start = { line: coords[1][0], column: coords[1][1] }
+                this.end = { line: coords[0][0], column: coords[0][1] }
+            } else {
+                this.start = { line: coords[0][0], column: coords[0][1] }
+                this.end = { line: coords[1][0], column: coords[1][1] }
+            }
+            this.emit('done', this.start, this.end);
+        }
+        this.clear = function() {
+            this.overlay.node.innerHTML = '';
+            this.overlay.remove();
+            coords = [];
+            return this;
+        }
+        this.setStart = function(line, column) {
+            coords[0] = [line, column];
+            this.overlay.isRemovable = false;
+            this.emit('started', { line: line, column: column });
+        }
+        this.setEnd = function(line, column) {
+            coords[1] = [line, column];
+            make.call(this);
+        }
+        this.move = function(mv) {
+            coords[0][1] += mv;
+            coords[1][1] += mv;
+            make.call(this);
+        }
+        this.isset = function() {
+            return coords && coords.length == 2;
+        }
+        this.coords = function() {
+            return [[this.start.line, this.start.column], [this.end.line, this.end.column]];
+        }
         return this;
     }
     selection.prototype = {
-        clear: function() {
-            this.overlay.node.innerHTML = '';
-            this.overlay.isRemovable = true;
-            this.start = {};
-            this.end = {};
-            this.emit('canceled');
-            return this;
-        },
-        setStart: function(line, column) {
-            this.overlay.node.innerHTML != '' && this.clear();
-            this.overlay.isRemovable = false;
-            this.start.line = line;
-            this.start.column = column;
-            this.emit('started');
-            return this;
-        },
-        setEnd: function(line, column) {
-            this.end.line = line;
-            this.end.column = column;
-            return this;
-        },
         setRange: function(sl, sc, el, ec) {
             this.setStart(sl, sc);
             this.setEnd(el, ec);
             return this;
-        },
-        getStart: function() {
-            return this.isInversed() ? this.end : this.start;
-        },
-        getEnd: function() {
-            return this.isInversed() ? this.start : this.end;
-        },
-        coords: function() {
-            return this.isInversed() ? [this.end, this.start] : [this.start, this.end];
-        },
-        isInversed: function() {
-            return this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column);
-        },
-        correct: function() {
-            if (this.isInversed()) {
-                var t = this.start;
-                this.start = this.end;
-                this.end = t;
-            }
-        },
-        isset: function() {
-            return this.start.line >= 0 && this.end.line >= 0;
         }
     }
     
@@ -2714,6 +2709,7 @@ loader(function($) {
             cp.caret.element = cp.wrapper.firstChild;
             cp.screen.parent = cp.caret.element.nextSibling;
             cp.screen.element = cp.screen.parent.firstChild;
+            cp.selection.on({ done: cp.showSelection.bind(cp) });
         }
     })();
     var mouseController = function(self) {
@@ -2734,7 +2730,7 @@ loader(function($) {
             if (e.type === 'mousedown') {
                 self.isMouseDown = true;
                 self.input.value = '';
-                self.selection.setStart(l, c);
+                self.selection.clear().setStart(l, c);
                 self.caret.deactivate().show().position(l, c);
                 window.on('mousemove', fn);
                 window.one('mouseup', function(e) {
@@ -2749,8 +2745,6 @@ loader(function($) {
                 moveevent = e;
                 self.unselectLine();
                 self.selection.setEnd(l, c);
-                self.showSelection();
-                self.caret.position(l, c);
                 
                 if (e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight) {
                     var i = e.clientY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
