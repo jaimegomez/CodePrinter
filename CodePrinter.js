@@ -305,25 +305,29 @@ loader(function($) {
                     var a, i = arguments.length;
                     while (i--) {
                         a = arguments[i];
-                        self.caret.position(a.line, a.column);
+                        var t = self.data.getLine(a.line).text.substring(0, a.column);
+                        self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
                         if (a.added) {
                             self.removeAfterCursor(a.text);
                         } else {
                             self.insertText(a.text);
                         }
                     }
+                    self.caret.restorePosition();
                 },
                 redo: function() {
                     var a, i = arguments.length;
                     while (i--) {
                         a = arguments[i];
-                        self.caret.position(a.line, a.column);
+                        var t = self.data.getLine(a.line).text.substring(0, a.column);
+                        self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
                         if (a.added) {
                             self.insertText(a.text);
                         } else {
                             self.removeAfterCursor(a.text);
                         }
                     }
+                    self.caret.restorePosition();
                 }
             });
             
@@ -1322,11 +1326,14 @@ loader(function($) {
             refresh: function() {
                 return this.setPixelPosition(cp.sizes.charWidth * Math.min(column, this.textBefore().length), cp.sizes.lineHeight * line);
             },
+            forceRefresh: function() {
+                return this.position(line, column);
+            },
             line: function() {
                 return line;
             },
-            column: function() {
-                return this.textBefore().length;
+            column: function(withTabs) {
+                return withTabs ? before.length : this.textBefore().length;
             },
             eachCharacter: function(f, bf) {
                 var i = this.textBefore().length, n = 0, r = true,
@@ -1353,11 +1360,11 @@ loader(function($) {
                     }
                 }
             },
-            saveColumn: function() {
-                tmp = column;
+            savePosition: function(onlycolumn) {
+                tmp = [onlycolumn ? null : line, column];
             },
-            restoreColumn: function() {
-                tmp != null && this.position(null, tmp);
+            restorePosition: function() {
+                tmp != null && this.position(tmp[0], tmp[1]);
                 tmp = null;
             }
         });
