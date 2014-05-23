@@ -20,7 +20,7 @@ loader(function($) {
     , DATA_RATIO = 10
     , DATA_MASTER_RATIO = 100;
     
-    $.scripts.registerNamespace('CodePrinter', 'mode/');
+    $.scripts.namespaces['CodePrinter'] || $.scripts.registerNamespace('CodePrinter', 'mode/');
     
     CodePrinter = function(element, options) {
         var self = this, sizes, data = '', id, allowKeyup, fn, T, s = 0;
