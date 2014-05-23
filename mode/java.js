@@ -2,7 +2,7 @@
 
 CodePrinter.defineMode('Java', {
     controls: ['if','else','while','for','case','switch','try','catch','finally'],
-    keywords: ['abstract','assert','break','const','continue','default','enum','extends','final','goto','implements','instanceof','interface','native','new','package','private','protected','public','return','static','strictfp','super','synchronized','this','throw','throws','transient','void','volatile'],
+    keywords: ['abstract','assert','break','const','continue','default','do','enum','extends','final','goto','implements','instanceof','interface','native','new','package','private','protected','public','return','static','strictfp','super','synchronized','this','throw','throws','transient','void','volatile'],
     types: ['byte','short','int','long','float','double','boolean','char'],
     specials: ['java','System','String'],
     regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
