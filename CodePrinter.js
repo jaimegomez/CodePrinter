@@ -14,7 +14,7 @@ var loader = function(fn) {
 
 loader(function($) {
     var CodePrinter, Data, DataLine, Caret
-    , Screen, Overlay, Counter, InfoBar, Finder, Stream
+    , Screen, Counter, InfoBar, Finder, Stream
     , keyMap, commands, history, selection, tracking
     , extensions, eol, div, li, pre, span
     , DATA_RATIO = 10
@@ -35,7 +35,7 @@ loader(function($) {
         this.activeLine = {};
         this.overlays = [];
         this.snippets = [];
-        this.selection.overlay = new Overlay(this, 'cp-selection-overlay', false);
+        this.selection.overlay = new CodePrinter.Overlay(this, 'cp-selection-overlay', false);
         this.history = new history(options.historyStackSize, options.historyDelay);
         this.setTheme(options.theme);
         this.setMode(options.mode);
@@ -894,7 +894,7 @@ loader(function($) {
         },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
-            var overlay = this.highlightOverlay = new Overlay(this, 'cp-highlight-overlay', false);
+            var overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
             for (var i = 0; i < arguments.length; i++) {
                 var pos = getPositionOf(this, arguments[i][0], arguments[i][1]);
                 overlay.node.append(createSpan(arguments[i][2], 'cp-highlight', pos.y, pos.x, arguments[i][2].length * this.sizes.charWidth, this.sizes.lineHeight));
@@ -1567,13 +1567,13 @@ loader(function($) {
         }
     };
     
-    Overlay = function(cp, classes, removable) {
+    CodePrinter.Overlay = function(cp, classes, removable) {
         this.node = div.cloneNode().addClass('cp-overlay '+classes);
         this.isRemovable = !!removable;
         this.root = cp;
         return this;
-    };
-    Overlay.prototype = {
+    }
+    CodePrinter.Overlay.prototype = {
         reveal: function() {
             if (!this.node.parentNode) {
                 this.root.overlays.push(this);
@@ -1586,8 +1586,11 @@ loader(function($) {
             i != -1 && this.root.overlays.splice(i, 1);
             this.node.remove();
             this.emit('overlay:removed');
+        },
+        removable: function(is) {
+            this.isRemovable = !!is;
         }
-    };
+    }
     
     Counter = function(cp) {
         var self = this, ln = cp.screen.length();
@@ -1738,7 +1741,7 @@ loader(function($) {
             flexbox = div.cloneNode().addClass('cpf-flexbox'),
             input = document.createElement('input').addClass('cpf-input'),
             bar = div.cloneNode().addClass('cpf-bar'),
-            overlay = new Overlay(cp, 'cpf-overlay', false),
+            overlay = new CodePrinter.Overlay(cp, 'cpf-overlay', false),
             keyMap = {
                 13: function() {
                     if (self.searched === this.value) {
