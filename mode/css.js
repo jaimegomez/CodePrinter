@@ -86,11 +86,11 @@ CodePrinter.defineMode('CSS', {
         '@': function(stream, found) { found === '@media' ? stream.wrap('control', 'control-media') : stream.wrap('variable', 'variable-'+found.substr(1)); }
     },
     extension: {
-        keypressMap: {
-            58: function() {
+        keyMap: {
+            ':': function() {
                 this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.insertText(':;', -1);
             },
-            59: function() {
+            ';': function() {
                 if (this.textAfterCursor(1) === ';') {
                     this.caret.moveX(1);
                     return false;
