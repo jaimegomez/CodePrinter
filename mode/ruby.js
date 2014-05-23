@@ -83,7 +83,7 @@ CodePrinter.defineMode('Ruby', (function() {
             this.caret.setTextBefore(this.tabString(i-1) + bf);
         }
         this.insertText(e.getCharCode() == 68 ? 'D' : 'd');
-    };
+    }
     
     for (var i = 0; i < ctrls.length; i++) {
         tracking[ctrls[i]] = fn(ctrls[i]);
@@ -155,9 +155,9 @@ CodePrinter.defineMode('Ruby', (function() {
             }
             return stream;
         },
-        keypressMap: {
-            68: kpf,
-            100: kpf
+        keyMap: {
+            'D': kpf,
+            'd': kpf
         },
         tracking: tracking
     }
