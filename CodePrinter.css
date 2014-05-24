@@ -9,7 +9,7 @@
   background: #fcfcfc;
   border: 1px solid #c0c0c0;
   color: #777777;
-  font-family: Menlo, Monaco, monospace, Courier;
+  font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 11px;
   line-height: 15px;
   word-break: normal;
@@ -49,6 +49,11 @@
   display: -ms-flexbox;
   display: -webkit-flex;
   display: flex;
+  -webkit-flex: 1;
+  -moz-flex: 1;
+  -ms-flex: 1;
+  -o-flex: 1;
+  flex: 1;
   -webkit-flex-flow: column;
   -moz-flex-flow: column;
   -ms-flex-flow: column;
@@ -57,7 +62,7 @@
   height: 100%;
   background: #fcfcfc;
   position: relative;
-  font-family: Menlo, Monaco, monospace, Courier;
+  font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 11px;
 }
 .codeprinter .cp-container * {
