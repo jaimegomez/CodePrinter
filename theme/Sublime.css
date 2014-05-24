@@ -7,7 +7,7 @@
 .cps-sublime .cpf-bar { background:#272822; border-color:#555; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.7); }
 .cps-sublime .cpi-bar a:hover { color:#bbb; }
 .cps-sublime .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
-.cps-sublime .cp-selection { background:rgba(255,255,255,0.4); }
+.cps-sublime .cp-selection { background:rgba(255,255,255,0.15); }
 .cps-sublime .cp-highlight { border-bottom:1px solid white; }
 .cps-sublime .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-sublime .cpf-input { background:#373832; border-color:#555; }
@@ -22,6 +22,7 @@
 .cps-sublime .cpx-boolean { color:#888DFF; }
 .cps-sublime .cpx-empty-value { color:#888DFF; }
 .cps-sublime .cpx-special { color:#52E3F6; }
+.cps-sublime .cpx-namespace { color:#BFA4A4; }
 .cps-sublime .cpx-numeric { color:#C48CFF; }
 .cps-sublime .cpx-hex { color:#888DFF; }
 .cps-sublime .cpx-function { color:#B2DA16; }
