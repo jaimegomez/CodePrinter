@@ -37,6 +37,7 @@ loader(function($) {
         this.snippets = [];
         this.selection.overlay = new CodePrinter.Overlay(this, 'cp-selection-overlay', false);
         this.history = new history(options.historyStackSize, options.historyDelay);
+        this.keyMap = new keyMap;
         this.setTheme(options.theme);
         this.setMode(options.mode);
         this.caret.setStyle(options.caretStyle);
@@ -108,7 +109,7 @@ loader(function($) {
                 if (($.browser.macosx ? e.metaKey : e.ctrlKey) && ch in commands) {
                     allowKeyup = commands[ch].call(self, e, code, ch);
                 } else {
-                    if (code < 48 && !(kc in self.keyMap)) {
+                    if (code < 48 && code != 9 && !(kc in self.keyMap)) {
                         kc = e.getKeyCombination(self.options.keyCombinationFlag | 4);
                     }
                     if (kc in self.keyMap) {
@@ -118,7 +119,6 @@ loader(function($) {
                 if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
                     return allowKeyup = e.cancel();
                 }
-                self.selection.isset() && self.removeSelection();
                 return allowKeyup;
             },
             keypress: function(e) {
@@ -173,7 +173,7 @@ loader(function($) {
                 var p = self.parser;
                 if (p && p['onRemoved'+b[0]] && p['onRemoved'+b[0]][t]) {
                     p = p['onRemoved'+b[0]][t];
-                    typeof p === 'string' || typeof p === 'number' ? self['remove'+b[1]+'Cursor'](p) : p instanceof Function && p.call(self, t);
+                    typeof p === 'string' || typeof p === 'number' ? self['remove'+b[1]+'Cursor'](p, true) : p instanceof Function && p.call(self, t);
                 }
             };
         };
@@ -194,7 +194,7 @@ loader(function($) {
             options.infobar && self.openInfobar();
             options.showFinder && self.openFinder();
             
-            options.fontSize != 11 && options.fontSize > 0 && this.setFontSize(options.fontSize);
+            options.fontSize != 11 && options.fontSize > 0 && self.setFontSize(options.fontSize);
             options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
             options.snippets && self.snippets.push.apply(self.snippets, options.snippets);
             self.setWidth(options.width);
@@ -289,10 +289,6 @@ loader(function($) {
             this.screen.fill();
             
             this.data.on({
-                'text:changed': function(dl) {
-                    self.parseByDataLine(dl);
-                    self.caret.refresh();
-                },
                 'line:added': (fn = function() {
                     var s = self.screen.parent;
                     s.style.minHeight = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
@@ -415,13 +411,14 @@ loader(function($) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
                 this.memory = parser.alloc();
-                this.keyMap = (new keyMap).extend(parser.keyMap);
+                this.keyMap.extend(parser.keyMap);
                 this.options.tracking && (this.caret.tracking = (new tracking(this)).extend(parser.tracking));
             }
         },
         parseByDataLine: function(dl, force) {
             var line = this.data.indexOf(dl);
-            return line >= 0 ? this.parse(this.data.indexOf(dl), dl, force) : this;
+            line >= 0 && this.parse(line, dl, force);
+            return this;
         },
         parse: function(line, dl, force) {
             if (this.parser) {
@@ -513,7 +510,8 @@ loader(function($) {
             return this;
         },
         setFontSize: function(size) {
-            if (size >= this.options.minFontSize && size <= this.options.maxFontSize) {
+            size = Math.max(this.options.minFontSize, Math.min(size, this.options.maxFontSize));
+            if (size != this.options.fontSize) {
                 var id = this.mainElement.id;
                 this.sizes.scrollTop = this.sizes.scrollTop / this.sizes.lineHeight;
                 this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
@@ -527,9 +525,12 @@ loader(function($) {
                 this.screen.fix();
                 this.caret.refresh();
                 this.finder && this.finder.searched && this.finder.reload();
+                this.emit('fontsize:changed', size);
             }
             return this;
         },
+        increaseFontSize: function() { this.setFontSize(this.options.fontSize+1); },
+        decreaseFontSize: function() { this.setFontSize(this.options.fontSize-1); },
         setWidth: function(size) {
             if (size == 'auto') {
                 this.mainElement.style.removeProperty('width');
@@ -674,7 +675,8 @@ loader(function($) {
             return false;
         },
         insertText: function(text, mx) {
-            var pos, s = this.convertToSpaces(text).split(eol)
+            this.selection.isset() && this.removeSelection();
+            var pos, s = this.convertToSpaces(text).split('\n')
             , bf = this.caret.textBefore()
             , af = this.caret.textAfter()
             , line = this.caret.line();
@@ -764,7 +766,7 @@ loader(function($) {
                 swapLines(this, l);
             }
         },
-        removeBeforeCursor: function(arg) {
+        removeBeforeCursor: function(arg, emitRemoving) {
             var r = '', bf = this.caret.textBefore();
             if (typeof arg === 'string') {
                 arg = this.convertToSpaces(arg).split(eol);
@@ -802,10 +804,10 @@ loader(function($) {
             }
             if (r) {
                 this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
-                this.emit('removed.before', r);
+                emitRemoving != true && this.emit('removed.before', r);
             }
         },
-        removeAfterCursor: function(arg) {
+        removeAfterCursor: function(arg, emitRemoving) {
             var r = '', af = this.caret.textAfter();
             if (typeof arg === 'string') {
                 var i = 0, l = this.caret.line()
@@ -843,8 +845,11 @@ loader(function($) {
             }
             if (r) {
                 this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
-                this.emit('removed.after', r);
+                emitRemoving != true && this.emit('removed.after', r);
             }
+        },
+        isEmpty: function() {
+            return this.data.lines === 1 && !this.data.getLine(0).text;
         },
         getValue: function(withTabs) {
             var self = this, t, r = [], h = 0
@@ -973,10 +978,20 @@ loader(function($) {
             this.keyMap.extend(arg);
             return this;
         },
-        call: function(code, shiftKey, metaKey) {
-            var obj = metaKey ? commands : this.keyMap;
-            if (code && obj && code in obj) {
-                return obj[code].call(this, { shiftKey: shiftKey, metaKey: metaKey }, 0, '');
+        unregisterKey: function() {
+            for (var i = 0; i < arguments.length; i++) {
+                if (arguments[i] in this.keyMap) {
+                    this.keyMap[arguments[i]] = function() { return false; }
+                }
+            }
+            return this;
+        },
+        call: function(keyCombination, code, prototype) {
+            if (keyCombination) {
+                var obj = prototype ? keyMap.prototype : this.keyMap;
+                if (keyCombination in obj) {
+                    return obj[keyCombination].call(this, {}, code || 0, keyCombination);
+                }
             }
         },
         enterFullscreen: function() {
@@ -1904,7 +1919,7 @@ loader(function($) {
         },
         scrollToActive: function() {
             this.root.infobar && this.root.infobar.update(this.searchResults.length ? (this.searchResults.g+1)+' of '+this.searchResults.length+' matches' : 'Unable to find '+this.searched);
-            $(this.root.wrapper).include(this.root.counter && this.root.counter.parent).scrollTo(
+            this.searchResults.length > 0 && $(this.root.wrapper).include(this.root.counter && this.root.counter.parent).scrollTo(
                 parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
                 parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
                 this.root.options.autoScrollSpeed
@@ -2353,16 +2368,19 @@ loader(function($) {
             }
         },
         '(': function(e, k, ch) {
+            this.insertText(ch);
             if (this.options.insertClosingBrackets) {
-                this.insertText(ch + (k === 40 ? String.fromCharCode(41) : String.fromCharCode(k+2)), -1);
-                return false;
+                this.insertText(complementBracket(ch), -1);
             }
+            return false;
         },
         ')': function(e, k, ch) {
             if (this.options.insertClosingBrackets && this.textAfterCursor(1) == ch) {
                 this.caret.moveX(1);
-                return false;
+            } else {
+                this.insertText(ch);
             }
+            return false;
         },
         'Ctrl+Left': function() {
             this.caret.position(this.caret.line(), 0);
@@ -2411,12 +2429,8 @@ loader(function($) {
         'Shift+Ctrl+Z': function(e) {
             this.history.redo();
         },
-        'Ctrl++': function() {
-            this.setFontSize(this.options.fontSize+1);
-        },
-        'Ctrl+-': function() {
-            this.setFontSize(this.options.fontSize-1);
-        },
+        'Ctrl++': CodePrinter.prototype.increaseFontSize,
+        'Ctrl+-': CodePrinter.prototype.decreaseFontSize,
         'Ctrl+/': function() {
             if (this.parser && this.parser.comment) {
                 var start, end, is, sm = 0, comment = this.parser.comment.split('[text content]');
@@ -2444,7 +2458,7 @@ loader(function($) {
                         }
                     }
                 }
-                this.selection.move(sm);
+                is && this.selection.move(sm);
                 this.showSelection();
             }
         },
@@ -2711,8 +2725,7 @@ loader(function($) {
         'json': 'javascript',
         'htm': 'html',
         'less': 'css',
-        'h': 'c',
-        'cpp': 'c',
+        'h': 'cpp',
         'rb': 'ruby',
         'pl': 'perl',
         'sh': 'bash'
@@ -2762,7 +2775,7 @@ loader(function($) {
             cp.caret.element = cp.wrapper.firstChild;
             cp.screen.parent = cp.caret.element.nextSibling;
             cp.screen.element = cp.screen.parent.firstChild;
-            cp.selection.on({ done: cp.showSelection.bind(cp) });
+            cp.selection.on({ done: cp.showSelection.bind(cp, false) });
         }
     })();
     var mouseController = function(self) {
@@ -2838,10 +2851,10 @@ loader(function($) {
         var s = span.cloneNode().addClass(classes);
         s.textContent = text;
         s.style.extend({
-            top: top + 'px',
-            left: left + 'px',
-            width: width + 'px',
-            height: height + 'px'
+            top: parseInt(top) + 'px',
+            left: parseInt(left) + 'px',
+            width: parseInt(width) + 'px',
+            height: parseInt(height) + 'px'
         });
         return s;
     }
@@ -2854,6 +2867,10 @@ loader(function($) {
         tmp = [text.substring(0, pos), text.substr(pos)];
         tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
         return tmp[0] + tmp[1];
+    }
+    function complementBracket(ch) {
+        var obj = { '(':')', '{':'}', '[':']', '<':'>' }
+        return obj[ch];
     }
     function swapLines(cp, line) {
         var spaces = cp.tabString()
