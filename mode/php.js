@@ -60,5 +60,10 @@ CodePrinter.defineMode('PHP', {
             }
 		}
 		return stream;
-	}
+	},
+    extension: {
+        expressions: {
+            "'": { ending: "'", classes: ['string', 'single-quote'] }
+        }
+    }
 });
