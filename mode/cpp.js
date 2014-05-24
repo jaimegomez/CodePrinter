@@ -1,14 +1,19 @@
-/* CodePrinter - C Mode */
+/* CodePrinter - Cpp Mode */
 
-CodePrinter.defineMode('C', {
+CodePrinter.defineMode('Cpp', {
 	controls: ['if','else','elseif','for','switch','while','do','try','catch'],
 	keywords: ['return','this','new','break','continue','case','sizeof','const','using','namespace','alignas','alignof','and','and_eq','asm','auto','bitand','bitor','compli','constexpr','const_cast','decltype','default','delete','dynamic_cast','explicit','export','extern','friend','goto','inline','mutable','noexcept','not','not_eq','nullptr','operator','or','or_eq','private','protected','public','register','reinterpret_cast','static','static_assert','static_cast','template','thread_local','throw','typedef','typeid','typename','union','virtual','volatile','xor','xor_eq'],
 	types: ['void','int','double','short','long','char','float','bool','unsigned','signed','enum','struct','class','char16_t','char32_t','wchar_t'],
-    specials: ['cout','cin','endl','string','vector','ostream','istream','ofstream','ifstream'],
+    specials: ['string','vector','ostream','istream','ofstream','ifstream'],
 	regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
 	comment: '//',
     
-	fn: function(stream) {
+    alloc: function() {
+        return {
+            included: []
+        }
+    },
+	fn: function(stream, memory) {
 		var found;
 		
 		while (found = stream.match(this.regexp)) {
@@ -29,19 +34,24 @@ CodePrinter.defineMode('C', {
 					stream.wrap('control');
 				} else if (this.types.indexOf(found) !== -1) {
                     stream.wrap('keyword', 'type');
-                } else if (this.specials.indexOf(found) !== -1) {
+                } else if (this.specials.indexOf(found) !== -1 || memory.included.indexOf(found) !== -1) {
                     stream.wrap('special');
                 } else if (this.keywords.indexOf(found) !== -1) {
 					stream.wrap('keyword');
 				} else if (stream.isAfter('(')) {
 					stream.wrap('function');
-				} else {
+				} else if (stream.isAfter('::')) {
+                    stream.wrap('namespace');
+                } else {
 					stream.wrap('other');
 				}
             } else if (found[0] === '#') {
 				stream.wrap('special', 'directives');
 				if (found === '#include') {
-					stream.eat(stream.after()).wrap('string');
+                    var af = stream.after();
+					stream.eat(af).wrap('string');
+                    var m = af.match(/[\w\/\.]+/);
+                    m && m[0] in this.includes && memory.included.union(this.includes[m[0]]);
 				}
 			} else if (found.length == 1) {
                 if (this.punctuations.hasOwnProperty(found)) {
@@ -65,6 +75,14 @@ CodePrinter.defineMode('C', {
 		}
 		return stream;
 	},
+    includes: {
+        'iostream': ['cin', 'cout','cerr','clog','wcin','wcout','wcerr','wclog','endl'],
+        'istream': ['istream','iostream','wistream','wiostream','ws'],
+        'ostream': ['ostream','wostream','endl','ends','flush'],
+        'cstdio': ['print', 'printf', 'fprint', 'fprintf', 'scan', 'scanf', 'fscanf', 'puts', 'getc', 'gets', 'fclose'],
+        'cstdlib': ['printf', 'calloc', 'malloc', 'realloc', 'free'],
+        'map': ['map']
+    },
     snippets: [
         {
             trigger: 'out',
