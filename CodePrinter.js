@@ -694,6 +694,46 @@ loader(function($) {
             mx && this.caret.moveX(mx);
             return this;
         },
+        put: function(text, line, column, mx) {
+            text = this.convertToSpaces(text);
+            if (text.length && line < this.data.lines) {
+                var s = text.split(eol)
+                , dl = this.data.getLine(line)
+                , dlt = this.convertToSpaces(dl.text)
+                , bf = dlt.substring(0, column), af = dlt.substr(column)
+                , isb = this.cursorIsBeforePosition(line, bf.length);
+                
+                this.emit('changed', { line: line, column: this.convertToTabs(bf).length, text: text, added: true });
+                
+                if (s.length > 1) {
+                    var i = s.length - 1;
+                    this.insertNewLine(line+1, s[i] + af);
+                    af = '';
+                    while (--i > 0) {
+                        this.insertNewLine(line+1, s[i]);
+                    }
+                }
+                this.dispatch(dl, line, bf + s[0] + af);
+                this.caret.forceRefresh();
+                !isb && this.caret.moveX(text.length);
+                mx && this.caret.moveX(mx);
+            }
+            return this;
+        },
+        erase: function(arg, line, column, mx) {
+            var isb = this.cursorIsBeforePosition(line, column);
+            this.caret.savePosition();
+            this.caret.position(line, column);
+            this.removeBeforeCursor(arg);
+            this.caret.restorePosition();
+            !isb && this.caret.moveX(-(arg.length || arg));
+            mx && this.caret.moveX(mx);
+            return this;
+        },
+        dispatch: function(dl, line, text) {
+            dl.text = this.convertToTabs(text);
+            return this.parse(line, dl, true);
+        },
         appendText: function(text) {
             var dl, text = this.convertToTabs(text);
             (this.data.lines == 1 && (dl = this.data.getFirstLine()).text.length == 0) ? dl.setText(text) : this.data.addLine(this.data.lines, text);
