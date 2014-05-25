@@ -62,10 +62,10 @@ CodePrinter.defineMode('Java', {
                     stream.wrap('other');
                 }
             } else if (found.length == 1) {
-                if (this.punctuations.hasOwnProperty(found)) {
-                    stream.wrap('punctuation', this.punctuations[found]);
-                } else if (this.operators.hasOwnProperty(found)) {
+                if (this.operators.hasOwnProperty(found)) {
                     stream.wrap('operator', this.operators[found]);
+                } else if (this.punctuations.hasOwnProperty(found)) {
+                    stream.wrap('punctuation', this.punctuations[found]);
                 } else if (this.brackets.hasOwnProperty(found)) {
                     stream.applyWrap(this.brackets[found]);
                 } else if (found === '"' || found === "'") {
