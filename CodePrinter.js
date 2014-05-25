@@ -31,7 +31,7 @@ loader(function($) {
         
         this.mainElement.CodePrinter = this;
         id = this.mainElement.id = $.random(options.randomIDLength);
-        sizes = this.sizes = { lineHeight: options.lineHeight };
+        sizes = this.sizes = { lineHeight: options.lineHeight, charWidth: 0 };
         this.activeLine = {};
         this.overlays = [];
         this.snippets = [];
@@ -204,7 +204,7 @@ loader(function($) {
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.scrollTop = parseInt(s.getPropertyValue('top'));
-            calculateCharDimensions(self);
+            setTimeout(function() { calculateCharDimensions(self); }, 150);
             
             self.print();
         }});
