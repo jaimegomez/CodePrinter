@@ -16,7 +16,7 @@ loader(function($) {
     var CodePrinter, Data, DataLine, Caret
     , Screen, Counter, InfoBar, Finder, Stream
     , keyMap, commands, history, selection, tracking
-    , extensions, eol, div, li, pre, span
+    , extensions, div, li, pre, span
     , DATA_RATIO = 10
     , DATA_MASTER_RATIO = 100;
     
@@ -229,6 +229,7 @@ loader(function($) {
         mode: 'plaintext',
         theme: 'default',
         caretStyle: 'vertical',
+        lineEndings: '\n',
         width: 'auto',
         height: 300,
         tabWidth: 4,
@@ -489,6 +490,12 @@ loader(function($) {
             }
             return this;
         },
+        setLineEndings: function(le) {
+            le = le.toUpperCase();
+            var map = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
+            this.options.lineEndings = map[le] || '\n';
+            return this;
+        },
         setTheme: function(name) {
             typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
             this.mainElement.removeClass('cps-'+this.options.theme.toLowerCase()).addClass('cps-'+(this.options.theme = name.replace(' ', '-')).toLowerCase());
@@ -699,7 +706,7 @@ loader(function($) {
         put: function(text, line, column, mx) {
             text = this.convertToSpaces(text);
             if (text.length && line < this.data.lines) {
-                var s = text.split(eol)
+                var s = text.split('\n')
                 , dl = this.data.getLine(line)
                 , dlt = this.convertToSpaces(dl.text)
                 , bf = dlt.substring(0, column), af = dlt.substr(column)
@@ -769,7 +776,7 @@ loader(function($) {
         removeBeforeCursor: function(arg, emitRemoving) {
             var r = '', bf = this.caret.textBefore();
             if (typeof arg === 'string') {
-                arg = this.convertToSpaces(arg).split(eol);
+                arg = this.convertToSpaces(arg).split('\n');
                 var i = arg.length - 1, x
                 , af = this.caret.textAfter()
                 , l = this.caret.line();
@@ -812,7 +819,7 @@ loader(function($) {
             if (typeof arg === 'string') {
                 var i = 0, l = this.caret.line()
                 , bf = this.caret.textBefore();
-                arg = this.convertToSpaces(arg).split(eol);
+                arg = this.convertToSpaces(arg).split('\n');
                 while (i < arg.length - 1 && (af.indexOf(arg[i]) === 0 || !arg[i].length)) {
                     r = r + arg[i] + '\n';
                     this.caret.setTextAfter(af.substr(arg[i++].length));
@@ -862,7 +869,7 @@ loader(function($) {
                     r.push.apply(r, this.data[h][t].map(fn));
                 }
             }
-            return r.join(eol);
+            return r.join(this.options.lineEndings);
         },
         getSelection: function() {
             if (this.selection.isset()) {
@@ -872,9 +879,9 @@ loader(function($) {
                 var c = this.selection.coords();
                 
                 if (c[0][0] != c[1][0]) {
-                    var t = this.getTextAtLine(c[0][0]).substr(c[0][1]) + eol
+                    var t = this.getTextAtLine(c[0][0]).substr(c[0][1]) + this.options.lineEndings;
                     for (var i = c[0][0] + 1; i < c[1][0]; i++) {
-                        t = t + this.getTextAtLine(i) + eol;
+                        t = t + this.getTextAtLine(i) + this.options.lineEndings;
                     }
                     return t + this.getTextAtLine(c[1][0]).substring(0, c[1][1]);
                 } else {
@@ -900,7 +907,7 @@ loader(function($) {
                 this.unselectLine();
                 this.input.value = sel;
                 this.input.setSelectionRange(0, sel.length);
-                sel = sel.split(eol);
+                sel = sel.split(this.options.lineEndings);
                 ov.node.innerHTML = '';
                 
                 for (var i = 0; i < sel.length; i++) {
@@ -1076,10 +1083,10 @@ loader(function($) {
             }
         },
         convertToSpaces: function(text) {
-            return text.replace(/\t/g, Array(this.options.tabWidth+1).join(' '));
+            return text.replace(/\t/g, Array(this.options.tabWidth+1).join(' ')).replace(/\r/g, '');
         },
         convertToTabs: function(text) {
-            return text.replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t');
+            return text.replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t').replace(/\r/g, '');
         },
         prependTo: function(node) { node.prepend(this.mainElement); return this; },
         appendTo: function(node) { node.append(this.mainElement); return this; },
@@ -2215,7 +2222,7 @@ loader(function($) {
             return this.pos === 0;
         },
         toString: function() {
-            return this.parsed.join(eol);
+            return this.parsed.join('\n');
         }
     }
     
@@ -2730,8 +2737,6 @@ loader(function($) {
         'pl': 'perl',
         'sh': 'bash'
     }
-    
-    eol = $.browser.windows ? '\r\n' : '\n';
     
     CodePrinter.requireMode = function(req, cb, del) {
         return $.scripts.require('CodePrinter/'+req.toLowerCase(), cb, del);
