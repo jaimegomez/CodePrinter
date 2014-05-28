@@ -16,7 +16,7 @@ loader(function($) {
     var CodePrinter, Data, DataLine, Caret
     , Screen, Counter, InfoBar, Finder, Stream
     , keyMap, commands, history, selection, tracking
-    , extensions, div, li, pre, span
+    , lineendings, extensions, div, li, pre, span
     , DATA_RATIO = 10
     , DATA_MASTER_RATIO = 100;
     
@@ -125,7 +125,7 @@ loader(function($) {
                 var code = e.getCharCode()
                 , ch = String.fromCharCode(code);
                 
-                if (allowKeyup && e.ctrlKey != true && e.metaKey != true) {
+                if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
                     T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keydownInactivityTimeout);
                     (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                     this.value = '';
@@ -290,6 +290,10 @@ loader(function($) {
             this.screen.fill();
             
             this.data.on({
+                'text:changed': function(dl) {
+                    self.parseByDataLine(dl);
+                    self.caret.refresh();
+                },
                 'line:added': (fn = function() {
                     var s = self.screen.parent;
                     s.style.minHeight = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
@@ -492,8 +496,7 @@ loader(function($) {
         },
         setLineEndings: function(le) {
             le = le.toUpperCase();
-            var map = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
-            this.options.lineEndings = map[le] || '\n';
+            this.options.lineEndings = lineendings[le] || this.options.lineEndings || '\n';
             return this;
         },
         setTheme: function(name) {
@@ -556,6 +559,9 @@ loader(function($) {
             }
             this.emit('height:changed');
             return this;
+        },
+        getLineEnding: function() {
+            return lineendings[this.options.lineEndings] || this.options.lineEndings || lineendings['LF'];
         },
         getCurrentLine: function() {
             return this.caret.line();
@@ -869,7 +875,7 @@ loader(function($) {
                     r.push.apply(r, this.data[h][t].map(fn));
                 }
             }
-            return r.join(this.options.lineEndings);
+            return r.join(this.getLineEnding());
         },
         getSelection: function() {
             if (this.selection.isset()) {
@@ -879,9 +885,9 @@ loader(function($) {
                 var c = this.selection.coords();
                 
                 if (c[0][0] != c[1][0]) {
-                    var t = this.getTextAtLine(c[0][0]).substr(c[0][1]) + this.options.lineEndings;
+                    var t = this.getTextAtLine(c[0][0]).substr(c[0][1]) + this.getLineEnding();
                     for (var i = c[0][0] + 1; i < c[1][0]; i++) {
-                        t = t + this.getTextAtLine(i) + this.options.lineEndings;
+                        t = t + this.getTextAtLine(i) + this.getLineEnding();
                     }
                     return t + this.getTextAtLine(c[1][0]).substring(0, c[1][1]);
                 } else {
@@ -907,7 +913,7 @@ loader(function($) {
                 this.unselectLine();
                 this.input.value = sel;
                 this.input.setSelectionRange(0, sel.length);
-                sel = sel.split(this.options.lineEndings);
+                sel = sel.split(this.getLineEnding());
                 ov.node.innerHTML = '';
                 
                 for (var i = 0; i < sel.length; i++) {
@@ -2501,8 +2507,10 @@ loader(function($) {
             return false;
         },
         'C': function(e) {
+            this.input.focus();
+            this.input.setSelectionRange(0, this.input.value.length);
             this.emit('cmd.copy');
-            return false;
+            return -1;
         },
         'V': function(e) {
             this.removeSelection();
@@ -2726,6 +2734,8 @@ loader(function($) {
     }
     tracking.prototype['{'] = tracking.prototype['['] = tracking.prototype['('];
     tracking.prototype['}'] = tracking.prototype[']'] = tracking.prototype[')'];
+    
+    lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
     
     extensions = {
         'js': 'javascript',
