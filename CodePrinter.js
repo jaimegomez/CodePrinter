@@ -2321,7 +2321,7 @@ loader(function($) {
                         return false;
                     }
                 }
-                this.insertText('\t');
+                this.insertText(' '.repeat(this.options.tabWidth - bf.length % this.options.tabWidth));
             }
             return false;
         },
