@@ -16,7 +16,7 @@ CodePrinter.defineMode('Bash', {
         var found;
         
         while (found = stream.match(this.regexp)) {
-            if (!isNaN(found.replace(/\./g, '').replace(/\_/g, ''))) {
+            if (!isNaN(found.replace(/\_/g, '.'))) {
                 if (found.substr(0, 2).toLowerCase() == '0x') {
                     stream.wrap('numeric', 'hex');
                 } else {
