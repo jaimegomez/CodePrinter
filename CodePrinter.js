@@ -709,6 +709,12 @@ loader(function($) {
             mx && this.caret.moveX(mx);
             return this;
         },
+        insertSelectedText: function(text, mx) {
+            this.selection.setStart(this.caret.line(), this.caret.column());
+            this.insertText(text, mx);
+            this.selection.setEnd(this.caret.line(), this.caret.column());
+            return this;
+        },
         put: function(text, line, column, mx) {
             text = this.convertToSpaces(text);
             if (text.length && line < this.data.lines) {
@@ -932,19 +938,8 @@ loader(function($) {
                     this.init('');
                     this.caret.position(0, 0);
                 } else {
-                    var s = this.selection.start
-                    , e = this.selection.end;
-                    
-                    this.caret.position(s.line, s.column);
-                    if (s.line == e.line) {
-                        this.removeAfterCursor(e.column - s.column);
-                    } else {
-                        this.removeAfterCursor(this.getTextAtLine(s.line).substr(s.column) + '\n');
-                        while (--e.line > s.line) {
-                            this.removeAfterCursor(this.caret.textAfter() + '\n');
-                        }
-                        this.removeAfterCursor(e.column);
-                    }
+                    this.caret.position(this.selection.end.line, this.selection.end.column);
+                    this.removeBeforeCursor(this.getSelection());
                 }
                 this.selection.clear();
                 this.selectLine(this.caret.line());
@@ -2664,6 +2659,12 @@ loader(function($) {
             this.setStart(sl, sc);
             this.setEnd(el, ec);
             return this;
+        },
+        inSelection: function(line, column) {
+            var c = this.coords();
+            return line == Math.max(c[0][0], Math.min(line, c[1][0]))
+            && (line != c[0][0] || column >= c[0][1])
+            && (line != c[1][0] || column <= c[1][1]);
         }
     }
     
@@ -2798,7 +2799,7 @@ loader(function($) {
         }
     })();
     var mouseController = function(self) {
-        var moveevent
+        var moveevent, moveselection = false
         , fn = function(e) {
             if (e.button > 0 || e.which > 1)
                 return false;
@@ -2814,18 +2815,42 @@ loader(function($) {
             
             if (e.type === 'mousedown') {
                 self.isMouseDown = true;
-                self.input.value = '';
-                self.selection.clear().setStart(l, c);
-                self.caret.deactivate().show().position(l, c);
-                window.on('mousemove', fn);
-                window.one('mouseup', function(e) {
-                    !self.selection.isset() && self.selection.clear();
-                    window.off('mousemove', fn);
-                    self.caret.activate();
-                    self.sizes.bounds = moveevent = null;
-                    document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
-                    return self.isMouseDown = e.cancel();
-                });
+                if (self.selection.isset() && self.selection.inSelection(l, c)) {
+                    moveselection = true;
+                    window.on('mousemove', fn);
+                    window.on('mouseup', function(e) {
+                        window.off('mousemove', fn);
+                        if (moveselection && self.selection.isset() && !self.selection.inSelection(self.caret.line(), self.caret.column())) {
+                            var selection = self.getSelection()
+                            , savedpos = self.caret.savePosition()
+                            , isbf = self.cursorIsBeforePosition(self.selection.start.line, self.selection.start.column);
+                            
+                            self.caret.position(self.selection.end.line, self.selection.end.column);
+                            if (!isbf) {
+                                savedpos[0] -= self.selection.end.line - self.selection.start.line;
+                            }
+                            self.removeSelection();
+                            self.caret.restorePosition(savedpos);
+                            self.insertSelectedText(selection);
+                        }
+                        return self.isMouseDown = moveselection = e.cancel();
+                    });
+                } else {
+                    self.input.value = '';
+                    self.selection.clear().setStart(l, c);
+                    self.caret.deactivate().show().position(l, c);
+                    window.on('mousemove', fn);
+                    window.one('mouseup', function(e) {
+                        !self.selection.isset() && self.selection.clear();
+                        window.off('mousemove', fn);
+                        self.caret.activate();
+                        self.sizes.bounds = moveevent = null;
+                        document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
+                        return self.isMouseDown = e.cancel();
+                    });
+                }
+            } else if (moveselection) {
+                self.caret.position(l, c);
             } else {
                 moveevent = e;
                 self.unselectLine();
