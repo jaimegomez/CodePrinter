@@ -1429,11 +1429,15 @@ loader(function($) {
                 }
             },
             savePosition: function(onlycolumn) {
-                tmp = [onlycolumn ? null : line, column];
+                return tmp = [onlycolumn ? null : line, column];
             },
-            restorePosition: function() {
-                tmp != null && this.position(tmp[0], tmp[1]);
-                tmp = null;
+            restorePosition: function(save) {
+                if (save instanceof Array && save.length == 2) {
+                    this.position(save[0], save[1]);
+                } else {
+                    tmp != null && this.position(tmp[0], tmp[1]);
+                    tmp = null;
+                }
             }
         });
     };
