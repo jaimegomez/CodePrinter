@@ -304,6 +304,7 @@ loader(function($) {
             this.history.on({
                 undo: function() {
                     var a, i = arguments.length;
+                    self.selection.clear();
                     while (i--) {
                         a = arguments[i];
                         var t = self.data.getLine(a.line).text.substring(0, a.column);
@@ -317,8 +318,9 @@ loader(function($) {
                     self.caret.restorePosition();
                 },
                 redo: function() {
-                    var a, i = arguments.length;
-                    while (i--) {
+                    var a, i = -1;
+                    self.selection.clear();
+                    while (++i < arguments.length) {
                         a = arguments[i];
                         var t = self.data.getLine(a.line).text.substring(0, a.column);
                         self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
