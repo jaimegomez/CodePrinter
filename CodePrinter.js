@@ -2824,7 +2824,7 @@ loader(function($) {
                 if (self.selection.isset() && self.selection.inSelection(l, c)) {
                     moveselection = true;
                     window.on('mousemove', fn);
-                    window.on('mouseup', function(e) {
+                    window.once('mouseup', function() {
                         window.off('mousemove', fn);
                         if (moveselection && self.selection.isset() && !self.selection.inSelection(self.caret.line(), self.caret.column())) {
                             var selection = self.getSelection()
@@ -2838,6 +2838,9 @@ loader(function($) {
                             self.removeSelection();
                             self.caret.restorePosition(savedpos);
                             self.insertSelectedText(selection);
+                        } else {
+                            self.selection.clear();
+                            fn.call(window, arguments[0]);
                         }
                         return self.isMouseDown = moveselection = e.cancel();
                     });
@@ -2846,7 +2849,7 @@ loader(function($) {
                     self.selection.clear().setStart(l, c);
                     self.caret.deactivate().show().position(l, c);
                     window.on('mousemove', fn);
-                    window.one('mouseup', function(e) {
+                    window.once('mouseup', function(e) {
                         !self.selection.isset() && self.selection.clear();
                         window.off('mousemove', fn);
                         self.caret.activate();
