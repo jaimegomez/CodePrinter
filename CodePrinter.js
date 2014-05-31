@@ -501,8 +501,8 @@ loader(function($) {
             this.options.lineEndings = lineendings[le] || this.options.lineEndings || '\n';
             return this;
         },
-        setTheme: function(name) {
-            typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
+        setTheme: function(name, dontrequire) {
+            typeof name === 'string' && name !== 'default' ? dontrequire != true && this.requireStyle(name) : name = 'default';
             this.mainElement.removeClass('cps-'+this.options.theme.toLowerCase()).addClass('cps-'+(this.options.theme = name.replace(' ', '-')).toLowerCase());
             return this;
         },
