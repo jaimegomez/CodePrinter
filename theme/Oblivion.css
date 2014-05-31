@@ -3,12 +3,12 @@
 .cps-oblivion .cp-wrapper { background:#1E1E1E; color:#D8D8D8; }
 .cps-oblivion .cp-counter,
 .cps-oblivion .cpi-bar,
-.cps-oblivion .cpf-bar { background:#1e1e1e; border-color:#d0d0d0; color:#d0d0d0; }
+.cps-oblivion .cpf-bar { background:#1e1e1e; border-color:#696969; color:#d0d0d0; }
 .cps-oblivion .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
-.cps-oblivion .cp-selection { background:black; }
+.cps-oblivion .cp-selection { background:rgba(225,225,225,0.15); }
 .cps-oblivion .cp-highlight { border-bottom:1px solid white; }
 .cps-oblivion .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
-.cps-oblivion .cpf-input { background:#3e3e3e; border-color:#d0d0d0; }
+.cps-oblivion .cpf-input { background:#3e3e3e; border-color:#696969; }
 .cps-oblivion .cpf-occurrence { border-color:#ddd; }
 .cps-oblivion .cpf-occurrence.active { background:white; border-color:black; }
 
