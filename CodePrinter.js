@@ -947,6 +947,12 @@ loader(function($) {
                 this.selectLine(this.caret.line());
             }
         },
+        selectAll: function() {
+            var ls = this.data.lines - 1;
+            this.selection.setRange(0, 0, ls, this.getTextAtLine(ls).length);
+            this.showSelection();
+            this.caret.deactivate().hide();
+        },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
             var overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
@@ -2499,10 +2505,7 @@ loader(function($) {
     commands = {
         'A': function(e) {
             if (!this.isAllSelected()) {
-                var ls = this.data.lines - 1;
-                this.selection.setRange(0, 0, ls, this.getTextAtLine(ls).length);
-                this.showSelection();
-                this.caret.deactivate().hide();
+                this.selectAll();
                 this.emit('cmd.selectAll');
             }
             return false;
