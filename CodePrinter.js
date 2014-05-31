@@ -450,7 +450,7 @@ loader(function($) {
                     }
                     
                     p = this.parser.fn(stream, this.memory).parsed;
-                    while (++i < p.length) {
+                    while (++i < p.length && line+i < this.data.lines) {
                         p[i] = this.convertToSpaces(p[i]);
                         p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
                         data.getLine(line+i).setParsed(p[i]);
