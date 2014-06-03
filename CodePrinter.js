@@ -147,18 +147,16 @@ loader(function($) {
                 self.finder && self.finder.isOpen && self.finder.find();
             },
             'position:changed': function(x, y) {
-                if (document.activeElement == self.input) {
-                    if (self.options.autoScroll) {
-                        var wrapper = self.wrapper,
-                            pl = self.sizes.paddingLeft, pt = self.sizes.paddingTop,
-                            sl = wrapper.scrollLeft, st = wrapper.scrollTop,
-                            cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
-                            ix = self.sizes.charWidth, iy = self.sizes.lineHeight;
-                        wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
-                        wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
-                    }
-                    self.removeOverlays();
+                if (self.options.autoScroll) {
+                    var wrapper = self.wrapper,
+                        pl = self.sizes.paddingLeft, pt = self.sizes.paddingTop,
+                        sl = wrapper.scrollLeft, st = wrapper.scrollTop,
+                        cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
+                        ix = self.sizes.charWidth, iy = self.sizes.lineHeight;
+                    wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
+                    wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
                 }
+                self.removeOverlays();
                 self.selectLine(this.line());
             }
         });
