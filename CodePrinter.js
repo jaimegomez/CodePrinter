@@ -147,23 +147,19 @@ loader(function($) {
                 self.finder && self.finder.isOpen && self.finder.find();
             },
             'position:changed': function(x, y) {
-                document.activeElement != self.input && self.input.focus();
-                if (self.options.autoScroll) {
-                    var wrapper = self.wrapper,
-                        pl = self.sizes.paddingLeft, pt = self.sizes.paddingTop,
-                        sl = wrapper.scrollLeft, st = wrapper.scrollTop,
-                        cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
-                        ix = self.sizes.charWidth, iy = self.sizes.lineHeight;
-                    wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
-                    wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
+                if (document.activeElement == self.input) {
+                    if (self.options.autoScroll) {
+                        var wrapper = self.wrapper,
+                            pl = self.sizes.paddingLeft, pt = self.sizes.paddingTop,
+                            sl = wrapper.scrollLeft, st = wrapper.scrollTop,
+                            cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
+                            ix = self.sizes.charWidth, iy = self.sizes.lineHeight;
+                        wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
+                        wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
+                    }
+                    self.removeOverlays();
                 }
-                self.removeOverlays();
                 self.selectLine(this.line());
-            },
-            'line:changed': function(e) {
-                if (self.options.highlightCurrentLine) {
-                    self.selectLine(e.current);
-                }
             }
         });
         
@@ -395,7 +391,7 @@ loader(function($) {
                 }
                 document.scrollTop(sT);
                 document.scrollLeft(sL);
-                self.options.autofocus && self.caret.position(0, 0);
+                self.options.autofocus && self.caret.position(0, 0) && self.input.focus();
             }
             
             this.screen.removeLines();
@@ -953,6 +949,10 @@ loader(function($) {
             this.showSelection();
             this.caret.deactivate().hide();
         },
+        jumpTo: function(line, column) {
+            this.caret.position(line, column || 0);
+            return this;
+        },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
             var overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
@@ -1496,7 +1496,7 @@ loader(function($) {
             
             css = this.drawer.call(this.root, css);
             this.element.css(css);
-            this.show().emit('position:changed', x, y);
+            this.emit('position:changed', x, y);
             return this;
         },
         setStyle: function(style) {
