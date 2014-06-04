@@ -112,7 +112,7 @@ loader(function($) {
                     if (code < 48 && code != 9 && !(kc in self.keyMap)) {
                         kc = e.getKeyCombination(self.options.keyCombinationFlag | 4);
                     }
-                    if (kc in self.keyMap) {
+                    if ((!/^[a-zA-Z0-9]+$/.test(ch) || !e.hasModifierKey() || self.options.shortcuts) && kc in self.keyMap) {
                         allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                 }
