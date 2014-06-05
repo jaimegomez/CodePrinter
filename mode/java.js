@@ -101,6 +101,11 @@ CodePrinter.defineMode('Java', {
             trigger: 'println',
             content: 'System.out.println();',
             cursorMove: -2
+        },
+        {
+            trigger: 'psvm',
+            content: 'public static void main(String[] args) {}',
+            cursorMove: -1
         }
     ]
 });
