@@ -53,7 +53,7 @@ loader(function($) {
                     do self.screen.unshift(); while (++x < lv);
                 }
                 ++s > 4 && (s = 0)+1 && self.caret.isActive && self.selectLine(self.caret.line());
-                this.timeout = clearTimeout(this.timeout) || setTimeout(function() { self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop); }, 2);
+                self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop);
             },
             dblclick: function() {
                 var bf = self.caret.textBefore()
@@ -521,13 +521,13 @@ loader(function($) {
             if (size != this.sizes.fontSize) {
                 var id = this.mainElement.id;
                 this.sizes.scrollTop = this.sizes.scrollTop / this.sizes.lineHeight;
-                this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
                 this.sizes.lineHeight += size - this.sizes.fontSize;
-                this.screen.element.style.top = (this.sizes.scrollTop *= this.sizes.lineHeight) + 'px';
+                this.screen.element.style.top = (this.wrapper.scrollTop = this.sizes.scrollTop *= this.sizes.lineHeight) + 'px';
                 id = '#'+id+' .cp-';
                 this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
                 this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
                 this.wrapper.style.fontSize = (this.options.fontSize = this.sizes.fontSize = size)+'px';
+                this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
                 calculateCharDimensions(this);
                 this.screen.fix();
                 this.caret.refresh();
