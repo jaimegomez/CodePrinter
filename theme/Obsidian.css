@@ -22,7 +22,7 @@
 .cps-obsidian .cpx-empty-value { color:#EFC090; }
 .cps-obsidian .cpx-special { color:#A082BD; }
 .cps-obsidian .cpx-numeric { color:#FFCD22; }
-.cps-obsidian .cpx-fname { color:#678CB1; }
+.cps-obsidian .cpx-function { color:#678CB1; }
 .cps-obsidian .cpx-property { color:#678CB1; }
 .cps-obsidian .cpx-regexp { color:#D25252; }
 .cps-obsidian .cpx-escaped { color:#EFC090; }
@@ -35,4 +35,4 @@
 .cps-obsidian .cpx-phptag { font-weight:bold; }
 
 .cps-obsidian .cpx-string,
-.cps-obsidian .cpx-fname { font-style:italic; }
+.cps-obsidian .cpx-function { font-style:italic; }

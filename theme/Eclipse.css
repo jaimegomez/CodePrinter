@@ -25,7 +25,7 @@
 .cps-eclipse .cpx-special.cpx-doctype { color:#006600; font-style:normal; font-weight:normal; }
 .cps-eclipse .cpx-numeric { color:#557F5F; font-weight:bold; }
 .cps-eclipse .cpx-hex { color:#990099; font-weight:normal; }
-.cps-eclipse .cpx-fname { color:#006600; }
+.cps-eclipse .cpx-function { color:#006600; }
 .cps-eclipse .cpx-property { color:#006600; }
 .cps-eclipse .cpx-regexp { color:#FF0000; }
 .cps-eclipse .cpx-escaped { color:#990099; }

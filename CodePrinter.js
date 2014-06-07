@@ -2,23 +2,28 @@
 
 "use strict";
 
-window.CodePrinter = (function($) {
-    
-    var CodePrinter, Data, DataLine, Caret,
-        Screen, Overlay, Counter, InfoBar, Finder, Stream,
-        keydownMap, keypressMap, shortcuts, commands, history, selection,
-        tracking, extensions, eol, div, li, pre, span,
-        DATA_RATIO = 10,
-        DATA_MASTER_RATIO = 100;
+var loader = function(fn) {
+    if (typeof define != 'undefined') {
+        define('CodePrinter', ['Selector'], function($) { return window.CodePrinter = fn($); });
+    } else if (typeof module != 'undefined') {
+        module.exports = fn(Selector);
+    } else {
+        window.CodePrinter = fn(Selector);
+    }
+}
+
+loader(function($) {
+    var CodePrinter, Data, DataLine, Caret
+    , Screen, Counter, InfoBar, Finder, Stream
+    , keyMap, commands, history, selection, tracking
+    , lineendings, extensions, div, li, pre, span
+    , DATA_RATIO = 10
+    , DATA_MASTER_RATIO = 100;
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
     CodePrinter = function(element, options) {
-        if (!(this instanceof CodePrinter)) {
-            return new CodePrinter(element, options);
-        }
-        
-        var self = this, sizes, data = '', id, pr, fn, T, s = 0;
+        var self = this, sizes, data = '', id, allowKeyup, fn, T, s = 0;
         
         options = this.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
@@ -26,11 +31,13 @@ window.CodePrinter = (function($) {
         
         this.mainElement.CodePrinter = this;
         id = this.mainElement.id = $.random(options.randomIDLength);
-        sizes = this.sizes = { lineHeight: options.lineHeight };
+        sizes = this.sizes = { lineHeight: options.lineHeight, charWidth: 0 };
         this.activeLine = {};
         this.overlays = [];
-        this.selection.overlay = new Overlay(this, 'cp-selection-overlay', false);
+        this.snippets = [];
+        this.selection.overlay = new CodePrinter.Overlay(this, 'cp-selection-overlay', false);
         this.history = new history(options.historyStackSize, options.historyDelay);
+        this.keyMap = new keyMap;
         this.setTheme(options.theme);
         this.setMode(options.mode);
         this.caret.setStyle(options.caretStyle);
@@ -46,14 +53,23 @@ window.CodePrinter = (function($) {
                     do self.screen.unshift(); while (++x < lv);
                 }
                 ++s > 4 && (s = 0)+1 && self.caret.isActive && self.selectLine(self.caret.line());
-                this.timeout = clearTimeout(this.timeout) || setTimeout(function() { self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop); }, 2);
+                self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop);
             },
             dblclick: function() {
-                var bf = self.caret.textBefore(),
-                    af = self.caret.textAfter(),
-                    line = self.caret.line(),
-                    c = self.caret.column(),
-                    l = 1, r = 0, rgx = /[^\w\s]/;
+                var bf = self.caret.textBefore()
+                , af = self.caret.textAfter()
+                , line = self.caret.line()
+                , c = self.caret.column()
+                , l = 1, r = 0, rgx = /[^\w\s]/, timeout;
+                
+                var tripleclick = function() {
+                    self.selection.setRange(line, 0, line+1, 0);
+                    self.showSelection(true);
+                    this.unlisten('click', tripleclick);
+                    timeout = clearTimeout(timeout);
+                }
+                this.listen({ 'click': tripleclick });
+                timeout = setTimeout(function() { self.wrapper.unlisten('click', tripleclick); }, 1000);
                 
                 rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : rgx;
                 
@@ -61,7 +77,7 @@ window.CodePrinter = (function($) {
                 while (r < af.length && rgx.test(af[r])) r++;
                 
                 if (c-l+1 != c+r) {
-                    self.selection.setStart(line, c-l+1).setEnd(line, c+r);
+                    self.selection.setRange(line, c-l+1, line, c+r);
                     self.showSelection();
                 }
             },
@@ -79,72 +95,58 @@ window.CodePrinter = (function($) {
                 } else {
                     self.caret.deactivate().hide();
                     self.unselectLine();
-                    self.selection.clear();
                     self.removeOverlays();
                 }
             },
             keydown: function(e) {
-                var k = e.getCharCode();
+                var kc, code = e.getCharCode()
+                , ch = String.fromCharCode(code)
+                , kc = e.getKeyCombination(self.options.keyCombinationFlag);
+                
                 self.caret.deactivate().show();
-                pr = true;
+                allowKeyup = true;
                 
-                T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keydownInactivityTimeout);
-                
-                if (isCommandKey(e)) {
-                    return pr = commands[k] ? commands[k].call(self, this, e, k) : false;
-                }
-                if (e.ctrlKey && self.options.shortcuts && self.shortcuts[k]) {
-                    self.shortcuts[k].call(self, e, this);
-                    return pr = e.cancel();
-                }
-                if (k >= 17 && k <= 20 || k >= 91 && k <= 95 || k >= 112 && k <= 145 || k == 224) {
-                    return pr = e.cancel();
+                if (($.browser.macosx ? e.metaKey : e.ctrlKey) && ch in commands) {
+                    allowKeyup = commands[ch].call(self, e, code, ch);
                 } else {
-                    if (self.parser.keydownMap[k]) {
-                        pr = self.parser.keydownMap[k].call(self, e, k);
-                    } else {
-                        pr = self.keydownMap.touch(k, self, e);
+                    if (code < 48 && code != 9 && !(kc in self.keyMap)) {
+                        kc = e.getKeyCombination(self.options.keyCombinationFlag | 4);
                     }
-                    pr = pr == -1 ? true : pr;
-                    if (pr && self.selection.isset()) {
-                        self.removeSelection();
+                    if ((!/^[a-zA-Z0-9]+$/.test(ch) || !e.hasModifierKey() || self.options.shortcuts) && kc in self.keyMap) {
+                        allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                 }
-                return pr;
+                if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
+                    return allowKeyup = e.cancel();
+                }
+                return allowKeyup;
             },
             keypress: function(e) {
-                var k = e.getCharCode(),
-                    ch = String.fromCharCode(k);
+                var code = e.getCharCode()
+                , ch = String.fromCharCode(code);
                 
-                if (pr && e.ctrlKey != true && e.metaKey != true) {
-                    if (self.parser.keypressMap[k]) {
-                        self.parser.keypressMap[k].call(self, e, ch) && self.insertText(ch);
-                    } else {
-                        self.keypressMap.touch(k, self, e, ch) !== false && self.insertText(ch);
-                    }
-                    self.emit('keypress:'+k, { code: k, char: ch, event: e });
+                if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
+                    T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keydownInactivityTimeout);
+                    (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                     this.value = '';
                     return e.cancel();
                 }
             },
             keyup: function(e) {
                 self.caret.activate();
-                
-                if (this.value.length && pr) {
-                    self.insertText(this.value);
-                    this.value = '';
-                }
+                allowKeyup && this.value.length && self.insertText(this.value);
+                self.selection.isset() || (this.value = '');
             }
         });
         
         this.caret.on({
-            'text:changed': function(line) {
-                line == null && (line = this.line());
-                self.data.getLine(line).setText(this.textAtCurrentLine(true));
-                self.finder && self.finder.find();
+            'text:changed': function(line, column) {
+                var dl = self.data.getLine(line);
+                dl.text = this.textAtCurrentLine(true);
+                self.parse(line, dl, true);
+                self.finder && self.finder.isOpen && self.finder.find();
             },
             'position:changed': function(x, y) {
-                document.activeElement != self.input && self.input.focus();
                 if (self.options.autoScroll) {
                     var wrapper = self.wrapper,
                         pl = self.sizes.paddingLeft, pt = self.sizes.paddingTop,
@@ -156,11 +158,6 @@ window.CodePrinter = (function($) {
                 }
                 self.removeOverlays();
                 self.selectLine(this.line());
-            },
-            'line:changed': function(e) {
-                if (self.options.highlightCurrentLine) {
-                    self.selectLine(e.current);
-                }
             }
         });
         
@@ -170,11 +167,16 @@ window.CodePrinter = (function($) {
                 var p = self.parser;
                 if (p && p['onRemoved'+b[0]] && p['onRemoved'+b[0]][t]) {
                     p = p['onRemoved'+b[0]][t];
-                    typeof p === 'string' || typeof p === 'number' ? self['remove'+b[1]+'Cursor'](p) : p instanceof Function && p.call(self, t);
+                    typeof p === 'string' || typeof p === 'number' ? self['remove'+b[1]+'Cursor'](p, true) : p instanceof Function && p.call(self, t);
                 }
             };
         };
         this.on({
+            'changed': function(e) {
+                if (this.options.history) {
+                    this.history.pushChanges(e.line, e.column, this.convertToTabs(e.text), e.added);
+                }
+            },
             'removed.before': fn(true),
             'removed.after': fn(false)
         });
@@ -185,17 +187,19 @@ window.CodePrinter = (function($) {
             options.lineNumbers && self.openCounter();
             options.infobar && self.openInfobar();
             options.showFinder && self.openFinder();
-            
-            options.fontSize != 11 && options.fontSize > 0 && this.setFontSize(options.fontSize);
-            options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
+            options.snippets && self.snippets.push.apply(self.snippets, options.snippets);
             self.setWidth(options.width);
             self.setHeight(options.height);
             
             var s = window.getComputedStyle(self.screen.element, null);
+            sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.scrollTop = parseInt(s.getPropertyValue('top'));
-            calculateCharDimensions(self);
+            setTimeout(function() { calculateCharDimensions(self); }, 150);
+            
+            options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
+            options.fontSize != 11 && options.fontSize > 0 && self.setFontSize(options.fontSize);
             
             self.print();
         }});
@@ -213,25 +217,26 @@ window.CodePrinter = (function($) {
         return this.init(data);
     };
     
-    CodePrinter.version = '0.6.1';
+    CodePrinter.version = '0.6.2';
     
     CodePrinter.defaults = {
         path: '',
         mode: 'plaintext',
         theme: 'default',
         caretStyle: 'vertical',
+        lineEndings: '\n',
         width: 'auto',
         height: 300,
         tabWidth: 4,
         fontSize: 11,
-        minFontSize: 8,
-        maxFontSize: 40,
+        minFontSize: 6,
+        maxFontSize: 60,
         lineHeight: 15,
         linesOutsideOfView: 12,
         keydownInactivityTimeout: 1500,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
-        historyStackSize: 50,
+        historyStackSize: 100,
         historyDelay: 500,
         randomIDLength: 7,
         firstLineNumber: 1,
@@ -243,6 +248,7 @@ window.CodePrinter = (function($) {
         showIndentation: true,
         scrollable: true,
         tracking: true,
+        history: true,
         highlightBrackets: true,
         highlightCurrentLine: true,
         blinkCaret: true,
@@ -250,9 +256,11 @@ window.CodePrinter = (function($) {
         indentNewLines: true,
         insertClosingBrackets: true,
         insertClosingQuotes: true,
+        tabTriggers: true,
         shortcuts: true,
         showFinder: false,
-        searchOnTheFly: false
+        searchOnTheFly: false,
+        keyCombinationFlag: 1
     };
     
     div = document.createElement('div');
@@ -264,6 +272,7 @@ window.CodePrinter = (function($) {
         isFullscreen: false,
         init: function(source) {
             this.data = new Data();
+            this.history.init(source);
             source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
@@ -271,11 +280,11 @@ window.CodePrinter = (function($) {
             , l = source.length;
             
             while (++i < l) {
-                this.data.addLine(i, source[i].replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t'));
+                this.data.addLine(i, this.convertToTabs(source[i]));
             }
             this.screen.fill();
             
-            self.data.on({
+            this.data.on({
                 'text:changed': function(dl) {
                     self.parseByDataLine(dl);
                     self.caret.refresh();
@@ -287,30 +296,36 @@ window.CodePrinter = (function($) {
                 'line:removed': fn
             });
             
-            self.history.on({
+            this.history.on({
                 undo: function() {
                     var a, i = arguments.length;
+                    self.selection.clear();
                     while (i--) {
                         a = arguments[i];
-                        self.caret.position(a.line, a.column);
+                        var t = self.data.getLine(a.line).text.substring(0, a.column);
+                        self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
                         if (a.added) {
                             self.removeAfterCursor(a.text);
                         } else {
                             self.insertText(a.text);
                         }
                     }
+                    self.caret.restorePosition();
                 },
                 redo: function() {
-                    var a, i = arguments.length;
-                    while (i--) {
+                    var a, i = -1;
+                    self.selection.clear();
+                    while (++i < arguments.length) {
                         a = arguments[i];
-                        self.caret.position(a.line, a.column);
+                        var t = self.data.getLine(a.line).text.substring(0, a.column);
+                        self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
                         if (a.added) {
                             self.insertText(a.text);
                         } else {
                             self.removeAfterCursor(a.text);
                         }
                     }
+                    self.caret.restorePosition();
                 }
             });
             
@@ -340,42 +355,46 @@ window.CodePrinter = (function($) {
             mode = this.options.mode;
             source && this.init(source);
             
-            var self = this, timeout,
-                sT = document.scrollTop(),
-                sL = document.scrollLeft(),
-                callback = function(ModeObject) {
-                    timeout = clearTimeout(timeout);
-                    self.defineParser(ModeObject);
-                    self.screen.fill();
-                    
-                    var data = self.data, i = -1,
-                        l = self.screen.lastLine+1,
-                        p = getDataLinePosition(l),
-                        u = p[0], t = p[1], h = p[2],
-                        I = clearInterval(I) || setInterval(function() {
-                            t >= DATA_RATIO && ++h && (t = 0);
-                            if (!data[h] || !data[h][t]) {
-                                I = clearInterval(I);
-                                return false;
-                            }
-                            while (u < data[h][t].length) {
-                                self.parse(l, data.getLine(l));
-                                l++; u++;
-                            }
-                            t++;
-                            u = 0;
-                        }, 10);
-                    
-                    while (++i < l) {
-                        self.parse(i, data.getLine(i), true);
-                    }
-                    document.scrollTop(sT);
-                    document.scrollLeft(sL);
-                    self.options.autofocus && self.caret.position(0, 0);
-                };
+            var self = this, timeout
+            , sT = document.scrollTop()
+            , sL = document.scrollLeft()
+            , callback = function(ModeObject, interval) {
+                timeout = clearTimeout(timeout);
+                self.defineParser(ModeObject);
+                self.screen.fill();
+                
+                var data = self.data, i = -1
+                , l = self.screen.lastLine+1;
+                
+                if (interval !== false) {
+                    var p = getDataLinePosition(l)
+                    , u = p[0], t = p[1], h = p[2]
+                    , I = clearInterval(I) || setInterval(function() {
+                        t >= DATA_RATIO && ++h && (t = 0);
+                        if (!data[h] || !data[h][t]) {
+                            I = clearInterval(I);
+                            self.emit('printing:completed');
+                            return false;
+                        }
+                        while (u < data[h][t].length) {
+                            self.parse(l, data.getLine(l));
+                            l++; u++;
+                        }
+                        t++;
+                        u = 0;
+                    }, 10);
+                }
+                
+                while (++i < l) {
+                    self.parse(i, data.getLine(i), true);
+                }
+                document.scrollTop(sT);
+                document.scrollLeft(sL);
+                self.options.autofocus && self.caret.position(0, 0) && self.input.focus();
+            }
             
             this.screen.removeLines();
-            callback.call(this, new CodePrinter.Mode());
+            callback.call(this, new CodePrinter.Mode('plaintext'), false);
             
             if (mode != 'plaintext') {
                 CodePrinter.requireMode(mode, callback, this);
@@ -394,14 +413,14 @@ window.CodePrinter = (function($) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
                 this.memory = parser.alloc();
-                this.keydownMap = (new keydownMap).extend(parser.keydownMap);
-                this.keypressMap = (new keypressMap).extend(parser.keypressMap);
+                this.keyMap.extend(parser.keyMap);
                 this.options.tracking && (this.caret.tracking = (new tracking(this)).extend(parser.tracking));
             }
         },
         parseByDataLine: function(dl, force) {
             var line = this.data.indexOf(dl);
-            return line >= 0 ? this.parse(this.data.indexOf(dl), dl, force) : this;
+            line >= 0 && this.parse(line, dl, force);
+            return this;
         },
         parse: function(line, dl, force) {
             if (this.parser) {
@@ -412,9 +431,9 @@ window.CodePrinter = (function($) {
                     if (dl.startPoint) {
                         return this.parseByDataLine(dl.startPoint, true);
                     }
-                    var tmp = line, tabString = this.tabString(),
-                        stream = new Stream(dl.text),
-                        i = -1, p, ndl;
+                    var tmp = line
+                    , stream = new Stream(dl.text)
+                    , i = -1, p, ndl;
                     
                     stream.getNextLine = function() {
                         var nl = data.getLine(++tmp);
@@ -425,11 +444,11 @@ window.CodePrinter = (function($) {
                         } else {
                             return false;
                         }
-                    };
+                    }
                     
                     p = this.parser.fn(stream, this.memory).parsed;
-                    while (++i < p.length) {
-                        p[i] = p[i].replace(/\t/g, tabString);
+                    while (++i < p.length && line+i < this.data.lines) {
+                        p[i] = this.convertToSpaces(p[i]);
                         p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
                         data.getLine(line+i).setParsed(p[i]);
                     }
@@ -472,35 +491,53 @@ window.CodePrinter = (function($) {
             }
             return this;
         },
-        setTheme: function(name) {
-            typeof name === 'string' && name !== 'default' ? this.requireStyle(name) : name = 'default';
+        setLineEndings: function(le) {
+            le = le.toUpperCase();
+            this.options.lineEndings = lineendings[le] || this.options.lineEndings || '\n';
+            return this;
+        },
+        setTheme: function(name, dontrequire) {
+            typeof name === 'string' && name !== 'default' ? dontrequire != true && this.requireStyle(name) : name = 'default';
             this.mainElement.removeClass('cps-'+this.options.theme.toLowerCase()).addClass('cps-'+(this.options.theme = name.replace(' ', '-')).toLowerCase());
             return this;
         },
         setMode: function(mode) {
-            mode = extensions[mode.toLowerCase()] || 'plaintext';
+            var mlc = mode.toLowerCase();
+            mode = extensions[mlc] || mlc || 'plaintext';
             this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode.toLowerCase());
             this.options.mode = mode;
             return this;
         },
-        setFontSize: function(size) {
-            if (size >= this.options.minFontSize && size <= this.options.maxFontSize) {
-                var id = this.mainElement.id;
-                this.sizes.scrollTop = this.sizes.scrollTop / this.sizes.lineHeight;
-                this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
-                size > this.options.fontSize ? ++this.sizes.lineHeight : size < this.options.fontSize ? --this.sizes.lineHeight : 0;
-                this.sizes.scrollTop *= this.sizes.lineHeight;
-                this.wrapper.style.top = this.sizes.scrollTop + 'px';
-                id = '#'+id+' .cp-';
-                this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
-                this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
-                this.wrapper.style.fontSize = (this.options.fontSize = size)+'px';
-                calculateCharDimensions(this);
-                this.screen.fix();
-                this.caret.refresh();
+        setSyntax: function(mode) {
+            var oldMode = this.options.mode;
+            this.setMode(mode);
+            if (oldMode != this.options.mode) {
+                this.print();
             }
             return this;
         },
+        setFontSize: function(size) {
+            size = Math.max(this.options.minFontSize, Math.min(size, this.options.maxFontSize));
+            if (size != this.sizes.fontSize) {
+                var id = this.mainElement.id;
+                this.sizes.scrollTop = this.sizes.scrollTop / this.sizes.lineHeight;
+                this.sizes.lineHeight += size - this.sizes.fontSize;
+                this.screen.element.style.top = (this.wrapper.scrollTop = this.sizes.scrollTop *= this.sizes.lineHeight) + 'px';
+                id = '#'+id+' .cp-';
+                this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
+                this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
+                this.wrapper.style.fontSize = (this.options.fontSize = this.sizes.fontSize = size)+'px';
+                this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
+                calculateCharDimensions(this);
+                this.screen.fix();
+                this.caret.refresh();
+                this.finder && this.finder.searched && this.finder.reload();
+                this.emit('fontsize:changed', size);
+            }
+            return this;
+        },
+        increaseFontSize: function() { this.setFontSize(this.options.fontSize+1); },
+        decreaseFontSize: function() { this.setFontSize(this.options.fontSize-1); },
         setWidth: function(size) {
             if (size == 'auto') {
                 this.mainElement.style.removeProperty('width');
@@ -520,12 +557,15 @@ window.CodePrinter = (function($) {
             this.emit('height:changed');
             return this;
         },
+        getLineEnding: function() {
+            return lineendings[this.options.lineEndings] || this.options.lineEndings || lineendings['LF'];
+        },
         getCurrentLine: function() {
             return this.caret.line();
         },
         getTextAtLine: function(line) {
             var l = this.data.getLine(line < 0 ? this.data.lines + line : line);
-            return l ? l.text.replaceAll('\t', this.tabString()) : '';
+            return l ? this.convertToSpaces(l.text) : '';
         },
         getIndentAtLine: function(line) {
             var i = -1, dl = this.data.getLine(line);
@@ -534,6 +574,49 @@ window.CodePrinter = (function($) {
                 return i;
             }
             return 0;
+        },
+        increaseIndentAtLine: function(line) {
+            var dl = this.data.getLine(line);
+            if (dl) {
+                dl.text = '\t' + dl.text;
+                this.parse(line, dl, true);
+                this.caret.line() == line && this.caret.moveX(this.options.tabWidth);
+                this.emit('changed', { line: line, column: 0, text: '\t', added: true });
+            }
+        },
+        decreaseIndentAtLine: function(line) {
+            var dl = this.data.getLine(line);
+            if (dl && dl.text.indexOf('\t') === 0) {
+                dl.text = dl.text.substr(1);
+                this.parse(line, dl, true);
+                this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
+                this.emit('changed', { line: line, column: 0, text: '\t', added: false });
+            }
+        },
+        increaseIndentOfSelection: function() {
+            var w = this.options.tabWidth
+            , s = this.selection, i, l;
+            
+            this.caret.position(i = s.start.line, s.start.column);
+            l = s.end.line;
+            
+            s.start.column += w;
+            s.end.column += w;
+            do this.increaseIndentAtLine(i); while (++i <= l);
+            this.showSelection();
+        },
+        decreaseIndentOfSelection: function() {
+            var w = this.options.tabWidth
+            , s = this.selection, i, l;
+            
+            this.caret.position(i = s.start.line, s.start.column);
+            l = s.end.line;
+            
+            if (this.data.getLine(i).text.indexOf('\t') === 0) {
+                s.start.column -= w;
+            }
+            do this.decreaseIndentAtLine(i); while (++i <= l);
+            this.showSelection();
         },
         textBeforeCursor: function(i) {
             var bf = this.caret.textBefore();
@@ -546,13 +629,69 @@ window.CodePrinter = (function($) {
         textNearCursor: function(i) {
             return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
         },
+        cursorIsBeforePosition: function(line, column) {
+            var l = this.caret.line(), c = this.caret.column();
+            return l == line ? c < column : l < line;
+        },
+        searchLeft: function(pattern, line, column, ignore) {
+            var i = -1, dl;
+            pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b(?!\\b'+pattern+'\\b).*$' : pattern.escape()+'(?!.*'+pattern.escape()+').*$');
+            line = Math.max(0, Math.min(line, this.data.lines - 1));
+            while ((dl = this.data.getLine(line--)) && ((i = this.convertToSpaces(dl.text).substring(0, column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line+1, i))) {
+                column = Infinity;
+            }
+            return [line + 1, i];
+        },
+        searchRight: function(pattern, line, column, ignore) {
+            var i = -1, dl;
+            pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b' : pattern.escape());
+            line = Math.max(0, Math.min(line, this.data.lines - 1));
+            while ((dl = this.data.getLine(line++)) && ((i = this.convertToSpaces(dl.text).substr(column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line-1, i + column))) {
+                column = 0;
+            }
+            return [line - 1, i + column];
+        },
+        substring: function(from, to) {
+            var str = '';
+            while (from[0] < to[0]) {
+                str += this.convertToSpaces(this.data.getLine(from[0]++).text).substr(from[1]) + '\n';
+                from[1] = 0;
+            }
+            return str += this.convertToSpaces(this.data.getLine(to[0]).text).substring(from[1], to[1]);
+        },
+        isIgnoredArea: function(ignore, line, col) {
+            if (ignore && ignore.length) {
+                var i = 0, cur, el = pre.cloneNode()
+                , dl = this.data.getLine(line);
+                if (dl.parsed) {
+                    pre.innerHTML = dl.parsed;
+                    if (pre.childNodes.length) {
+                        do {
+                            cur = pre.childNodes[i];
+                            col -= cur.textContent.length;
+                        } while (col > 0 && ++i < pre.childNodes.length);
+                        
+                        if (col <= 0) {
+                            if (cur.nodeType === 3) {
+                                return false;
+                            } else {
+                                var classes = cur.className.replaceAll('cpx-', '').split(' ');
+                                return classes.diff(ignore).length !== classes.length;
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        },
         insertText: function(text, mx) {
-            var pos, s = text.split(eol)
+            this.selection.isset() && this.removeSelection();
+            var pos, s = this.convertToSpaces(text).split('\n')
             , bf = this.caret.textBefore()
             , af = this.caret.textAfter()
             , line = this.caret.line();
             
-            text.length && this.history.pushChanges(line, bf.length, text, true);
+            text.length && this.emit('changed', { line: line, column: this.caret.column(true), text: text, added: true });
             this.caret.setTextBefore(bf + s[0]);
             
             if (s.length > 1) {
@@ -567,8 +706,60 @@ window.CodePrinter = (function($) {
             mx && this.caret.moveX(mx);
             return this;
         },
-        insertNewLine: function(l) {
-            var dl = this.data.addLine(l, '');
+        insertSelectedText: function(text, mx) {
+            this.selection.setStart(this.caret.line(), this.caret.column());
+            this.insertText(text, mx);
+            this.selection.setEnd(this.caret.line(), this.caret.column());
+            return this;
+        },
+        put: function(text, line, column, mx) {
+            text = this.convertToSpaces(text);
+            if (text.length && line < this.data.lines) {
+                var s = text.split('\n')
+                , dl = this.data.getLine(line)
+                , dlt = this.convertToSpaces(dl.text)
+                , bf = dlt.substring(0, column), af = dlt.substr(column)
+                , isb = this.cursorIsBeforePosition(line, bf.length);
+                
+                this.emit('changed', { line: line, column: this.convertToTabs(bf).length, text: text, added: true });
+                
+                if (s.length > 1) {
+                    var i = s.length - 1;
+                    this.insertNewLine(line+1, s[i] + af);
+                    af = '';
+                    while (--i > 0) {
+                        this.insertNewLine(line+1, s[i]);
+                    }
+                }
+                this.dispatch(dl, line, bf + s[0] + af);
+                this.caret.forceRefresh();
+                !isb && this.caret.moveX(text.length);
+                mx && this.caret.moveX(mx);
+            }
+            return this;
+        },
+        erase: function(arg, line, column, mx) {
+            var isb = this.cursorIsBeforePosition(line, column);
+            this.caret.savePosition();
+            this.caret.position(line, column);
+            this.removeBeforeCursor(arg);
+            this.caret.restorePosition();
+            !isb && this.caret.moveX(-(arg.length || arg));
+            mx && this.caret.moveX(mx);
+            return this;
+        },
+        dispatch: function(dl, line, text) {
+            dl.text = this.convertToTabs(text);
+            return this.parse(line, dl, true);
+        },
+        appendText: function(text) {
+            var dl, text = this.convertToTabs(text);
+            (this.data.lines == 1 && (dl = this.data.getFirstLine()).text.length == 0) ? dl.setText(text) : this.data.addLine(this.data.lines, text);
+            this.screen.fill();
+            return this;
+        },
+        insertNewLine: function(l, text) {
+            var dl = this.data.addLine(l, text || '');
             this.screen.splice(dl, l);
             return this;
         },
@@ -591,13 +782,13 @@ window.CodePrinter = (function($) {
                 swapLines(this, l);
             }
         },
-        removeBeforeCursor: function(arg) {
+        removeBeforeCursor: function(arg, emitRemoving) {
             var r = '', bf = this.caret.textBefore();
             if (typeof arg === 'string') {
-                arg = arg.split(eol);
-                var i = arg.length - 1, x,
-                    af = this.caret.textAfter(),
-                    l = this.caret.line();
+                arg = this.convertToSpaces(arg).split('\n');
+                var i = arg.length - 1, x
+                , af = this.caret.textAfter()
+                , l = this.caret.line();
                 while ((x = bf.length - arg[i].length) >= 0 && i && (bf.lastIndexOf(arg[i--]) === x || !arg.length)) {
                     r = '\n' + bf.substr(x) + r;
                     this.caret.setTextBefore(bf.substring(0, x));
@@ -614,8 +805,8 @@ window.CodePrinter = (function($) {
                 if (arg <= bf.length) {
                     this.caret.setTextBefore(bf.substring(0, bf.length - arg));
                 } else {
-                    var af = this.caret.textAfter(),
-                        l = this.caret.line();
+                    var af = this.caret.textAfter()
+                    , l = this.caret.line();
                     
                     while (arg > bf.length && l-1 >= 0) {
                         r = '\n' + bf + r;
@@ -628,17 +819,16 @@ window.CodePrinter = (function($) {
                 r = bf.substr(bf.length - arg) + r;
             }
             if (r) {
-                this.history.pushChanges(this.caret.line(), this.caret.column(), r, false);
-                this.emit('removed.before', r);
+                this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
+                emitRemoving != true && this.emit('removed.before', r);
             }
         },
-        removeAfterCursor: function(arg) {
+        removeAfterCursor: function(arg, emitRemoving) {
             var r = '', af = this.caret.textAfter();
             if (typeof arg === 'string') {
-                var i = 0,
-                    bf = this.caret.textBefore(),
-                    l = this.caret.line();
-                arg = arg.split(eol);
+                var i = 0, l = this.caret.line()
+                , bf = this.caret.textBefore();
+                arg = this.convertToSpaces(arg).split('\n');
                 while (i < arg.length - 1 && (af.indexOf(arg[i]) === 0 || !arg[i].length)) {
                     r = r + arg[i] + '\n';
                     this.caret.setTextAfter(af.substr(arg[i++].length));
@@ -655,8 +845,8 @@ window.CodePrinter = (function($) {
                 if (arg <= af.length) {
                     this.caret.setTextAfter(af.substr(arg));
                 } else {
-                    var bf = this.caret.textBefore(),
-                        l = this.caret.line();
+                    var bf = this.caret.textBefore()
+                    , l = this.caret.line();
                     
                     while (arg > af.length && l+1 < this.data.lines) {
                         r = r + af + '\n';
@@ -670,20 +860,25 @@ window.CodePrinter = (function($) {
                 r = r + af.substring(0, arg);
             }
             if (r) {
-                this.history.pushChanges(this.caret.line(), this.caret.column(), r, false);
-                this.emit('removed.after', r);
+                this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
+                emitRemoving != true && this.emit('removed.after', r);
             }
         },
-        getValue: function() {
-            var t, r = [], h = 0, tabString = this.tabString();
+        isEmpty: function() {
+            return this.data.lines === 1 && !this.data.getLine(0).text;
+        },
+        getValue: function(withTabs) {
+            var self = this, t, r = [], h = 0
+            , fn = withTabs
+            ? function(obj) { return obj.text; }
+            : function(obj) { return self.convertToSpaces(obj.text); };
+            
             for (; h < this.data.length; h++) {
                 for (t = 0; t < this.data[h].length; t++) {
-                    r.push.apply(r, this.data[h][t].map(function(obj) {
-                        return obj.text.replaceAll('\t', tabString);
-                    }));
+                    r.push.apply(r, this.data[h][t].map(fn));
                 }
             }
-            return r.join(eol);
+            return r.join(this.getLineEnding());
         },
         getSelection: function() {
             if (this.selection.isset()) {
@@ -692,32 +887,36 @@ window.CodePrinter = (function($) {
                 }
                 var c = this.selection.coords();
                 
-                if (c[0].line != c[1].line) {
-                    var t = this.getTextAtLine(c[0].line).substr(c[0].column) + eol
-                    for (var i = c[0].line + 1; i < c[1].line; i++) {
-                        t = t + this.getTextAtLine(i) + eol;
+                if (c[0][0] != c[1][0]) {
+                    var t = this.getTextAtLine(c[0][0]).substr(c[0][1]) + this.getLineEnding();
+                    for (var i = c[0][0] + 1; i < c[1][0]; i++) {
+                        t = t + this.getTextAtLine(i) + this.getLineEnding();
                     }
-                    return t + this.getTextAtLine(c[1].line).substring(0, c[1].column);
+                    return t + this.getTextAtLine(c[1][0]).substring(0, c[1][1]);
                 } else {
-                    return this.getTextAtLine(c[0].line).substring(c[0].column, c[1].column);
+                    return this.getTextAtLine(c[0][0]).substring(c[0][1], c[1][1]);
                 }
             }
             return '';
         },
         isAllSelected: function() {
-            var c = this.selection.coords();
-            return c[0].line === 0 && c[0].column === 0 && c[1].line === this.data.lines-1 && c[1].column === this.getTextAtLine(-1).length;
-        },
-        showSelection: function() {            
             if (this.selection.isset()) {
-                var sp
-                , s = this.selection.getStart()
+                var c = this.selection.coords();
+                return c && c[0][0] === 0 && c[0][1] === 0 && c[1][0] === this.data.lines-1 && c[1][1] === this.getTextAtLine(-1).length;
+            }
+            return false;
+        },
+        showSelection: function(moveCursorToEnd) {            
+            if (this.selection.isset()) {
+                var sp, s = this.selection.start
+                , e = this.selection.end
                 , ov = this.selection.overlay
                 , sel = this.getSelection();
                 
+                this.unselectLine();
                 this.input.value = sel;
                 this.input.setSelectionRange(0, sel.length);
-                sel = sel.split(eol);
+                sel = sel.split(this.getLineEnding());
                 ov.node.innerHTML = '';
                 
                 for (var i = 0; i < sel.length; i++) {
@@ -725,52 +924,89 @@ window.CodePrinter = (function($) {
                     sp = createSpan(i+1 < sel.length ? sel[i] + ' ' : sel[i], 'cp-selection', pos.y, pos.x);
                     ov.node.append(sp);
                 }
+                moveCursorToEnd && this.caret.position(this.selection.end.line, this.selection.end.column);
                 ov.reveal();
             }
         },
         removeSelection: function() {
-            this.selection.correct();
-            if (this.isAllSelected()) {
-                this.history.pushChanges(0, 0, this.getValue(), false);
-                this.init('');
-                this.caret.position(0, 0);
-            } else {
-                var s = this.selection.start
-                , e = this.selection.end;
-                
-                this.caret.position(s.line, s.column);
-                if (s.line == e.line) {
-                    this.removeAfterCursor(e.column - s.column);
+            if (this.selection.isset()) {
+                if (this.isAllSelected()) {
+                    this.emit('changed', { line: 0, column: 0, text: this.getValue(true), added: false });
+                    this.init('');
+                    this.caret.position(0, 0);
                 } else {
-                    this.removeAfterCursor(this.getTextAtLine(s.line).substr(s.column) + '\n');
-                    while (--e.line > s.line) {
-                        this.removeAfterCursor(this.caret.textAfter() + '\n');
+                    this.caret.position(this.selection.end.line, this.selection.end.column);
+                    this.removeBeforeCursor(this.getSelection());
+                }
+                this.selection.clear();
+                this.selectLine(this.caret.line());
+            }
+        },
+        selectAll: function() {
+            var ls = this.data.lines - 1;
+            this.selection.setRange(0, 0, ls, this.getTextAtLine(ls).length);
+            this.showSelection();
+            this.caret.deactivate().hide();
+        },
+        jumpTo: function(line, column) {
+            this.caret.position(line, column || 0);
+            return this;
+        },
+        createHighlightOverlay: function(/* arrays, ... */) {
+            if (this.highlightOverlay) this.highlightOverlay.remove();
+            var overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
+            for (var i = 0; i < arguments.length; i++) {
+                var pos = getPositionOf(this, arguments[i][0], arguments[i][1]);
+                overlay.node.append(createSpan(arguments[i][2], 'cp-highlight', pos.y, pos.x, arguments[i][2].length * this.sizes.charWidth, this.sizes.lineHeight));
+            }
+            overlay.reveal();
+            return this;
+        },
+        findSnippet: function(trigger) {
+            var result, fn = function(snippets, simple) {
+                if (snippets) {
+                    var b, i = -1;
+                    if (simple) {
+                        while ((b = ++i < snippets.length) && !snippets[i].startsWith(trigger));
+                        if (b) return { trigger: snippets[i], content: snippets[i] }
+                    } else {
+                        while ((b = ++i < snippets.length) && !snippets[i].trigger.startsWith(trigger));
+                        if (b) return snippets[i];
                     }
-                    this.removeAfterCursor(e.column);
                 }
             }
-            this.selection.clear();
-            this.selectLine(this.caret.line());
+            if (this.parser) {
+                result = fn(this.parser.snippets) || fn(this.parser.keywords, true) || fn(this.parser.controls, true) || fn(this.parser.specials, true) || fn(this.memory.importClasses, true);
+            }
+            return result || fn(this.snippets);
         },
-        registerKeydown: function(arg) {
+        registerSnippet: function() {
+            for (var i = 0; i < arguments.length; i++) {
+                var snippet = arguments[i];
+                if (snippet.content && snippet.trigger) {
+                    this.snippets.push(snippet);
+                }
+            }
+        },
+        registerKey: function(arg) {
             if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
-            this.keydownMap.extend(arg);
+            this.keyMap.extend(arg);
             return this;
         },
-        registerKeypress: function(arg) {
-            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
-            this.keypressMap.extend(arg);
+        unregisterKey: function() {
+            for (var i = 0; i < arguments.length; i++) {
+                if (arguments[i] in this.keyMap) {
+                    this.keyMap[arguments[i]] = function() { return false; }
+                }
+            }
             return this;
         },
-        registerShortcut: function(arg) {
-            if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
-            this.shortcuts.extend(arg);
-            return this;
-        },
-        call: function(code, shiftKey, metaKey) {
-            var obj = metaKey ? commands : this.shortcuts;
-            if (code && obj && obj[code]) {
-                return obj[code].call(this, { shiftKey: shiftKey, metaKey: metaKey }, this.input);
+        call: function(keyCombination, code, prototype) {
+            if (keyCombination) {
+                var obj = prototype ? keyMap.prototype : this.keyMap;
+                if (keyCombination in obj) {
+                    return obj[keyCombination].call(this, {}, code || 0, keyCombination);
+                }
             }
         },
         enterFullscreen: function() {
@@ -836,9 +1072,14 @@ window.CodePrinter = (function($) {
             this.mainElement.append(this.finder.bar);
             this.finder.overlay.reveal();
             this.finder.input.focus();
+            this.finder.isOpen = true;
         },
         closeFinder: function() {
-            this.finder && this.finder.close();
+            if (this.finder && this.finder.isOpen) {
+                this.finder.bar.remove();
+                this.finder.overlay.remove();
+                this.finder.isOpen = false;
+            }
         },
         removeOverlays: function() {
             if (this.overlays) {
@@ -848,6 +1089,12 @@ window.CodePrinter = (function($) {
                     }
                 }
             }
+        },
+        convertToSpaces: function(text) {
+            return text.replace(/\t/g, Array(this.options.tabWidth+1).join(' ')).replace(/\r/g, '');
+        },
+        convertToTabs: function(text) {
+            return text.replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t').replace(/\r/g, '');
         },
         prependTo: function(node) { node.prepend(this.mainElement); return this; },
         appendTo: function(node) { node.append(this.mainElement); return this; },
@@ -921,6 +1168,12 @@ window.CodePrinter = (function($) {
                 return this[p[2]][p[1]][p[0]] || null;
             }
             return null;
+        },
+        getFirstLine: function() {
+            return this[0][0][0] || null;
+        },
+        getLastLine: function() {
+            return this.last().last().last() || null;
         },
         setParsedAtLine: function(line, str) {
             var l = this.getLine(line);
@@ -1009,7 +1262,7 @@ window.CodePrinter = (function($) {
     };
     
     Caret = function(cp) {
-        var line = 0, column = 0, before = '', after = '', tmp;
+        var line = 0, column = 0, before = '', after = '', tmp, timeout;
         
         this.root = cp;
         
@@ -1017,20 +1270,20 @@ window.CodePrinter = (function($) {
             setTextBefore: function(str) {
                 var l = str.length;
                 str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
-                str = str.replaceAll(cp.tabString(), '\t');
+                str = cp.convertToTabs(str);
                 if (before !== str) {
                     before = str;
-                    this.emit('text:changed', line);
+                    this.emit('text:changed', line, column);
                     this.position(line, l);
                 }
                 return this;
             },
             setTextAfter: function(str) {
                 str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
-                str = str.replaceAll(cp.tabString(), '\t');
+                str = cp.convertToTabs(str);
                 if (after !== str) {
                     after = str;
-                    this.emit('text:changed', line);
+                    this.emit('text:changed', line, column);
                 }
                 return this;
             },
@@ -1038,21 +1291,21 @@ window.CodePrinter = (function($) {
                 var l = bf.length;
                 bf.indexOf('@') !== -1 && (bf = bf.replaceAll(['@a','@b'], [after, before]));
                 af.indexOf('@') !== -1 && (af = af.replaceAll(['@a','@b'], [after, before]));
-                bf = bf.replaceAll(cp.tabString(), '\t');
-                af = af.replaceAll(cp.tabString(), '\t');
+                bf = cp.convertToTabs(bf);
+                af = cp.convertToTabs(af);
                 if (before !== bf || after !== af) {
                     before = bf;
                     after = af;
-                    this.emit('text:changed', line);
+                    this.emit('text:changed', line, column);
                     this.position(line, l);
                 }
                 return this;
             },
             textBefore: function() {
-                return before.replaceAll('\t', cp.tabString());
+                return cp.convertToSpaces(before);
             },
             textAfter: function() {
-                return after.replaceAll('\t', cp.tabString());
+                return cp.convertToSpaces(after);
             },
             textAtCurrentLine: function(b) {
                 return b ? before + after : this.textBefore() + this.textAfter();
@@ -1061,15 +1314,15 @@ window.CodePrinter = (function($) {
                 return { line: line ? line + 1 : 1, column: this.column() + 1 };
             },
             position: function(l, c, t) {
+                timeout = clearTimeout(timeout);
                 typeof l !== 'number' && (l = line || 0);
                 l = Math.max(Math.min(l, cp.data.lines - 1), 0);
                 typeof t !== 'string' && (t = cp.getTextAtLine(l));
                 typeof c !== 'number' && (c = column || 0);
                 c < 0 && (c = t.length + c + 1);
                 
-                var tabString = cp.tabString(),
-                    x = cp.sizes.charWidth * Math.min(c, t.length),
-                    y = cp.sizes.lineHeight * l;
+                var x = cp.sizes.charWidth * Math.min(c, t.length)
+                , y = cp.sizes.lineHeight * l;
                 
                 if (line !== l) {
                     this.emit('line:changed', { current: l, last: line });
@@ -1080,18 +1333,23 @@ window.CodePrinter = (function($) {
                     column = c;
                 }
                 
-                before = t.substring(0, c).replaceAll(tabString, '\t');
-                after = t.substr(c).replaceAll(tabString, '\t');
+                before = cp.convertToTabs(t.substring(0, c));
+                after = cp.convertToTabs(t.substr(c));
                 this.setPixelPosition(x, y);
                 
                 if (cp.options.tracking) {
                     for (var s in this.tracking) {
-                        var a = before.endsWith(s), b = after.startsWith(s);
-                        if (a + b) {
-                            var r = this.tracking[s].call(this, cp, s, { isBefore: b, isAfter: a, line: l, column: this.column() + s.length * b });
-                            if (!r) {
-                                break;
-                            }
+                        var a, b, len = s.length, i = 0;
+                        do {
+                            a = len == i || before.endsWith(s.substring(0, len - i));
+                            b = after.startsWith(s.substring(len - i, len));
+                        } while ((!a || !b) && ++i <= len);
+                        
+                        if (a && b) {
+                            timeout = setTimeout($.invoke(this.tracking[s], this, [cp, s, { line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i }]), 40);
+                            break;
+                        } else if (cp.highlightOverlay) {
+                            cp.highlightOverlay.remove();
                         }
                     }
                 }
@@ -1132,17 +1390,20 @@ window.CodePrinter = (function($) {
             },
             moveY: function(mv) {
                 mv = line + mv;
-                mv = mv < 0 ? 0 : mv > this.root.data.lines ? this.root.data.lines : mv;
+                mv = mv < 0 ? (column = 0) : mv >= this.root.data.lines ? (column = -1) && this.root.data.lines-1 : mv;
                 return this.position(mv, column);
             },
             refresh: function() {
                 return this.setPixelPosition(cp.sizes.charWidth * Math.min(column, this.textBefore().length), cp.sizes.lineHeight * line);
             },
+            forceRefresh: function() {
+                return this.position(line, column);
+            },
             line: function() {
                 return line;
             },
-            column: function() {
-                return this.textBefore().length;
+            column: function(withTabs) {
+                return withTabs ? before.length : this.textBefore().length;
             },
             eachCharacter: function(f, bf) {
                 var i = this.textBefore().length, n = 0, r = true,
@@ -1162,19 +1423,23 @@ window.CodePrinter = (function($) {
                     while (r !== false && line + n < cp.data.lines) {
                         var t = cp.getTextAtLine(line + n);
                         while (r !== false && i < t.length) {
-                            r = f.call(this, t[i], line + n, ++i, cp);
+                            r = f.call(this, t[i], line + n, i++, cp);
                         }
                         i = 0;
                         n++;
                     }
                 }
             },
-            saveColumn: function() {
-                tmp = column;
+            savePosition: function(onlycolumn) {
+                return tmp = [onlycolumn ? null : line, column];
             },
-            restoreColumn: function() {
-                tmp != null && this.position(null, tmp);
-                tmp = null;
+            restorePosition: function(save) {
+                if (save instanceof Array && save.length == 2) {
+                    this.position(save[0], save[1]);
+                } else {
+                    tmp != null && this.position(tmp[0], tmp[1]);
+                    tmp = null;
+                }
             }
         });
     };
@@ -1208,7 +1473,7 @@ window.CodePrinter = (function($) {
         },
         activate: function() {
             if (this.root.options.blinkCaret) {
-                var elm = this.element, a = true, fn = function() { a = !a; elm.style.opacity = +a; };
+                var elm = this.element, a = false, fn = function() { a = !a; elm.style.opacity = +a; };
                 this.interval = clearInterval(this.interval) || fn() || setInterval(fn, this.root.options.caretBlinkSpeed);
             }
             this.isActive = true;
@@ -1230,7 +1495,7 @@ window.CodePrinter = (function($) {
             
             css = this.drawer.call(this.root, css);
             this.element.css(css);
-            this.show().emit('position:changed', x, y);
+            this.emit('position:changed', x, y);
             return this;
         },
         setStyle: function(style) {
@@ -1263,10 +1528,10 @@ window.CodePrinter = (function($) {
         firstLine: 0,
         lastLine: -1,
         fill: function() {
-            var r = this.root, w = r.wrapper,
-                lv = parseInt(r.options.linesOutsideOfView),
-                x = Math.min(Math.ceil(w.clientHeight / r.sizes.lineHeight) + 2 * lv, r.data.lines-1),
-                i = this.length();
+            var r = this.root, w = r.wrapper
+            , lv = parseInt(r.options.linesOutsideOfView)
+            , x = Math.min(Math.ceil(w.clientHeight / r.sizes.lineHeight) + 2 * lv, r.data.lines-1)
+            , i = this.length();
             
             while (i++ <= x) this.insert();
             this.fix();
@@ -1290,10 +1555,14 @@ window.CodePrinter = (function($) {
                     this.root.counter && this.root.counter.increase();
                 } else if (i + this.root.options.linesOutsideOfView >= this.root.data.lines) {
                     this.root.data.getLine(this.firstLine++).deleteNodeProperty();
-                    dl.pre = this.lines[0];
-                    q--; this.lastLine++;
+                    dl.pre = this.lines.item(0);
+                    this.lastLine++;
                     this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                     this.root.counter && this.root.counter.shift();
+                    
+                    this.lines.shift();
+                    dl.pre.remove();
+                    --q;
                 } else {
                     this.root.data.getLine(this.lastLine).deleteNodeProperty();
                     dl.pre = this.lines.item(-1);
@@ -1311,7 +1580,7 @@ window.CodePrinter = (function($) {
                         dl.pre = this.lines[q];
                         this.link(dl, this.lines.length);
                     } else {
-                        this.lines[q].untie();
+                        this.lines[q].remove();
                         this.lines.splice(q, 1);
                         this.lastLine--;
                         r.counter && r.counter.decrease();
@@ -1331,7 +1600,7 @@ window.CodePrinter = (function($) {
                 this.root.data.getLine(this.firstLine).deleteNodeProperty();
                 var dl = this.root.data.getLine(++this.lastLine);
                 dl.pre = this.lines[0];
-                this.link(dl, this.lines.length-1);
+                this.link(dl, this.lines.length);
                 this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
                 this.firstLine++;
                 this.root.counter && this.root.counter.shift();
@@ -1349,9 +1618,9 @@ window.CodePrinter = (function($) {
             }
         },
         link: function(dl, index, forceParse) {
-            this.root.parse(this.firstLine + index, dl, forceParse) && dl.touch();
-            this.element.insertAt(dl.pre, index);
+            this.element.insertBefore(dl.pre, this.lines[index]);
             this.lines.put(dl.pre, index);
+            this.root.parse(this.firstLine + index, dl, forceParse) && dl.touch();
         },
         getLine: function(line) {
             return line >= this.firstLine && line <= this.lastLine ? this.element.kids().item(line - this.firstLine) : null;
@@ -1372,13 +1641,13 @@ window.CodePrinter = (function($) {
         }
     };
     
-    Overlay = function(cp, classes, removable) {
+    CodePrinter.Overlay = function(cp, classes, removable) {
         this.node = div.cloneNode().addClass('cp-overlay '+classes);
         this.isRemovable = !!removable;
         this.root = cp;
         return this;
-    };
-    Overlay.prototype = {
+    }
+    CodePrinter.Overlay.prototype = {
         reveal: function() {
             if (!this.node.parentNode) {
                 this.root.overlays.push(this);
@@ -1391,8 +1660,11 @@ window.CodePrinter = (function($) {
             i != -1 && this.root.overlays.splice(i, 1);
             this.node.remove();
             this.emit('overlay:removed');
+        },
+        removable: function(is) {
+            this.isRemovable = !!is;
         }
-    };
+    }
     
     Counter = function(cp) {
         var self = this, ln = cp.screen.length();
@@ -1429,7 +1701,7 @@ window.CodePrinter = (function($) {
         },
         decrease: function() {
             var n = this.lastLine--;
-            this.element.lastChild.untie();
+            this.element.lastChild.remove();
             this.formatter(n-1).toString().length < this.formatter(n).toString().length && this.emit('width:changed');
         },
         shift: function() {
@@ -1543,7 +1815,7 @@ window.CodePrinter = (function($) {
             flexbox = div.cloneNode().addClass('cpf-flexbox'),
             input = document.createElement('input').addClass('cpf-input'),
             bar = div.cloneNode().addClass('cpf-bar'),
-            overlay = new Overlay(cp, 'cpf-overlay', false),
+            overlay = new CodePrinter.Overlay(cp, 'cpf-overlay', false),
             keyMap = {
                 13: function() {
                     if (self.searched === this.value) {
@@ -1553,7 +1825,7 @@ window.CodePrinter = (function($) {
                     }
                 },
                 27: function() {
-                    self.close();
+                    cp.closeFinder();
                 },
                 38: function() {
                     self.prev();
@@ -1577,7 +1849,7 @@ window.CodePrinter = (function($) {
         }});
         findnext.on({ click: function(e) { self.next(); }});
         findprev.on({ click: function(e) { self.prev(); }});
-        closebutton.on({ click: function(e) { self.close(); }});
+        closebutton.on({ click: function(e) { cp.closeFinder(); }});
         overlay.node.delegate('click', 'span', function(e) {
             if (this.position) {
                 cp.selection.setStart(this.position.ls, this.position.cs).setEnd(this.position.le, this.position.ce);
@@ -1594,12 +1866,8 @@ window.CodePrinter = (function($) {
         self.searchResults = $([]);
         
         return self;
-    };
+    }
     Finder.prototype = {
-        close: function() {
-            this.bar.remove();
-            this.overlay.remove();
-        },
         clear: function() {
             this.searched = null;
             this.searchResults.length = 0;
@@ -1670,13 +1938,13 @@ window.CodePrinter = (function($) {
         },
         scrollToActive: function() {
             this.root.infobar && this.root.infobar.update(this.searchResults.length ? (this.searchResults.g+1)+' of '+this.searchResults.length+' matches' : 'Unable to find '+this.searched);
-            $(this.root.wrapper).include(this.root.counter && this.root.counter.parent).scrollTo(
+            this.searchResults.length > 0 && $(this.root.wrapper).include(this.root.counter && this.root.counter.parent).scrollTo(
                 parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
                 parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
                 this.root.options.autoScrollSpeed
             );
         }
-    };
+    }
     
     Stream = function(value) {
         if (!(this instanceof Stream)) {
@@ -1687,7 +1955,7 @@ window.CodePrinter = (function($) {
         this.row = 0;
         this.pos = 0;
         return this;
-    };
+    }
     Stream.prototype = {
         found: '',
         eaten: '',
@@ -1813,7 +2081,7 @@ window.CodePrinter = (function($) {
         eatWhile: function(from, to) {
             return this.eat(from, to, true, true);
         },
-        wrap: function(suffix, fn) {
+        wrap: function() {
             if (!this.eaten.length) {
                 if (this.found) {
                     this.eat(this.found);
@@ -1821,20 +2089,23 @@ window.CodePrinter = (function($) {
                     return this;
                 }
             }
-            var i = 0,
-                tmp = this.eaten,
-                spa = function(txt) {
-                    txt = txt.encode();
-                    fn instanceof Function && (txt = fn.call(txt, suffix));
-                    return '<span class="'+suffix+'">' + txt + '</span>';
-                };
-            
-            suffix = (suffix instanceof Array) ? suffix.slice(0) : [suffix];
-            
-            for (i = 0; i < suffix.length; i++) {
-                suffix[i] = 'cpx-'+suffix[i];
+            var i = 0
+            , fn = arguments[arguments.length-1] instanceof Function ? arguments[arguments.length-1] : null
+            , tmp = this.eaten
+            , suffix = ''
+            , spa = function(txt) {
+                txt = txt.encode();
+                fn instanceof Function && (txt = fn.call(txt, suffix));
+                return '<span class="'+suffix+'">' + txt + '</span>';
             }
-            suffix = suffix.join(' ');
+            
+            for (i = 0; i < arguments.length; i++) {
+                if (typeof arguments[i] === 'string') {
+                    suffix += ' cpx-'+arguments[i];
+                }
+            }
+            suffix = suffix.substr(1);
+            
             this.wrapped = [];
             tmp.length > 1 && (this.row = this.row - tmp.length + 1);
             i = -1;
@@ -1845,6 +2116,9 @@ window.CodePrinter = (function($) {
             }
             this.wrapped[i] = this.append(tmp[i] ? spa(tmp[i]) : '');
             return this.reset();
+        },
+        applyWrap: function(array) {
+            return this.wrap.apply(this, array);
         },
         unwrap: function() {
             if (this.wrapped.length) {
@@ -1895,6 +2169,12 @@ window.CodePrinter = (function($) {
         isBefore: function(s) {
             var bf = this.before(), t, i;
             return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.endsWith(s);
+        },
+        cut: function(index) {
+            if (this.found && index >= 0) {
+                this.found = this.found.substring(0, index);
+            }
+            return this;
         },
         back: function() {
             if (this.eaten.length) {
@@ -1954,22 +2234,15 @@ window.CodePrinter = (function($) {
             return this.pos === 0;
         },
         toString: function() {
-            return this.parsed.join(eol);
+            return this.parsed.join('\n');
         }
-    };
+    }
     
-    CodePrinter.Mode = function() {
-        if (!(this instanceof CodePrinter.Mode)) {
-            return new CodePrinter.Mode();
-        }
-        this.keydownMap = {};
-        this.keypressMap = {};
-        this.onRemovedBefore = {'{':'}','(':')','[':']','"':'"',"'":"'"};
-        this.onRemovedAfter = {'}':'{',')':'(',']':'[','"':'"',"'":"'"};
-        return this;
-    };
-    
-    CodePrinter.Mode.prototype = {
+    var templateMode = {
+        keyMap: {},
+        onRemovedBefore: {'{':'}','(':')','[':']','"':'"',"'":"'"},
+        onRemovedAfter: {'}':'{',')':'(',']':'[','"':'"',"'":"'"},
+        comment: '//',
         brackets: {
             '{': ['bracket', 'bracket-curly', 'bracket-open'],
             '}': ['bracket', 'bracket-curly', 'bracket-close'],
@@ -1978,11 +2251,11 @@ window.CodePrinter = (function($) {
             '(': ['bracket', 'bracket-round', 'bracket-open'],
             ')': ['bracket', 'bracket-round', 'bracket-close']
         },
-        chars: { 
-            '//': { end: '\n', cls: ['comment', 'line-comment'] }, 
-            '/*': { end: '*/', cls: ['comment', 'multiline-comment'] },
-            "'": { end: /(^'|[^\\]')/, cls: ['string', 'single-quote'] },
-            '"': { end: /(^"|[^\\]")/, cls: ['string', 'double-quote'] }
+        expressions: {
+            '//': { ending: '\n', classes: ['comment', 'line-comment'] }, 
+            '/*': { ending: '*/', classes: ['comment', 'multiline-comment'] },
+            "'": { ending: /(^'|[^\\]'|\\{2}')/, classes: ['string', 'single-quote'] },
+            '"': { ending: /(^"|[^\\]"|\\{2}")/, classes: ['string', 'double-quote'] }
         },
         punctuations: {
             '.': 'dot',
@@ -1999,12 +2272,17 @@ window.CodePrinter = (function($) {
             '+': 'plus',
             '*': 'multiply',
             '/': 'divider',
+            '^': 'power',
             '%': 'percentage',
             '<': 'lower',
             '>': 'greater',
             '&': 'ampersand',
             '|': 'verticalbar'
-        },
+        }
+    }
+    
+    CodePrinter.Mode = function(name) { this.name = name; };
+    CodePrinter.Mode.prototype = {
         alloc: function() {
             return {};
         },
@@ -2016,68 +2294,54 @@ window.CodePrinter = (function($) {
             stream.parsed = stream.value;
             return stream;
         }
-    };
+    }
     
-    keydownMap = function() {};
-    keydownMap.prototype = {
-        touch: function(code, self, event) {
-            if (this[code]) {
-                return this[code].call(self, event, code);
-            }
-            return -1;
-        },
-        8: function(e) {
-            var t = this.caret.textBefore(),
-                m = t.match(/ +$/),
-                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
+    keyMap = function() {}
+    keyMap.prototype = {
+        'Backspace': function() {
+            var t = this.caret.textBefore()
+            , m = t.match(/ +$/)
+            , r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
             
             this.selection.isset() ? this.removeSelection() : this.removeBeforeCursor(r);
-            return e && e.cancel();
+            return false;
         },
-        9: function(e) {
+        'Ctrl+Backspace': function() {
+            this.caret.setTextBefore('');
+            return false;
+        },
+        'Alt+Backspace': function() {
+            this.caret.setTextAtCurrentLine('', '');
+            return false;
+        },
+        'Tab': function() {
             if (this.selection.isset()) {
-                var t = '\t', w = this.options.tabWidth,
-                    s = this.selection, i, l;
-                
-                s.correct();
-                this.caret.position(s.start.line, s.start.column);
-                i = s.start.line;
-                l = s.end.line;
-                
-                if (e.shiftKey) {
-                    var dl = this.data.getLine(i);
-                    if (dl.text.indexOf(t) === 0) {
-                        dl.setText(dl.text.substr(w));
-                        s.start.column -= w;
-                        this.caret.moveX(-w);
-                    }
-                    if (l - i++) {
-                        for (; i < l; i++) {
-                            this.data.getLine(i).lbreak(t);
-                        }
-                        dl = this.data.getLine(i);
-                        if (dl.text.indexOf(t) === 0) {
-                            dl.setText(dl.text.substr(w));
-                            s.end.column -= w;
-                        }
-                    }
-                } else {
-                    for (; i <= l; i++) {
-                        this.data.getLine(i).prepend(t);
-                    }
-                    s.start.column += w;
-                    s.end.column += w;
-                    this.caret.moveX(w);
-                }
-                this.showSelection();
+                this.increaseIndentOfSelection();
             } else {
-                !e.ctrlKey && (e.shiftKey ? this.removeBeforeCursor(this.tabString()) : this.insertText(this.tabString()));
+                var bf = this.caret.textBefore();
+                if (this.options.tabTriggers) {
+                    var match = bf.match(/\b\w+$/), snippet = match && this.findSnippet(match[0]);
+                    if (snippet) {
+                        this.removeBeforeCursor(match[0]);
+                        this.insertText(snippet.content, snippet.cursorMove);
+                        return false;
+                    }
+                }
+                this.insertText(' '.repeat(this.options.tabWidth - bf.length % this.options.tabWidth));
             }
-            return e.cancel();
+            return false;
         },
-        13: function(e) {
-            var t = this.caret.textBefore().match(/^ +/),
-                a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0].substring(0, t[0].length - t[0].length % this.options.tabWidth) : '');
+        'Alt+Tab': function() {
+            this.selection.isset() ? this.increaseIndentOfSelection() : this.increaseIndentAtLine(this.caret.line());
+            return false;
+        },
+        'Shift+Tab': function(e) {
+            this.selection.isset() ? this.decreaseIndentOfSelection() : this.decreaseIndentAtLine(this.caret.line());
+            return false;
+        },
+        'Enter': function() {
+            var t = this.caret.textBefore().match(/^ +/)
+            , a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0].substring(0, t[0].length - t[0].length % this.options.tabWidth) : '');
             
             if (this.textBeforeCursor(1) === '{') {
                 this.insertText(a + this.tabString());
@@ -2085,194 +2349,192 @@ window.CodePrinter = (function($) {
             } else {
                 this.insertText(a);
             }
-            return e.cancel();
+            return false;
         },
-        16: function() {
-            if (this.selection.start.line == null) {
-                this.selection.setStart(this.caret.line(), this.caret.column());
-            }
-        },
-        27: function(e) {
+        'Esc': function() {
             this.isFullscreen && this.exitFullscreen();
-            return e.cancel();
+            return false;
         },
-        33: function() {
+        'PageUp': function() {
             this.wrapper.scrollTop -= this.wrapper.clientHeight;
         },
-        34: function() {
+        'PageDown': function() {
             this.wrapper.scrollTop += this.wrapper.clientHeight;
         },
-        35: function() {
+        'End': function() {
             this.caret.position(this.data.lines - 1, -1);
         },
-        36: function() {
+        'Home': function() {
             this.caret.position(0, 0);
         },
-        37: function(e, c) {
-            c%2 ? this.caret.move(c-38, 0) : this.caret.move(0, c-39);
-            if (e.shiftKey && this.selection.start.line >= 0) {
-                this.selection.setEnd(this.caret.line(), this.caret.column());
-                this.showSelection();
-                this.unselectLine();
-            } else {
-                this.selection.clear();
-            }
-            return e.cancel();
+        'Left': function(e, c) {
+            c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
+            this.selection.clear();
+            return false;
         },
-        46: function(e) {
+        'Del': function() {
             var t = this.caret.textAfter(),
                 m = t.match(/^ +/),
-                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? this.tabString() : 1;
+                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
             
             this.selection.isset() ? this.removeSelection() : this.removeAfterCursor(r);
-            return e.cancel();
-        }
-    };
-    keydownMap.prototype[40] = keydownMap.prototype[39] = keydownMap.prototype[38] = keydownMap.prototype[37];
-    
-    keypressMap = function() {};
-    keypressMap.prototype = {
-        touch: function(code, self, event, char) {
-            if (this[code]) {
-                return this[code].call(self, event, code, char);
-            }
+            return false;
         },
-        34: function(e, k, ch) {
+        '"': function(e, k, ch) {
             if (this.options.insertClosingQuotes) {
-                this.textAfterCursor(1) !== ch ? this.insertText(ch + ch, -1) : this.caret.moveX(1);
+                this.textAfterCursor(1) !== ch ? this.caret.textAtCurrentLine().count(ch) % 2 ? this.insertText(ch, 0) : this.insertText(ch + ch, -1) : this.caret.moveX(1);
                 return false;
             }
         },
-        40: function(e, k, ch) {
+        '(': function(e, k, ch) {
+            this.insertText(ch);
             if (this.options.insertClosingBrackets) {
-                this.insertText(ch + (k === 40 ? String.fromCharCode(41) : String.fromCharCode(k+2)), -1);
-                return false;
+                this.insertText(complementBracket(ch), -1);
             }
+            return false;
         },
-        41: function(e, k, ch) {
+        ')': function(e, k, ch) {
             if (this.options.insertClosingBrackets && this.textAfterCursor(1) == ch) {
                 this.caret.moveX(1);
-                return false;
+            } else {
+                this.insertText(ch);
             }
-        }
-    };
-    keypressMap.prototype[39] = keypressMap.prototype[34];
-    keypressMap.prototype[91] = keypressMap.prototype[123] = keypressMap.prototype[40];
-    keypressMap.prototype[93] = keypressMap.prototype[125] = keypressMap.prototype[41];
-    
-    shortcuts = function() {};
-    shortcuts.prototype = {
-        37: function() {
+            return false;
+        },
+        'Ctrl+Left': function() {
             this.caret.position(this.caret.line(), 0);
+            return false;
         },
-        38: function(e) {
-            e.altKey ? this.swapLineUp() : (this.wrapper.scrollTop = 0 && this.caret.position(0, 0));
+        'Ctrl+Up': function(e) {
+            this.wrapper.scrollTop = 0;
+            this.caret.position(0, 0);
+            return false;
         },
-        39: function() {
+        'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
+        'Ctrl+Right': function() {
             this.caret.position(this.caret.line(), -1);
+            return false;
         },
-        40: function(e) {
-            e.altKey ? this.swapLineDown() : this.caret.position(this.data.lines - 1, -1);
+        'Ctrl+Down': function(e) {
+            this.caret.position(this.data.lines - 1, -1);
+            return false;
         },
-        70: function(e) {
+        'Alt+Ctrl+Down': CodePrinter.prototype.swapLineDown,
+        'Ctrl+F': function(e) {
             if (e.shiftKey) {
                 this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
             } else {
                 !this.finder || this.finder.bar.parentNode == null ? this.openFinder() : this.finder.input.focus();
             }
         },
-        73: function() {
+        'Ctrl+I': function() {
             !this.infobar || this.infobar.element.parentNode == null ? this.openInfobar() : this.closeInfobar();
         },
-        74: function() {
+        'Ctrl+J': function() {
             var self = this, l = parseInt(prompt("Jump to line..."), 10) - 1;
             setTimeout(function() {
                 self.caret.position(l, 0);
             }, 1);
         },
-        78: function() {
+        'Ctrl+N': function() {
             !this.counter || this.counter.parent.parentNode == null ? this.openCounter() : this.closeCounter();
         },
-        82: function() {
+        'Ctrl+R': function() {
             this.forcePrint();
         },
-        90: function(e) {
-            e.shiftKey ? this.history.redo() : this.history.undo();
+        'Ctrl+Z': function() {
+            this.history.undo();
         },
-        187: function() {
-            this.setFontSize(this.options.fontSize+1);
+        'Shift+Ctrl+Z': function(e) {
+            this.history.redo();
         },
-        189: function() {
-            this.setFontSize(this.options.fontSize-1);
-        },
-        191: function() {
+        'Ctrl++': CodePrinter.prototype.increaseFontSize,
+        'Ctrl+-': CodePrinter.prototype.decreaseFontSize,
+        'Ctrl+/': function() {
             if (this.parser && this.parser.comment) {
-                var c = this.parser.comment,
-                    m = '[text content]',
-                    i = c.indexOf(m), j,
-                    s = c, e = '', x,
-                    t = this.caret.textAtCurrentLine(),
-                    l = this.caret.column();
+                var start, end, is, sm = 0, comment = this.parser.comment.split('[text content]');
                 
-                if (i !== -1) {
-                    s = c.substr(0, i);
-                    e = c.substr(i+m.length);
-                }    
-                j = t.indexOf(s);
-                if (j !== -1) {
-                    var k = e ? t.indexOf(e, j+s.length) : t.length;
-                    t = t.substring(0, j) + t.substring(j+s.length, k);
-                    x = l > j ? l > j+s.length ? -s.length : -l+j : 0;
+                if (is = this.selection.isset()) {
+                    start = this.selection.start.line;
+                    end = this.selection.end.line;
                 } else {
-                    var k = -1;
-                    while (t[++k] == ' ');
-                    t = t.substring(0, k) + s + t.substr(k) + e;
-                    x = l >= k ? s.length : 0;
+                    start = end = this.caret.line();
                 }
-                this.data.getLine(this.caret.line()).setText(t);
-                x && this.caret.moveX(x);
+                
+                for (var line = end; line >= start; line--) {
+                    var text = this.getTextAtLine(line)
+                    , i = text.search(/[^ ]/);
+                    if (i >= 0) {
+                        if (text.search(new RegExp('(^ *'+comment[0].escape()+')')) == 0) {
+                            var r1 = RegExp.$1;
+                            sm = -comment[0].length;
+                            this.erase(comment[0].length, line, r1.length);
+                            comment[1] && text.match(new RegExp('(\\s*'+comment[1].escape()+'\\s*)$')) && this.erase(RegExp.$1.length, line, text.length - r1.length);
+                        } else {
+                            sm = comment[0].length;
+                            this.put(comment[0], line, 0);
+                            comment[1] && this.put(comment[1], line, text.length + comment[0].length);
+                        }
+                    }
+                }
+                is && this.selection.move(sm);
+                this.showSelection();
             }
+        },
+        'Ctrl+[': function() {
+            this.selection.isset() ? this.decreaseIndentOfSelection() : this.decreaseIndentAtLine(this.caret.line());
+        },
+        'Ctrl+]': function() {
+            this.selection.isset() ? this.increaseIndentOfSelection() : this.increaseIndentAtLine(this.caret.line());
+        },
+        'Shift+Left': function(e, c) {
+            if (!this.selection.isset()) {
+                this.selection.setStart(this.caret.line(), this.caret.column());
+            }
+            c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
+            this.selection.setEnd(this.caret.line(), this.caret.column());
         }
-    };
-    shortcuts.prototype[229] = shortcuts.prototype[191];
+    }
+    keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
+    keyMap.prototype['Shift+Down'] = keyMap.prototype['Shift+Right'] = keyMap.prototype['Shift+Up'] = keyMap.prototype['Shift+Left'];
+    keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
+    keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
+    keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
     
     commands = {
-        65: function() {
-            var ls = this.data.lines - 1;
-            this.selection.setStart(0, 0).setEnd(ls, this.getTextAtLine(ls).length);
-            this.caret.position(ls, -1);
-            this.showSelection();
-            this.emit('cmd.selectAll');
+        'A': function(e) {
+            if (!this.isAllSelected()) {
+                this.selectAll();
+                this.emit('cmd.selectAll');
+            }
             return false;
         },
-        67: function() {
+        'C': function(e) {
+            this.input.focus();
+            this.input.setSelectionRange(0, this.input.value.length);
             this.emit('cmd.copy');
-            return false;
+            return -1;
         },
-        86: function() {
+        'V': function(e) {
             this.removeSelection();
             this.emit('cmd.paste');
+            setTimeout(this.input.emit.bind(this.input, 'keyup'), 5);
             return true;
         },
-        88: function() {
+        'X': function() {
             if (this.selection.isset()) {
                 this.removeSelection();
                 this.emit('cmd.cut');
             }
             return true;
         },
-        90: function(e) {
+        'Z': function(e) {
             e.shiftKey ? this.history.redo() : this.history.undo();
             return false;
         }
-    };
+    }
     
     history = function(stackSize, delay) {
-        this.states = [];
-        this.initialState = [];
-        this.index = 0;
-        this.muted = false;
-        
         this.pushChanges = function(line, column, text, added) {
             if (!this.muted && arguments.length == 4) {
                 var self = this,
@@ -2282,14 +2544,16 @@ window.CodePrinter = (function($) {
                     ++this.index;
                     this.states.splice(this.index, this.states.length - this.index);
                 }
-                if (!this.states[this.index] || this.toRemove) {
+                if (this.performed) {
+                    this.states = [];
+                    this.performed = false;
+                }
+                if (!this.states[this.index]) {
                     this.states[this.index] = [changes];
-                    this.toRemove = false;
                 } else {
-                    var last = this.states[this.index].last(),
-                        b = false;
+                    var last = this.states[this.index].last(), b = false;
                     if (last.line == line && added == last.added) {
-                        if (b = (last.column == column)) {
+                        if (b = (last.column + (added ? last.text.length : '') == column)) {
                             last.text += text;
                         } else if (b = (column + text.length == last.column)) {
                             last.text = text + last.text;
@@ -2303,16 +2567,22 @@ window.CodePrinter = (function($) {
                 }, delay);
             }
             return this;
-        };
+        }
         this.save = function() {
             ++this.index;
             while (this.states.length >= stackSize) {
                 this.shift();
             }
             return this;
-        };
-    };
+        }
+    }
     history.prototype = {
+        init: function(content) {
+            this.states = [];
+            this.initialState = [{ line: 0, column: 0, text: content, added: true }];
+            this.index = 0;
+            this.muted = false;
+        },
         getState: function(index) {
             return this.states[index];
         },
@@ -2328,7 +2598,7 @@ window.CodePrinter = (function($) {
                 this.timeout = clearTimeout(this.timeout);
                 (!this.states[this.index] || !this.states[this.index].length) && --this.index;
                 this.mute().emit('undo', this.states[this.index--]).unmute();
-                this.toRemove = true;
+                this.performed = true;
             }
         },
         redo: function() {
@@ -2336,7 +2606,7 @@ window.CodePrinter = (function($) {
             if (this.index < this.states.length) {
                 this.timeout = clearTimeout(this.timeout);
                 this.mute().emit('redo', this.states[this.index++]).unmute();
-                this.toRemove = true;
+                this.performed = true;
             }
         },
         mute: function() {
@@ -2347,146 +2617,165 @@ window.CodePrinter = (function($) {
             this.muted = false;
             return this;
         }
-    };
+    }
     
     selection = function() {
-        this.start = {};
-        this.end = {};
-        return this;
-    };
-    selection.prototype = {
-        clear: function() {
+        var coords = [], make = function() {
+            if (coords.length == 2 && (coords[1][0] < coords[0][0] || coords[0][0] === coords[1][0] && coords[1][1] < coords[0][1])) {
+                this.start = { line: coords[1][0], column: coords[1][1] }
+                this.end = { line: coords[0][0], column: coords[0][1] }
+            } else {
+                this.start = { line: coords[0][0], column: coords[0][1] }
+                this.end = { line: coords[1][0], column: coords[1][1] }
+            }
+            this.emit('done', this.start, this.end);
+        }
+        this.clear = function() {
             this.overlay.node.innerHTML = '';
-            this.overlay.isRemovable = true;
-            this.start = {};
-            this.end = {};
-            this.emit('canceled');
+            this.overlay.remove();
+            coords = [];
             return this;
-        },
-        setStart: function(line, column) {
-            this.overlay.node.innerHTML != '' && this.clear();
+        }
+        this.setStart = function(line, column) {
+            coords[0] = [line, column];
             this.overlay.isRemovable = false;
-            this.start.line = line;
-            this.start.column = column;
-            this.emit('started');
-            return this;
-        },
-        setEnd: function(line, column) {
-            this.end.line = line;
-            this.end.column = column;
-            return this;
-        },
+            this.emit('started', { line: line, column: column });
+        }
+        this.setEnd = function(line, column) {
+            coords[1] = [line, column];
+            make.call(this);
+        }
+        this.move = function(mv) {
+            coords[0][1] += mv;
+            coords[1][1] += mv;
+            make.call(this);
+        }
+        this.isset = function() {
+            return coords && coords.length == 2;
+        }
+        this.coords = function() {
+            return [[this.start.line, this.start.column], [this.end.line, this.end.column]];
+        }
+        return this;
+    }
+    selection.prototype = {
         setRange: function(sl, sc, el, ec) {
             this.setStart(sl, sc);
             this.setEnd(el, ec);
             return this;
         },
-        getStart: function() {
-            return this.isInversed() ? this.end : this.start;
-        },
-        getEnd: function() {
-            return this.isInversed() ? this.start : this.end;
-        },
-        coords: function() {
-            return this.isInversed() ? [this.end, this.start] : [this.start, this.end];
-        },
-        isInversed: function() {
-            return this.end.line < this.start.line || (this.start.line === this.end.line && this.end.column < this.start.column);
-        },
-        correct: function() {
-            if (this.isInversed()) {
-                var t = this.start;
-                this.start = this.end;
-                this.end = t;
-            }
-        },
-        isset: function() {
-            return this.start.line >= 0 && this.end.line >= 0;
+        inSelection: function(line, column) {
+            var c = this.coords();
+            return line == Math.max(c[0][0], Math.min(line, c[1][0]))
+            && (line != c[0][0] || column >= c[0][1])
+            && (line != c[1][0] || column <= c[1][1]);
         }
-    };
+    }
     
-    tracking = function() {};
+    tracking = function() {}
     tracking.prototype = {
         '(': function(cp, key, details) {
-            if (cp.options.highlightBrackets) {
-                var c = details.isAfter, sec = key === '(' ? ')' : String.fromCharCode(key.charCodeAt(0)+2);
+            var ignore;
+            if (cp.options.highlightBrackets && !cp.isIgnoredArea(ignore = ['string', 'comment', 'regexp'], details.line, details.columnStart)) {
+                var sec = key === '(' ? ')' : String.fromCharCode(key.charCodeAt(0)+2)
+                , counter = 1
+                , line = details.line
+                , col = details.columnEnd;
                 
-                this.eachCharacter(function(ch, line, column, cp) {
-                    ch == key ? c++ : ch == sec && c--;
-                    if (!c) {
-                        var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
-                            pos0 = getPositionOf(cp, details.line, details.column-1),
-                            pos1 = getPositionOf(cp, line, column-1),
-                            span0 = createSpan(key, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
-                            span1 = createSpan(ch, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
-                        
-                        overlay.node.append(span0, span1);
-                        overlay.reveal();
-                        return false;
+                do {
+                    var a = cp.searchRight(sec, line, col, ignore)
+                    , b = cp.searchRight(key, line, col, ignore);
+                    
+                    if (a[0] >= 0 && a[1] >= 0) {
+                        if (b[0] >= 0 && b[1] >= 0 && (b[0] < a[0] || b[0] == a[0] && b[1] < a[1])) {
+                            ++counter;
+                            a = b;
+                        } else {
+                            --counter;
+                        }
+                        line = a[0];
+                        col = a[1] + 1;
+                    } else {
+                        counter = 0;
                     }
-                });
+                } while (counter != 0);
+                
+                cp.createHighlightOverlay(
+                    [details.line, details.columnStart, key],
+                    [line, col - 1, sec]
+                );
+                return false;
             }
         },
         ')': function(cp, key, details) {
-            if (cp.options.highlightBrackets) {
-                var c = details.isBefore, sec = key === ')' ? '(' : String.fromCharCode(key.charCodeAt(0)-2);
+            var ignore;
+            if (cp.options.highlightBrackets && !cp.isIgnoredArea(ignore = ['string', 'comment', 'regexp'], details.line, details.columnEnd)) {
+                var sec = key === ')' ? '(' : String.fromCharCode(key.charCodeAt(0)-2)
+                , counter = 1
+                , line = details.line
+                , col = details.columnStart;
                 
-                this.eachCharacter(function(ch, line, column, cp) {
-                    ch == key ? c++ : ch == sec && c--;
-                    if (!c) {
-                        var overlay = new Overlay(cp, 'cp-highlight-overlay', true),
-                            pos0 = getPositionOf(cp, line, column-1),
-                            pos1 = getPositionOf(cp, details.line, details.column-1),
-                            span0 = createSpan(ch, 'cp-highlight', pos0.y, pos0.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight),
-                            span1 = createSpan(key, 'cp-highlight', pos1.y, pos1.x, ch.length * cp.sizes.charWidth, cp.sizes.lineHeight);
-                        
-                        overlay.node.append(span0, span1);
-                        overlay.reveal();
-                        return false;
+                do {
+                    var a = cp.searchLeft(sec, line, col, ignore)
+                    , b = cp.searchLeft(key, line, col, ignore);
+                    
+                    if (a[0] >= 0 && a[1] >= 0) {
+                        if (b[0] >= 0 && b[1] >= 0 && (b[0] > a[0] || b[0] == a[0] && b[1] > a[1])) {
+                            ++counter;
+                            a = b;
+                        } else {
+                            --counter;
+                        }
+                        line = a[0];
+                        col = a[1];
+                    } else {
+                        counter = 0;
                     }
-                }, true);
+                } while (counter != 0);
+                
+                cp.createHighlightOverlay(
+                    [line, col, sec],
+                    [details.line, details.columnStart, key]
+                );
+                return false;
             }
         }
-    };
+    }
     tracking.prototype['{'] = tracking.prototype['['] = tracking.prototype['('];
     tracking.prototype['}'] = tracking.prototype[']'] = tracking.prototype[')'];
+    
+    lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
     
     extensions = {
         'js': 'javascript',
         'json': 'javascript',
-        'javascript': 'javascript',
-        'php': 'php',
-        'html': 'html',
         'htm': 'html',
-        'css': 'css',
         'less': 'css',
-        'h': 'c',
-        'c': 'c',
-        'cpp': 'c',
-        'ruby': 'ruby',
+        'h': 'cpp',
         'rb': 'ruby',
-        'java': 'java'
-    };
-    
-    eol = $.browser.windows ? '\r\n' : '\n';
+        'pl': 'perl',
+        'sh': 'bash',
+        'adb': 'ada'
+    }
     
     CodePrinter.requireMode = function(req, cb, del) {
-        return $.scripts.require('CodePrinter.'+req.toLowerCase(), cb, del);
-    };
+        return $.scripts.require('CodePrinter/'+req.toLowerCase(), cb, del);
+    }
     CodePrinter.defineMode = function(name, obj, req) {
-        var m = (new CodePrinter.Mode()).extend(obj, { name: name });
+        var m = $.extend(new CodePrinter.Mode(name), templateMode, obj);
+        obj.extension && m.extend(obj.extension);
         m.init instanceof Function && m.init();
-        $.scripts.define('CodePrinter.'+name.toLowerCase(), m, req);
-    };
+        $.scripts.define('CodePrinter/'+name.toLowerCase(), m, req);
+    }
     CodePrinter.getMode = function(name) {
-        return $.scripts.get('CodePrinter.'+name.toLowerCase());
-    };
+        return $.scripts.get('CodePrinter/'+name.toLowerCase());
+    }
     CodePrinter.hasMode = function(name) {
-        return $.scripts.has('CodePrinter.'+name.toLowerCase());
-    };
+        return $.scripts.has('CodePrinter/'+name.toLowerCase());
+    }
     CodePrinter.registerExtension = function(ext, parserName) {
         extensions[ext.toLowerCase()] = parserName.toLowerCase();
-    };
+    }
     
     var buildDOM = (function(){
         var m = div.cloneNode().addClass('codeprinter cp-animation'),
@@ -2501,7 +2790,6 @@ window.CodePrinter = (function($) {
         c.appendChild(w);
         m.appendChild(c);
         return function(cp) {
-            cp.shortcuts = new shortcuts;
             cp.selection = new selection;
             cp.caret = new Caret(cp);
             cp.screen = new Screen(cp);
@@ -2512,10 +2800,11 @@ window.CodePrinter = (function($) {
             cp.caret.element = cp.wrapper.firstChild;
             cp.screen.parent = cp.caret.element.nextSibling;
             cp.screen.element = cp.screen.parent.firstChild;
+            cp.selection.on({ done: cp.showSelection.bind(cp, false) });
         }
     })();
     var mouseController = function(self) {
-        var moveevent
+        var moveevent, moveselection = false
         , fn = function(e) {
             if (e.button > 0 || e.which > 1)
                 return false;
@@ -2525,31 +2814,56 @@ window.CodePrinter = (function($) {
             , o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds()
             , x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft)
             , y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
-            , l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1
+            , m = Math.ceil(y / self.sizes.lineHeight)
+            , l = Math.min(Math.max(1, m), self.data.lines) - 1
             , s = self.getTextAtLine(l)
-            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
+            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight || m > self.data.lines ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
             
             if (e.type === 'mousedown') {
                 self.isMouseDown = true;
-                self.input.value = '';
-                self.selection.setStart(l, c);
-                self.caret.deactivate().show().position(l, c);
-                window.on('mousemove', fn);
-                window.one('mouseup', function(e) {
-                    !self.selection.isset() && self.selection.clear();
-                    window.off('mousemove', fn);
-                    self.caret.activate();
-                    self.sizes.bounds = moveevent = null;
-                    self.removeOverlays();
-                    document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
-                    return self.isMouseDown = e.cancel();
-                });
+                if (self.selection.isset() && self.selection.inSelection(l, c)) {
+                    moveselection = true;
+                    window.on('mousemove', fn);
+                    window.once('mouseup', function() {
+                        window.off('mousemove', fn);
+                        if (moveselection && self.selection.isset() && !self.selection.inSelection(self.caret.line(), self.caret.column())) {
+                            var selection = self.getSelection()
+                            , savedpos = self.caret.savePosition()
+                            , isbf = self.cursorIsBeforePosition(self.selection.start.line, self.selection.start.column);
+                            
+                            self.caret.position(self.selection.end.line, self.selection.end.column);
+                            if (!isbf) {
+                                savedpos[0] -= self.selection.end.line - self.selection.start.line;
+                            }
+                            self.removeSelection();
+                            self.caret.restorePosition(savedpos);
+                            self.insertSelectedText(selection);
+                        } else {
+                            self.selection.clear();
+                            fn.call(window, arguments[0]);
+                        }
+                        return self.isMouseDown = moveselection = e.cancel();
+                    });
+                } else {
+                    self.input.value = '';
+                    self.selection.clear().setStart(l, c);
+                    self.caret.deactivate().show().position(l, c);
+                    window.on('mousemove', fn);
+                    window.once('mouseup', function(e) {
+                        !self.selection.isset() && self.selection.clear();
+                        window.off('mousemove', fn);
+                        self.caret.activate();
+                        self.sizes.bounds = moveevent = null;
+                        document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
+                        return self.isMouseDown = e.cancel();
+                    });
+                }
+            } else if (moveselection) {
+                self.caret.position(l, c);
             } else {
                 moveevent = e;
                 self.unselectLine();
                 self.selection.setEnd(l, c);
-                self.showSelection();
-                self.caret.position(l, c);
                 
                 if (e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight) {
                     var i = e.clientY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
@@ -2579,49 +2893,48 @@ window.CodePrinter = (function($) {
         cp.sizes.charWidth = cr.width;
         cp.sizes.charHeight = cr.height;
         return cr;
-    };
-    function getPositionOf(cp, line, column)
-    {
+    }
+    function getPositionOf(cp, line, column) {
         return {
             x: cp.sizes.paddingLeft + column * cp.sizes.charWidth,
             y: cp.sizes.paddingTop + line * cp.sizes.lineHeight
         };
-    };
-    function createSpan(text, classes, top, left, width, height)
-    {
+    }
+    function createSpan(text, classes, top, left, width, height) {
         var s = span.cloneNode().addClass(classes);
         s.textContent = text;
         s.style.extend({
-            top: top + 'px',
-            left: left + 'px',
-            width: width + 'px',
-            height: height + 'px'
+            top: parseInt(top) + 'px',
+            left: parseInt(left) + 'px',
+            width: parseInt(width) + 'px',
+            height: parseInt(height) + 'px'
         });
         return s;
-    };
+    }
     function getDataLinePosition(line) {
         return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
-    };
+    }
     function indentGrid(text, width) {
         var pos = text.search(/[^ ]/), tmp;
         pos == -1 && (pos = text.length); 
         tmp = [text.substring(0, pos), text.substr(pos)];
         tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
         return tmp[0] + tmp[1];
-    };
+    }
+    function complementBracket(ch) {
+        var obj = { '(':')', '{':'}', '[':']', '<':'>' }
+        return obj[ch];
+    }
     function swapLines(cp, line) {
         var spaces = cp.tabString()
-        , x = cp.data.getLine(line).text.replace(/\t/g, spaces)
-        , y = cp.data.getLine(line+1).text.replace(/\t/g, spaces);
-        cp.caret.saveColumn();
+        , x = cp.convertToSpaces(cp.data.getLine(line).text)
+        , y = cp.convertToSpaces(cp.data.getLine(line+1).text);
+        cp.caret.savePosition(true);
         cp.caret.position(line+1, -1);
         cp.removeBeforeCursor(x + '\n' + y);
         cp.insertText(y + '\n' + x);
-        cp.caret.restoreColumn();
-    };
-    function isCommandKey(e) {
-        return ($.browser.macosx && e.metaKey) || (!$.browser.macosx && e.ctrlKey);
-    };
+        cp.caret.restorePosition();
+    }
     
     $.registerEvent({
         type: 'nodeInserted',
@@ -2644,7 +2957,7 @@ window.CodePrinter = (function($) {
             this[k].CodePrinter = new CodePrinter(this[k], opt);
         }
         return this;
-    };
+    }
     
     return CodePrinter;
-})(Selector);
+});

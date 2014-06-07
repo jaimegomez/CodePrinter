@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   CSS document
 *   
-*   version     0.6.1
+*   version     0.6.2
 */
 .codeprinter-source {
   display: block;
@@ -9,7 +9,7 @@
   background: #fcfcfc;
   border: 1px solid #c0c0c0;
   color: #777777;
-  font-family: Menlo, Monaco, monospace, Courier;
+  font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 11px;
   line-height: 15px;
   word-break: normal;
@@ -18,6 +18,11 @@
   white-space: pre;
 }
 .codeprinter {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
   margin: 0;
   padding: 0;
   border: 1px solid #c0c0c0;
@@ -26,7 +31,7 @@
   overflow: hidden;
   position: relative;
   top: 0;
-  z-index: 50;
+  z-index: 10;
 }
 .codeprinter,
 .codeprinter * {
@@ -49,6 +54,11 @@
   display: -ms-flexbox;
   display: -webkit-flex;
   display: flex;
+  -webkit-flex: 1;
+  -moz-flex: 1;
+  -ms-flex: 1;
+  -o-flex: 1;
+  flex: 1;
   -webkit-flex-flow: column;
   -moz-flex-flow: column;
   -ms-flex-flow: column;
@@ -57,7 +67,7 @@
   height: 100%;
   background: #fcfcfc;
   position: relative;
-  font-family: Menlo, Monaco, monospace, Courier;
+  font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 11px;
 }
 .codeprinter .cp-container * {
@@ -93,7 +103,7 @@
   min-height: 60px;
   position: relative;
   z-index: 4;
-  overflow: scroll;
+  overflow: auto;
   cursor: text;
 }
 .codeprinter .cp-wrapper * {
@@ -201,6 +211,7 @@
 .codeprinter .cp-selection {
   background: #c8dcff;
   color: transparent;
+  cursor: pointer;
 }
 .codeprinter .cpi-bar {
   display: -webkit-box;
@@ -419,13 +430,16 @@
 .codeprinter .cpx-special {
   color: #C93800;
 }
+.codeprinter .cpx-namespace {
+  color: #885D3B;
+}
 .codeprinter .cpx-numeric {
   color: #E68D3F;
 }
 .codeprinter .cpx-hex {
   color: #531B93;
 }
-.codeprinter .cpx-fname {
+.codeprinter .cpx-function {
   color: #003f83;
 }
 .codeprinter .cpx-property {
@@ -451,7 +465,7 @@
   color: #F9F9F2;
 }
 .codeprinter.cps-default .cp-activeLine {
-  box-shadow: 0 0 1px 1px rgba(51, 153, 255, 0.5);
+  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.5);
 }
 .codeprinter.cps-default .cp-highlight {
   border-bottom: 1px solid black;

@@ -19,7 +19,7 @@
 .cps-roboticket .cpx-empty-value { color:#0A0B0C; font-weight:bold; }
 .cps-roboticket .cpx-special { color:#AB2525; font-style:italic; }
 .cps-roboticket .cpx-numeric { color:#AF0F91; }
-.cps-roboticket .cpx-fname { color:#BC5A65; font-weight:bold; }
+.cps-roboticket .cpx-function { color:#BC5A65; font-weight:bold; }
 .cps-roboticket .cpx-property { color:#566874; }
 .cps-roboticket .cpx-regexp { color:#317ECC; }
 .cps-roboticket .cpx-escaped { color:#295F94; }
