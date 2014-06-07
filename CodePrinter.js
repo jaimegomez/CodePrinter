@@ -187,18 +187,19 @@ loader(function($) {
             options.lineNumbers && self.openCounter();
             options.infobar && self.openInfobar();
             options.showFinder && self.openFinder();
-            
-            options.fontSize != 11 && options.fontSize > 0 && self.setFontSize(options.fontSize);
-            options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
             options.snippets && self.snippets.push.apply(self.snippets, options.snippets);
             self.setWidth(options.width);
             self.setHeight(options.height);
             
             var s = window.getComputedStyle(self.screen.element, null);
+            sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
             sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
             sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
             sizes.scrollTop = parseInt(s.getPropertyValue('top'));
             setTimeout(function() { calculateCharDimensions(self); }, 150);
+            
+            options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
+            options.fontSize != 11 && options.fontSize > 0 && self.setFontSize(options.fontSize);
             
             self.print();
         }});
@@ -517,16 +518,16 @@ loader(function($) {
         },
         setFontSize: function(size) {
             size = Math.max(this.options.minFontSize, Math.min(size, this.options.maxFontSize));
-            if (size != this.options.fontSize) {
+            if (size != this.sizes.fontSize) {
                 var id = this.mainElement.id;
                 this.sizes.scrollTop = this.sizes.scrollTop / this.sizes.lineHeight;
                 this.counter && (this.counter.parent.style.fontSize = size+'px') && this.counter.emit('width:changed');
-                size > this.options.fontSize ? ++this.sizes.lineHeight : size < this.options.fontSize ? --this.sizes.lineHeight : 0;
+                this.sizes.lineHeight += size - this.sizes.fontSize;
                 this.screen.element.style.top = (this.sizes.scrollTop *= this.sizes.lineHeight) + 'px';
                 id = '#'+id+' .cp-';
                 this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
                 this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
-                this.wrapper.style.fontSize = (this.options.fontSize = size)+'px';
+                this.wrapper.style.fontSize = (this.options.fontSize = this.sizes.fontSize = size)+'px';
                 calculateCharDimensions(this);
                 this.screen.fix();
                 this.caret.refresh();
