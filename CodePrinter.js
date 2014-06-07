@@ -2814,9 +2814,10 @@ loader(function($) {
             , o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds()
             , x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft)
             , y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
-            , l = Math.min(Math.max(1, Math.ceil(y / self.sizes.lineHeight)), self.data.lines) - 1
+            , m = Math.ceil(y / self.sizes.lineHeight)
+            , l = Math.min(Math.max(1, m), self.data.lines) - 1
             , s = self.getTextAtLine(l)
-            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
+            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight || m > self.data.lines ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
             
             if (e.type === 'mousedown') {
                 self.isMouseDown = true;
