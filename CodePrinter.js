@@ -217,7 +217,7 @@ loader(function($) {
         return this.init(data);
     };
     
-    CodePrinter.version = '0.6.1';
+    CodePrinter.version = '0.6.2';
     
     CodePrinter.defaults = {
         path: '',

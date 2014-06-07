@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   CSS document
 *   
-*   version     0.6.1
+*   version     0.6.2
 */
 .codeprinter-source {
   display: block;
@@ -211,6 +211,7 @@
 .codeprinter .cp-selection {
   background: #c8dcff;
   color: transparent;
+  cursor: pointer;
 }
 .codeprinter .cpi-bar {
   display: -webkit-box;
