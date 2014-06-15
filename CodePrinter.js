@@ -14,7 +14,7 @@ var loader = function(fn) {
 
 loader(function($) {
     var CodePrinter, Data, DataLine, Caret
-    , Screen, Counter, InfoBar, Finder, Stream
+    , Screen, Counter, InfoBar, Stream
     , keyMap, commands, history, selection, tracking
     , lineendings, extensions, div, li, pre, span
     , DATA_RATIO = 10
@@ -144,7 +144,6 @@ loader(function($) {
                 var dl = self.data.getLine(line);
                 dl.text = this.textAtCurrentLine(true);
                 self.parse(line, dl, true);
-                self.finder && self.finder.isOpen && self.finder.find();
             },
             'position:changed': function(x, y) {
                 if (self.options.autoScroll) {
@@ -156,7 +155,7 @@ loader(function($) {
                     wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
                     wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
                 }
-                self.removeOverlays();
+                self.removeOverlays('caret');
                 self.selectLine(this.line());
             }
         });
@@ -186,7 +185,6 @@ loader(function($) {
             
             options.lineNumbers && self.openCounter();
             options.infobar && self.openInfobar();
-            options.showFinder && self.openFinder();
             options.snippets && self.snippets.push.apply(self.snippets, options.snippets);
             self.setWidth(options.width);
             self.setHeight(options.height);
@@ -258,8 +256,6 @@ loader(function($) {
         insertClosingQuotes: true,
         tabTriggers: true,
         shortcuts: true,
-        showFinder: false,
-        searchOnTheFly: false,
         keyCombinationFlag: 1
     };
     
@@ -531,7 +527,6 @@ loader(function($) {
                 calculateCharDimensions(this);
                 this.screen.fix();
                 this.caret.refresh();
-                this.finder && this.finder.searched && this.finder.reload();
                 this.emit('fontsize:changed', size);
             }
             return this;
@@ -962,6 +957,131 @@ loader(function($) {
             overlay.reveal();
             return this;
         },
+        search: function(find) {
+            if (find) {
+                var search = this.searches = this.searches || {};
+                
+                if (!search.value || find.toString() != search.value.toString() || !search.results || !search.results.length) {
+                    var self = this, sizes = this.sizes, isregexp = find instanceof RegExp;
+                    search.results = $([]);
+                    
+                    if (!(search.overlay instanceof CodePrinter.Overlay)) {
+                        search.overlay = new CodePrinter.Overlay(this, 'cp-search-overlay', false);
+                        search.mute = false;
+                        
+                        search.overlay.on({
+                            refresh: function(a) {
+                                if (!search.mute && a != 'caret') {
+                                    search.results.length = 0;
+                                    search.overlay.node.innerHTML = '';
+                                    self.search(search.value);
+                                }
+                            },
+                            removed: function() {
+                                delete this.searches;
+                            }
+                        });
+                        search.overlay.node.delegate('mousedown', 'span', function(e) {
+                            if (this.position) {
+                                search.mute = true;
+                                for (var j = 0; j < search.results.length; j++) {
+                                    search.results[j].style.opacity == "0" && search.results[j].fadeIn();
+                                }
+                                self.selection.setRange(this.position.sl, this.position.sc, this.position.el, this.position.ec);
+                                self.caret.position(this.position.el, this.position.ec);
+                                this.fadeOut();
+                                search.mute = false;
+                            }
+                            return e.cancel();
+                        });
+                    } else {
+                        search.overlay.node.innerHTML = '';
+                    }
+                    
+                    for (var line = 0; line < this.data.lines; line++) {
+                        var i, ln = 0, value = this.getTextAtLine(line);
+                        
+                        while (value && (i = value.search(find)) !== -1) {
+                            var match = isregexp ? value.match(find)[0] : find
+                            , node = span.cloneNode().addClass('cp-search-occurrence');
+                            
+                            node.textContent = node.innerText = node.innerHTML = match;
+                            ln = ln + i;
+                            node.extend({ position: {
+                                sl: line,
+                                sc: ln,
+                                el: line,
+                                ec: ln + match.length
+                            }});
+                            node.style.extend({
+                                width: (sizes.charWidth * match.length) + 2 + 'px',
+                                height: sizes.lineHeight + 'px',
+                                top: (sizes.paddingTop + line * sizes.lineHeight + 1) + 'px',
+                                left: (sizes.paddingLeft + sizes.charWidth * ln) + 'px'
+                            });
+                            search.results.push(node);
+                            search.overlay.node.append(node);
+                            ln = ln + match.length;
+                            value = value.substr(i + match.length);
+                        }
+                    }
+                    search.overlay.reveal();
+                    search.value = find;
+                    search.results.removeClass('active').get(0).addClass('active');
+                    scrollToCurrentSearchResult.call(this);
+                } else {
+                    this.nextOccurrence();
+                }
+            }
+            return this;
+        },
+        searchEnd: function() {
+            if (this.searches) {
+                this.searches.overlay.remove();
+            }
+        },
+        nextOccurrence: function() {
+            if (this.searches) {
+                this.searches.results.removeClass('active').getNext().addClass('active');
+                scrollToCurrentSearchResult.call(this);
+            }
+        },
+        prevOccurrence: function() {
+            if (this.searches) {
+                this.searches.results.removeClass('active').getPrev().addClass('active');
+                scrollToCurrentSearchResult.call(this);
+            }
+        },
+        replace: function(replaceWith, vol, offset) {
+            if ('string' === typeof replaceWith && this.searches) {
+                var search = this.searches
+                , results = search.results
+                , lastline = 0, cmv = 0;
+                
+                if (results.length) {
+                    vol = Math.min(Math.max(0, vol || results.length), results.length);
+                    offset = offset || results.g || 0;
+                    
+                    while (vol-- > 0) {
+                        var node = results[offset], value = node.text();
+                        if (node.position) {
+                            cmv = node.position.el == lastline ? cmv : 0;
+                            search.results.remove(node);
+                            search.overlay.node.removeChild(node);
+                            search.mute = true;
+                            this.caret.position(node.position.el, node.position.ec - cmv);
+                            this.removeBeforeCursor(value);
+                            this.insertText(replaceWith);
+                            search.mute = false;
+                            cmv = replaceWith.length - value.length;
+                        }
+                        lastline = node.position.el;
+                        results.get(offset);
+                    }
+                    search.overlay.emit('refresh');
+                }
+            }
+        },
         findSnippet: function(trigger) {
             var result, fn = function(snippets, simple) {
                 if (snippets) {
@@ -1066,26 +1186,13 @@ loader(function($) {
         closeInfobar: function() {
             this.infobar && this.infobar.element.remove();
         },
-        openFinder: function() {
-            this.finder = this.finder || new Finder(this);
-            this.finder.clear();
-            this.mainElement.append(this.finder.bar);
-            this.finder.overlay.reveal();
-            this.finder.input.focus();
-            this.finder.isOpen = true;
-        },
-        closeFinder: function() {
-            if (this.finder && this.finder.isOpen) {
-                this.finder.bar.remove();
-                this.finder.overlay.remove();
-                this.finder.isOpen = false;
-            }
-        },
         removeOverlays: function() {
             if (this.overlays) {
                 for (var i = 0; i < this.overlays.length; i++) {
                     if (this.overlays[i].isRemovable) {
                         this.overlays[i].remove();
+                    } else {
+                        this.overlays[i].emit('refresh', Array.apply(null, arguments));
                     }
                 }
             }
@@ -1652,14 +1759,14 @@ loader(function($) {
             if (!this.node.parentNode) {
                 this.root.overlays.push(this);
                 this.root.wrapper.append(this.node);
-                this.emit('overlay:revealed');
+                this.emit('revealed');
             }
         },
         remove: function() {
             var i = this.root.overlays.indexOf(this);
             i != -1 && this.root.overlays.splice(i, 1);
             this.node.remove();
-            this.emit('overlay:removed');
+            this.emit('removed');
         },
         removable: function(is) {
             this.isRemovable = !!is;
@@ -1805,146 +1912,6 @@ loader(function($) {
             this.segments.info.innerHTML = str;
         }
     };
-    
-    Finder = function(cp) {
-        var self = this,
-            findnext = document.createElement('button').addClass('cpf-button cpf-findnext'),
-            findprev = document.createElement('button').addClass('cpf-button cpf-findprev'),
-            closebutton = document.createElement('button').addClass('cpf-button cpf-close'),
-            leftbox = div.cloneNode().addClass('cpf-leftbox'),
-            flexbox = div.cloneNode().addClass('cpf-flexbox'),
-            input = document.createElement('input').addClass('cpf-input'),
-            bar = div.cloneNode().addClass('cpf-bar'),
-            overlay = new CodePrinter.Overlay(cp, 'cpf-overlay', false),
-            keyMap = {
-                13: function() {
-                    if (self.searched === this.value) {
-                        self.next();
-                    } else {
-                        self.find(this.value);
-                    }
-                },
-                27: function() {
-                    cp.closeFinder();
-                },
-                38: function() {
-                    self.prev();
-                },
-                40: function() {
-                    self.next();
-                }
-            };
-        
-        findnext.innerHTML = 'Next';
-        findprev.innerHTML = 'Prev';
-        closebutton.innerHTML = 'Close';
-        input.type = 'text';
-        bar.append(leftbox.append(closebutton, findprev, findnext), flexbox.append(input));
-        
-        input.on({ keydown: function(e) {
-            var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
-            return keyMap[k] ? (keyMap[k].call(this) || e.cancel()) : true;
-        }, keyup: function(e) {
-            cp.options.searchOnTheFly && this.value !== self.searched ? self.find(this.value) : 0;
-        }});
-        findnext.on({ click: function(e) { self.next(); }});
-        findprev.on({ click: function(e) { self.prev(); }});
-        closebutton.on({ click: function(e) { cp.closeFinder(); }});
-        overlay.node.delegate('click', 'span', function(e) {
-            if (this.position) {
-                cp.selection.setStart(this.position.ls, this.position.cs).setEnd(this.position.le, this.position.ce);
-                cp.showSelection();
-                this.parentNode.removeChild(this);
-                return e.cancel();
-            }
-        });
-        
-        self.root = cp;
-        self.input = input;
-        self.bar = bar;
-        self.overlay = overlay;
-        self.searchResults = $([]);
-        
-        return self;
-    }
-    Finder.prototype = {
-        clear: function() {
-            this.searched = null;
-            this.searchResults.length = 0;
-            this.overlay.node.innerHTML = '';
-        },
-        push: function(span) {
-            this.searchResults.push(span);
-            this.overlay.node.append(span);
-        },
-        find: function(find) {
-            var root = this.root,
-                siz = root.sizes,
-                value, index, line = 0, ln = 0, last, bf;
-            
-            find = find || this.input.value;
-            this.clear();
-            
-            if (find) {
-                for (; line < root.data.lines; line++) {
-                    value = root.getTextAtLine(line);
-                    ln = 0;
-                    
-                    while (value && (index = value.indexOf(find)) !== -1) {
-                        var node = span.cloneNode().addClass('cpf-occurrence');
-                        node.textContent = node.innerText = node.innerHTML = find;
-                        ln = ln + index;
-                        node.extend({ position: {
-                            ls: line, 
-                            cs: ln,
-                            le: line,
-                            ce: ln + find.length
-                        }});
-                        node.style.extend({
-                            width: (siz.charWidth * find.length) + 2 + 'px',
-                            height: siz.lineHeight + 'px',
-                            top: (siz.paddingTop + line * siz.lineHeight + 1) + 'px',
-                            left: (siz.paddingLeft + siz.charWidth * ln + 1) + 'px'
-                        });
-                        this.push(node);
-                        ln = ln + find.length;
-                        value = value.substr(index + find.length);
-                    }
-                }
-                this.overlay.reveal();
-                this.searched = find;
-                this.searchResults.removeClass('active').get(0).addClass('active');
-                this.scrollToActive();
-            }
-        },
-        reload: function() {
-            return this.find(this.searched);
-        },
-        next: function() {
-            if (this.searchResults.length > 0) {
-                this.searchResults.removeClass('active').getNext().addClass('active');
-                this.scrollToActive();
-            } else {
-                this.find();
-            }
-        },
-        prev: function() {
-            if (this.searchResults.length > 0) {
-                this.searchResults.removeClass('active').getPrev().addClass('active');
-                this.scrollToActive();
-            } else {
-                this.find();
-            }
-        },
-        scrollToActive: function() {
-            this.root.infobar && this.root.infobar.update(this.searchResults.length ? (this.searchResults.g+1)+' of '+this.searchResults.length+' matches' : 'Unable to find '+this.searched);
-            this.searchResults.length > 0 && $(this.root.wrapper).include(this.root.counter && this.root.counter.parent).scrollTo(
-                parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
-                parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
-                this.root.options.autoScrollSpeed
-            );
-        }
-    }
     
     Stream = function(value) {
         if (!(this instanceof Stream)) {
@@ -2410,6 +2377,7 @@ loader(function($) {
             this.caret.position(0, 0);
             return false;
         },
+        'Alt+Up': CodePrinter.prototype.prevOccurrence,
         'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
         'Ctrl+Right': function() {
             this.caret.position(this.caret.line(), -1);
@@ -2419,13 +2387,13 @@ loader(function($) {
             this.caret.position(this.data.lines - 1, -1);
             return false;
         },
+        'Alt+Down': CodePrinter.prototype.nextOccurrence,
         'Alt+Ctrl+Down': CodePrinter.prototype.swapLineDown,
         'Ctrl+F': function(e) {
-            if (e.shiftKey) {
-                this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
-            } else {
-                !this.finder || this.finder.bar.parentNode == null ? this.openFinder() : this.finder.input.focus();
-            }
+            this.search(prompt('Find...'));
+        },
+        'Shift+Ctrl+F': function() {
+            this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
         },
         'Ctrl+I': function() {
             !this.infobar || this.infobar.element.parentNode == null ? this.openInfobar() : this.closeInfobar();
@@ -2806,7 +2774,7 @@ loader(function($) {
     var mouseController = function(self) {
         var moveevent, moveselection = false
         , fn = function(e) {
-            if (e.button > 0 || e.which > 1)
+            if (e.button > 0 || e.which > 1 || e.defaultPrevented)
                 return false;
             
             var sl = self.wrapper.scrollLeft
@@ -2934,6 +2902,13 @@ loader(function($) {
         cp.removeBeforeCursor(x + '\n' + y);
         cp.insertText(y + '\n' + x);
         cp.caret.restorePosition();
+    }
+    function scrollToCurrentSearchResult() {
+        if (this.searches && this.searches.results && this.searches.results.length > 0) {
+            var x = Math.max(0, parseInt(this.searches.results.css('left') - this.wrapper.clientWidth/2))
+            , y = Math.max(0, parseInt(this.searches.results.css('top') - this.wrapper.clientHeight/2));
+            $(this.wrapper).scrollTo(x, y, this.options.autoScrollSpeed);
+        }
     }
     
     $.registerEvent({
