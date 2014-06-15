@@ -95,7 +95,7 @@ loader(function($) {
                 } else {
                     self.caret.deactivate().hide();
                     self.unselectLine();
-                    self.removeOverlays();
+                    self.removeOverlays('blur');
                 }
             },
             keydown: function(e) {
@@ -175,6 +175,7 @@ loader(function($) {
                 if (this.options.history) {
                     this.history.pushChanges(e.line, e.column, this.convertToTabs(e.text), e.added);
                 }
+                this.removeOverlays('changed');
             },
             'removed.before': fn(true),
             'removed.after': fn(false)
@@ -971,7 +972,11 @@ loader(function($) {
                         
                         search.overlay.on({
                             refresh: function(a) {
-                                if (!search.mute && a != 'caret') {
+                                if (a == 'caret') {
+                                    for (var j = 0; j < search.results.length; j++) {
+                                        search.results[j].style.opacity == "0" && search.results[j].fadeIn();
+                                    }
+                                } else if (!search.mute) {
                                     search.results.length = 0;
                                     search.overlay.node.innerHTML = '';
                                     self.search(search.value);
@@ -984,9 +989,6 @@ loader(function($) {
                         search.overlay.node.delegate('mousedown', 'span', function(e) {
                             if (this.position) {
                                 search.mute = true;
-                                for (var j = 0; j < search.results.length; j++) {
-                                    search.results[j].style.opacity == "0" && search.results[j].fadeIn();
-                                }
                                 self.selection.setRange(this.position.sl, this.position.sc, this.position.el, this.position.ec);
                                 self.caret.position(this.position.el, this.position.ec);
                                 this.fadeOut();
