@@ -4,8 +4,7 @@
 .cps-tango .cp-selection { background:#EEEEEE; }
 .cps-tango .cp-highlight { border-bottom:1px solid black; }
 .cps-tango .cp-counter,
-.cps-tango .cpi-bar,
-.cps-tango .cpf-bar { background:#fff; border-color:#c0c0c0; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+.cps-tango .cpi-bar { background:#fff; border-color:#c0c0c0; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.1); }
 
 .cps-tango .cpx-tab { border-color:#999999; }
 .cps-tango .cpx-bracket { color:#444444; }

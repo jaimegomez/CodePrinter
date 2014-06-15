@@ -2,8 +2,7 @@
 
 .cps-roboticket .cp-wrapper { background:#F5F5F5; color:#585858; }
 .cps-roboticket .cp-counter,
-.cps-roboticket .cpi-bar,
-.cps-roboticket .cpf-bar { background:#F5F5F5; color:#9FAFBF; border-color:#AFBFCF; }
+.cps-roboticket .cpi-bar { background:#F5F5F5; color:#9FAFBF; border-color:#AFBFCF; }
 .cps-roboticket .cp-selection { background:#BDD8F2; }
 .cps-roboticket .cp-highlight { border-bottom:1px solid black; }
 .cps-roboticket .cp-activeLine { background:rgba(132,152,255,0.15); box-shadow:0 0 1px 1px rgba(69,69,255,0.6); color:#405060 !important; }
