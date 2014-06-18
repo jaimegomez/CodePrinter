@@ -983,7 +983,7 @@ loader(function($) {
                                 }
                             },
                             removed: function() {
-                                delete this.searches;
+                                delete self.searches;
                             }
                         });
                         search.overlay.node.delegate('mousedown', 'span', function(e) {
