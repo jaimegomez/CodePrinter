@@ -950,7 +950,9 @@ loader(function($) {
         },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
-            var overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
+            var self = this, args = arguments
+            , overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
+            overlay.on('refresh', function(a) { a == null && self.createHighlightOverlay.apply(self, args); });
             for (var i = 0; i < arguments.length; i++) {
                 var pos = getPositionOf(this, arguments[i][0], arguments[i][1]);
                 overlay.node.append(createSpan(arguments[i][2], 'cp-highlight', pos.y, pos.x, arguments[i][2].length * this.sizes.charWidth, this.sizes.lineHeight));
@@ -1447,8 +1449,9 @@ loader(function($) {
                 this.setPixelPosition(x, y);
                 
                 if (cp.options.tracking) {
+                    var a, b;
                     for (var s in this.tracking) {
-                        var a, b, len = s.length, i = 0;
+                        var len = s.length, i = 0;
                         do {
                             a = len == i || before.endsWith(s.substring(0, len - i));
                             b = after.startsWith(s.substring(len - i, len));
@@ -1457,9 +1460,10 @@ loader(function($) {
                         if (a && b) {
                             timeout = setTimeout($.invoke(this.tracking[s], this, [cp, s, { line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i }]), 40);
                             break;
-                        } else if (cp.highlightOverlay) {
-                            cp.highlightOverlay.remove();
                         }
+                    }
+                    if ((!a || !b) && cp.highlightOverlay) {
+                        cp.highlightOverlay.remove();
                     }
                 }
                 return this;
@@ -1503,6 +1507,7 @@ loader(function($) {
                 return this.position(mv, column);
             },
             refresh: function() {
+                cp.removeOverlays(null);
                 return this.setPixelPosition(cp.sizes.charWidth * Math.min(column, this.textBefore().length), cp.sizes.lineHeight * line);
             },
             forceRefresh: function() {
