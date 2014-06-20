@@ -126,7 +126,6 @@ loader(function($) {
                 , ch = String.fromCharCode(code);
                 
                 if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-                    T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keydownInactivityTimeout);
                     (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                     this.value = '';
                     return e.cancel();
@@ -136,6 +135,7 @@ loader(function($) {
                 self.caret.activate();
                 allowKeyup && this.value.length && self.insertText(this.value);
                 self.selection.isset() || (this.value = '');
+                T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keyupInactivityTimeout);
             }
         });
         
@@ -232,7 +232,7 @@ loader(function($) {
         maxFontSize: 60,
         lineHeight: 15,
         linesOutsideOfView: 12,
-        keydownInactivityTimeout: 1500,
+        keyupInactivityTimeout: 1500,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
         historyStackSize: 100,
