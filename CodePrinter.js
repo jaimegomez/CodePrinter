@@ -563,13 +563,26 @@ loader(function($) {
             var l = this.data.getLine(line < 0 ? this.data.lines + line : line);
             return l ? this.convertToSpaces(l.text) : '';
         },
-        getIndentAtLine: function(line) {
-            var i = -1, dl = this.data.getLine(line);
+        getIndentAtLine: function(line, dl) {
+            var i = -1;
+            dl = dl || this.data.getLine(line);
             if (dl) {
                 while (dl.text[++i] === '\t');
                 return i;
             }
             return 0;
+        },
+        setIndentAtLine: function(line, indent) {
+            indent = Math.max(0, indent);
+            var dl = this.data.getLine(line), old, diff;
+            if (dl) {
+                old = this.getIndentAtLine(old, dl);
+                diff = indent - old;
+                dl.text = '\t'.repeat(indent) + dl.text.replace(/^\t*/g, '');
+                this.parse(line, dl, true);
+                this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
+                this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
+            }
         },
         increaseIndentAtLine: function(line) {
             var dl = this.data.getLine(line);
