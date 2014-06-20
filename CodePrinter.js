@@ -449,10 +449,9 @@ loader(function($) {
                         p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
                         data.getLine(line+i).setParsed(p[i]);
                     }
-                    while (i < data.lines && (ndl = data.getLine(line+i)) && ndl.startPoint == dl) {
+                    if ((ndl = data.getLine(line+i)) && ndl.startPoint) {
                         delete ndl.startPoint;
                         this.parse(line+i, ndl, true);
-                        i++;
                     }
                 }
             }
