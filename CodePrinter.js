@@ -1392,7 +1392,6 @@ loader(function($) {
         return this.extend({
             setTextBefore: function(str) {
                 var l = str.length;
-                str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
                 str = cp.convertToTabs(str);
                 if (before !== str) {
                     before = str;
@@ -1402,7 +1401,6 @@ loader(function($) {
                 return this;
             },
             setTextAfter: function(str) {
-                str.indexOf('@') !== -1 && (str = str.replaceAll(['@a','@b'], [after, before]));
                 str = cp.convertToTabs(str);
                 if (after !== str) {
                     after = str;
@@ -1412,8 +1410,6 @@ loader(function($) {
             },
             setTextAtCurrentLine: function(bf, af) {
                 var l = bf.length;
-                bf.indexOf('@') !== -1 && (bf = bf.replaceAll(['@a','@b'], [after, before]));
-                af.indexOf('@') !== -1 && (af = af.replaceAll(['@a','@b'], [after, before]));
                 bf = cp.convertToTabs(bf);
                 af = cp.convertToTabs(af);
                 if (before !== bf || after !== af) {
