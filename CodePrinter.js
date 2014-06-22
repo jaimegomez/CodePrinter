@@ -284,7 +284,7 @@ loader(function($) {
             this.data.on({
                 'text:changed': function(dl) {
                     self.parseByDataLine(dl);
-                    self.caret.refresh();
+                    self.caret.refresh(true);
                 },
                 'line:added': (fn = function() {
                     var s = self.screen.parent;
@@ -1518,9 +1518,9 @@ loader(function($) {
                 mv = mv < 0 ? (column = 0) : mv >= this.root.data.lines ? (column = -1) && this.root.data.lines-1 : mv;
                 return this.position(mv, column);
             },
-            refresh: function() {
+            refresh: function(force) {
                 cp.removeOverlays(null);
-                return this.setPixelPosition(cp.sizes.charWidth * Math.min(column, this.textBefore().length), cp.sizes.lineHeight * line);
+                return force ? this.position(line, column) : this.setPixelPosition(cp.sizes.charWidth * Math.min(column, this.textBefore().length), cp.sizes.lineHeight * line);
             },
             forceRefresh: function() {
                 return this.position(line, column);
