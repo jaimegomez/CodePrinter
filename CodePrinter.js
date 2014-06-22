@@ -2075,32 +2075,21 @@ loader(function($) {
                     return this;
                 }
             }
-            var i = 0
-            , fn = arguments[arguments.length-1] instanceof Function ? arguments[arguments.length-1] : null
-            , tmp = this.eaten
-            , suffix = ''
-            , spa = function(txt) {
-                txt = txt.encode();
-                fn instanceof Function && (txt = fn.call(txt, suffix));
-                return '<span class="'+suffix+'">' + txt + '</span>';
+            var tmp = this.eaten, args = Array.apply(null, arguments), classes, filter;
+            if (args[args.length-1] instanceof Function) {
+                filter = args.pop();
             }
-            
-            for (i = 0; i < arguments.length; i++) {
-                if (typeof arguments[i] === 'string') {
-                    suffix += ' cpx-'+arguments[i];
-                }
-            }
-            suffix = suffix.substr(1);
+            classes = 'cpx-'+args.join(' cpx-');
             
             this.wrapped = [];
             tmp.length > 1 && (this.row = this.row - tmp.length + 1);
-            i = -1;
+            var i = -1;
             
             while (++i < tmp.length - 1) {
-                this.wrapped[i] = this.append(tmp[i] ? spa(tmp[i]) : '');
+                this.wrapped[i] = this.append(tmp[i] ? wrap(tmp[i], classes, filter) : '');
                 this.parsed[++this.row] = '';
             }
-            this.wrapped[i] = this.append(tmp[i] ? spa(tmp[i]) : '');
+            this.wrapped[i] = this.append(tmp[i] ? wrap(tmp[i], classes, filter) : '');
             return this.reset();
         },
         applyWrap: function(array) {
@@ -2897,6 +2886,20 @@ loader(function($) {
             height: parseInt(height) + 'px'
         });
         return s;
+    }
+    function wrap(text, classes, filter) {
+        if (classes instanceof Array) {
+            for (var i = 0; i < classes.length; i++) classes[i] = 'cpx-'+classes[i];
+            classes = classes.join(' ');
+        }
+        var helper = function(a, b) {
+            if ('string' === typeof arguments[1]) {
+                arguments[1] = 'cpx-'+b.lbreak('cpx-');
+            }
+            return '</span>' + wrap.apply(this, arguments) + '<span class="'+classes+'">';
+        }
+        helper.wrap = wrap;
+        return '<span class="'+classes+'">' + (filter instanceof Function ? filter.call(text, helper) : text) + '</span>';
     }
     function getDataLinePosition(line) {
         return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
