@@ -637,6 +637,14 @@ loader(function($) {
         textNearCursor: function(i) {
             return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
         },
+        statesBefore: function() {
+            var states = getStates.call(this, this.data.getLine(this.caret.line()).parsed, this.caret.column());
+            return states || [];
+        },
+        statesAfter: function() {
+            var states = getStates.call(this, this.data.getLine(this.caret.line()).parsed, this.caret.column()+1);
+            return states || [];
+        },
         cursorIsBeforePosition: function(line, column) {
             var l = this.caret.line(), c = this.caret.column();
             return l == line ? c < column : l < line;
@@ -669,26 +677,8 @@ loader(function($) {
         },
         isIgnoredArea: function(ignore, line, col) {
             if (ignore && ignore.length) {
-                var i = 0, cur, el = pre.cloneNode()
-                , dl = this.data.getLine(line);
-                if (dl.parsed) {
-                    pre.innerHTML = dl.parsed;
-                    if (pre.childNodes.length) {
-                        do {
-                            cur = pre.childNodes[i];
-                            col -= cur.textContent.length;
-                        } while (col > 0 && ++i < pre.childNodes.length);
-                        
-                        if (col <= 0) {
-                            if (cur.nodeType === 3) {
-                                return false;
-                            } else {
-                                var classes = cur.className.replaceAll('cpx-', '').split(' ');
-                                return classes.diff(ignore).length !== classes.length;
-                            }
-                        }
-                    }
-                }
+                var states = getStates.call(this, this.data.getLine(line).parsed, col);
+                return states ? states.diff(ignore).length !== states.length : false;
             }
             return false;
         },
@@ -2896,6 +2886,22 @@ loader(function($) {
         }
         helper.wrap = wrap;
         return '<span class="'+classes+'">' + (filter instanceof Function ? filter.call(text, helper) : text) + '</span>';
+    function getStates(text, length) {
+        var i = 0, cur, el = pre.cloneNode();
+        if (text) {
+            el.innerHTML = text;
+            if (el.childNodes.length) {
+                do {
+                    cur = el.childNodes[i];
+                    length -= cur.textContent.length;
+                } while (length > 0 && ++i < el.childNodes.length);
+                
+                if (length <= 0 && cur.nodeType !== 3) {
+                    return cur.className.replace(/cpx\-/g, '').split(' ');
+                }
+            }
+        }
+        return null;
     }
     function getDataLinePosition(line) {
         return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
