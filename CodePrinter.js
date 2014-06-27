@@ -126,9 +126,14 @@ loader(function($) {
                 , ch = String.fromCharCode(code);
                 
                 if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-                    (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
-                    this.value = '';
-                    return e.cancel();
+                    if (ch in self.parser.keyMap) {
+                        allowKeyup = self.parser.keyMap[ch].call(self, e, code, ch);
+                    }
+                    if (allowKeyup !== false) {
+                        (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
+                        this.value = '';
+                        return e.cancel();
+                    }
                 }
             },
             keyup: function(e) {
@@ -401,7 +406,7 @@ loader(function($) {
         },
         forcePrint: function() {
             var self = this;
-            this.memory = this.parser.alloc();
+            this.memory = this.parser.memoryAlloc();
             this.data.foreach(function(line) {
                 self.parse(line, this, true);
             });
@@ -409,9 +414,8 @@ loader(function($) {
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
-                this.memory = parser.alloc();
-                this.keyMap.extend(parser.keyMap);
-                this.options.tracking && (this.caret.tracking = (new tracking(this)).extend(parser.tracking));
+                this.memory = parser.memoryAlloc();
+                this.tracking = (new tracking(this)).extend(parser.tracking);
             }
         },
         parseByDataLine: function(dl, force) {
@@ -443,7 +447,7 @@ loader(function($) {
                         }
                     }
                     
-                    p = this.parser.fn(stream, this.memory).parsed;
+                    p = this.parser.parse(stream, this.memory).parsed;
                     while (++i < p.length && line+i < this.data.lines) {
                         p[i] = this.convertToSpaces(p[i]);
                         p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
@@ -2199,34 +2203,36 @@ loader(function($) {
         }
     }
     
-    var templateMode = {
-        keyMap: {},
-        onRemovedBefore: {'{':'}','(':')','[':']','"':'"',"'":"'"},
-        onRemovedAfter: {'}':'{',')':'(',']':'[','"':'"',"'":"'"},
-        comment: '//',
-        brackets: {
+    CodePrinter.Mode = function(name, extend) {
+        this.name = name;
+        this.keyMap = {};
+        this.onRemovedBefore = {'{':'}','(':')','[':']','"':'"',"'":"'"};
+        this.onRemovedAfter = {'}':'{',')':'(',']':'[','"':'"',"'":"'"};
+        this.indentIncrements = ['(', '[', '{'];
+        this.indentDecrements = [')', ']', '}'];
+        this.brackets = {
             '{': ['bracket', 'bracket-curly', 'bracket-open'],
             '}': ['bracket', 'bracket-curly', 'bracket-close'],
             '[': ['bracket', 'bracket-square', 'bracket-open'],
             ']': ['bracket', 'bracket-square', 'bracket-close'],
             '(': ['bracket', 'bracket-round', 'bracket-open'],
             ')': ['bracket', 'bracket-round', 'bracket-close']
-        },
-        expressions: {
+        }
+        this.expressions = {
             '//': { ending: '\n', classes: ['comment', 'line-comment'] }, 
-            '/*': { ending: '*/', classes: ['comment', 'multiline-comment'] },
+            '/*': { ending: '*/', classes: ['comment', 'block-comment'] },
             "'": { ending: /(^'|[^\\]'|\\{2}')/, classes: ['string', 'single-quote'] },
             '"': { ending: /(^"|[^\\]"|\\{2}")/, classes: ['string', 'double-quote'] }
-        },
-        punctuations: {
+        }
+        this.punctuations = {
             '.': 'dot',
             ',': 'comma',
             ':': 'colon',
             ';': 'semicolon',
             '?': 'question',
             '!': 'exclamation'
-        },
-        operators: {
+        }
+        this.operators = {
             '=': 'equal',
             '!': 'negation',
             '-': 'minus',
@@ -2240,20 +2246,32 @@ loader(function($) {
             '&': 'ampersand',
             '|': 'verticalbar'
         }
+        this.keyMap[')'] = this.keyMap[']'] = this.keyMap['}'] = function(e, k, ch) {
+            if (!this.caret.textBefore().trim()) {
+                var line = this.caret.line()
+                , indent = this.getNextLineIndent(line-1);
+                this.caret.setTextBefore(this.tabString(indent-1) + this.caret.textBefore().trim());
+            }
+        }
+        $.extend(this, extend instanceof Function ? extend.call(this) : extend);
+        this.extension && this.extend(this.extension);
+        this.init();
     }
-    
-    CodePrinter.Mode = function(name) { this.name = name; };
     CodePrinter.Mode.prototype = {
-        alloc: function() {
+        blockCommentStart: '/*',
+        blockCommentEnd: '*/',
+        lineComment: '//',
+        init: function() {},
+        memoryAlloc: function() {
             return {};
         },
-        parse: function(text, toString) {
-            var s = this.fn(new Stream(text), {});
-            return toString ? s.toString() : s;
-        },
-        fn: function(stream) {
+        parse: function(stream, memory) {
             stream.parsed = stream.value;
             return stream;
+        },
+        compile: function(string, memory) {
+            return this.parse(new Stream(string), memory).parsed;
+        },
         }
     }
     
@@ -2413,8 +2431,8 @@ loader(function($) {
         'Ctrl++': CodePrinter.prototype.increaseFontSize,
         'Ctrl+-': CodePrinter.prototype.decreaseFontSize,
         'Ctrl+/': function() {
-            if (this.parser && this.parser.comment) {
-                var start, end, is, sm = 0, comment = this.parser.comment.split('[text content]');
+            if (this.parser && this.parser.lineComment) {
+                var start, end, is, sm = 0, comment = this.parser.lineComment.split('[text content]');
                 
                 if (is = this.selection.isset()) {
                     start = this.selection.start.line;
@@ -2724,10 +2742,7 @@ loader(function($) {
         return $.scripts.require('CodePrinter/'+req.toLowerCase(), cb, del);
     }
     CodePrinter.defineMode = function(name, obj, req) {
-        var m = $.extend(new CodePrinter.Mode(name), templateMode, obj);
-        obj.extension && m.extend(obj.extension);
-        m.init instanceof Function && m.init();
-        $.scripts.define('CodePrinter/'+name.toLowerCase(), m, req);
+        $.scripts.define('CodePrinter/'+name.toLowerCase(), new CodePrinter.Mode(name, obj), req);
     }
     CodePrinter.getMode = function(name) {
         return $.scripts.get('CodePrinter/'+name.toLowerCase());
