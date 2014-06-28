@@ -13,8 +13,8 @@ var loader = function(fn) {
 }
 
 loader(function($) {
-    var CodePrinter, Data, DataLine, Caret
-    , Screen, Counter, InfoBar, Stream
+    var CodePrinter, Data, DataLine
+    , Caret, Screen, Counter, Stream
     , keyMap, commands, history, selection, tracking
     , lineendings, extensions, div, li, pre, span
     , DATA_RATIO = 10
@@ -190,7 +190,6 @@ loader(function($) {
             this.removeClass('cp-animation');
             
             options.lineNumbers && self.openCounter();
-            options.infobar && self.openInfobar();
             options.snippets && self.snippets.push.apply(self.snippets, options.snippets);
             self.setWidth(options.width);
             self.setHeight(options.height);
@@ -246,8 +245,6 @@ loader(function($) {
         firstLineNumber: 1,
         lineNumbers: true,
         lineNumberFormatter: false,
-        infobar: false,
-        infobarOnTop: true,
         autofocus: true,
         showIndentation: true,
         scrollable: true,
@@ -1189,13 +1186,6 @@ loader(function($) {
                 this.counter.emit('width:changed');
             }
         },
-        openInfobar: function() {
-            this.infobar = this.infobar || new InfoBar(this);
-            this.options.infobarOnTop ? this.mainElement.prepend(this.infobar.element) : this.mainElement.append(this.infobar.element);
-        },
-        closeInfobar: function() {
-            this.infobar && this.infobar.element.remove();
-        },
         removeOverlays: function() {
             if (this.overlays) {
                 for (var i = 0; i < this.overlays.length; i++) {
@@ -1860,68 +1850,6 @@ loader(function($) {
         }
     };
     
-    InfoBar = function(cp) {
-        var mode = span.cloneNode().addClass('cpi-mode'),
-            act = span.cloneNode().addClass('cpi-actions'),
-            info = span.cloneNode().addClass('cpi-info');
-        
-        mode.innerHTML = cp.options.mode;
-        this.element = div.cloneNode().addClass('cpi-bar').append(mode, act, info);
-        this.root = cp;
-        
-        this.segments = {
-            mode: mode,
-            actions: act,
-            info: info
-        };
-        
-        this.actions = {
-            plaintext: {
-                func: function() {
-                    var newWindow = window.open('', '_blank');
-                    newWindow.document.writeln('<pre style="font-size:12px;">' + cp.getValue().encode() + '</pre>');
-                }
-            },
-            fullscreen: {
-                func: function() {
-                    cp.isFullscreen ? cp.exitFullscreen() : cp.enterFullscreen();
-                }
-            }
-        };
-        
-        for (var k in this.actions) {
-            this.addAction(k, this.actions[k].func, this.actions[k].text);
-        }
-        
-        if (cp.caret) {
-            cp.caret.on({
-                'position:changed': function() {
-                    info.innerHTML = 'Line ' + (this.line()+1) + ', Column ' + (this.column()+1);
-                }
-            });
-        }
-        
-        return this;
-    };
-    InfoBar.prototype = {
-        addAction: function(name, func, text) {
-            if (this.actions[name] && this.actions[name].element) {
-                this.actions[name].element.off('click', this.actions[name].func);
-            }
-            var el = document.createElement('a').addClass('cp-'+name);
-            el.innerHTML = typeof text === 'string' ? text : name;
-            this.segments.actions.append(el.on('click', func));
-            this.actions[name] = {
-                func: func,
-                element: el
-            };
-            return el;
-        },
-        update: function(str) {
-            this.segments.info.innerHTML = str;
-        }
-    };
-    
     Stream = function(value) {
         if (!(this instanceof Stream)) {
             return new Stream(value);
@@ -2406,9 +2334,6 @@ loader(function($) {
         },
         'Shift+Ctrl+F': function() {
             this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
-        },
-        'Ctrl+I': function() {
-            !this.infobar || this.infobar.element.parentNode == null ? this.openInfobar() : this.closeInfobar();
         },
         'Ctrl+J': function() {
             var self = this, l = parseInt(prompt("Jump to line..."), 10) - 1;
