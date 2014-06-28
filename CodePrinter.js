@@ -794,8 +794,12 @@ loader(function($) {
             return this;
         },
         insertNewLine: function(l, text) {
+            var old = this.data.getLine(l-1);
             var dl = this.data.addLine(l, text || '');
             this.screen.splice(dl, l);
+            if (old && old.startPoint) {
+                dl.setStartPoint(old.startPoint);
+            }
             return this;
         },
         removeLine: function(l) {
@@ -1918,7 +1922,7 @@ loader(function($) {
             return this.value[this.row || 0];
         },
         match: function(rgx, index) {
-            this.found.length && this.wrap('other');
+            this.found.length && this.skip();
             var m, i, s = this.current().substr(this.pos)
             , f = false;
             
@@ -2039,11 +2043,13 @@ loader(function($) {
             tmp.length > 1 && (this.row = this.row - tmp.length + 1);
             var i = -1;
             
-            while (++i < tmp.length - 1) {
-                this.wrapped[i] = this.append(tmp[i] ? wrap(tmp[i], classes, filter) : '');
-                this.parsed[++this.row] = '';
+            while (++i < tmp.length) {
+                var ls = (tmp[i].match(/^\s*/) || [])[0];
+                this.wrapped[i] = this.append((ls || '') + (tmp[i] ? wrap(tmp[i].replace(/^\s*/, ''), classes, filter) : ''));
+                if (i < tmp.length - 1) {
+                    this.parsed[++this.row] = '';
+                }
             }
-            this.wrapped[i] = this.append(tmp[i] ? wrap(tmp[i], classes, filter) : '');
             return this.reset();
         },
         applyWrap: function(array) {
@@ -2285,9 +2291,9 @@ loader(function($) {
             } else {
                 var bf = this.caret.textBefore();
                 if (this.options.tabTriggers) {
-                    var match = bf.match(/\b\w+$/), snippet = match && this.findSnippet(match[0]);
+                    var match = bf.match(/(?:^|[^\w])(\w+)$/), snippet = match && this.findSnippet(match[1]);
                     if (snippet) {
-                        this.removeBeforeCursor(match[0]);
+                        this.removeBeforeCursor(match[1]);
                         this.insertText(snippet.content, snippet.cursorMove);
                         return false;
                     }
@@ -2647,17 +2653,17 @@ loader(function($) {
     
     tracking = function() {}
     tracking.prototype = {
-        '(': function(cp, key, details) {
-            var ignore;
-            if (cp.options.highlightBrackets && !cp.isIgnoredArea(ignore = ['string', 'comment', 'regexp'], details.line, details.columnStart)) {
+        '(': function(key, textline, details) {
+            var states = ['bracket'];
+            if (this.options.highlightBrackets && this.isState(states, details.line, details.columnStart+1)) {
                 var sec = key === '(' ? ')' : String.fromCharCode(key.charCodeAt(0)+2)
                 , counter = 1
                 , line = details.line
                 , col = details.columnEnd;
                 
                 do {
-                    var a = cp.searchRight(sec, line, col, ignore)
-                    , b = cp.searchRight(key, line, col, ignore);
+                    var a = this.searchRight(sec, line, col, states)
+                    , b = this.searchRight(key, line, col, states);
                     
                     if (a[0] >= 0 && a[1] >= 0) {
                         if (b[0] >= 0 && b[1] >= 0 && (b[0] < a[0] || b[0] == a[0] && b[1] < a[1])) {
@@ -2669,28 +2675,27 @@ loader(function($) {
                         line = a[0];
                         col = a[1] + 1;
                     } else {
-                        counter = 0;
+                        return false;
                     }
                 } while (counter != 0);
                 
-                cp.createHighlightOverlay(
+                this.createHighlightOverlay(
                     [details.line, details.columnStart, key],
                     [line, col - 1, sec]
                 );
-                return false;
             }
         },
-        ')': function(cp, key, details) {
-            var ignore;
-            if (cp.options.highlightBrackets && !cp.isIgnoredArea(ignore = ['string', 'comment', 'regexp'], details.line, details.columnEnd)) {
+        ')': function(key, textline, details) {
+            var states = ['bracket'];
+            if (this.options.highlightBrackets && this.isState(states, details.line, details.columnStart+1)) {
                 var sec = key === ')' ? '(' : String.fromCharCode(key.charCodeAt(0)-2)
                 , counter = 1
                 , line = details.line
                 , col = details.columnStart;
                 
                 do {
-                    var a = cp.searchLeft(sec, line, col, ignore)
-                    , b = cp.searchLeft(key, line, col, ignore);
+                    var a = this.searchLeft(sec, line, col, states)
+                    , b = this.searchLeft(key, line, col, states);
                     
                     if (a[0] >= 0 && a[1] >= 0) {
                         if (b[0] >= 0 && b[1] >= 0 && (b[0] > a[0] || b[0] == a[0] && b[1] > a[1])) {
@@ -2702,15 +2707,14 @@ loader(function($) {
                         line = a[0];
                         col = a[1];
                     } else {
-                        counter = 0;
+                        return false;
                     }
                 } while (counter != 0);
                 
-                cp.createHighlightOverlay(
+                this.createHighlightOverlay(
                     [line, col, sec],
                     [details.line, details.columnStart, key]
                 );
-                return false;
             }
         }
     }
@@ -2893,7 +2897,8 @@ loader(function($) {
             return '</span>' + wrap.apply(this, arguments) + '<span class="'+classes+'">';
         }
         helper.wrap = wrap;
-        return '<span class="'+classes+'">' + (filter instanceof Function ? filter.call(text, helper) : text) + '</span>';
+        return '<span class="'+classes+'">' + (filter instanceof Function ? filter.call(text.encode(), helper) : text.encode()) + '</span>';
+    }
     function getStates(text, length) {
         var i = 0, cur, el = pre.cloneNode();
         if (text) {
