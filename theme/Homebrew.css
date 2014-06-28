@@ -1,8 +1,7 @@
 /* CodePrinter - Homebrew theme */
 
 .cps-homebrew .cp-wrapper { background:#000000; color:#00FF00; }
-.cps-homebrew .cp-counter,
-.cps-homebrew .cpi-bar { background:#000000; border-color:#666666; color:#00FF00; }
+.cps-homebrew .cp-counter { background:#000000; border-color:#666666; color:#00FF00; }
 .cps-homebrew .cp-caret { background:#00FF00; box-shadow:0 0 2px rgba(0,0,0,0.5); }
 .cps-homebrew .cp-selection { background:#666666; }
 .cps-homebrew .cp-highlight { border-bottom:1px solid #00FF00; }

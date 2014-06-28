@@ -1,8 +1,7 @@
 /* CodePrinter - Oblivion theme */
 
 .cps-oblivion .cp-wrapper { background:#1E1E1E; color:#D8D8D8; }
-.cps-oblivion .cp-counter,
-.cps-oblivion .cpi-bar { background:#1e1e1e; border-color:#696969; color:#d0d0d0; }
+.cps-oblivion .cp-counter { background:#1e1e1e; border-color:#696969; color:#d0d0d0; }
 .cps-oblivion .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-oblivion .cp-selection { background:rgba(225,225,225,0.15); }
 .cps-oblivion .cp-highlight { border-bottom:1px solid white; }
@@ -16,14 +15,16 @@
 .cps-oblivion .cpx-keyword { color:#D197D9; }
 .cps-oblivion .cpx-control { color:#D197D9; }
 .cps-oblivion .cpx-variable { color:#79ABFF; }
-.cps-oblivion .cpx-boolean { color:#EFC090; }
-.cps-oblivion .cpx-empty-value { color:#EFC090; }
+.cps-oblivion .cpx-parameter { color:#79ABFF; }
+.cps-oblivion .cpx-constant { color:#EFC090; }
+.cps-oblivion .cpx-builtin-constant { color:#7FB347; }
+.cps-oblivion .cpx-boolean { color:#7FB347; }
 .cps-oblivion .cpx-special { color:#D25252; }
 .cps-oblivion .cpx-numeric { color:#7FB347; }
 .cps-oblivion .cpx-function { color:#BED6FF; }
 .cps-oblivion .cpx-property { color:#BED6FF; }
-.cps-oblivion .cpx-regexp { color:#EFC090; }
-.cps-oblivion .cpx-escaped { color:#D25252; }
+.cps-oblivion .cpx-regexp { color:#D9E577; }
+.cps-oblivion .cpx-escaped { color:#BFA4A4; }
 .cps-oblivion .cpx-phptag { color:#FF0000; }
 .cps-oblivion .cpx-string { color:#FFC600; }
 .cps-oblivion .cpx-comment { color:#C7DD0C; }

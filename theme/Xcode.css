@@ -1,26 +1,26 @@
 /* CodePrinter - Xcode theme */
 
-.cps-xcode .cp-wrapper { background:#FFFFFF; color:#000000; }
-.cps-xcode .cp-counter,
-.cps-xcode .cpi-bar { background:#FFFFFF; color:#555555; border-color:#AFBFCF; }
+.cps-xcode .cp-wrapper { background:#ffffff; color:#000000; }
+.cps-xcode .cp-counter { background:#ffffff; color:#555555; border-color:#cacaca; }
 .cps-xcode .cp-selection { background:#BDD8F2; }
 .cps-xcode .cp-highlight { border-bottom:1px solid black; }
-.cps-xcode .cp-activeLine { background:rgba(200,180,255,0.3); }
 .cps-xcode .cp-search-occurrence.active { background:#BDD8F2; }
 
 .cps-xcode .cpx-tab { border-color:#BBBBBB; }
 .cps-xcode .cpx-bracket { color:#000000; }
 .cps-xcode .cpx-operator { color:#000000; }
-.cps-xcode .cpx-variable { color:#000000; }
 .cps-xcode .cpx-keyword { color:#B309A1; }
 .cps-xcode .cpx-control { color:#B309A1; }
-.cps-xcode .cpx-boolean { color:#B309A1; }
-.cps-xcode .cpx-empty-value { color:#74482E; }
 .cps-xcode .cpx-special { color:#6F33A7; }
+.cps-xcode .cpx-variable { color:#000000; }
+.cps-xcode .cpx-parameter { color:#000000; }
+.cps-xcode .cpx-constant { color:#74482E; }
+.cps-xcode .cpx-builtin-constant { color:#74482E; }
+.cps-xcode .cpx-boolean { color:#B309A1; }
 .cps-xcode .cpx-directives { color:#78492B; }
 .cps-xcode .cpx-numeric { color:#340DD4; }
 .cps-xcode .cpx-function { color:#4F8187; }
-.cps-xcode .cpx-property { color:#37595D; }
+.cps-xcode .cpx-property { color:#000000; }
 .cps-xcode .cpx-regexp { color:#C81B28; }
 .cps-xcode .cpx-escaped { color:#558186; }
 .cps-xcode .cpx-phptag { color:#000000; }

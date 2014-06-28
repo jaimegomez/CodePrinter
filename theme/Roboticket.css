@@ -1,27 +1,34 @@
 /* CodePrinter - Roboticket theme */
 
 .cps-roboticket .cp-wrapper { background:#F5F5F5; color:#585858; }
-.cps-roboticket .cp-counter,
-.cps-roboticket .cpi-bar { background:#F5F5F5; color:#9FAFBF; border-color:#AFBFCF; }
+.cps-roboticket .cp-counter { background:#F5F5F5; color:#9FAFBF; border-color:#AFBFCF; }
 .cps-roboticket .cp-selection { background:#BDD8F2; }
 .cps-roboticket .cp-highlight { border-bottom:1px solid black; }
-.cps-roboticket .cp-activeLine { background:rgba(132,152,255,0.15); box-shadow:0 0 1px 1px rgba(69,69,255,0.6); color:#405060 !important; }
+.cps-roboticket .cp-activeLine { background:rgba(132,152,255,0.15); box-shadow:0 0 1px 1px rgba(69,69,255,0.3); color:#405060 !important; }
 
 .cps-roboticket .cpx-tab { border-color:#445544; }
 .cps-roboticket .cpx-bracket { color:#B05A65; }
-.cps-roboticket .cpx-curly { font-weight:bold; }
 .cps-roboticket .cpx-operator { color:#000000; }
 .cps-roboticket .cpx-keyword { color:#295F94; }
-.cps-roboticket .cpx-control { color:#295F94; font-weight:bold; }
+.cps-roboticket .cpx-control { color:#295F94; }
+.cps-roboticket .cpx-special { color:#AB2525; }
 .cps-roboticket .cpx-variable { color:#55AA55; }
-.cps-roboticket .cpx-boolean { color:#0A0B0C; font-weight:bold; }
-.cps-roboticket .cpx-empty-value { color:#0A0B0C; font-weight:bold; }
-.cps-roboticket .cpx-special { color:#AB2525; font-style:italic; }
+.cps-roboticket .cpx-parameter { color:#55AA55; }
+.cps-roboticket .cpx-constant { color:#885D3B; }
+.cps-roboticket .cpx-builtin-constant { color:#9B5656; }
 .cps-roboticket .cpx-numeric { color:#AF0F91; }
-.cps-roboticket .cpx-function { color:#BC5A65; font-weight:bold; }
+.cps-roboticket .cpx-function { color:#BC5A65; }
 .cps-roboticket .cpx-property { color:#566874; }
 .cps-roboticket .cpx-regexp { color:#317ECC; }
-.cps-roboticket .cpx-escaped { color:#295F94; }
+.cps-roboticket .cpx-escaped { color:#566874; }
 .cps-roboticket .cpx-phptag { color:#566874; }
 .cps-roboticket .cpx-string { color:#317ECC; }
-.cps-roboticket .cpx-comment { color:#AD95AF; font-style:italic; }
+.cps-roboticket .cpx-comment { color:#AD95AF; }
+.cps-roboticket .cpx-invalid { background:#B05A65; }
+
+.cps-roboticket .cpx-control,
+.cps-roboticket .cpx-boolean,
+.cps-roboticket .cpx-function { font-weight:bold; }
+
+.cps-roboticket .cpx-special,
+.cps-roboticket .cpx-comment { font-style:italic; }

@@ -3,8 +3,7 @@
 .cps-tango .cp-wrapper { background:#FFFFFF; color:#000000; }
 .cps-tango .cp-selection { background:#EEEEEE; }
 .cps-tango .cp-highlight { border-bottom:1px solid black; }
-.cps-tango .cp-counter,
-.cps-tango .cpi-bar { background:#fff; border-color:#c0c0c0; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+.cps-tango .cp-counter { background:#fff; border-color:#c0c0c0; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.1); }
 
 .cps-tango .cpx-tab { border-color:#999999; }
 .cps-tango .cpx-bracket { color:#444444; }
@@ -12,8 +11,10 @@
 .cps-tango .cpx-keyword { color:#688046; }
 .cps-tango .cpx-control { color:#688046; }
 .cps-tango .cpx-variable { color:#5c8198; }
+.cps-tango .cpx-parameter { color:#cc9393; }
+.cps-tango .cpx-constant { color:#ab2525; }
+.cps-tango .cpx-builtin-constant { color:#885d3b; }
 .cps-tango .cpx-boolean { color:#885d3b; }
-.cps-tango .cpx-empty-value { color:#885d3b; }
 .cps-tango .cpx-special { color:#9b5656; }
 .cps-tango .cpx-numeric { color:#801f91; }
 .cps-tango .cpx-function { color:#444444; }

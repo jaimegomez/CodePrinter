@@ -358,17 +358,14 @@
 .codeprinter .cpx-bracket {
   color: #000000;
 }
-.codeprinter .cpx-bracket-curly {
-  color: #111111;
-}
-.codeprinter .cpx-bracket-square {
-  color: #222222;
-}
 .codeprinter .cpx-operator {
   color: #0487FA;
 }
 .codeprinter .cpx-variable {
   color: #1a19ff;
+}
+.codeprinter .cpx-parameter {
+  color: #d07fcd;
 }
 .codeprinter .cpx-keyword,
 .codeprinter .cpx-control,
@@ -414,7 +411,7 @@
   color: #F9F9F2;
 }
 .codeprinter.cps-default .cp-activeLine {
-  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.5);
+  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.3);
 }
 .codeprinter.cps-default .cp-highlight {
   border-bottom: 1px solid black;
