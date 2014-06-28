@@ -578,8 +578,7 @@ loader(function($) {
             if (dl) {
                 old = this.getIndentAtLine(old, dl);
                 diff = indent - old;
-                dl.text = '\t'.repeat(indent) + dl.text.replace(/^\t*/g, '');
-                this.parse(line, dl, true);
+                dl.setText('\t'.repeat(indent) + dl.text.replace(/^\t*/g, ''));
                 this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
                 this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
             }
@@ -626,6 +625,13 @@ loader(function($) {
             }
             do this.decreaseIndentAtLine(i); while (++i <= l);
             this.showSelection();
+        },
+        getNextLineIndent: function(line) {
+            var indent = this.getIndentAtLine(line);
+            if (this.parser.indentation) {
+                var i = this.parser.indentation.call(this, this.getTextAtLine(line).trim(), '', line, indent, this.parser);
+                return indent + (i instanceof Array ? i.shift() : parseInt(i) || 0);
+            }
         },
         textBeforeCursor: function(i) {
             var bf = this.caret.textBefore();
@@ -2136,7 +2142,7 @@ loader(function($) {
         this.keyMap = {};
         this.onRemovedBefore = {'{':'}','(':')','[':']','"':'"',"'":"'"};
         this.onRemovedAfter = {'}':'{',')':'(',']':'[','"':'"',"'":"'"};
-        this.indentIncrements = ['(', '[', '{'];
+        this.indentIncrements = ['(', '[', '{', ':'];
         this.indentDecrements = [')', ']', '}'];
         this.brackets = {
             '{': ['bracket', 'bracket-curly', 'bracket-open'],
@@ -2200,6 +2206,28 @@ loader(function($) {
         compile: function(string, memory) {
             return this.parse(new Stream(string), memory).parsed;
         },
+        indentation: function(textBefore, textAfter, line, indent, parser) {
+            var charBefore = textBefore.slice(-1)
+            , charAfter = textAfter.slice(0, 1);
+            if (parser.indentIncrements.indexOf(charBefore) >= 0) {
+                if (parser.indentDecrements.indexOf(charAfter) >= 0) {
+                    return [1, 0];
+                }
+                return 1;
+            }
+            if (parser.controls) {
+                var word = (textBefore.match(/^\w+/) || [])[0];
+                if (word && parser.controls.test(word)) {
+                    return 1;
+                }
+                var i = 0, prevline = this.getTextAtLine(line - 1).trim();
+                while (prevline && !/\{$/.test(prevline) && (word = (prevline.match(/^\w+/) || [])[0]) && parser.controls.test(word)) {
+                    i++;
+                    prevline = this.getTextAtLine(line - i - 1).trim();
+                }
+                return -i;
+            }
+            return 0;
         }
     }
     
@@ -2247,14 +2275,24 @@ loader(function($) {
             return false;
         },
         'Enter': function() {
-            var t = this.caret.textBefore().match(/^ +/)
-            , a = '\n' + (this.options.indentNewLines && t && t[0] ? t[0].substring(0, t[0].length - t[0].length % this.options.tabWidth) : '');
-            
-            if (this.textBeforeCursor(1) === '{') {
-                this.insertText(a + this.tabString());
-                this.textAfterCursor(1) === '}' && this.insertText(a, -a.length);
+            if (this.options.indentNewLines) {
+                var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line);
+                
+                if (this.parser && this.parser.indentation) {
+                    var i = this.parser.indentation.call(this, this.caret.textBefore().trim(), this.caret.textAfter().trim(), line, indent, this.parser);
+                    if (i instanceof Array) {
+                        var first = i.shift();
+                        while (i.length) {
+                            rest += '\n' + this.tabString(indent + i.shift());
+                        }
+                        indent += first;
+                    } else {
+                        indent += parseInt(i) || 0;
+                    }
+                }
+                this.insertText('\n' + this.tabString(indent) + rest, -rest.length);
             } else {
-                this.insertText(a);
+                this.insertText('\n');
             }
             return false;
         },
