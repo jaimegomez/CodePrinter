@@ -2750,6 +2750,9 @@ loader(function($) {
     CodePrinter.registerExtension = function(ext, parserName) {
         extensions[ext.toLowerCase()] = parserName.toLowerCase();
     }
+    CodePrinter.issetExtension = function(ext) {
+        return extensions[ext];
+    }
     
     var buildDOM = (function(){
         var m = div.cloneNode().addClass('codeprinter cp-animation'),
