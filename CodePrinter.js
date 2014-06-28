@@ -1061,8 +1061,6 @@ loader(function($) {
                                 ec: ln + match.length
                             }});
                             node.style.extend({
-                                width: (sizes.charWidth * match.length) + 2 + 'px',
-                                height: sizes.lineHeight + 'px',
                                 top: (sizes.paddingTop + line * sizes.lineHeight + 1) + 'px',
                                 left: (sizes.paddingLeft + sizes.charWidth * ln) + 'px'
                             });
