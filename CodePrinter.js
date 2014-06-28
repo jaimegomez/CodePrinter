@@ -644,32 +644,36 @@ loader(function($) {
         textNearCursor: function(i) {
             return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
         },
-        statesBefore: function() {
-            var states = getStates.call(this, this.data.getLine(this.caret.line()).parsed, this.caret.column());
+        statesBefore: function(line, column) {
+            line = line >= 0 ? line : this.caret.line();
+            column = column >= 0 ? column : this.caret.column();
+            var states = getStates.call(this, this.data.getLine(line).parsed, column);
             return states || [];
         },
-        statesAfter: function() {
-            var states = getStates.call(this, this.data.getLine(this.caret.line()).parsed, this.caret.column()+1);
+        statesAfter: function(line, column) {
+            line = line >= 0 ? line : this.caret.line();
+            column = column >= 0 ? column : this.caret.column();
+            var states = getStates.call(this, this.data.getLine(line).parsed, column+1);
             return states || [];
         },
         cursorIsBeforePosition: function(line, column) {
             var l = this.caret.line(), c = this.caret.column();
             return l == line ? c < column : l < line;
         },
-        searchLeft: function(pattern, line, column, ignore) {
+        searchLeft: function(pattern, line, column, states) {
             var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b(?!\\b'+pattern+'\\b).*$' : pattern.escape()+'(?!.*'+pattern.escape()+').*$');
             line = Math.max(0, Math.min(line, this.data.lines - 1));
-            while ((dl = this.data.getLine(line--)) && ((i = this.convertToSpaces(dl.text).substring(0, column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line+1, i))) {
+            while ((dl = this.data.getLine(line--)) && ((i = this.convertToSpaces(dl.text).substring(0, column).search(pattern)) === -1 || !this.isState(states, line+1, i + 1))) {
                 column = Infinity;
             }
             return [line + 1, i];
         },
-        searchRight: function(pattern, line, column, ignore) {
+        searchRight: function(pattern, line, column, states) {
             var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b' : pattern.escape());
             line = Math.max(0, Math.min(line, this.data.lines - 1));
-            while ((dl = this.data.getLine(line++)) && ((i = this.convertToSpaces(dl.text).substr(column).search(pattern)) === -1 || this.isIgnoredArea(ignore, line-1, i + column))) {
+            while ((dl = this.data.getLine(line++)) && ((i = this.convertToSpaces(dl.text).substr(column).search(pattern)) === -1 || !this.isState(states, line-1, i + column + 1))) {
                 column = 0;
             }
             return [line - 1, i + column];
@@ -682,10 +686,14 @@ loader(function($) {
             }
             return str += this.convertToSpaces(this.data.getLine(to[0]).text).substring(from[1], to[1]);
         },
-        isIgnoredArea: function(ignore, line, col) {
-            if (ignore && ignore.length) {
-                var states = getStates.call(this, this.data.getLine(line).parsed, col);
-                return states ? states.diff(ignore).length !== states.length : false;
+        charAt: function(line, column) {
+            return line < this.data.lines ? this.data.getLine(line).text.charAt(column) : '';
+        },
+        isState: function(state, line, col, all) {
+            if (state && state.length) {
+                state = 'string' === typeof state ? [state] : state;
+                var gs = getStates.call(this, this.data.getLine(line).parsed, col);
+                return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== gs.length : false;
             }
             return false;
         },
