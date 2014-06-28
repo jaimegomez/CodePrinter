@@ -1126,22 +1126,41 @@ loader(function($) {
             }
         },
         findSnippet: function(trigger) {
-            var result, fn = function(snippets, simple) {
-                if (snippets) {
-                    var b, i = -1;
-                    if (simple) {
-                        while ((b = ++i < snippets.length) && !snippets[i].startsWith(trigger));
-                        if (b) return { trigger: snippets[i], content: snippets[i] }
-                    } else {
-                        while ((b = ++i < snippets.length) && !snippets[i].trigger.startsWith(trigger));
-                        if (b) return snippets[i];
+            if (trigger) {
+                var f = function(snippets) {
+                    for (var k in snippets) {
+                        if (k.startsWith(trigger)) {
+                            return 'string' === typeof snippets[k] ? { content: snippets[k] } : snippets[k];
+                        }
+                    }
+                }
+                , result = f(this.snippets);
+                if (result) return result;
+                
+                if (this.parser) {
+                    if (this.parser.snippets) {
+                        result = f(this.parser.snippets);
+                        if (result) return result;
+                    }
+                    var cc = this.parser.codeCompletion.call(this, this.memory, this.parser);
+                    if (cc && cc instanceof Array) {
+                        for (var i = 0; i < cc.length; i++) {
+                            if (cc[i] instanceof Array) {
+                                for (var j = 0; j < cc[i].length; j++) {
+                                    if (cc[i][j].startsWith(trigger)) {
+                                        return { trigger: trigger, content: cc[i][j], cursorMove: 0 }
+                                    }
+                                }
+                            } else {
+                                if (cc[i].startsWith(trigger)) {
+                                    return { trigger: trigger, content: cc[i], cursorMove: 0 }
+                                }
+                            }
+                        }
                     }
                 }
             }
-            if (this.parser) {
-                result = fn(this.parser.snippets) || fn(this.parser.keywords, true) || fn(this.parser.controls, true) || fn(this.parser.specials, true) || fn(this.memory.importClasses, true);
-            }
-            return result || fn(this.snippets);
+            return null;
         },
         registerSnippet: function() {
             for (var i = 0; i < arguments.length; i++) {
