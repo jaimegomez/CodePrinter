@@ -2732,7 +2732,8 @@ loader(function($) {
         'rb': 'ruby',
         'pl': 'perl',
         'sh': 'bash',
-        'adb': 'ada'
+        'adb': 'ada',
+        'coffee': 'coffeescript'
     }
     
     CodePrinter.requireMode = function(req, cb, del) {
