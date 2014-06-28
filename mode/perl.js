@@ -1,75 +1,89 @@
 /* CodePrinter - Perl mode */
 
-CodePrinter.defineMode('Perl', {
-    controls: ['do','else','elsif','for','foreach','if','unless','until','while'],
-    keywords: ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','my','ne','no','or','package','q','qq','qr','qw','qx','s','sub','tr','xor','y'],
-    specials: ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','STDIN','STDOUT','STDERR','print','printf','sprintf','return'],
-    regexp: /m(\W).*\1[gimy]{0,4}|\/.*\/[gimy]{0,4}|[\$\@\&\%]?\w+|[^\w\s\/]|\b[\d\_]*\.?[\d\_]+\b|\b0x[\da-fA-F\_]+\b/,
-    comment: '#',
+CodePrinter.defineMode('Perl', function() {
+    var controls = ['do','else','elsif','for','foreach','if','unless','until','while']
+    , keywords = ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','my','ne','no','or','package','q','qq','qr','qw','qx','s','sub','tr','xor','y']
+    , specials = ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','STDIN','STDOUT','STDERR','print','printf','sprintf','return']
     
-    fn: function(stream) {
-        var found;
+    return {
+        controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
+        keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
+        specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
+        regexp: /m(\W).*\1[gimy]{0,4}|\/.*\/[gimy]{0,4}|[\$\@\&\%]?\w+|[^\w\s\/]|\b[\d\_]*\.?[\d\_]+\b|\b0x[\da-fA-F\_]+\b/,
+        lineComment: '#',
         
-        while (found = stream.match(this.regexp)) {
-            if (!isNaN(found.replace(/\_/g, '.'))) {
-                if (found.substr(0, 2).toLowerCase() == '0x') {
-                    stream.wrap('numeric', 'hex');
-                } else {
-                    if ((found+'').indexOf('.') === -1) {
-                        stream.wrap('numeric', 'int');
-                    } else {
-                        stream.wrap('numeric', 'float');
-                    }
-                }
-            } else if (/^\w+$/.test(found)) {
-                found = found.toLowerCase();
-                if (found == 'true' || found == 'false') {
-                    stream.wrap('boolean');
-                } else if (this.controls.indexOf(found) !== -1) {
-                    stream.wrap('control');
-                } else if (this.keywords.indexOf(found) !== -1) {
-                    stream.wrap('keyword');
-                } else if (this.specials.indexOf(found) !== -1) {
-                    stream.wrap('special');
-                } else if (stream.isBefore('sub') || stream.isAfter('(')) {
-                    stream.wrap('function');
-                } else {
-                    stream.wrap('word');
-                }
-            } else if (found.length == 1) {
-                if (found == '#') {
-                    stream.eatWhile(found, '\n').wrap('comment', 'line-comment');
-                } else if (this.punctuations.hasOwnProperty(found)) {
-                    stream.wrap('punctuation', this.punctuations[found]);
-                } else if (this.operators.hasOwnProperty(found)) {
-                    stream.wrap('operator', this.operators[found]);
-                } else if (this.brackets.hasOwnProperty(found)) {
-                    stream.applyWrap(this.brackets[found]);
-                } else if (found === '"' || found === "'") {
-                    stream.eat(found, this.expressions[found].ending, function() {
-                        return this.wrap('invalid').reset();
-                    }).applyWrap(this.expressions[found].classes);
-                }
-            } else if (found[0] == '$' || found[0] == '@' || found[0] == '%') {
-                stream.wrap('variable');
-            } else if (found[0] == '&') {
-                stream.wrap('function');
-            } else if (/^m(\W)|^\//.test(found)) {
-                if (found[0] == 'm') {
-                    stream.cut(2 + found.substr(2).search(new RegExp('([^\\\\]'+RegExp.$1.escape()+'[gimy]{0,4})')) + RegExp.$1.length);
-                } else {
-                    stream.cut(found.search(/([^\\]\/[gimy]{0,4})/) + RegExp.$1.length);
-                }
-                stream.wrap('regexp', function(cls) {
-                    return this.replace(/(\\.)/g, '</span><span class="cpx-escaped">$1</span><span class="'+cls+'">');
-                });
+        memoryAlloc: function() {
+            return {
+                constants: []
             }
-        }
-        return stream;
-    },
-    extension: {
-        operators: {
-            '~': 'match'
+        },
+        parse: function(stream, memory) {
+            var found;
+            
+            while (found = stream.match(this.regexp)) {
+                if (!isNaN(found.replace(/\_/g, '.'))) {
+                    if (found.substr(0, 2).toLowerCase() == '0x') {
+                        stream.wrap('numeric', 'hex');
+                    } else {
+                        if ((found+'').indexOf('.') === -1) {
+                            stream.wrap('numeric', 'int');
+                        } else {
+                            stream.wrap('numeric', 'float');
+                        }
+                    }
+                } else if (/^\w+$/.test(found)) {
+                    if (/^(true|false)$/.test(found)) {
+                        stream.wrap('builtin-constant', 'boolean');
+                    } else if (this.controls.test(found)) {
+                        stream.wrap('control');
+                    } else if (this.keywords.test(found)) {
+                        stream.wrap('keyword');
+                    } else if (this.specials.test(found)) {
+                        stream.wrap('special');
+                    } else if (stream.isBefore('sub') || stream.isAfter('(')) {
+                        stream.wrap('function');
+                    } else if (stream.isBefore(/\buse\s*constant\s*$/i) && memory.constants.indexOf(found) >= 0) {
+                        memory.constants.put(found);
+                        stream.wrap('constant');
+                    }
+                } else if (found.length == 1) {
+                    if (found == '#') {
+                        stream.eatWhile(found, '\n').wrap('comment', 'line-comment');
+                    } else if (this.punctuations[found]) {
+                        stream.wrap('punctuation', this.punctuations[found]);
+                    } else if (this.operators[found]) {
+                        stream.wrap('operator', this.operators[found]);
+                    } else if (this.brackets[found]) {
+                        stream.applyWrap(this.brackets[found]);
+                    } else if (found === '"' || found === "'") {
+                        stream.eat(found, this.expressions[found].ending, function() {
+                            return this.wrap('invalid').reset();
+                        }).applyWrap(this.expressions[found].classes);
+                    }
+                } else if (found[0] == '$' || found[0] == '@' || found[0] == '%') {
+                    stream.wrap('variable');
+                } else if (found[0] == '&') {
+                    stream.wrap('function');
+                } else if (/^m(\W)|^\//.test(found)) {
+                    if (found[0] == 'm') {
+                        stream.cut(2 + found.substr(2).search(new RegExp('([^\\\\]'+RegExp.$1.escape()+'[gimy]{0,4})')) + RegExp.$1.length);
+                    } else {
+                        stream.cut(found.search(/([^\\]\/[gimy]{0,4})/) + RegExp.$1.length);
+                    }
+                    stream.wrap('regexp', function(helper) {
+                        return this.replace(/(\\.)/g, helper('$1', 'escaped'));
+                    });
+                }
+            }
+            return stream;
+        },
+        codeCompletion: function(memory) {
+            return [specials, keywords, controls, memory.constants];
+        },
+        extension: {
+            operators: {
+                '~': 'match'
+            }
         }
     }
 });

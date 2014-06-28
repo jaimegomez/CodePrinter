@@ -1,94 +1,123 @@
 /* CodePrinter - JavaScript Mode */
 
-CodePrinter.defineMode('JavaScript', {
-    controls: ['if','else','elseif','for','switch','while','do'],
-    keywords: ['var','return','new','continue','break','instanceof','typeof','case','let','try','catch','debugger','default','delete','finally','in','throw','void','with'],
-    specials: ['this','window','document','console','arguments','function','Object','Array','String','Number','Function','Math','JSON','RegExp','Date','Node','HTMLElement','Boolean','$','jQuery','Selector','Error','TypeError'],
-    regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
-    comment: '//',
+CodePrinter.defineMode('JavaScript', function() {
+    var controls = ['if','else','elseif','for','switch','while','do','try','catch','finally']
+    , constants = ['null','undefined','NaN','Infinity']
+    , keywords = [
+        'var','return','new','continue','break','instanceof','typeof','case','let','debugger',
+        'default','delete','in','throw','void','with','const','of','import','export','module'
+    ]
+    , specials = [
+        'this','window','document','console','arguments','function',
+        'Object','Array','String','Number','Function','RegExp','Date','Boolean','Math','JSON',
+        'Proxy','Map','WeakMap','Set','WeakSet','Symbol',
+        'Error','EvalError','InternalError','RangeError','ReferenceError',
+        'StopIteration','SyntaxError','TypeError','URIError'
+    ]
     
-    alloc: function() {
-        return {
-            properties: []
-        };
-    },
-    fn: function(stream, memory) {
-        var found;
+    return {
+        controls: new RegExp('^('+controls.join('|')+')$'),
+        keywords: new RegExp('^('+keywords.join('|')+')$'),
+        specials: new RegExp('^('+specials.join('|')+')$'),
+        constants: new RegExp('^('+constants.join('|')+')$'),
+        regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
         
-        while (found = stream.match(this.regexp)) {
-            if (!isNaN(found) || found == 'NaN' || found == 'Infinity') {
-                if (found.substr(0, 2).toLowerCase() == '0x') {
-                    stream.wrap('numeric', 'hex');
-                } else {
-                    if ((found+'').indexOf('.') === -1) {
-                        stream.wrap('numeric', 'int');
+        memoryAlloc: function() {
+            return {
+                properties: [],
+                variables: [],
+                constants: []
+            }
+        },
+        parse: function(stream, memory) {
+            var found;
+            
+            while (found = stream.match(this.regexp)) {
+                if (!isNaN(found) && found != 'Infinity') {
+                    if (found.substr(0, 2).toLowerCase() == '0x') {
+                        stream.wrap('numeric', 'hex');
                     } else {
-                        stream.wrap('numeric', 'float');
+                        if ((found+'').indexOf('.') === -1) {
+                            stream.wrap('numeric', 'int');
+                        } else {
+                            stream.wrap('numeric', 'float');
+                        }
                     }
-                }
-            } else if (/^[\w\-\$]+/i.test(found)) {
-                if (found == 'true' || found == 'false') {
-                    stream.wrap('boolean');
-                } else if (found == 'null' || found == 'undefined') {
-                    stream.wrap('empty-value');
-                } else if (this.controls.indexOf(found) !== -1) {
-                    stream.wrap('control');
-                } else if (this.specials.indexOf(found) !== -1) {
-                    stream.wrap('special');
-                } else if (this.keywords.indexOf(found) !== -1) {
-                    stream.wrap('keyword');
-                } else if (stream.isAfter('(')) {
-                    stream.wrap('function');
-                } else if (stream.isBefore('.')) {
-                    if (memory.properties.indexOf(found) !== -1) {
+                } else if (/^[\w\-\$]+$/i.test(found)) {
+                    if (/^(true|false)$/.test(found)) {
+                        stream.wrap('builtin-constant', 'boolean');
+                    } else if (this.constants.test(found)) {
+                        stream.wrap('builtin-constant');
+                    } else if (this.controls.test(found)) {
+                        stream.wrap('control');
+                    } else if (found == '$' || this.specials.test(found)) {
+                        stream.wrap('special');
+                    } else if (this.keywords.test(found)) {
+                        stream.wrap('keyword');
+                    } else if (stream.isAfter('(')) {
+                        stream.wrap('function');
+                    } else if (stream.isBefore('.') || stream.isAfter(':') || memory.properties.indexOf(found) >= 0) {
+                        memory.properties.put(found);
                         stream.wrap('property');
-                    } else if (stream.isAfter('=') || stream.isAfter(':')) {
-                        stream.wrap('property');
-                        memory.properties.push(found);
+                    } else if (stream.isBefore(/const\s*$/) || memory.constants.indexOf(found) >= 0) {
+                        memory.constants.put(found);
+                        stream.wrap('constant');
+                    } else if (stream.isAfter(/^\s*=\s*/) || memory.variables.indexOf(found) >= 0) {
+                        memory.variables.put(found);
+                        stream.wrap('variable');
+                    } else if (stream.isBefore(/function\s*\w*\s*\([^\(]*$/)) {
+                        stream.wrap('parameter');
                     }
+                } else if (found.length == 1) {
+                    if (found in this.operators) {
+                        stream.wrap('operator', this.operators[found]);
+                    } else if (found in this.punctuations) {
+                        stream.wrap('punctuation', this.punctuations[found]);
+                    } else if (found in this.brackets) {
+                        stream.applyWrap(this.brackets[found]);
+                    } else if (found === '"' || found === "'") {
+                        stream.eat(found, this.expressions[found].ending, function() {
+                            return this.wrap('invalid').reset();
+                        }).applyWrap(this.expressions[found].classes);
+                    }
+                } else if (found in this.expressions) {
+                    stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                } else if (found[0] == '/') {
+                    stream.cut(found.search(/([^\\]\/[gimy]{0,4})/g) + RegExp.$1.length);
+                    stream.wrap('regexp', function(helper) {
+                        return this.replace(/(\\.)/g, helper('$1', 'escaped'));
+                    });
                 }
-            } else if (found.length == 1) {
-                if (this.operators.hasOwnProperty(found)) {
-                    stream.wrap('operator', this.operators[found]);
-                } else if (this.punctuations.hasOwnProperty(found)) {
-                    stream.wrap('punctuation', this.punctuations[found]);
-                } else if (this.brackets.hasOwnProperty(found)) {
-                    stream.applyWrap(this.brackets[found]);
-                } else if (found === '"' || found === "'") {
-                    stream.eat(found, this.expressions[found].ending, function() {
-                        return this.wrap('invalid').reset();
-                    }).applyWrap(this.expressions[found].classes);
-                }
-            } else if (this.expressions.hasOwnProperty(found)) {
-                stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-            } else if (found[0] == '/') {
-                stream.cut(found.search(/([^\\]\/[gimy]{0,4})/g) + RegExp.$1.length);
-                stream.wrap('regexp', function(cls) {
-                    return this.replace(/(\\.)/g, '</span><span class="cpx-escaped">$1</span><span class="'+cls+'">');
-                });
+            }
+            return stream;
+        },
+        codeCompletion: function(memory) {
+            if (/\.\w*$/.test(this.caret.textBefore())) {
+                return memory.properties;
+            }
+            return [controls, keywords, specials, memory.variables, memory.constants];
+        },
+        snippets: {
+            'log': {
+                content: 'console.log();',
+                cursorMove: -2
+            },
+            'dcl': {
+                content: '$(function() {});',
+                cursorMove: -3
+            },
+            'sif': {
+                content: '(function() {})();',
+                cursorMove: -5
+            },
+            'timeout': {
+                content: 'setTimeout(function() {}, 100);',
+                cursorMove: -8
+            },
+            'interval': {
+                content: 'setInterval(function() {}, 100);',
+                cursorMove: -8
             }
         }
-        return stream;
-    },
-    snippets: [
-        {
-            trigger: 'log',
-            content: 'console.log();',
-            cursorMove: -2
-        },
-        {
-            trigger: 'timeout',
-            content: 'setTimeout(function() {}, 100);',
-            cursorMove: -8
-        },
-        {
-            trigger: 'interval',
-            content: 'setInterval(function() {}, 100);',
-            cursorMove: -8
-        },
-        {
-            trigger: 'doc',
-            content: 'document.'
-        }
-    ]
+    }
 });

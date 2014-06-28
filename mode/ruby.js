@@ -1,102 +1,121 @@
 /* CodePrinter - Ruby mode */
 
-CodePrinter.defineMode('Ruby', (function() {
-    var ctrls = ['if','def','do','for','case','unless']
+CodePrinter.defineMode('Ruby', function() {
+    var controls = [
+        'begin','case','def','do','else','elseif','end','for',
+        'if','then','undef','unless','until','while'
+    ]
+    , specials = [
+        'eval','fail','gets','lambda','print','proc','puts'
+    ]
+    , keywords = [
+        'alias','and','break','class','defined?','ensure','in','loop','module',
+        'next','nil','not','or','private','protected','public','redo','rescue',
+        'retry','return','self','super','when','yield'
+    ]
+    , indentIncrements = ['if','def','do','for','case']
+    , keyMap = {}
     , tracking = {
-        "end": function(cp, key, details) {
-            var s, tmpStr, counter = 1
-            , line = details.line
-            , col = details.columnStart
-            , arr = ctrls.slice(0);
-            arr.push('end');
-            
-            do {
-                tmpStr = s = null;
-                for (var i = 0; i < arr.length; i++) {
-                    var cs = cp.searchLeft(arr[i], line, col);
-                    if (cs[0] >= 0 && cs[1] >= 0 && (!s || cs[0] > s[0] || cs[0] == s[0] && cs[1] > s[1])) {
-                        if ((arr[i] != 'if' && arr[i] != 'unless') || cp.substring([cs[0], 0], [cs[0], cs[1]]).search(/^\s*$/) === 0) {
-                            s = cs;
-                            tmpStr = arr[i];
-                        }
-                    }
-                }
-                if (s[0] >= 0 && s[1] >= 0) {
-                    tmpStr != 'end' ? --counter : ++counter;
-                    line = s[0];
-                    col = s[1];
-                } else {
-                    counter = 0;
-                }
-            } while (counter != 0);
-            
-            if (tmpStr) {
-                cp.createHighlightOverlay(
-                    [s[0], s[1], tmpStr],
-                    [details.line, details.columnStart, key]
-                );
-            }
-            return false;
-        }
-    }
-    , fn = function(ctrl) {
-        return function(cp, key, details) {
-            var s, counter = 1
-            , line = details.line
-            , col = details.columnEnd;
-            if ((ctrl != 'if' && ctrl != 'unless') || cp.substring([line, 0], [line, details.columnStart]).search(/^\s*$/) === 0) {
+        "end": function(key, textline, details) {
+            if (this.isState('control', details.line, details.columnStart+1) && /^\W{0,2}$/.test(textline.charAt(details.columnStart-1) + textline.charAt(details.columnEnd))) {
+                var s, tmpStr, counter = 1
+                , line = details.line
+                , col = details.columnStart
+                , arr = indentIncrements.slice(0);
+                arr.push('end');
+                
                 do {
-                    var tmpStr = 'end';
-                    s = cp.searchRight(tmpStr, line, col);
-                    
-                    if (s[0] >= 0 && s[1] >= 0) {
-                        for (var i = 0; i < ctrls.length; i++) {
-                            var cs = cp.searchRight(ctrls[i], line, col);
-                            if (cs[0] >= 0 && cs[1] >= 0 && (cs[0] < s[0] || cs[0] == s[0] && cs[1] < s[1])) {
-                                if ((ctrls[i] != 'if' && ctrls[i] != 'unless') || cp.substring([cs[0], 0], [cs[0], cs[1]]).search(/^\s*$/) === 0) {
-                                    s = cs;
-                                    tmpStr = ctrls[i];
-                                }
+                    tmpStr = s = null;
+                    for (var i = 0; i < arr.length; i++) {
+                        var cs = this.searchLeft(arr[i], line, col, 'control');
+                        if (cs[0] >= 0 && cs[1] >= 0 && (!s || cs[0] > s[0] || cs[0] == s[0] && cs[1] > s[1])) {
+                            if ((arr[i] != 'if' && arr[i] != 'unless') || this.substring([cs[0], 0], [cs[0], cs[1]]).search(/^\s*$/) === 0) {
+                                s = cs;
+                                tmpStr = arr[i];
                             }
                         }
-                        tmpStr != 'end' ? ++counter : --counter;
+                    }
+                    if (s && s[0] >= 0 && s[1] >= 0) {
+                        tmpStr != 'end' ? --counter : ++counter;
                         line = s[0];
-                        col = s[1] + tmpStr.length;
+                        col = s[1];
                     } else {
-                        counter = 0;
+                        return false;
                     }
                 } while (counter != 0);
                 
-                cp.createHighlightOverlay(
-                    [details.line, details.columnStart, ctrl],
-                    [s[0], s[1], 'end']
-                );
-                return false;
+                if (tmpStr) {
+                    this.createHighlightOverlay(
+                        [s[0], s[1], tmpStr],
+                        [details.line, details.columnStart, key]
+                    );
+                }
             }
         }
     }
-    , kpf = function(e) {
-        if (this.textBeforeCursor(3).toLowerCase().search(/\Wen/) !== -1) {
-            var bf = this.caret.textBefore().trim(),
-                i = this.getIndentAtLine(this.caret.line()-1);
-            
-            this.caret.setTextBefore(this.tabString(i-1) + bf);
+    , fn = function(ctrl) {
+        return function(key, textline, details) {
+            if (this.isState('control', details.line, details.columnStart+1) && /^\W{0,2}$/.test(textline.charAt(details.columnStart-1) + textline.charAt(details.columnEnd))) {
+                var s, counter = 1
+                , line = details.line
+                , col = details.columnEnd;
+                if ((ctrl != 'if' && ctrl != 'unless') || this.substring([line, 0], [line, details.columnStart]).search(/^\s*$/) === 0) {
+                    do {
+                        var tmpStr = 'end';
+                        s = this.searchRight(tmpStr, line, col, 'control');
+                        
+                        if (s[0] >= 0 && s[1] >= 0) {
+                            for (var i = 0; i < indentIncrements.length; i++) {
+                                var cs = this.searchRight(indentIncrements[i], line, col, 'control');
+                                if (cs[0] >= 0 && cs[1] >= 0 && (cs[0] < s[0] || cs[0] == s[0] && cs[1] < s[1])) {
+                                    if ((indentIncrements[i] != 'if' && indentIncrements[i] != 'unless') || this.substring([cs[0], 0], [cs[0], cs[1]]).search(/^\s*$/) === 0) {
+                                        s = cs;
+                                        tmpStr = indentIncrements[i];
+                                    }
+                                }
+                            }
+                            tmpStr != 'end' ? ++counter : --counter;
+                            line = s[0];
+                            col = s[1] + tmpStr.length;
+                        } else {
+                            return false;
+                        }
+                    } while (counter != 0);
+                    
+                    this.createHighlightOverlay(
+                        [details.line, details.columnStart, ctrl],
+                        [s[0], s[1], 'end']
+                    );
+                }
+            }
         }
-        this.insertText(e.getCharCode() == 68 ? 'D' : 'd');
     }
     
-    for (var i = 0; i < ctrls.length; i++) {
-        tracking[ctrls[i]] = fn(ctrls[i]);
+    for (var i = 0; i < indentIncrements.length; i++) {
+        tracking[indentIncrements[i]] = fn(indentIncrements[i]);
+    }
+    
+    keyMap['D'] = keyMap['d'] = function(e) {
+        var bf = this.caret.textBefore();
+        if (/^\s*en$/i.test(this.caret.textBefore())) {
+            var line = this.caret.line()
+            , indent = this.getNextLineIndent(line-1);
+            this.caret.setTextBefore(this.tabString(indent-1) + bf.trim());
+        }
     }
     
     return {
-        controls: ['end','if','else','elseif','def','undef','begin','for','do','while','case','unless','until','then'],
-        keywords: ['public','private','protected','alias','and','break','class','defined?','ensure','in','loop','module','next','nil','not','or','redo','rescue','retry','return','self','super','when','yield'],
-        specials: ['puts','gets','print','proc','lambda','eval','fail'],
+        controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
+        keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
+        specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
         regexp: /\w+\??|=begin|[^\w\s\/]|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\/(.*)\/[gimy]{0,4}/,
-        comment: '#',
+        indentIncrements: indentIncrements,
+        indentDecrements: ['end'],
+        blockCommentStart: '=begin',
+        blockCommentEnd: '=end',
+        lineComment: '#',
         
-        fn: function(stream) {
+        parse: function(stream) {
             var found;
             
             while (found = stream.match(this.regexp)) {
@@ -111,28 +130,25 @@ CodePrinter.defineMode('Ruby', (function() {
                         }
                     }
                 } else if (/^\w+/.test(found)) {
-                    found = found.toLowerCase();
-                    if (found == 'true' || found == 'false') {
-                        stream.wrap('boolean');
-                    } else if (this.controls.indexOf(found) !== -1) {
+                    if (/^(true|false)$/i.test(found)) {
+                        stream.wrap('builtin-constant', 'boolean');
+                    } else if (this.controls.test(found)) {
                         stream.wrap('control');
-                    } else if (this.keywords.indexOf(found) !== -1) {
+                    } else if (this.keywords.test(found)) {
                         stream.wrap('keyword');
-                    } else if (this.specials.indexOf(found) !== -1) {
+                    } else if (this.specials.test(found)) {
                         stream.wrap('special');
                     } else if (stream.isBefore('def') || stream.isAfter('(')) {
                         stream.wrap('function');
                     } else if (stream.isBefore('.') || stream.isBefore(':')) {
                         stream.wrap('property');
-                    } else {
-                        stream.wrap('word');
                     }
                 } else if (found.length == 1) {
-                    if (this.punctuations.hasOwnProperty(found)) {
+                    if (this.punctuations[found]) {
                         stream.wrap('punctuation', this.punctuations[found]);
-                    } else if (this.operators.hasOwnProperty(found)) {
+                    } else if (this.operators[found]) {
                         stream.wrap('operator', this.operators[found]);
-                    } else if (this.brackets.hasOwnProperty(found)) {
+                    } else if (this.brackets[found]) {
                         stream.applyWrap(this.brackets[found]);
                     } else if (found === '"' || found === "'") {
                         stream.eat(found, this.expressions[found].ending, function() {
@@ -140,25 +156,32 @@ CodePrinter.defineMode('Ruby', (function() {
                         }).applyWrap(this.expressions[found].classes);
                     } else if (found == '#') {
                         stream.eatWhile(found, '\n').wrap('comment', 'line-comment');
-                    } else {
-                        stream.wrap('other');
                     }
                 } else if (found[0] == '=') {
-                    stream.eatWhile(found, '=end').wrap('comment', 'multiline-comment');
+                    stream.eatWhile(found, '=end').wrap('comment', 'block-comment');
                 } else if (found[0] == '/') {
-                    stream.wrap('regexp', function(cls) {
-                        return this.replace(/(\\.)/g, '</span><span class="cp-escaped">$1</span><span class="'+cls+'">');
+                    stream.wrap('regexp', function(helper) {
+                        return this.replace(/(\\.)/g, helper('$1', 'escaped'));
                     });
-                } else {
-                    stream.wrap('other');
                 }
             }
             return stream;
         },
-        keyMap: {
-            'D': kpf,
-            'd': kpf
+        indentation: function(textBefore, textAfter, line, indent, parser) {
+            var words = textBefore.match(/(\w+)/);
+            if (words) {
+                for (var i = 1; i < words.length; i++) {
+                    if (indentIncrements.indexOf(words[i].toLowerCase()) >= 0) {
+                        return 1;
+                    }
+                }
+            }
+            return 0;
         },
+        codeCompletion: function(memory) {
+            return [specials, controls, keywords];
+        },
+        keyMap: keyMap,
         tracking: tracking
     }
-})());
+});
