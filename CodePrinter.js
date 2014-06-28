@@ -23,7 +23,7 @@ loader(function($) {
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
     CodePrinter = function(element, options) {
-        var self = this, sizes, data = '', id, allowKeyup, fn, T, s = 0;
+        var self = this, sizes, data = '', id, allowKeyup, fn, T, T2, s = 0;
         
         options = this.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
         
@@ -150,7 +150,7 @@ loader(function($) {
                 dl.text = this.textAtCurrentLine(true);
                 self.parse(line, dl, true);
             },
-            'position:changed': function(x, y) {
+            'position:changed': function(x, y, line, column, before, after) {
                 if (self.options.autoScroll) {
                     var wrapper = self.wrapper,
                         pl = self.sizes.paddingLeft, pt = self.sizes.paddingTop,
@@ -160,8 +160,30 @@ loader(function($) {
                     wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
                     wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
                 }
+                if (self.options.tracking) {
+                    T2 = clearTimeout(T2);
+                    var a, b;
+                    for (var s in self.tracking) {
+                        var len = s.length, i = 0;
+                        do {
+                            a = len == i || before.endsWith(s.substring(0, len - i));
+                            b = after.startsWith(s.substring(len - i, len));
+                        } while ((!a || !b) && ++i <= len);
+                        
+                        if (a && b) {
+                            T2 = setTimeout(function() {
+                                var r = self.tracking[s].call(self, s, before+after, { line: line, columnStart: column - len + i, columnEnd: column + i });
+                                r === false && self.highlightOverlay.remove();
+                            }, 40);
+                            break;
+                        }
+                    }
+                    if ((!a || !b) && self.highlightOverlay) {
+                        self.highlightOverlay.remove();
+                    }
+                }
                 self.removeOverlays('caret');
-                self.selectLine(this.line());
+                self.selectLine(line);
             }
         });
         
@@ -1453,25 +1475,6 @@ loader(function($) {
                 before = cp.convertToTabs(t.substring(0, c));
                 after = cp.convertToTabs(t.substr(c));
                 this.setPixelPosition(x, y);
-                
-                if (cp.options.tracking) {
-                    var a, b;
-                    for (var s in this.tracking) {
-                        var len = s.length, i = 0;
-                        do {
-                            a = len == i || before.endsWith(s.substring(0, len - i));
-                            b = after.startsWith(s.substring(len - i, len));
-                        } while ((!a || !b) && ++i <= len);
-                        
-                        if (a && b) {
-                            timeout = setTimeout($.invoke(this.tracking[s], this, [cp, s, { line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i }]), 40);
-                            break;
-                        }
-                    }
-                    if ((!a || !b) && cp.highlightOverlay) {
-                        cp.highlightOverlay.remove();
-                    }
-                }
                 return this;
             },
             moveX: function(mv) {
@@ -1615,7 +1618,7 @@ loader(function($) {
             
             css = this.drawer.call(this.root, css);
             this.element.css(css);
-            this.emit('position:changed', x, y);
+            this.emit('position:changed', x, y, this.line(), this.column(), this.textBefore(), this.textAfter());
             return this;
         },
         setStyle: function(style) {
