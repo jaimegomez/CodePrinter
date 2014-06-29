@@ -995,7 +995,7 @@ loader(function($) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
             var self = this, args = arguments
             , overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
-            overlay.on('refresh', function(a) { a == null ? self.createHighlightOverlay.apply(self, args) : a == 'blur' && overlay.remove(); });
+            overlay.on('refresh', function(a) { /^(blur|changed)$/.test(a) && overlay.remove(); });
             for (var i = 0; i < arguments.length; i++) {
                 var pos = getPositionOf(this, arguments[i][0], arguments[i][1]);
                 overlay.node.append(createSpan(arguments[i][2], 'cp-highlight', pos.y, pos.x, arguments[i][2].length * this.sizes.charWidth + 1, this.sizes.lineHeight));
