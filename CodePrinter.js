@@ -2750,7 +2750,13 @@ loader(function($) {
         extensions[ext.toLowerCase()] = parserName.toLowerCase();
     }
     CodePrinter.issetExtension = function(ext) {
-        return extensions[ext];
+        if (extensions[ext]) return true;
+        for (var k in extensions) {
+            if (extensions[k] == ext) {
+                return true;
+            }
+        }
+        return false;
     }
     
     var buildDOM = (function(){
