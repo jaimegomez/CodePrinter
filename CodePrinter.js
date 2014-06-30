@@ -17,7 +17,7 @@ loader(function($) {
     , Caret, Screen, Counter, Stream
     , keyMap, commands, history, selection, tracking
     , lineendings, extensions, div, li, pre, span
-    , BRANCH_OPTIMAL_SIZE = 4;
+    , BRANCH_OPTIMAL_SIZE = 40;
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
