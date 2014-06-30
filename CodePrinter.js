@@ -13,12 +13,11 @@ var loader = function(fn) {
 }
 
 loader(function($) {
-    var CodePrinter, Data, DataLine
+    var CodePrinter, Data, Branch, Line
     , Caret, Screen, Counter, Stream
     , keyMap, commands, history, selection, tracking
     , lineendings, extensions, div, li, pre, span
-    , DATA_RATIO = 10
-    , DATA_MASTER_RATIO = 100;
+    , BRANCH_OPTIMAL_SIZE = 4;
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
@@ -146,9 +145,9 @@ loader(function($) {
         
         this.caret.on({
             'text:changed': function(line, column) {
-                var dl = self.data.getLine(line);
+                var dl = self.data.get(line);
                 dl.text = this.textAtCurrentLine(true);
-                self.parse(line, dl, true);
+                self.parse(dl, true);
             },
             'position:changed': function(x, y, line, column, before, after) {
                 if (self.options.autoScroll) {
@@ -297,24 +296,18 @@ loader(function($) {
             source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
-            var self = this, i = -1, fn
-            , l = source.length;
-            
-            while (++i < l) {
-                this.data.addLine(i, this.convertToTabs(source[i]));
-            }
-            this.screen.fill();
+            var self = this, i = -1, l = source.length, fn;
             
             this.data.on({
-                'text:changed': function(dl) {
-                    self.parseByDataLine(dl);
+                'changed': function(dl) {
+                    self.parse(dl);
                     self.caret.refresh(true);
                 },
-                'line:added': (fn = function() {
+                'added': (fn = function() {
                     var s = self.screen.parent;
                     s.style.minHeight = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
                 }),
-                'line:removed': fn
+                'removed': fn
             });
             
             this.history.on({
@@ -323,7 +316,7 @@ loader(function($) {
                     self.selection.clear();
                     while (i--) {
                         a = arguments[i];
-                        var t = self.data.getLine(a.line).text.substring(0, a.column);
+                        var t = self.data.get(a.line).text.substring(0, a.column);
                         self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
                         if (a.added) {
                             self.removeAfterCursor(a.text);
@@ -338,7 +331,7 @@ loader(function($) {
                     self.selection.clear();
                     while (++i < arguments.length) {
                         a = arguments[i];
-                        var t = self.data.getLine(a.line).text.substring(0, a.column);
+                        var t = self.data.get(a.line).text.substring(0, a.column);
                         self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
                         if (a.added) {
                             self.insertText(a.text);
@@ -349,6 +342,11 @@ loader(function($) {
                     self.caret.restorePosition();
                 }
             });
+            
+            while (++i < l) {
+                this.data.add(this.convertToTabs(source[i]));
+            }
+            this.screen.fill();
             
             return this;
         },
@@ -385,37 +383,34 @@ loader(function($) {
                 self.screen.fill();
                 
                 var data = self.data, i = -1
+                , dl = data.get(0)
                 , l = self.screen.lastLine+1;
                 
                 if (interval !== false) {
-                    var p = getDataLinePosition(l)
-                    , u = p[0], t = p[1], h = p[2]
-                    , I = clearInterval(I) || setInterval(function() {
-                        t >= DATA_RATIO && ++h && (t = 0);
-                        if (!data[h] || !data[h][t]) {
+                    var I = clearInterval(I) || setInterval(function() {
+                        var j = -1;
+                        while (dl != null && ++j < 50) {
+                            self.parse(dl, true);
+                            dl = dl.next();
+                        }
+                        if (dl == null) {
                             I = clearInterval(I);
-                            self.emit('printing:completed');
-                            return false;
+                            self.emit('printed');
                         }
-                        while (u < data[h][t].length) {
-                            self.parse(l, data.getLine(l));
-                            l++; u++;
-                        }
-                        t++;
-                        u = 0;
                     }, 10);
                 }
                 
-                while (++i < l) {
-                    self.parse(i, data.getLine(i), true);
+                while (++i < l && dl != null) {
+                    self.parse(dl, true);
+                    dl = dl.next();
                 }
+                
                 document.scrollTop(sT);
                 document.scrollLeft(sL);
                 self.options.autofocus && self.caret.position(0, 0) && self.input.focus();
             }
             
             this.screen.removeLines();
-            callback.call(this, new CodePrinter.Mode('plaintext'), false);
             
             if (mode != 'plaintext') {
                 CodePrinter.requireMode(mode, callback, this);
@@ -427,7 +422,7 @@ loader(function($) {
             var self = this;
             this.memory = this.parser.memoryAlloc();
             this.data.foreach(function(line) {
-                self.parse(line, this, true);
+                self.parse(this, true);
             });
         },
         defineParser: function(parser) {
@@ -437,26 +432,21 @@ loader(function($) {
                 this.tracking = (new tracking(this)).extend(parser.tracking);
             }
         },
-        parseByDataLine: function(dl, force) {
-            var line = this.data.indexOf(dl);
-            line >= 0 && this.parse(line, dl, force);
-            return this;
-        },
-        parse: function(line, dl, force) {
-            if (this.parser) {
+        parse: function(dl, force) {
+            if (this.parser && dl != null) {
                 var data = this.data;
-                dl = dl || data.getLine(line);
+                dl = 'number' === typeof dl ? data.get(dl) : dl;
                 
-                if (!dl.parsed || dl.changed || force) {
+                if (this.parser.name === 'plaintext') {
+                    dl.setParsed(dl.text);
+                } else if (!dl.parsed || dl.changed || force) {
                     if (dl.startPoint) {
-                        return this.parseByDataLine(dl.startPoint, true);
+                        return this.parse(dl.startPoint, true);
                     }
-                    var tmp = line
-                    , stream = new Stream(dl.text)
-                    , i = -1, p, ndl;
+                    var stream = new Stream(dl.text), i = 0, p, ndl = dl, nl = dl;
                     
                     stream.getNextLine = function() {
-                        var nl = data.getLine(++tmp);
+                        nl = nl.next();
                         if (nl) {
                             nl.setStartPoint(dl);
                             this.value.push(nl.text);
@@ -466,15 +456,21 @@ loader(function($) {
                         }
                     }
                     
-                    p = this.parser.parse(stream, this.memory).parsed;
-                    while (++i < p.length && line+i < this.data.lines) {
-                        p[i] = this.convertToSpaces(p[i]);
-                        p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
-                        data.getLine(line+i).setParsed(p[i]);
-                    }
-                    if ((ndl = data.getLine(line+i)) && ndl.startPoint) {
-                        delete ndl.startPoint;
-                        this.parse(line+i, ndl, true);
+                    try {
+                        p = this.parser.parse(stream, this.memory).parsed;
+                        
+                        do {
+                            p[i] = this.convertToSpaces(p[i]);
+                            p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
+                            ndl.setParsed(p[i]);
+                        } while (++i < p.length && (ndl = ndl.next));
+                        
+                        if (ndl && ndl.startPoint) {
+                            ndl.clearStartPoint();
+                            this.parse(ndl, true);
+                        }
+                    } catch (e) {
+                        console.error(e.message);
                     }
                 }
             }
@@ -505,7 +501,7 @@ loader(function($) {
                 self.options.tabWidth = tw;
                 
                 self.data.foreach(function(line) {
-                    self.parse(line, this, true);
+                    self.parse(this, true);
                 });
             }
             return this;
@@ -582,12 +578,12 @@ loader(function($) {
             return this.caret.line();
         },
         getTextAtLine: function(line) {
-            var l = this.data.getLine(line < 0 ? this.data.lines + line : line);
+            var l = this.data.get(line < 0 ? this.data.size + line : line);
             return l ? this.convertToSpaces(l.text) : '';
         },
         getIndentAtLine: function(line, dl) {
             var i = -1;
-            dl = dl || this.data.getLine(line);
+            dl = dl || this.data.get(line);
             if (dl) {
                 while (dl.text[++i] === '\t');
                 return i;
@@ -596,7 +592,7 @@ loader(function($) {
         },
         setIndentAtLine: function(line, indent) {
             indent = Math.max(0, indent);
-            var dl = this.data.getLine(line), old, diff;
+            var dl = this.data.get(line), old, diff;
             if (dl) {
                 old = this.getIndentAtLine(old, dl);
                 diff = indent - old;
@@ -606,19 +602,19 @@ loader(function($) {
             }
         },
         increaseIndentAtLine: function(line) {
-            var dl = this.data.getLine(line);
+            var dl = this.data.get(line);
             if (dl) {
                 dl.text = '\t' + dl.text;
-                this.parse(line, dl, true);
+                this.parse(dl, true);
                 this.caret.line() == line && this.caret.moveX(this.options.tabWidth);
                 this.emit('changed', { line: line, column: 0, text: '\t', added: true });
             }
         },
         decreaseIndentAtLine: function(line) {
-            var dl = this.data.getLine(line);
+            var dl = this.data.get(line);
             if (dl && dl.text.indexOf('\t') === 0) {
                 dl.text = dl.text.substr(1);
-                this.parse(line, dl, true);
+                this.parse(dl, true);
                 this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
                 this.emit('changed', { line: line, column: 0, text: '\t', added: false });
             }
@@ -642,7 +638,7 @@ loader(function($) {
             this.caret.position(i = s.start.line, s.start.column);
             l = s.end.line;
             
-            if (this.data.getLine(i).text.indexOf('\t') === 0) {
+            if (this.data.get(i).text.indexOf('\t') === 0) {
                 s.start.column -= w;
             }
             do this.decreaseIndentAtLine(i); while (++i <= l);
@@ -669,13 +665,13 @@ loader(function($) {
         statesBefore: function(line, column) {
             line = line >= 0 ? line : this.caret.line();
             column = column >= 0 ? column : this.caret.column();
-            var states = getStates.call(this, this.data.getLine(line).parsed, column);
+            var states = getStates.call(this, this.data.get(line).parsed, column);
             return states || [];
         },
         statesAfter: function(line, column) {
             line = line >= 0 ? line : this.caret.line();
             column = column >= 0 ? column : this.caret.column();
-            var states = getStates.call(this, this.data.getLine(line).parsed, column+1);
+            var states = getStates.call(this, this.data.get(line).parsed, column+1);
             return states || [];
         },
         cursorIsBeforePosition: function(line, column) {
@@ -685,8 +681,8 @@ loader(function($) {
         searchLeft: function(pattern, line, column, states) {
             var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b(?!\\b'+pattern+'\\b).*$' : pattern.escape()+'(?!.*'+pattern.escape()+').*$');
-            line = Math.max(0, Math.min(line, this.data.lines - 1));
-            while ((dl = this.data.getLine(line--)) && ((i = this.convertToSpaces(dl.text).substring(0, column).search(pattern)) === -1 || !this.isState(states, line+1, i + 1))) {
+            line = Math.max(0, Math.min(line, this.data.size - 1));
+            while ((dl = this.data.get(line--)) && ((i = this.convertToSpaces(dl.text).substring(0, column).search(pattern)) === -1 || !this.isState(states, line+1, i + 1))) {
                 column = Infinity;
             }
             return [line + 1, i];
@@ -694,8 +690,8 @@ loader(function($) {
         searchRight: function(pattern, line, column, states) {
             var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b' : pattern.escape());
-            line = Math.max(0, Math.min(line, this.data.lines - 1));
-            while ((dl = this.data.getLine(line++)) && ((i = this.convertToSpaces(dl.text).substr(column).search(pattern)) === -1 || !this.isState(states, line-1, i + column + 1))) {
+            line = Math.max(0, Math.min(line, this.data.size - 1));
+            while ((dl = this.data.get(line++)) && ((i = this.convertToSpaces(dl.text).substr(column).search(pattern)) === -1 || !this.isState(states, line-1, i + column + 1))) {
                 column = 0;
             }
             return [line - 1, i + column];
@@ -703,18 +699,18 @@ loader(function($) {
         substring: function(from, to) {
             var str = '';
             while (from[0] < to[0]) {
-                str += this.convertToSpaces(this.data.getLine(from[0]++).text).substr(from[1]) + '\n';
+                str += this.convertToSpaces(this.data.get(from[0]++).text).substr(from[1]) + '\n';
                 from[1] = 0;
             }
-            return str += this.convertToSpaces(this.data.getLine(to[0]).text).substring(from[1], to[1]);
+            return str += this.convertToSpaces(this.data.get(to[0]).text).substring(from[1], to[1]);
         },
         charAt: function(line, column) {
-            return line < this.data.lines ? this.data.getLine(line).text.charAt(column) : '';
+            return line < this.data.size ? this.getTextAtLine(line).charAt(column) : '';
         },
         isState: function(state, line, col, all) {
             if (state && state.length) {
                 state = 'string' === typeof state ? [state] : state;
-                var gs = getStates.call(this, this.data.getLine(line).parsed, col);
+                var gs = getStates.call(this, this.data.get(line).parsed, col);
                 return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== gs.length : false;
             }
             return false;
@@ -749,9 +745,9 @@ loader(function($) {
         },
         put: function(text, line, column, mx) {
             text = this.convertToSpaces(text);
-            if (text.length && line < this.data.lines) {
+            if (text.length && line < this.data.size) {
                 var s = text.split('\n')
-                , dl = this.data.getLine(line)
+                , dl = this.data.get(line)
                 , dlt = this.convertToSpaces(dl.text)
                 , bf = dlt.substring(0, column), af = dlt.substr(column)
                 , isb = this.cursorIsBeforePosition(line, bf.length);
@@ -766,7 +762,7 @@ loader(function($) {
                         this.insertNewLine(line+1, s[i]);
                     }
                 }
-                this.dispatch(dl, line, bf + s[0] + af);
+                this.dispatch(dl, bf + s[0] + af);
                 this.caret.forceRefresh();
                 !isb && this.caret.moveX(text.length);
                 mx && this.caret.moveX(mx);
@@ -783,19 +779,20 @@ loader(function($) {
             mx && this.caret.moveX(mx);
             return this;
         },
-        dispatch: function(dl, line, text) {
+        dispatch: function(dl, text) {
             dl.text = this.convertToTabs(text);
-            return this.parse(line, dl, true);
+            return this.parse(dl, true);
         },
         appendText: function(text) {
             var dl, text = this.convertToTabs(text);
-            (this.data.lines == 1 && (dl = this.data.getFirstLine()).text.length == 0) ? dl.setText(text) : this.data.addLine(this.data.lines, text);
+            (this.data.size == 1 && (dl = this.data.get(0)).text.length == 0) ? dl.setText(text) : this.data.add(text);
             this.screen.fill();
             return this;
         },
         insertNewLine: function(l, text) {
-            var old = this.data.getLine(l-1);
-            var dl = this.data.addLine(l, text || '');
+            var old = this.data.get(l-1);
+            var dl = this.data.insert(l);
+            dl.text = text || '';
             this.screen.splice(dl, l);
             if (old && old.startPoint) {
                 dl.setStartPoint(old.startPoint);
@@ -804,7 +801,7 @@ loader(function($) {
         },
         removeLine: function(l) {
             l == null && (l = this.caret.line());
-            this.data.removeLine(l);
+            this.data.remove(l);
             this.screen.remove(l);
             return this;
         },
@@ -817,7 +814,7 @@ loader(function($) {
         },
         swapLineDown: function() {
             var cur, down, l = this.caret.line();
-            if (l < this.data.lines - 1) {
+            if (l < this.data.size - 1) {
                 swapLines(this, l);
             }
         },
@@ -887,7 +884,7 @@ loader(function($) {
                     var bf = this.caret.textBefore()
                     , l = this.caret.line();
                     
-                    while (arg > af.length && l+1 < this.data.lines) {
+                    while (arg > af.length && l+1 < this.data.size) {
                         r = r + af + '\n';
                         this.caret.setTextAfter('');
                         arg = arg - af.length - 1;
@@ -904,19 +901,17 @@ loader(function($) {
             }
         },
         isEmpty: function() {
-            return this.data.lines === 1 && !this.data.getLine(0).text;
+            return this.data.size === 1 && !this.data.get(0).text;
         },
         getValue: function(withTabs) {
-            var self = this, t, r = [], h = 0
+            var self = this, r = []
             , fn = withTabs
             ? function(obj) { return obj.text; }
             : function(obj) { return self.convertToSpaces(obj.text); };
             
-            for (; h < this.data.length; h++) {
-                for (t = 0; t < this.data[h].length; t++) {
-                    r.push.apply(r, this.data[h][t].map(fn));
-                }
-            }
+            this.data.foreach(function() {
+                r.push(fn(this));
+            });
             return r.join(this.getLineEnding());
         },
         getSelection: function() {
@@ -941,7 +936,7 @@ loader(function($) {
         isAllSelected: function() {
             if (this.selection.isset()) {
                 var c = this.selection.coords();
-                return c && c[0][0] === 0 && c[0][1] === 0 && c[1][0] === this.data.lines-1 && c[1][1] === this.getTextAtLine(-1).length;
+                return c && c[0][0] === 0 && c[0][1] === 0 && c[1][0] === this.data.size-1 && c[1][1] === this.getTextAtLine(-1).length;
             }
             return false;
         },
@@ -982,7 +977,7 @@ loader(function($) {
             }
         },
         selectAll: function() {
-            var ls = this.data.lines - 1;
+            var ls = this.data.size - 1;
             this.selection.setRange(0, 0, ls, this.getTextAtLine(ls).length);
             this.showSelection();
             this.caret.deactivate().hide();
@@ -1045,7 +1040,7 @@ loader(function($) {
                         search.overlay.node.innerHTML = '';
                     }
                     
-                    for (var line = 0; line < this.data.lines; line++) {
+                    for (var line = 0; line < this.data.size; line++) {
                         var i, ln = 0, value = this.getTextAtLine(line);
                         
                         while (value && (i = value.search(find)) !== -1) {
@@ -1264,166 +1259,229 @@ loader(function($) {
         appendTo: function(node) { node.append(this.mainElement); return this; },
         insertBefore: function(node) { node.before(this.mainElement); return this; },
         insertAfter: function(node) { node.after(this.mainElement); return this; }
-    };
+    }
     
-    Data = function() {
+    Branch = function(leaf) {
+        this.parent = this.root = null;
+        this.isLeaf = leaf == null ? true : leaf;
+        this.size = 0;
         return this;
-    };
-    Data.prototype = [].extend({
-        lines: 0,
-        addLine: function(line, txt) {
-            var b, i, p = getDataLinePosition(line),
-                u = p[0], t = p[1], h = p[2],
-                dl = new DataLine(this);
-            
-            typeof txt === 'string' && dl.setText(txt);
-            !this[h] && this.splice(h, 0, []);
-            b = this[h][t] || (this[h][t] = []);
-            b.splice(u, 0, dl);
-            this.lines++;
-            this.emit('line:added', { dataLine: dl, line: line });
-            
-            if (b.length > DATA_RATIO) {
-                var r;
-                while ((r = b.splice(DATA_RATIO, b.length - DATA_RATIO)) && r.length > 0) {
-                    t === DATA_RATIO - 1 && (t = -1) && h++;
-                    !this[h] && this.splice(h, 0, []);
-                    b = this[h][++t] || (this[h][t] = []);
-                    var a = [0, 0];
-                    a.push.apply(a, r);
-                    b.splice.apply(b, a);
-                }
+    }
+    
+    Branch.prototype = {
+        indexOf: Array.prototype.indexOf,
+        splice: function(index, howmany) {
+            var delta = 0, l = Math.min(index + howmany, this.length || 0);
+            for (var i = index; i < l; i++) {
+                delta -= this[i].size;
+                this[i].parent = this[i].root = null;
             }
-            return dl;
+            for (var i = 2; i < arguments.length; i++) {
+                delta += arguments[i].size;
+                arguments[i].parent = this;
+                arguments[i].root = this.root || this;
+            }
+            this.resize(this.isLeaf ? arguments.length - 2 - l + index : delta);
+            return Array.prototype.splice.apply(this, arguments);
         },
-        removeLine: function(line) {
-            var p = getDataLinePosition(line),
-                h = p[2], t = p[1], u = p[0],
-                b = this[h][t];
-            
-            if (b && b[u]) {
-                var dl = b.splice(u, 1);
-                this.lines--;
-                this.emit('line:removed', { dataLine: dl[0], line: line });
-                
-                if (b.length === DATA_RATIO - 1) {
-                    var n, r;
-                    
-                    t === DATA_RATIO - 1 && (t = -1) && h++;
-                    n = this[h][++t];
-                    
-                    while (n) {
-                        r = n.shift();
-                        if (r) {
-                            b.push(r);
-                            b = n;
-                            t === DATA_RATIO - 1 && (t = -1) && h++;
-                            n = this[h] && this[h][++t] || null;
-                        } else {
-                            n = false;
+        push: function() {
+            var delta = 0;
+            for (var i = 0; i < arguments.length; i++) {
+                delta += arguments[i].size;
+                arguments[i].parent = this;
+                arguments[i].root = this.root || this;
+            }
+            this.resize(this.isLeaf ? arguments.length : delta);
+            return Array.prototype.push.apply(this, arguments);
+        },
+        
+        get: function(line) {
+            if (this.isLeaf) {
+                return this[line];
+            } else {
+                var i = -1;
+                while (++i < this.length && line >= this[i].size) {
+                    line -= this[i].size;
+                }
+                return this[i] ? this[i].get(line) : null;
+            }
+        },
+        insert: function(line) {
+            if (this.isLeaf) {
+                var dl = new Line();
+                this.splice(line, 0, dl);
+                this.root.emit('added', dl);
+                return dl;
+            } else {
+                var b, i = -1;
+                while ((b = ++i < this.length) && line > this[i].size) {
+                    line -= this[i].size;
+                }
+                if (b) {
+                    if (this[i].length >= BRANCH_OPTIMAL_SIZE) {
+                        if (line == this[i].size) {
+                            return this[i].fork().insert(0);
+                        }
+                        var next = this[i].split();
+                        if (line >= this[i].size) {
+                            return next.insert(line - this[i].size);
                         }
                     }
+                    return this[i].insert(line);
+                }
+                var child = new Branch(true);
+                this.push(child);
+                return child.insert(0);
+            }
+        },
+        remove: function(line) {
+            var dl = this.get(line), i;
+            if (dl && (i = dl.parent.indexOf(dl)) >= 0) {
+                var tmp = dl.parent;
+                tmp.splice(i, 1);
+                tmp.root.emit('removed', dl);
+                while (tmp.parent && tmp.length == 0) {
+                    i = tmp.parent.indexOf(tmp);
+                    (tmp = tmp.parent).splice(i, 1);
                 }
             }
         },
-        getLine: function(line) {
-            if (typeof line === 'number' && line >= 0 && line < this.lines) {
-                var p = getDataLinePosition(line);
-                return this[p[2]][p[1]][p[0]] || null;
+        insertAfter: function(branch) {
+            var index = this.parent.indexOf(this);
+            this.parent.splice(index + 1, 0, branch);
+        },
+        split: function() {
+            var pivot = Math.floor(this.length / 2)
+            , branch = new Branch(this.isLeaf)
+            , rmArray = this.splice(pivot, this.length - pivot);
+            
+            this.insertAfter(branch);
+            branch.push.apply(branch, rmArray);
+            
+            if (this.parent.length > BRANCH_OPTIMAL_SIZE) {
+                this.parent.wrapAll();
+            }
+            return branch;
+        },
+        fork: function(leaf) {
+            var sibling = new Branch(leaf == null ? this.isLeaf : leaf);
+            this.insertAfter(sibling);
+            
+            if (this.parent.length > BRANCH_OPTIMAL_SIZE) {
+                this.parent.wrapAll();
+            }
+            return sibling;
+        },
+        wrapAll: function() {
+            var l = Math.ceil(this.length / 4);
+            for (var i = 0; i < 4; i++) {
+                var branch = new Branch(false);
+                branch.push.apply(branch, this.splice(i, l, branch));
+            }
+        },
+        resize: function(delta) {
+            if (delta) {
+                var tmp = this;
+                while (tmp != null) {
+                    tmp.size += delta;
+                    tmp = tmp.parent;
+                }
+            }
+        },
+        next: function() {
+            var i;
+            if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
+                if (i + 1 < this.parent.length) {
+                    return this.parent[i+1];
+                } else {
+                    return this.parent.next();
+                }
             }
             return null;
         },
-        getFirstLine: function() {
-            return this[0][0][0] || null;
-        },
-        getLastLine: function() {
-            return this.last().last().last() || null;
-        },
-        setParsedAtLine: function(line, str) {
-            var l = this.getLine(line);
-            l && l.setParsed(str);
-        },
-        count: function() {
-            var h = this.length, t;
-            t = this[--h].length - 1;
-            return parseInt(''+ h + t + (this[h][t].length - 1));
-        },
-        indexOf: function(dl) {
-            var h, d, i = -1;
-            for (h = 0; h < this.length; h++) {
-                for (d = 0; d < this[h].length; d++) {
-                    if ((i = this[h][d].indexOf(dl)) !== -1) {
-                        return h * DATA_MASTER_RATIO + d * DATA_RATIO + i;
-                    }
+        foreach: function(f, tmp) {
+            tmp = tmp || 0;
+            if (this.isLeaf) {
+                for (var i = 0; i < this.length; i++) {
+                    f.call(this[i], tmp + i);
                 }
-            }
-            return i;
-        },
-        foreach: function(f) {
-            var h = 0, t, i, line = 0;
-            for (; h < this.length; h++) {
-                for (t = 0; t < this[h].length; t++) {
-                    for (i = 0; i < this[h][t].length; i++) {
-                        f.call(this[h][t][i], line++, this.data);
-                    }
+            } else {
+                for (var i = 0; i < this.length; i++) {
+                    this[i].foreach(f, tmp);
+                    tmp += this[i].size;
                 }
             }
             return this;
         }
-    });
+    }
     
-    DataLine = function(parent) {
-        this.extend({
-            setText: function(str) {
-                if (this.text !== str) {
-                    this.text = str;
-                    this.changed = true;
-                    parent.emit('text:changed', this);
-                }
-            },
-            setParsed: function(str) {
-                if (this.parsed !== str) {
-                    this.parsed = str;
-                    this.changed = false;
-                    this.touch();
-                    parent.emit('parsed:changed', this);
-                }
-            },
-            touch: function() {
-                this.pre instanceof HTMLElement && (this.pre.innerHTML = this.parsed || ' ');
-            }
-        });
+    Data = function() {
+        Branch.call(this, false);
+        this.push(new Branch(true));
+        
+        this.add = function(text) {
+            var dl = this.insert(this.size);
+            dl.text = text;
+            return dl;
+        }
         return this;
-    };
+    }
+    Data.prototype = Branch.prototype;
     
-    DataLine.prototype = {
-        changed: false,
+    Line = function() {
+        this.parent = this.root = null;
+        this.changed = false;
+        return this;
+    }
+    
+    Line.prototype = {
+        setText: function(str) {
+            this.text = str;
+            this.changed = true;
+            this.root.emit('changed', this);
+        },
+        setParsed: function(str) {
+            this.parsed = str;
+            this.changed = false;
+            this.touch();
+        },
         setStartPoint: function(sp) {
-            if (sp instanceof DataLine) {
+            if (sp instanceof Line) {
                 this.startPoint = sp;
             }
         },
         clearStartPoint: function() {
-            this.startPoint = null;
+            delete this.startPoint;
         },
         deleteNodeProperty: function() {
             if (this.pre) {
                 delete this.pre;
             }
         },
-        prepend: function(str) {
-            return this.setText(str + this.text);
+        touch: function() {
+            if (this.pre instanceof HTMLElement) {
+                this.pre.innerHTML = this.parsed || this.text.encode() || ' ';
+            }
         },
-        append: function(str) {
-            return this.setText(this.text + str);
+        next: function() {
+            var i = this.parent.indexOf(this);
+            if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
+                if (i + 1 < this.parent.length) {
+                    return this.parent[i+1];
+                } else {
+                    var next = this.parent.next();
+                    return next && next.length ? next[0] : null;
+                }
+            }
+            return null;
         },
-        lbreak: function(str) {
-            return this.setText(this.text.lbreak(str));
-        },
-        rbreak: function(str) {
-            return this.setText(this.text.rbreak(str));
+        prev: function() {
+            var i = this.parent.indexOf(this);
+            if (i > 0) {
+                return this.parent[i-1];
+            }
         }
-    };
+    }
     
     Caret = function(cp) {
         var line = 0, column = 0, before = '', after = '', tmp, timeout;
@@ -1476,7 +1534,7 @@ loader(function($) {
             position: function(l, c, t) {
                 timeout = clearTimeout(timeout);
                 typeof l !== 'number' && (l = line || 0);
-                l = Math.max(Math.min(l, cp.data.lines - 1), 0);
+                l = Math.max(Math.min(l, cp.data.size - 1), 0);
                 typeof t !== 'string' && (t = cp.getTextAtLine(l));
                 typeof c !== 'number' && (c = column || 0);
                 c < 0 && (c = t.length + c + 1);
@@ -1517,7 +1575,7 @@ loader(function($) {
                 while (abs > t.length) {
                     abs = abs - t.length - 1;
                     cl = cl + (mv > 0) - (mv < 0);
-                    if (cl < cp.data.lines) {
+                    if (cl < cp.data.size) {
                         t = cp.getTextAtLine(cl);
                     } else {
                         if (mv >= 0) {
@@ -1533,7 +1591,7 @@ loader(function($) {
             },
             moveY: function(mv) {
                 mv = line + mv;
-                mv = mv < 0 ? (column = 0) : mv >= this.root.data.lines ? (column = -1) && this.root.data.lines-1 : mv;
+                mv = mv < 0 ? (column = 0) : mv >= this.root.data.size ? (column = -1) && this.root.data.size-1 : mv;
                 return this.position(mv, column);
             },
             refresh: function(force) {
@@ -1564,7 +1622,7 @@ loader(function($) {
                         n++;
                     }
                 } else {
-                    while (r !== false && line + n < cp.data.lines) {
+                    while (r !== false && line + n < cp.data.size) {
                         var t = cp.getTextAtLine(line + n);
                         while (r !== false && i < t.length) {
                             r = f.call(this, t[i], line + n, i++, cp);
@@ -1674,7 +1732,7 @@ loader(function($) {
         fill: function() {
             var r = this.root, w = r.wrapper
             , lv = parseInt(r.options.linesOutsideOfView)
-            , x = Math.min(Math.ceil(w.clientHeight / r.sizes.lineHeight) + 2 * lv, r.data.lines-1)
+            , x = Math.min(Math.ceil(w.clientHeight / r.sizes.lineHeight) + 2 * lv, r.data.size-1)
             , i = this.length();
             
             while (i++ <= x) this.insert();
@@ -1682,23 +1740,23 @@ loader(function($) {
             return this;
         },
         insert: function() {
-            if (this.lastLine < this.root.data.lines - 1) {
-                var dl = this.root.data.getLine(++this.lastLine);
+            if (this.lastLine < this.root.data.size - 1) {
+                var dl = this.root.data.get(++this.lastLine);
                 dl.pre = pre.cloneNode();
                 this.link(dl, this.lines.length, true);
                 this.root.counter && this.root.counter.increase();
             }
         },
         splice: function(dl, i) {
-            if (dl instanceof DataLine && i >= this.firstLine && i <= this.lastLine+1) {
+            if (dl instanceof Line && i >= this.firstLine && i <= this.lastLine+1) {
                 var q = i - this.firstLine;
                 
                 if (this.length() < this.root.wrapper.clientHeight / this.root.sizes.lineHeight + this.root.options.linesOutsideOfView * 2) {
                     dl.pre = pre.cloneNode();
                     this.lastLine++;
                     this.root.counter && this.root.counter.increase();
-                } else if (i + this.root.options.linesOutsideOfView >= this.root.data.lines) {
-                    this.root.data.getLine(this.firstLine++).deleteNodeProperty();
+                } else if (i + this.root.options.linesOutsideOfView >= this.root.data.size) {
+                    this.root.data.get(this.firstLine++).deleteNodeProperty();
                     dl.pre = this.lines.item(0);
                     this.lastLine++;
                     this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
@@ -1708,7 +1766,7 @@ loader(function($) {
                     dl.pre.remove();
                     --q;
                 } else {
-                    this.root.data.getLine(this.lastLine).deleteNodeProperty();
+                    this.root.data.get(this.lastLine).deleteNodeProperty();
                     dl.pre = this.lines.item(-1);
                 }
                 this.link(dl, q);
@@ -1716,11 +1774,10 @@ loader(function($) {
         },
         remove: function(i) {
             if (i >= this.firstLine && i <= this.lastLine) {
-                var r = this.root,
-                    q = i - this.firstLine;
+                var r = this.root, q = i - this.firstLine;
                 if (this.firstLine == 0) {
-                    if (this.lastLine < r.data.lines) {
-                        var dl = r.data.getLine(this.lastLine);
+                    if (this.lastLine < r.data.size) {
+                        var dl = r.data.get(this.lastLine);
                         dl.pre = this.lines[q];
                         this.link(dl, this.lines.length);
                     } else {
@@ -1730,7 +1787,7 @@ loader(function($) {
                         r.counter && r.counter.decrease();
                     }
                 } else {
-                    var dl = r.data.getLine(--this.firstLine);
+                    var dl = r.data.get(--this.firstLine);
                     dl.pre = this.lines[q];
                     this.link(dl, 0);
                     this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
@@ -1740,9 +1797,9 @@ loader(function($) {
             }
         },
         shift: function() {
-            if (this.lines.length && this.lastLine + 1 < this.root.data.lines) {
-                this.root.data.getLine(this.firstLine).deleteNodeProperty();
-                var dl = this.root.data.getLine(++this.lastLine);
+            if (this.lines.length && this.lastLine + 1 < this.root.data.size) {
+                this.root.data.get(this.firstLine).deleteNodeProperty();
+                var dl = this.root.data.get(++this.lastLine);
                 dl.pre = this.lines[0];
                 this.link(dl, this.lines.length);
                 this.element.style.top = (this.root.sizes.scrollTop += this.root.sizes.lineHeight) + 'px';
@@ -1752,8 +1809,8 @@ loader(function($) {
         },
         unshift: function() {
             if (this.lines.length && this.firstLine - 1 >= 0) {
-                this.root.data.getLine(this.lastLine).deleteNodeProperty();
-                var dl = this.root.data.getLine(--this.firstLine);
+                this.root.data.get(this.lastLine).deleteNodeProperty();
+                var dl = this.root.data.get(--this.firstLine);
                 dl.pre = this.lines.item(-1);
                 this.link(dl, 0);
                 this.element.style.top = (this.root.sizes.scrollTop -= this.root.sizes.lineHeight) + 'px';
@@ -1764,7 +1821,7 @@ loader(function($) {
         link: function(dl, index, forceParse) {
             this.element.insertBefore(dl.pre, this.lines[index]);
             this.lines.put(dl.pre, index);
-            this.root.parse(this.firstLine + index, dl, forceParse) && dl.touch();
+            this.root.parse(dl, forceParse) && dl.touch();
         },
         getLine: function(line) {
             return line >= this.firstLine && line <= this.lastLine ? this.element.kids().item(line - this.firstLine) : null;
@@ -1780,7 +1837,7 @@ loader(function($) {
             this.root.counter && this.root.counter.removeLines();
         },
         fix: function() {
-            this.root.data && (this.parent.style.minHeight = (this.root.data.lines * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px');
+            this.root.data && (this.parent.style.minHeight = (this.root.data.size * this.root.sizes.lineHeight + this.root.sizes.paddingTop * 2) + 'px');
             return this;
         }
     };
@@ -1917,7 +1974,7 @@ loader(function($) {
             return this.setRow(this.row - 1);
         },
         current: function() {
-            return this.value[this.row || 0];
+            return this.row < this.value.length ? this.value[this.row || 0] : '';
         },
         match: function(rgx, index) {
             this.found.length && this.skip();
@@ -2341,7 +2398,7 @@ loader(function($) {
             this.wrapper.scrollTop += this.wrapper.clientHeight;
         },
         'End': function() {
-            this.caret.position(this.data.lines - 1, -1);
+            this.caret.position(this.data.size - 1, -1);
         },
         'Home': function() {
             this.caret.position(0, 0);
@@ -2396,7 +2453,7 @@ loader(function($) {
             return false;
         },
         'Ctrl+Down': function(e) {
-            this.caret.position(this.data.lines - 1, -1);
+            this.caret.position(this.data.size - 1, -1);
             return false;
         },
         'Alt+Down': CodePrinter.prototype.nextOccurrence,
@@ -2797,9 +2854,9 @@ loader(function($) {
             , x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft)
             , y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
             , m = Math.ceil(y / self.sizes.lineHeight)
-            , l = Math.min(Math.max(1, m), self.data.lines) - 1
+            , l = Math.min(Math.max(1, m), self.data.size) - 1
             , s = self.getTextAtLine(l)
-            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight || m > self.data.lines ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
+            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight || m > self.data.size ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
             
             if (e.type === 'mousedown') {
                 self.isMouseDown = true;
@@ -2924,9 +2981,6 @@ loader(function($) {
         }
         return null;
     }
-    function getDataLinePosition(line) {
-        return [line % DATA_RATIO, (line - line % DATA_RATIO) % DATA_MASTER_RATIO / DATA_RATIO, (line - line % DATA_MASTER_RATIO) / DATA_MASTER_RATIO ];
-    }
     function indentGrid(text, width) {
         var pos = text.search(/[^ ]/), tmp;
         pos == -1 && (pos = text.length); 
@@ -2940,8 +2994,8 @@ loader(function($) {
     }
     function swapLines(cp, line) {
         var spaces = cp.tabString()
-        , x = cp.convertToSpaces(cp.data.getLine(line).text)
-        , y = cp.convertToSpaces(cp.data.getLine(line+1).text);
+        , x = cp.convertToSpaces(cp.data.get(line).text)
+        , y = cp.convertToSpaces(cp.data.get(line+1).text);
         cp.caret.savePosition(true);
         cp.caret.position(line+1, -1);
         cp.removeBeforeCursor(x + '\n' + y);
