@@ -2,17 +2,9 @@
 
 "use strict";
 
-var loader = function(fn) {
-    if (typeof define != 'undefined') {
-        define('CodePrinter', ['Selector'], function($) { return window.CodePrinter = fn($); });
-    } else if (typeof module != 'undefined') {
-        module.exports = fn(Selector);
-    } else {
-        window.CodePrinter = fn(Selector);
-    }
-}
+if (!define) var define = function() { window.CodePrinter = arguments[2]($ || Selector); }
 
-loader(function($) {
+define('CodePrinter', ['Selector'], function($) {
     var CodePrinter, Data, Branch, Line
     , Caret, Screen, Counter, Stream
     , keyMap, commands, history, selection, tracking
