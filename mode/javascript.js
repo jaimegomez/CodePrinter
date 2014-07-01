@@ -56,7 +56,9 @@ CodePrinter.defineMode('JavaScript', function() {
                         stream.wrap('keyword');
                     } else if (stream.isAfter('(')) {
                         stream.wrap('function');
-                    } else if (stream.isBefore('.') || stream.isAfter(':') || memory.properties.indexOf(found) >= 0) {
+                    } else if (stream.isBefore(/function\s*\w*\s*\([^\(]*$/)) {
+                        stream.wrap('parameter');
+                    } else if (stream.isBefore('.') || stream.isAfter(':')) {
                         memory.properties.put(found);
                         stream.wrap('property');
                     } else if (stream.isBefore(/const\s*$/) || memory.constants.indexOf(found) >= 0) {
@@ -65,8 +67,6 @@ CodePrinter.defineMode('JavaScript', function() {
                     } else if (stream.isAfter(/^\s*=\s*/) || memory.variables.indexOf(found) >= 0) {
                         memory.variables.put(found);
                         stream.wrap('variable');
-                    } else if (stream.isBefore(/function\s*\w*\s*\([^\(]*$/)) {
-                        stream.wrap('parameter');
                     }
                 } else if (found.length == 1) {
                     if (found in this.operators) {
