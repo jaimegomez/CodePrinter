@@ -1,4 +1,13 @@
-/* CodePrinter - Main JavaScript Document */
+/*
+ * CodePrinter.js
+ *
+ * Copyright (C) 2013-2014 Tomasz Sapeta (@tsapeta)
+ * Released under the MIT License.
+ *
+ * author:  Tomasz Sapeta
+ * version: 0.6.2
+ * source:  https://github.com/tsapeta/CodePrinter
+ */
 
 "use strict";
 
