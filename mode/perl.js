@@ -2,7 +2,7 @@
 
 CodePrinter.defineMode('Perl', function() {
     var controls = ['do','else','elsif','for','foreach','if','unless','until','while']
-    , keywords = ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','my','ne','no','or','package','q','qq','qr','qw','qx','s','sub','tr','xor','y']
+    , keywords = ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','my','ne','no','or','package','q','qq','qr','qw','qx','s','sub','tr','use','xor','y']
     , specials = ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','STDIN','STDOUT','STDERR','print','printf','sprintf','return']
     
     return {
@@ -45,6 +45,8 @@ CodePrinter.defineMode('Perl', function() {
                     } else if (stream.isBefore(/\buse\s*constant\s*$/i) && memory.constants.indexOf(found) >= 0) {
                         memory.constants.put(found);
                         stream.wrap('constant');
+                    } else if (stream.isBefore('use')) {
+                        stream.wrap('special');
                     }
                 } else if (found.length == 1) {
                     if (found == '#') {
