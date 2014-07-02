@@ -278,8 +278,8 @@ define('CodePrinter', ['Selector'], function($) {
                     }
                     this.removeOverlays('changed');
                 }
-                this['removed.before'] = fn(true);
-                this['removed.after'] = fn(false);
+                this['onremoved.before'] = fn(true);
+                this['onremoved.after'] = fn(false);
                 
                 this.mainElement.on({ nodeInserted: function() {
                     this.removeClass('cp-animation');
@@ -305,9 +305,11 @@ define('CodePrinter', ['Selector'], function($) {
             source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
-            var i = -1, l = source.length;
+            if (!this.parser) {
+                this.defineParser(new CodePrinter.Mode('plaintext'));
+            }
             
-            while (++i < l) {
+            for (var i = 0; i < source.length; i++) {
                 this.data.add(this.convertToTabs(source[i]));
             }
             this.screen.fill();
@@ -337,21 +339,19 @@ define('CodePrinter', ['Selector'], function($) {
             mode && this.setMode(mode);
             mode = this.options.mode;
             source && this.init(source);
-            
-            var self = this, sT = document.scrollTop(), sL = document.scrollLeft();
-            
+                        
             function callback(ModeObject) {
-                self.defineParser(ModeObject);
-                self.forcePrint();
-                self.screen.fill();
-                document.scrollTop(sT);
-                document.scrollLeft(sL);
-                self.options.autofocus && self.caret.position(0, 0) && self.input.focus();
+                this.defineParser(ModeObject);
+                this.forcePrint();
+                this.screen.fill();
+                this.options.autofocus && this.caret.position(0, 0) && this.input.focus();
             }
             
             this.screen.removeLines();
             
-            if (mode != 'plaintext') {
+            if (this.parser && this.parser.name.toLowerCase() === mode) {
+                callback.call(this, this.parser);
+            } else {
                 CodePrinter.requireMode(mode, callback, this);
             }
             
@@ -375,7 +375,7 @@ define('CodePrinter', ['Selector'], function($) {
             })();
         },
         defineParser: function(parser) {
-            if (parser instanceof CodePrinter.Mode) {
+            if (parser instanceof CodePrinter.Mode && this.parser !== parser) {
                 this.parser = parser;
                 this.tracking = (new tracking(this)).extend(parser.tracking);
             }
@@ -386,7 +386,9 @@ define('CodePrinter', ['Selector'], function($) {
                 dl = 'number' === typeof dl ? data.get(dl) : dl;
                 
                 if (this.parser.name === 'plaintext') {
-                    dl.setParsed(dl.text);
+                    var p = this.convertToSpaces(dl.text);
+                    dl.parsed = this.options.showIndentation ? indentGrid(p, this.options.tabWidth) : p;
+                    dl.touch();
                 } else if (!dl.parsed || dl.changed || force) {
                     if (dl.startPoint) {
                         return this.parse(dl.startPoint, true);
@@ -1424,7 +1426,7 @@ define('CodePrinter', ['Selector'], function($) {
         },
         touch: function() {
             if (this.pre instanceof HTMLElement) {
-                this.pre.innerHTML = this.parsed || this.root.cp.convertToSpaces(this.text.encode()) || ' ';
+                this.pre.innerHTML = this.parsed || ' ';
             }
         },
         next: function() {
