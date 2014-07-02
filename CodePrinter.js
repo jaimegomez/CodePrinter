@@ -14,224 +14,25 @@ define('CodePrinter', ['Selector'], function($) {
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
     CodePrinter = function(element, options) {
-        var self = this, sizes, data = '', id, allowKeyup, fn, T, T2, s = 0;
-        
-        options = this.options = {}.extend(CodePrinter.defaults, options, element && element.nodeType ? $.parseData(element.data('codeprinter'), ',') : null);
-        
+        if (arguments.length === 1 && element == '[object Object]') {
+            options = element;
+            element = null;
+        }
+        options = this.options = $.extend({}, CodePrinter.defaults, options);
         buildDOM(this);
-        
-        this.mainElement.CodePrinter = this;
-        id = this.mainElement.id = $.random(options.randomIDLength);
-        sizes = this.sizes = { lineHeight: options.lineHeight, charWidth: 0 };
-        this.activeLine = {};
-        this.overlays = [];
-        this.snippets = [];
-        this.selection.overlay = new CodePrinter.Overlay(this, 'cp-selection-overlay', false);
-        this.history = new history(options.historyStackSize, options.historyDelay);
-        this.keyMap = new keyMap;
-        this.setTheme(options.theme);
-        this.setMode(options.mode);
-        this.caret.setStyle(options.caretStyle);
-        
-        this.wrapper.listen({
-            scroll: function() {
-                var lv = parseInt(self.options.linesOutsideOfView),
-                    x = Math.ceil((this.scrollTop - self.sizes.scrollTop) / self.sizes.lineHeight);
-                
-                if (x > lv) {
-                    do self.screen.shift(); while (--x > lv);
-                } else if (x < lv) {
-                    do self.screen.unshift(); while (++x < lv);
-                }
-                ++s > 4 && (s = 0)+1 && self.caret.isActive && self.selectLine(self.caret.line());
-                self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop);
-            },
-            dblclick: function() {
-                var bf = self.caret.textBefore()
-                , af = self.caret.textAfter()
-                , line = self.caret.line()
-                , c = self.caret.column()
-                , l = 1, r = 0, rgx = /[^\w\s]/, timeout;
-                
-                var tripleclick = function() {
-                    self.selection.setRange(line, 0, line+1, 0);
-                    self.showSelection(true);
-                    this.unlisten('click', tripleclick);
-                    timeout = clearTimeout(timeout);
-                }
-                this.listen({ 'click': tripleclick });
-                timeout = setTimeout(function() { self.wrapper.unlisten('click', tripleclick); }, 1000);
-                
-                rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : rgx;
-                
-                while (l <= c && rgx.test(bf[c-l])) l++;
-                while (r < af.length && rgx.test(af[r])) r++;
-                
-                if (c-l+1 != c+r) {
-                    self.selection.setRange(line, c-l+1, line, c+r);
-                    self.showSelection();
-                }
-            },
-            mousedown: mouseController(self)
-        });
-        
-        this.input.listen({
-            focus: function() {
-                self.caret.isActive || self.caret.show().activate();
-                self.selectLine(self.caret.line());
-            },
-            blur: function(e) {
-                if (self.isMouseDown) {
-                    this.focus();
-                } else {
-                    self.caret.deactivate().hide();
-                    self.unselectLine();
-                    self.removeOverlays('blur');
-                }
-            },
-            keydown: function(e) {
-                var kc, code = e.getCharCode()
-                , ch = String.fromCharCode(code)
-                , kc = e.getKeyCombination(self.options.keyCombinationFlag);
-                
-                self.caret.deactivate().show();
-                allowKeyup = true;
-                
-                if (($.browser.macosx ? e.metaKey : e.ctrlKey) && ch in commands) {
-                    allowKeyup = commands[ch].call(self, e, code, ch);
-                } else {
-                    if (code < 48 && code != 9 && !(kc in self.keyMap)) {
-                        kc = e.getKeyCombination(self.options.keyCombinationFlag | 4);
-                    }
-                    if ((!/^[a-zA-Z0-9]+$/.test(ch) || !e.hasModifierKey() || self.options.shortcuts) && kc in self.keyMap) {
-                        allowKeyup = self.keyMap[kc].call(self, e, code, kc);
-                    }
-                }
-                if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
-                    return allowKeyup = e.cancel();
-                }
-                return allowKeyup;
-            },
-            keypress: function(e) {
-                var code = e.getCharCode()
-                , ch = String.fromCharCode(code);
-                
-                if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-                    if (ch in self.parser.keyMap) {
-                        allowKeyup = self.parser.keyMap[ch].call(self, e, code, ch);
-                    }
-                    if (allowKeyup !== false) {
-                        (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
-                        this.value = '';
-                        return e.cancel();
-                    }
-                }
-            },
-            keyup: function(e) {
-                self.caret.activate();
-                allowKeyup && this.value.length && self.insertText(this.value);
-                self.selection.isset() || (this.value = '');
-                T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keyupInactivityTimeout);
-            }
-        });
-        
-        this.caret.on({
-            'text:changed': function(line, column) {
-                var dl = self.data.get(line);
-                dl.text = this.textAtCurrentLine(true);
-                self.parse(dl, true);
-            },
-            'position:changed': function(x, y, line, column, before, after) {
-                if (self.options.autoScroll) {
-                    var wrapper = self.wrapper,
-                        pl = self.sizes.paddingLeft, pt = self.sizes.paddingTop,
-                        sl = wrapper.scrollLeft, st = wrapper.scrollTop,
-                        cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight,
-                        ix = self.sizes.charWidth, iy = self.sizes.lineHeight;
-                    wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
-                    wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
-                }
-                if (self.options.tracking) {
-                    T2 = clearTimeout(T2);
-                    var a, b;
-                    for (var s in self.tracking) {
-                        var len = s.length, i = 0;
-                        do {
-                            a = len == i || before.endsWith(s.substring(0, len - i));
-                            b = after.startsWith(s.substring(len - i, len));
-                        } while ((!a || !b) && ++i <= len);
-                        
-                        if (a && b) {
-                            T2 = setTimeout(function() {
-                                var r = self.tracking[s].call(self, s, before+after, { line: line, columnStart: column - len + i, columnEnd: column + i });
-                                r === false && self.highlightOverlay.remove();
-                            }, 40);
-                            break;
-                        }
-                    }
-                    if ((!a || !b) && self.highlightOverlay) {
-                        self.highlightOverlay.remove();
-                    }
-                }
-                self.removeOverlays('caret');
-                self.selectLine(line);
-            }
-        });
-        
-        fn = function(b) {
-            b = b ? ['Before','After'] : ['After','Before'];
-            return function(t) {
-                var p = self.parser;
-                if (p && p['onRemoved'+b[0]] && p['onRemoved'+b[0]][t]) {
-                    p = p['onRemoved'+b[0]][t];
-                    typeof p === 'string' || typeof p === 'number' ? self['remove'+b[1]+'Cursor'](p, true) : p instanceof Function && p.call(self, t);
-                }
-            };
-        };
-        this.on({
-            'changed': function(e) {
-                if (this.options.history) {
-                    this.history.pushChanges(e.line, e.column, this.convertToTabs(e.text), e.added);
-                }
-                this.removeOverlays('changed');
-            },
-            'removed.before': fn(true),
-            'removed.after': fn(false)
-        });
-        
-        this.mainElement.on({ nodeInserted: function() {
-            this.removeClass('cp-animation');
-            
-            options.lineNumbers && self.openCounter();
-            options.snippets && self.snippets.push.apply(self.snippets, options.snippets);
-            self.setWidth(options.width);
-            self.setHeight(options.height);
-            
-            var s = window.getComputedStyle(self.screen.element, null);
-            sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
-            sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
-            sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
-            sizes.scrollTop = parseInt(s.getPropertyValue('top'));
-            setTimeout(function() { calculateCharDimensions(self); }, 150);
-            
-            options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
-            options.fontSize != 11 && options.fontSize > 0 && self.setFontSize(options.fontSize);
-            
-            self.print();
-        }});
+        this.prepare();
         
         if (element) {
             if (element.nodeType) {
                 this.init((element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML).decode());
                 element.before(this.mainElement);
                 return this;
-            } else if (element.toLowerCase) {
+            } else if ('string' === typeof element) {
                 return this.init(element);
             }
         }
-        
-        return this.init(data);
-    };
+        return this.init();
+    }
     
     CodePrinter.version = '0.6.2';
     
@@ -260,7 +61,6 @@ define('CodePrinter', ['Selector'], function($) {
         lineNumberFormatter: false,
         autofocus: true,
         showIndentation: true,
-        scrollable: true,
         tracking: true,
         history: true,
         highlightBrackets: true,
@@ -273,7 +73,7 @@ define('CodePrinter', ['Selector'], function($) {
         tabTriggers: true,
         shortcuts: true,
         keyCombinationFlag: 1
-    };
+    }
     
     div = document.createElement('div');
     li = document.createElement('li');
@@ -282,58 +82,220 @@ define('CodePrinter', ['Selector'], function($) {
     
     CodePrinter.prototype = {
         isFullscreen: false,
+        prepare: function() {
+            if (!this.onchanged) {
+                var self = this
+                , options = this.options
+                , sizes, allowKeyup, T, T2, fn
+                , id = this.mainElement.id = $.random(options.randomIDLength);
+                
+                this.mainElement.CodePrinter = this;
+                sizes = this.sizes = { lineHeight: options.lineHeight, charWidth: 0 };
+                this.activeLine = {};
+                this.overlays = [];
+                this.snippets = [];
+                this.selection.overlay = new CodePrinter.Overlay(this, 'cp-selection-overlay', false);
+                this.history = new history(this, options.historyStackSize, options.historyDelay);
+                this.keyMap = new keyMap;
+                this.setTheme(options.theme);
+                this.setMode(options.mode);
+                this.caret.setStyle(options.caretStyle);
+                
+                options.lineNumbers && this.openCounter();
+                options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
+                options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
+                options.width !== 'auto' && this.setWidth(options.width);
+                options.height !== 300 && this.setHeight(options.height);
+                
+                this.wrapper.listen({
+                    scroll: function() {
+                        var lv = parseInt(options.linesOutsideOfView)
+                        , x = Math.ceil((this.scrollTop - sizes.scrollTop) / sizes.lineHeight);
+                        
+                        if (x > lv) {
+                            do self.screen.shift(); while (--x > lv);
+                        } else if (x < lv) {
+                            do self.screen.unshift(); while (++x < lv);
+                        }
+                        self.caret.isActive && self.selectLine(self.caret.line());
+                        self.counter && (self.counter.parent.scrollTop = self.wrapper.scrollTop);
+                    },
+                    dblclick: function() {
+                        var bf = self.caret.textBefore()
+                        , af = self.caret.textAfter()
+                        , line = self.caret.line()
+                        , c = self.caret.column()
+                        , l = 1, r = 0, rgx = /[^\w\s]/, timeout;
+                        
+                        var tripleclick = function() {
+                            self.selection.setRange(line, 0, line+1, 0);
+                            self.showSelection(true);
+                            this.unlisten('click', tripleclick);
+                            timeout = clearTimeout(timeout);
+                        }
+                        this.listen({ 'click': tripleclick });
+                        timeout = setTimeout(function() { self.wrapper.unlisten('click', tripleclick); }, 1000);
+                        
+                        rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : rgx;
+                        
+                        while (l <= c && rgx.test(bf[c-l])) l++;
+                        while (r < af.length && rgx.test(af[r])) r++;
+                        
+                        if (c-l+1 != c+r) {
+                            self.selection.setRange(line, c-l+1, line, c+r);
+                            self.showSelection();
+                        }
+                    },
+                    mousedown: mouseController(self)
+                });
+                
+                this.input.listen({
+                    focus: function() {
+                        self.caret.isActive || self.caret.show().activate();
+                        self.selectLine(self.caret.line());
+                        this.css({ top: self.caret.y, left: self.caret.x });
+                    },
+                    blur: function(e) {
+                        if (self.isMouseDown) {
+                            this.focus();
+                        } else {
+                            self.caret.deactivate().hide();
+                            self.unselectLine();
+                            self.removeOverlays('blur');
+                        }
+                    },
+                    keydown: function(e) {
+                        var kc, code = e.getCharCode()
+                        , ch = String.fromCharCode(code)
+                        , kc = e.getKeyCombination(options.keyCombinationFlag);
+                        
+                        self.caret.deactivate().show();
+                        allowKeyup = true;
+                        
+                        if (($.browser.macosx ? e.metaKey : e.ctrlKey) && ch in commands) {
+                            allowKeyup = commands[ch].call(self, e, code, ch);
+                        } else {
+                            if (code < 48 && code != 9 && !(kc in self.keyMap)) {
+                                kc = e.getKeyCombination(options.keyCombinationFlag | 4);
+                            }
+                            if ((!/^[a-zA-Z0-9]+$/.test(ch) || !e.hasModifierKey() || options.shortcuts) && kc in self.keyMap) {
+                                allowKeyup = self.keyMap[kc].call(self, e, code, kc);
+                            }
+                        }
+                        if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
+                            return allowKeyup = e.cancel();
+                        }
+                        return allowKeyup;
+                    },
+                    keypress: function(e) {
+                        var code = e.getCharCode()
+                        , ch = String.fromCharCode(code);
+                        
+                        if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
+                            if (ch in self.parser.keyMap) {
+                                allowKeyup = self.parser.keyMap[ch].call(self, e, code, ch);
+                            }
+                            if (allowKeyup !== false) {
+                                (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
+                                this.value = '';
+                                return e.cancel();
+                            }
+                        }
+                    },
+                    keyup: function(e) {
+                        self.caret.activate();
+                        allowKeyup && this.value.length && self.insertText(this.value);
+                        self.selection.isset() || (this.value = '');
+                        T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, options.keyupInactivityTimeout);
+                    }
+                });
+                
+                this.caret.on({
+                    'text:changed': function(line, column) {
+                        var dl = self.data.get(line);
+                        dl.text = this.textAtCurrentLine(true);
+                        self.parse(dl, true);
+                    },
+                    'position:changed': function(x, y, line, column, before, after) {
+                        if (options.autoScroll) {
+                            var wrapper = self.wrapper
+                            , pl = sizes.paddingLeft, pt = sizes.paddingTop
+                            , sl = wrapper.scrollLeft, st = wrapper.scrollTop
+                            , cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight
+                            , ix = sizes.charWidth, iy = sizes.lineHeight;
+                            wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
+                            wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
+                        }
+                        if (options.tracking) {
+                            T2 = clearTimeout(T2);
+                            var a, b;
+                            for (var s in self.tracking) {
+                                var len = s.length, i = 0;
+                                do {
+                                    a = len == i || before.endsWith(s.substring(0, len - i));
+                                    b = after.startsWith(s.substring(len - i, len));
+                                } while ((!a || !b) && ++i <= len);
+                                
+                                if (a && b) {
+                                    T2 = setTimeout(function() {
+                                        var r = self.tracking[s].call(self, s, before+after, { line: line, columnStart: column - len + i, columnEnd: column + i });
+                                        r === false && self.highlightOverlay && self.highlightOverlay.remove();
+                                    }, 40);
+                                    break;
+                                }
+                            }
+                            if ((!a || !b) && self.highlightOverlay) {
+                                self.highlightOverlay.remove();
+                            }
+                        }
+                        self.removeOverlays('caret');
+                        self.selectLine(line);
+                    }
+                });
+                
+                fn = function(b) {
+                    b = b ? ['Before','After'] : ['After','Before'];
+                    return function(t) {
+                        var p = self.parser;
+                        if (p && p['onRemoved'+b[0]] && p['onRemoved'+b[0]][t]) {
+                            p = p['onRemoved'+b[0]][t];
+                            typeof p === 'string' || typeof p === 'number' ? self['remove'+b[1]+'Cursor'](p, true) : p instanceof Function && p.call(self, t);
+                        }
+                    };
+                }
+                this.onchanged = function(e) {
+                    if (options.history) {
+                        this.history.pushChanges(e.line, e.column, this.convertToTabs(e.text), e.added);
+                    }
+                    this.removeOverlays('changed');
+                }
+                this['removed.before'] = fn(true);
+                this['removed.after'] = fn(false);
+                
+                this.mainElement.on({ nodeInserted: function() {
+                    this.removeClass('cp-animation');
+                    
+                    var s = window.getComputedStyle(self.screen.element, null);
+                    sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
+                    sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
+                    sizes.paddingLeft = parseInt(s.getPropertyValue('padding-left'));
+                    sizes.scrollTop = parseInt(s.getPropertyValue('top'));
+                    setTimeout(function() { calculateCharDimensions(self); }, 150);
+                    
+                    options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
+                    options.fontSize != 11 && options.fontSize > 0 && self.setFontSize(options.fontSize);
+                    
+                    self.print();
+                }});
+            }
+        },
         init: function(source) {
-            this.data = new Data();
+            this.data = new Data(this);
             this.history.init(source);
             source = source.split('\n');
             this.screen.lastLine !== -1 && this.screen.removeLines();
             
-            var self = this, i = -1, l = source.length, fn;
-            
-            this.data.on({
-                'changed': function(dl) {
-                    self.parse(dl);
-                    self.caret.refresh(true);
-                },
-                'added': (fn = function() {
-                    var s = self.screen.parent;
-                    s.style.minHeight = (this.lines * self.sizes.lineHeight + self.sizes.paddingTop * 2) + 'px';
-                }),
-                'removed': fn
-            });
-            
-            this.history.on({
-                undo: function() {
-                    var a, i = arguments.length;
-                    self.selection.clear();
-                    while (i--) {
-                        a = arguments[i];
-                        var t = self.data.get(a.line).text.substring(0, a.column);
-                        self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
-                        if (a.added) {
-                            self.removeAfterCursor(a.text);
-                        } else {
-                            self.insertText(a.text);
-                        }
-                    }
-                    self.caret.restorePosition();
-                },
-                redo: function() {
-                    var a, i = -1;
-                    self.selection.clear();
-                    while (++i < arguments.length) {
-                        a = arguments[i];
-                        var t = self.data.get(a.line).text.substring(0, a.column);
-                        self.caret.position(a.line, a.column + (self.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
-                        if (a.added) {
-                            self.insertText(a.text);
-                        } else {
-                            self.removeAfterCursor(a.text);
-                        }
-                    }
-                    self.caret.restorePosition();
-                }
-            });
+            var i = -1, l = source.length;
             
             while (++i < l) {
                 this.data.add(this.convertToTabs(source[i]));
@@ -2560,11 +2522,41 @@ define('CodePrinter', ['Selector'], function($) {
         }
     }
     
-    history = function(stackSize, delay) {
+    history = function(cp, stackSize, delay) {
+        this.onundo = function() {
+            var a, i = arguments.length;
+            cp.selection.clear();
+            while (i--) {
+                a = arguments[i];
+                var t = cp.data.get(a.line).text.substring(0, a.column);
+                cp.caret.position(a.line, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
+                if (a.added) {
+                    cp.removeAfterCursor(a.text);
+                } else {
+                    cp.insertText(a.text);
+                }
+            }
+            cp.caret.restorePosition();
+        }
+        this.onredo = function() {
+            var a, i = -1;
+            cp.selection.clear();
+            while (++i < arguments.length) {
+                a = arguments[i];
+                var t = cp.data.get(a.line).text.substring(0, a.column);
+                cp.caret.position(a.line, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length).savePosition();
+                if (a.added) {
+                    cp.insertText(a.text);
+                } else {
+                    cp.removeAfterCursor(a.text);
+                }
+            }
+            cp.caret.restorePosition();
+        }
         this.pushChanges = function(line, column, text, added) {
             if (!this.muted && arguments.length == 4) {
-                var self = this,
-                    changes = { line: line, column: column, text: text, added: added };
+                var self = this
+                , changes = { line: line, column: column, text: text, added: added };
                 
                 if (this.index < this.states.length - 1) {
                     ++this.index;
