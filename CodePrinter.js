@@ -1249,7 +1249,6 @@ define('CodePrinter', ['Selector'], function($) {
             if (this.isLeaf) {
                 var dl = new Line();
                 this.splice(line, 0, dl);
-                this.root.emit('added', dl);
                 return dl;
             } else {
                 var b, i = -1;
@@ -1278,7 +1277,6 @@ define('CodePrinter', ['Selector'], function($) {
             if (dl && (i = dl.parent.indexOf(dl)) >= 0) {
                 var tmp = dl.parent;
                 tmp.splice(i, 1);
-                tmp.root.emit('removed', dl);
                 while (tmp.parent && tmp.length == 0) {
                     i = tmp.parent.indexOf(tmp);
                     (tmp = tmp.parent).splice(i, 1);
@@ -1333,7 +1331,22 @@ define('CodePrinter', ['Selector'], function($) {
                 if (i + 1 < this.parent.length) {
                     return this.parent[i+1];
                 } else {
-                    return this.parent.next();
+                    var next = this.parent.next();
+                    while (next && !next.isLeaf) next = next[0];
+                    return next;
+                }
+            }
+            return null;
+        },
+        prev: function() {
+            var i;
+            if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
+                if (i > 0) {
+                    return this.parent[i-1];
+                } else {
+                    var prev = this.parent.prev();
+                    while (prev && !prev.isLeaf) prev = prev[prev.length-1];
+                    return prev;
                 }
             }
             return null;
@@ -1354,9 +1367,10 @@ define('CodePrinter', ['Selector'], function($) {
         }
     }
     
-    Data = function() {
+    Data = function(cp) {
         Branch.call(this, false);
         this.push(new Branch(true));
+        this.cp = cp;
         
         this.add = function(text) {
             var dl = this.insert(this.size);
@@ -1375,14 +1389,18 @@ define('CodePrinter', ['Selector'], function($) {
     
     Line.prototype = {
         setText: function(str) {
-            this.text = str;
-            this.changed = true;
-            this.root.emit('changed', this);
+            if (str !== this.text) {
+                this.text = str;
+                this.changed = true;
+                this.root.emit('changed', this);
+            }
         },
         setParsed: function(str) {
-            this.parsed = str;
-            this.changed = false;
-            this.touch();
+            if (str !== this.parsed) {
+                this.parsed = str;
+                this.changed = false;
+                this.touch();
+            }
         },
         setStartPoint: function(sp) {
             if (sp instanceof Line) {
@@ -1399,11 +1417,11 @@ define('CodePrinter', ['Selector'], function($) {
         },
         touch: function() {
             if (this.pre instanceof HTMLElement) {
-                this.pre.innerHTML = this.parsed || this.text.encode() || ' ';
+                this.pre.innerHTML = this.parsed || this.root.cp.convertToSpaces(this.text.encode()) || ' ';
             }
         },
         next: function() {
-            var i = this.parent.indexOf(this);
+            var i;
             if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
                 if (i + 1 < this.parent.length) {
                     return this.parent[i+1];
@@ -1415,10 +1433,16 @@ define('CodePrinter', ['Selector'], function($) {
             return null;
         },
         prev: function() {
-            var i = this.parent.indexOf(this);
-            if (i > 0) {
-                return this.parent[i-1];
+            var i;
+            if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
+                if (i > 0) {
+                    return this.parent[i-1];
+                } else {
+                    var prev = this.parent.prev();
+                    return prev && prev.length ? prev[prev.length-1] : null;
+                }
             }
+            return null;
         }
     }
     
