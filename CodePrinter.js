@@ -328,37 +328,12 @@ define('CodePrinter', ['Selector'], function($) {
             mode = this.options.mode;
             source && this.init(source);
             
-            var self = this, timeout
-            , sT = document.scrollTop()
-            , sL = document.scrollLeft()
-            , callback = function(ModeObject, interval) {
-                timeout = clearTimeout(timeout);
+            var self = this, sT = document.scrollTop(), sL = document.scrollLeft();
+            
+            function callback(ModeObject) {
                 self.defineParser(ModeObject);
+                self.forcePrint();
                 self.screen.fill();
-                
-                var data = self.data, i = -1
-                , dl = data.get(0)
-                , l = self.screen.lastLine+1;
-                
-                if (interval !== false) {
-                    var I = clearInterval(I) || setInterval(function() {
-                        var j = -1;
-                        while (dl != null && ++j < 50) {
-                            self.parse(dl, true);
-                            dl = dl.next();
-                        }
-                        if (dl == null) {
-                            I = clearInterval(I);
-                            self.emit('printed');
-                        }
-                    }, 10);
-                }
-                
-                while (++i < l && dl != null) {
-                    self.parse(dl, true);
-                    dl = dl.next();
-                }
-                
                 document.scrollTop(sT);
                 document.scrollLeft(sL);
                 self.options.autofocus && self.caret.position(0, 0) && self.input.focus();
@@ -373,16 +348,25 @@ define('CodePrinter', ['Selector'], function($) {
             return this;
         },
         forcePrint: function() {
-            var self = this;
+            var self = this, dl = this.data.get(0), fn;
             this.memory = this.parser.memoryAlloc();
-            this.data.foreach(function(line) {
-                self.parse(this, true);
-            });
+            
+            (fn = function() {
+                var j = 0;
+                do {
+                    dl = self.parse(dl, true);
+                } while (dl && (dl = dl.next()) && ++j < 300);
+                
+                if (!dl) {
+                    self.emit('printed');
+                    return false;
+                }
+                setTimeout(fn, 10);
+            })();
         },
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode) {
                 this.parser = parser;
-                this.memory = parser.memoryAlloc();
                 this.tracking = (new tracking(this)).extend(parser.tracking);
             }
         },
@@ -397,12 +381,13 @@ define('CodePrinter', ['Selector'], function($) {
                     if (dl.startPoint) {
                         return this.parse(dl.startPoint, true);
                     }
-                    var stream = new Stream(dl.text), i = 0, p, ndl = dl, nl = dl;
+                    var stream = new Stream(dl.text), i = 0, p
+                    , ndl = dl, nl = dl;
                     
                     stream.getNextLine = function() {
                         nl = nl.next();
                         if (nl) {
-                            nl.setStartPoint(dl);
+                            nl.setStartPoint(ndl);
                             this.value.push(nl.text);
                             return this;
                         } else {
@@ -415,20 +400,20 @@ define('CodePrinter', ['Selector'], function($) {
                         
                         do {
                             p[i] = this.convertToSpaces(p[i]);
-                            p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
-                            ndl.setParsed(p[i]);
-                        } while (++i < p.length && (ndl = ndl.next));
+                            dl.parsed = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
+                            dl.touch();
+                        } while (++i < p.length && (dl = dl.next()));
                         
-                        if (ndl && ndl.startPoint) {
+                        if (dl && (ndl = dl.next()) && ndl.startPoint) {
                             ndl.clearStartPoint();
-                            this.parse(ndl, true);
+                            return this.parse(ndl, true);
                         }
                     } catch (e) {
                         console.error(e.message);
                     }
                 }
             }
-            return this;
+            return dl;
         },
         focus: function() {
             setTimeout($.invoke(this.input.focus, this.input), 1);
