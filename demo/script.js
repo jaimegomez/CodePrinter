@@ -7,8 +7,12 @@ $(function() {
     cp.print('JavaScript', $.get('code#JavaScript').innerHTML.decode());
     
     setTimeout(function() {
-        cp.mainElement.animate({ translateX: 0, opacity: 1 }, 700);
-    }, 30);
+        cp.mainElement.animate({ translateX: 0, opacity: 1 }, 700, function() {
+            setTimeout(function() {
+                $('#options, header, article').animate({ opacity: 1 }, 700);
+            }, 150);
+        });
+    }, 150);
     
     $.get('[name=demo]')
     .on({ change: function() {
