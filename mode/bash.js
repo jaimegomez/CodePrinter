@@ -16,10 +16,9 @@ CodePrinter.defineMode('Bash', function() {
     }
     
     return {
-        controls: new RegExp('^('+ controls.join('|') +')$'),
-        keywords: new RegExp('^('+ keywords.join('|') +')$'),
-        specials: new RegExp('^('+ specials.join('|') +')$'),
-        regexp: /\$?\w+|[^\w\s\/]|\b[\d\_]*\.?[\d\_]+\b|\b0x[\da-fA-F\_]+\b/,
+        controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
+        keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
+        specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
         indentIncrements: ['then', 'do', 'in', 'else', 'elif', '{'],
         indentDecrements: ['fi', 'esac', 'done', 'else', 'elif', '}', ';;'],
         lineComment: '#',
@@ -44,10 +43,9 @@ CodePrinter.defineMode('Bash', function() {
                         }
                     }
                 } else if (/^\$?\w+/.test(found)) {
-                    found = found.toLowerCase();
                     if (found[0] === '$') {
                         stream.wrap('variable');
-                    } else if (found == 'true' || found == 'false') {
+                    } else if (/^(true|false)$/i.test(found)) {
                         stream.wrap('builtin-constant', 'boolean');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
