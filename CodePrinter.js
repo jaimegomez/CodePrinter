@@ -299,6 +299,7 @@ define('CodePrinter', ['Selector'], function($) {
             }
         },
         init: function(source) {
+            source = source || '';
             this.data = new Data(this);
             this.history.init(source);
             source = source.split('\n');
