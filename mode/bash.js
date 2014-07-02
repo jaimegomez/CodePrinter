@@ -19,6 +19,7 @@ CodePrinter.defineMode('Bash', function() {
         controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
         keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
         specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
+        regexp: /\$?\w+|\-{0,2}\w+|[^\w\s\/]|\b[\d\_]*\.?[\d\_]+\b|\b0x[\da-fA-F\_]+\b/,
         indentIncrements: ['then', 'do', 'in', 'else', 'elif', '{'],
         indentDecrements: ['fi', 'esac', 'done', 'else', 'elif', '}', ';;'],
         lineComment: '#',
@@ -42,9 +43,11 @@ CodePrinter.defineMode('Bash', function() {
                             stream.wrap('numeric', 'float');
                         }
                     }
-                } else if (/^\$?\w+/.test(found)) {
+                } else if (/^[\$\-\w]./.test(found)) {
                     if (found[0] === '$') {
                         stream.wrap('variable');
+                    } else if (found[0] === '-') {
+                        stream.wrap('parameter');
                     } else if (/^(true|false)$/i.test(found)) {
                         stream.wrap('builtin-constant', 'boolean');
                     } else if (this.controls.test(found)) {
