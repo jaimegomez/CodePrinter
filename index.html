@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8" />
+    <title>CodePrinter</title>
     <link rel="stylesheet" type="text/css" href="CodePrinter.css" />
     <link rel="stylesheet" type="text/css" href="demo/style.css" />
     <script type="text/javascript" src="https://raw.githubusercontent.com/tsapeta/Selector.js/master/Selector.js"></script>
@@ -15,13 +16,16 @@
         <header>
             <h1>CodePrinter</h1>
         </header>
-        <article></article>
+        <article>
+            <p><strong>CodePrinter</strong> is a lightweight code editor written in JavaScript. At this moment it supports 11 programming languages and has 10 additional themes. It's a free and open-source project released under the MIT license.</p>
+        </article>
         <section></section>
         <div id="options">
             <fieldset>
                 <div>
                     <label>Demo</label>
                     <select name="demo">
+                        <option>Ada</option>
                         <option>Bash</option>
                         <option>CoffeeScript</option>
                         <option>Cpp</option>
@@ -120,22 +124,21 @@ var result = hello(['H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!'])
 console.log(result);</code>
 
         <code id="PHP">&lt;?php
-    /* PHP mode */
-    define('STALA', 3.14159);
-    defined('ROOT') or die();
-    
-    namespace system;
-    
-    class Test
-    {
-        public $int = 9;
-        protected $float = 6.2;
-        private $hex = 0x8F;
-        
-        public function __construct()
+    class car {
+        var $fuel;
+      
+        function drive($distance)
         {
-            echo $this->int;
-            return $this;
+            if ($fuel - $distance > 0) {
+                $fuel -= $distance;
+                echo "Driving $distance miles";
+            }
+            else
+                echo "You don't have enough gas to go that far.";
+        }
+        function refuel($amount)
+        {
+            $fuel += $amount;
         }
     }
 ?&gt;</code>
@@ -283,6 +286,30 @@ alert "I knew it!" if elvis?
 
 # Array comprehensions:
 cubes = (math.cube num for num in list)</code>
+        <code id="Ada">--
+-- Simple array example.
+--
+with Gnat.Io; use Gnat.Io;
+procedure Arr1 is
+    A: array(1..5) of Integer;   -- Array subscripts 1 to 5.
+    I: Integer;
+begin
+    -- Read 'em in.
+    for I in 1..5 loop
+        Put("> ");
+        Get(A(I));
+    end loop;
+    
+    -- Put 'em out in reverse order.
+    Put("[");
+    for I in reverse A'Range loop
+        Put(A(I));
+        if I > A'First then
+            Put(' ');
+        end if;
+    end loop;
+    Put_Line("]");
+end Arr1;</code>
         </div>
     </body>
 </html>
