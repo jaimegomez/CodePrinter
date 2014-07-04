@@ -528,10 +528,9 @@ define('CodePrinter', ['Selector'], function($) {
         },
         setHeight: function(size) {
             if (size == 'auto') {
-                this.wrapper.style.removeProperty('height');
-                this.counter.parent.style.removeProperty('height');
+                this.container.style.removeProperty('height');
             } else {
-                this.wrapper.style.height = this.counter.parent.style.height = (this.options.height = parseInt(size)) + 'px';
+                this.container.style.height = (this.options.height = parseInt(size)) + 'px';
             }
             this.emit('height:changed');
             return this;
