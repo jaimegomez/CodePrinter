@@ -1,6 +1,4 @@
-var cp = new CodePrinter({
-    theme: 'default'
-});
+var cp = new CodePrinter();
 
 $(function() {
     $.get('section').append(cp.mainElement);
@@ -9,7 +7,9 @@ $(function() {
     setTimeout(function() {
         cp.mainElement.animate({ translateX: 0, opacity: 1 }, 700, function() {
             setTimeout(function() {
-                $('#options, header, article').animate({ opacity: 1 }, 700);
+                $('#options, header, article').animate({ opacity: 1 }, 700, function() {
+                    $.get('img').effectIn('slideDown', 700);
+                });
             }, 150);
         });
     }, 150);

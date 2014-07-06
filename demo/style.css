@@ -11,6 +11,9 @@ body {
     overflow: hidden;
     background: url("background.png") repeat;
 }
+img {
+    opacity:0;
+}
 main {
     width: 50%;
     min-width: 600px;
