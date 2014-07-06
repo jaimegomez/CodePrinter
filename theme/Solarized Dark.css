@@ -1,0 +1,33 @@
+/* CodePrinter - Solarized Dark theme */
+
+.cps-solarized-dark { border:1px solid #002b36; }
+.cps-solarized-dark .cp-wrapper { background:#002b36; color:#839496; }
+.cps-solarized-dark .cp-counter { background:#073642; color:#657b83; border:none; box-shadow:none; }
+.cps-solarized-dark .cp-caret { background:#e0e0e0; }
+.cps-solarized-dark .cp-selection { background:#2B4F58; }
+.cps-solarized-dark .cp-highlight { border-bottom:1px solid #e0e0e0; }
+.cps-solarized-dark .cp-activeLine { background:#001b26; box-shadow:none; }
+.cps-solarized-dark .cp-search-occurrence { background:#002b36; border-color:#e0e2e4; color:white; }
+.cps-solarized-dark .cp-search-occurrence.active { background:#e0e0e0; }
+
+.cps-solarized-dark .cpx-tab { border-color:#445544; }
+.cps-solarized-dark .cpx-bracket { color:#839496; }
+.cps-solarized-dark .cpx-operator { color:#839496; }
+.cps-solarized-dark .cpx-keyword { color:#dc322f; }
+.cps-solarized-dark .cpx-control { color:#859900; }
+.cps-solarized-dark .cpx-special { color:#b58900; }
+.cps-solarized-dark .cpx-variable { color:#93a1a1; }
+.cps-solarized-dark .cpx-parameter { color:#d33682; }
+.cps-solarized-dark .cpx-constant { color:#cb4b16; }
+.cps-solarized-dark .cpx-builtin-constant { color:#2aa198; }
+.cps-solarized-dark .cpx-numeric { color:#2aa198; }
+.cps-solarized-dark .cpx-function { color:#268bd2; }
+.cps-solarized-dark .cpx-property { color:#333333; }
+.cps-solarized-dark .cpx-regexp { color:#2aa198; }
+.cps-solarized-dark .cpx-escaped { color:#dc322f; }
+.cps-solarized-dark .cpx-phptag { color:#b58900; }
+.cps-solarized-dark .cpx-string { color:#2aa198; }
+.cps-solarized-dark .cpx-comment { color:#586e75; }
+
+.cps-solarized-dark .cpx-special,
+.cps-solarized-dark .cpx-comment { font-style:italic; }
