@@ -2799,12 +2799,12 @@ loader(function($) {
             var sl = self.wrapper.scrollLeft
             , st = self.wrapper.scrollTop
             , o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds()
-            , x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft)
-            , y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
+            , x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft)
+            , y = e.pageY < o.y ? 0 : e.pageY <= o.y + self.wrapper.clientHeight ? st + e.pageY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
             , m = Math.ceil(y / self.sizes.lineHeight)
-            , l = Math.min(Math.max(1, m), self.data.lines) - 1
+            , l = Math.min(Math.max(1, m), self.data.size) - 1
             , s = self.getTextAtLine(l)
-            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight || m > self.data.lines ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
+            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight || m > self.data.size ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
             
             if (e.type === 'mousedown') {
                 self.isMouseDown = true;
@@ -2852,14 +2852,14 @@ loader(function($) {
                 self.unselectLine();
                 self.selection.setEnd(l, c);
                 
-                if (e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight) {
-                    var i = e.clientY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
+                if (e.pageY > o.y && e.pageY < o.y + self.wrapper.clientHeight) {
+                    var i = e.pageY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.pageY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
                     i && setTimeout(function() {
                         if (moveevent) {
-                            self.wrapper.scrollTop += i * self.sizes.lineHeight;
+                            self.wrapper.scrollTop += i * self.sizes.lineHeight / 2;
                             fn.call(window, moveevent);
                         }
-                    }, 300);
+                    }, 50);
                     return e.cancel();
                 }
             }
