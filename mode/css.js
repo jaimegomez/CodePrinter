@@ -1,11 +1,19 @@
 /* CodePrinter - CSS Mode */
 
 CodePrinter.defineMode('CSS', function() {
+    var tags = [
+        'html','body','div','a','ol','ul','li','span','p',
+        'h1','h2','h3','h4','h5','h6','img','input','textarea',
+        'button','form','label','select','option','optgroup',
+        'main','nav','header','section','aside','footer','code',
+        'fieldset','article','pre','table','tr','th','td',
+        'thead','tbody','tfoot','frameset','frame','iframe'
+    ]
     
     return {
-        tags: /^(html|body|div|a|ol|ul|li|span|p|h1|h2|h3|h4|h5|h6|img|input|textarea|button|form|label|select|option|optgroup|main|nav|header|section|aside|footer|code|pre|table|tr|th|td|thead|tbody|tfoot|frameset|frame|iframe)$/,
+        tags: new RegExp('^('+ tags.join('|') +')$', 'i'),
         regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@\w+|[^\w\s]/,
-    	values: /\/\*|\;|,|#[0-9a-fA-F]+|\-?\d+[a-zA-Z%]*|\-?\d*\.\d+[a-zA-Z%]*|[@!]?[a-zA-Z\-]+\b|'|"/,
+    	values: /\/\*|\;|,|#[0-9a-f]+|\-?\d+[a-z%]*|\-?\d*\.\d+[a-z%]*|[@!]?[a-z\-]+\b|'|"/i,
         units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
         lineComment: '/*[text content]*/',
         
@@ -30,9 +38,11 @@ CodePrinter.defineMode('CSS', function() {
                 } else if (found === '/*') {
                     stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
                 }
-            }
-            
+            }  
             return stream;
+        },
+        codeCompletion: function() {
+            return tags;
         },
         symbols: {
             ':': function(stream, found) {
@@ -99,7 +109,7 @@ CodePrinter.defineMode('CSS', function() {
             }
         },
         extension: {
-            onRemovedBefore: { ':': ';' }
+            onLeftRemoval: { ':': ';' }
         }
     }
 });

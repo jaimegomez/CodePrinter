@@ -58,7 +58,6 @@ define('CodePrinter', ['Selector'], function($) {
         minFontSize: 6,
         maxFontSize: 60,
         lineHeight: 15,
-        linesOutsideOfView: 12,
         keyupInactivityTimeout: 1500,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
@@ -148,7 +147,7 @@ define('CodePrinter', ['Selector'], function($) {
                         , af = self.caret.textAfter()
                         , line = self.caret.line()
                         , c = self.caret.column()
-                        , l = 1, r = 0, rgx = /[^\w\s]/, timeout;
+                        , l = 1, r = 0, rgx, timeout;
                         
                         var tripleclick = function() {
                             self.selection.setRange(line, 0, line+1, 0);
@@ -159,7 +158,7 @@ define('CodePrinter', ['Selector'], function($) {
                         this.listen({ 'click': tripleclick });
                         timeout = setTimeout(function() { self.wrapper.unlisten('click', tripleclick); }, 1000);
                         
-                        rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : rgx;
+                        rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
                         
                         while (l <= c && rgx.test(bf[c-l])) l++;
                         while (r < af.length && rgx.test(af[r])) r++;
@@ -185,6 +184,7 @@ define('CodePrinter', ['Selector'], function($) {
                             self.caret.deactivate().hide();
                             self.unselectLine();
                             self.removeOverlays('blur');
+                            self.selection.clear();
                         }
                     },
                     keydown: function(e) {
@@ -278,24 +278,21 @@ define('CodePrinter', ['Selector'], function($) {
                     }
                 });
                 
-                fn = function(b) {
-                    b = b ? ['Before','After'] : ['After','Before'];
-                    return function(t) {
-                        var p = self.parser;
-                        if (p && p['onRemoved'+b[0]] && p['onRemoved'+b[0]][t]) {
-                            p = p['onRemoved'+b[0]][t];
-                            typeof p === 'string' || typeof p === 'number' ? self['remove'+b[1]+'Cursor'](p, true) : p instanceof Function && p.call(self, t);
-                        }
-                    };
-                }
+                this.counter.element.delegate('click', 'li', function() {
+                    var l = parseInt(this.innerHTML) - 1;
+                    self.caret.position(l, 0);
+                    self.selection.setRange(l, 0, l, self.caret.textAtCurrentLine().length);
+                    self.showSelection();
+                });
+                
+                this.selection.on({ done: this.showSelection.bind(this, false) });
+                
                 this.onchanged = function(e) {
                     if (options.history) {
                         this.history.pushChanges(e.line, e.column, this.convertToTabs(e.text), e.added);
                     }
                     this.removeOverlays('changed');
                 }
-                this['onremoved.before'] = fn(true);
-                this['onremoved.after'] = fn(false);
                 
                 this.mainElement.on({ nodeInserted: function() {
                     this.removeClass('cp-animation');
@@ -958,7 +955,7 @@ define('CodePrinter', ['Selector'], function($) {
             overlay.reveal();
             return this;
         },
-        search: function(find) {
+        search: function(find, scroll) {
             if (find) {
                 var search = this.searches = this.searches || {};
                 
@@ -979,7 +976,7 @@ define('CodePrinter', ['Selector'], function($) {
                                 } else if (!search.mute) {
                                     search.results.length = 0;
                                     search.overlay.node.innerHTML = '';
-                                    self.search(search.value);
+                                    self.search(search.value, false);
                                 }
                             },
                             removed: function() {
@@ -1016,8 +1013,8 @@ define('CodePrinter', ['Selector'], function($) {
                                 ec: ln + match.length
                             }});
                             node.style.extend({
-                                top: (sizes.paddingTop + line * sizes.lineHeight + 1) + 'px',
-                                left: (sizes.paddingLeft + sizes.charWidth * ln) + 'px'
+                                top: parseInt(sizes.paddingTop + line * sizes.lineHeight + 1) + 'px',
+                                left: parseInt(sizes.paddingLeft + sizes.charWidth * ln) + 'px'
                             });
                             search.results.push(node);
                             search.overlay.node.append(node);
@@ -1028,7 +1025,7 @@ define('CodePrinter', ['Selector'], function($) {
                     search.overlay.reveal();
                     search.value = find;
                     search.results.removeClass('active').get(0).addClass('active');
-                    scrollToCurrentSearchResult.call(this);
+                    scroll !== false && scrollToCurrentSearchResult.call(this);
                 } else {
                     this.nextOccurrence();
                 }
@@ -1639,6 +1636,7 @@ define('CodePrinter', ['Selector'], function($) {
         block: function(css) {
             css.width = this.sizes.charWidth;
             css.height = this.sizes.lineHeight;
+            css.left += 1;
             return css;
         }
     };
@@ -1895,9 +1893,6 @@ define('CodePrinter', ['Selector'], function($) {
     }
     
     Stream = function(value) {
-        if (!(this instanceof Stream)) {
-            return new Stream(value);
-        }
         this.value = value instanceof Array ? value : typeof value === 'string' ? [value] : [];
         this.parsed = [];
         this.row = 0;
@@ -2131,7 +2126,7 @@ define('CodePrinter', ['Selector'], function($) {
         },
         tear: function() {
             this.teared = this.current().substr(this.pos);
-            this.append(this.teared);
+            this.append(this.teared ? '<span>'+this.teared+'</span>' : '');
             this.forward();
             return this;
         },
@@ -2139,7 +2134,7 @@ define('CodePrinter', ['Selector'], function($) {
             if (this.teared) {
                 var p = this.parsed[this.row];
                 this.backward();
-                this.parsed[this.row] = p.substr(0, p.length - this.teared.length);
+                this.parsed[this.row] = p.substr(0, p.length - this.teared.length - 13);
                 this.pos = this.value[this.row].length - this.teared.length;
                 this.teared = null;
             }
@@ -2156,7 +2151,7 @@ define('CodePrinter', ['Selector'], function($) {
             var str = this.current().substr(this.pos);
             found = found || this.found;
             if (found && str.indexOf(found) === 0) {
-                this.append(found);
+                this.append('<span>'+found+'</span>');
                 this.pos = this.pos + found.length;
                 this.found = false;
             }
@@ -2180,8 +2175,12 @@ define('CodePrinter', ['Selector'], function($) {
     CodePrinter.Mode = function(name, extend) {
         this.name = name;
         this.keyMap = {};
-        this.onRemovedBefore = {'{':'}','(':')','[':']','"':'"',"'":"'"};
-        this.onRemovedAfter = {'}':'{',')':'(',']':'[','"':'"',"'":"'"};
+        this.onLeftRemoval = {
+            '{': '}', '(': ')', '[': ']', '"': '"', "'": "'"
+        }
+        this.onRightRemoval = {
+            '}': '{', ')': '(', ']': '[', '"': '"', "'": "'"
+        }
         this.indentIncrements = ['(', '[', '{', ':'];
         this.indentDecrements = [')', ']', '}'];
         this.brackets = {
@@ -2274,11 +2273,27 @@ define('CodePrinter', ['Selector'], function($) {
     keyMap = function() {}
     keyMap.prototype = {
         'Backspace': function() {
-            var t = this.caret.textBefore()
-            , m = t.match(/ +$/)
-            , r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
-            
-            this.selection.isset() ? this.removeSelection() : this.removeBeforeCursor(r);
+            if (this.selection.isset()) {
+                this.removeSelection();
+            } else {
+                var bf = this.caret.textBefore()
+                , af = this.caret.textAfter()
+                , chbf = bf.slice(-1), m = bf.match(/ +$/)
+                , r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
+                
+                if (this.parser.onLeftRemoval && this.parser.onLeftRemoval[chbf]) {
+                    var x = this.parser.onLeftRemoval[chbf];
+                    if (x instanceof Function) {
+                        x = x.call(this, chbf, bf, af);
+                        if (x === false) return false;
+                    }
+                    if ('string' === typeof x && af.indexOf(x) === 0) {
+                        this.caret.moveX(x.length);
+                        r = chbf + x;
+                    }
+                }
+                this.removeBeforeCursor(r);
+            }
             return false;
         },
         'Ctrl+Backspace': function() {
@@ -2316,10 +2331,11 @@ define('CodePrinter', ['Selector'], function($) {
         },
         'Enter': function() {
             if (this.options.indentNewLines) {
-                var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line);
+                var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line)
+                , af = this.caret.textAfter(), spacesAfter = 0;
                 
                 if (this.parser && this.parser.indentation) {
-                    var i = this.parser.indentation.call(this, this.caret.textBefore().trim(), this.caret.textAfter().trim(), line, indent, this.parser);
+                    var i = this.parser.indentation.call(this, this.caret.textBefore().trim(), af.trim(), line, indent, this.parser);
                     if (i instanceof Array) {
                         var first = i.shift();
                         while (i.length) {
@@ -2330,7 +2346,10 @@ define('CodePrinter', ['Selector'], function($) {
                         indent += parseInt(i) || 0;
                     }
                 }
-                this.insertText('\n' + this.tabString(indent) + rest, -rest.length);
+                if (af && af.match(/^( +)/) && RegExp.$1) {
+                    spacesAfter = RegExp.$1.length;
+                }
+                this.insertText('\n' + this.tabString(indent).slice(spacesAfter) + rest, -rest.length + spacesAfter);
             } else {
                 this.insertText('\n');
             }
@@ -2341,10 +2360,10 @@ define('CodePrinter', ['Selector'], function($) {
             return false;
         },
         'PageUp': function() {
-            this.wrapper.scrollTop -= this.wrapper.clientHeight;
+            this.caret.moveY(-50);
         },
         'PageDown': function() {
-            this.wrapper.scrollTop += this.wrapper.clientHeight;
+            this.caret.moveY(50);
         },
         'End': function() {
             this.caret.position(this.data.size - 1, -1);
@@ -2358,11 +2377,27 @@ define('CodePrinter', ['Selector'], function($) {
             return false;
         },
         'Del': function() {
-            var t = this.caret.textAfter(),
-                m = t.match(/^ +/),
-                r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
-            
-            this.selection.isset() ? this.removeSelection() : this.removeAfterCursor(r);
+            if (this.selection.isset()) {
+                this.removeSelection();
+            } else {
+                var bf = this.caret.textBefore()
+                , af = this.caret.textAfter()
+                , chaf = af.charAt(0), m = af.match(/^ +/)
+                , r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
+                
+                if (this.parser.onRightRemoval && this.parser.onRightRemoval[chaf]) {
+                    var x = this.parser.onRightRemoval[chaf];
+                    if (x instanceof Function) {
+                        x = x.call(this, chaf, bf, af);
+                        if (x === false) return false;
+                    }
+                    if ('string' === typeof x && bf.slice(-x.length) === x) {
+                        this.caret.moveX(-x.length);
+                        r = x + chaf;
+                    }
+                }
+                this.removeAfterCursor(r);
+            }
             return false;
         },
         '"': function(e, k, ch) {
@@ -2763,6 +2798,7 @@ define('CodePrinter', ['Selector'], function($) {
         'htm': 'html',
         'less': 'css',
         'h': 'cpp',
+        'c++': 'cpp',
         'rb': 'ruby',
         'pl': 'perl',
         'sh': 'bash',
@@ -2925,7 +2961,7 @@ define('CodePrinter', ['Selector'], function($) {
         return {
             x: cp.sizes.paddingLeft + column * cp.sizes.charWidth,
             y: cp.sizes.paddingTop + line * cp.sizes.lineHeight
-        };
+        }
     }
     function createSpan(text, classes, top, left, width, height) {
         var s = span.cloneNode().addClass(classes);
