@@ -14,7 +14,7 @@ var loader = function(fn) {
 
 loader(function($) {
     var CodePrinter, Data, DataLine, Caret
-    , Screen, Counter, InfoBar, Finder, Stream
+    , Screen, Counter, InfoBar, Stream
     , keyMap, commands, history, selection, tracking
     , lineendings, extensions, div, li, pre, span
     , DATA_RATIO = 10
@@ -95,7 +95,7 @@ loader(function($) {
                 } else {
                     self.caret.deactivate().hide();
                     self.unselectLine();
-                    self.removeOverlays();
+                    self.removeOverlays('blur');
                 }
             },
             keydown: function(e) {
@@ -126,7 +126,6 @@ loader(function($) {
                 , ch = String.fromCharCode(code);
                 
                 if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-                    T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keydownInactivityTimeout);
                     (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                     this.value = '';
                     return e.cancel();
@@ -136,6 +135,7 @@ loader(function($) {
                 self.caret.activate();
                 allowKeyup && this.value.length && self.insertText(this.value);
                 self.selection.isset() || (this.value = '');
+                T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, self.options.keyupInactivityTimeout);
             }
         });
         
@@ -144,7 +144,6 @@ loader(function($) {
                 var dl = self.data.getLine(line);
                 dl.text = this.textAtCurrentLine(true);
                 self.parse(line, dl, true);
-                self.finder && self.finder.isOpen && self.finder.find();
             },
             'position:changed': function(x, y) {
                 if (self.options.autoScroll) {
@@ -156,7 +155,7 @@ loader(function($) {
                     wrapper.scrollLeft = x + pl >= cw ? x + pl - cw + sl : x - pl < sl ? x - pl : sl;
                     wrapper.scrollTop = y + iy + pt >= ch ? y + iy + pt - ch + st : y - pt < st ? y - pt : st;
                 }
-                self.removeOverlays();
+                self.removeOverlays('caret');
                 self.selectLine(this.line());
             }
         });
@@ -176,6 +175,7 @@ loader(function($) {
                 if (this.options.history) {
                     this.history.pushChanges(e.line, e.column, this.convertToTabs(e.text), e.added);
                 }
+                this.removeOverlays('changed');
             },
             'removed.before': fn(true),
             'removed.after': fn(false)
@@ -186,7 +186,6 @@ loader(function($) {
             
             options.lineNumbers && self.openCounter();
             options.infobar && self.openInfobar();
-            options.showFinder && self.openFinder();
             options.snippets && self.snippets.push.apply(self.snippets, options.snippets);
             self.setWidth(options.width);
             self.setHeight(options.height);
@@ -217,7 +216,7 @@ loader(function($) {
         return this.init(data);
     };
     
-    CodePrinter.version = '0.6.2';
+    CodePrinter.version = '0.6.3';
     
     CodePrinter.defaults = {
         path: '',
@@ -233,7 +232,7 @@ loader(function($) {
         maxFontSize: 60,
         lineHeight: 15,
         linesOutsideOfView: 12,
-        keydownInactivityTimeout: 1500,
+        keyupInactivityTimeout: 1500,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
         historyStackSize: 100,
@@ -258,8 +257,6 @@ loader(function($) {
         insertClosingQuotes: true,
         tabTriggers: true,
         shortcuts: true,
-        showFinder: false,
-        searchOnTheFly: false,
         keyCombinationFlag: 1
     };
     
@@ -452,10 +449,9 @@ loader(function($) {
                         p[i] = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
                         data.getLine(line+i).setParsed(p[i]);
                     }
-                    while (i < data.lines && (ndl = data.getLine(line+i)) && ndl.startPoint == dl) {
+                    if ((ndl = data.getLine(line+i)) && ndl.startPoint) {
                         delete ndl.startPoint;
                         this.parse(line+i, ndl, true);
-                        i++;
                     }
                 }
             }
@@ -531,7 +527,6 @@ loader(function($) {
                 calculateCharDimensions(this);
                 this.screen.fix();
                 this.caret.refresh();
-                this.finder && this.finder.searched && this.finder.reload();
                 this.emit('fontsize:changed', size);
             }
             return this;
@@ -567,13 +562,26 @@ loader(function($) {
             var l = this.data.getLine(line < 0 ? this.data.lines + line : line);
             return l ? this.convertToSpaces(l.text) : '';
         },
-        getIndentAtLine: function(line) {
-            var i = -1, dl = this.data.getLine(line);
+        getIndentAtLine: function(line, dl) {
+            var i = -1;
+            dl = dl || this.data.getLine(line);
             if (dl) {
                 while (dl.text[++i] === '\t');
                 return i;
             }
             return 0;
+        },
+        setIndentAtLine: function(line, indent) {
+            indent = Math.max(0, indent);
+            var dl = this.data.getLine(line), old, diff;
+            if (dl) {
+                old = this.getIndentAtLine(old, dl);
+                diff = indent - old;
+                dl.text = '\t'.repeat(indent) + dl.text.replace(/^\t*/g, '');
+                this.parse(line, dl, true);
+                this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
+                this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
+            }
         },
         increaseIndentAtLine: function(line) {
             var dl = this.data.getLine(line);
@@ -954,13 +962,141 @@ loader(function($) {
         },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
-            var overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
+            var self = this, args = arguments
+            , overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
+            overlay.on('refresh', function(a) { a == null && self.createHighlightOverlay.apply(self, args); });
             for (var i = 0; i < arguments.length; i++) {
                 var pos = getPositionOf(this, arguments[i][0], arguments[i][1]);
                 overlay.node.append(createSpan(arguments[i][2], 'cp-highlight', pos.y, pos.x, arguments[i][2].length * this.sizes.charWidth, this.sizes.lineHeight));
             }
             overlay.reveal();
             return this;
+        },
+        search: function(find) {
+            if (find) {
+                var search = this.searches = this.searches || {};
+                
+                if (!search.value || find.toString() != search.value.toString() || !search.results || !search.results.length) {
+                    var self = this, sizes = this.sizes, isregexp = find instanceof RegExp;
+                    search.results = $([]);
+                    
+                    if (!(search.overlay instanceof CodePrinter.Overlay)) {
+                        search.overlay = new CodePrinter.Overlay(this, 'cp-search-overlay', false);
+                        search.mute = false;
+                        
+                        search.overlay.on({
+                            refresh: function(a) {
+                                if (a == 'caret') {
+                                    for (var j = 0; j < search.results.length; j++) {
+                                        search.results[j].style.opacity == "0" && search.results[j].fadeIn();
+                                    }
+                                } else if (!search.mute) {
+                                    search.results.length = 0;
+                                    search.overlay.node.innerHTML = '';
+                                    self.search(search.value);
+                                }
+                            },
+                            removed: function() {
+                                delete self.searches;
+                            }
+                        });
+                        search.overlay.node.delegate('mousedown', 'span', function(e) {
+                            if (this.position) {
+                                search.mute = true;
+                                self.selection.setRange(this.position.sl, this.position.sc, this.position.el, this.position.ec);
+                                self.caret.position(this.position.el, this.position.ec);
+                                this.fadeOut();
+                                search.mute = false;
+                            }
+                            return e.cancel();
+                        });
+                    } else {
+                        search.overlay.node.innerHTML = '';
+                    }
+                    
+                    for (var line = 0; line < this.data.lines; line++) {
+                        var i, ln = 0, value = this.getTextAtLine(line);
+                        
+                        while (value && (i = value.search(find)) !== -1) {
+                            var match = isregexp ? value.match(find)[0] : find
+                            , node = span.cloneNode().addClass('cp-search-occurrence');
+                            
+                            node.textContent = node.innerText = node.innerHTML = match;
+                            ln = ln + i;
+                            node.extend({ position: {
+                                sl: line,
+                                sc: ln,
+                                el: line,
+                                ec: ln + match.length
+                            }});
+                            node.style.extend({
+                                width: (sizes.charWidth * match.length) + 2 + 'px',
+                                height: sizes.lineHeight + 'px',
+                                top: (sizes.paddingTop + line * sizes.lineHeight + 1) + 'px',
+                                left: (sizes.paddingLeft + sizes.charWidth * ln) + 'px'
+                            });
+                            search.results.push(node);
+                            search.overlay.node.append(node);
+                            ln = ln + match.length;
+                            value = value.substr(i + match.length);
+                        }
+                    }
+                    search.overlay.reveal();
+                    search.value = find;
+                    search.results.removeClass('active').get(0).addClass('active');
+                    scrollToCurrentSearchResult.call(this);
+                } else {
+                    this.nextOccurrence();
+                }
+            }
+            return this;
+        },
+        searchEnd: function() {
+            if (this.searches) {
+                this.searches.overlay.remove();
+            }
+        },
+        nextOccurrence: function() {
+            if (this.searches) {
+                this.searches.results.removeClass('active').getNext().addClass('active');
+                scrollToCurrentSearchResult.call(this);
+            }
+        },
+        prevOccurrence: function() {
+            if (this.searches) {
+                this.searches.results.removeClass('active').getPrev().addClass('active');
+                scrollToCurrentSearchResult.call(this);
+            }
+        },
+        replace: function(replaceWith, vol, offset) {
+            if ('string' === typeof replaceWith && this.searches) {
+                var search = this.searches
+                , results = search.results
+                , lastline = 0, cmv = 0;
+                
+                if (results.length) {
+                    vol = Math.min(Math.max(0, vol || results.length), results.length);
+                    offset = offset || results.g || 0;
+                    
+                    while (vol-- > 0) {
+                        var node = results[offset], value = node.text();
+                        if (node.position) {
+                            cmv = node.position.el == lastline ? cmv : 0;
+                            search.results.remove(node);
+                            search.overlay.node.removeChild(node);
+                            search.mute = true;
+                            this.caret.position(node.position.el, node.position.ec - cmv);
+                            this.removeBeforeCursor(value);
+                            this.insertText(replaceWith);
+                            search.mute = false;
+                            cmv = replaceWith.length - value.length;
+                        }
+                        lastline = node.position.el;
+                        results.get(offset);
+                    }
+                    search.overlay.emit('refresh');
+                }
+            }
         },
         findSnippet: function(trigger) {
             var result, fn = function(snippets, simple) {
@@ -1066,26 +1202,13 @@ loader(function($) {
         closeInfobar: function() {
             this.infobar && this.infobar.element.remove();
         },
-        openFinder: function() {
-            this.finder = this.finder || new Finder(this);
-            this.finder.clear();
-            this.mainElement.append(this.finder.bar);
-            this.finder.overlay.reveal();
-            this.finder.input.focus();
-            this.finder.isOpen = true;
-        },
-        closeFinder: function() {
-            if (this.finder && this.finder.isOpen) {
-                this.finder.bar.remove();
-                this.finder.overlay.remove();
-                this.finder.isOpen = false;
-            }
-        },
         removeOverlays: function() {
             if (this.overlays) {
                 for (var i = 0; i < this.overlays.length; i++) {
                     if (this.overlays[i].isRemovable) {
                         this.overlays[i].remove();
+                    } else {
+                        this.overlays[i].emit('refresh', Array.apply(null, arguments));
                     }
                 }
             }
@@ -1338,8 +1461,9 @@ loader(function($) {
                 this.setPixelPosition(x, y);
                 
                 if (cp.options.tracking) {
+                    var a, b;
                     for (var s in this.tracking) {
-                        var a, b, len = s.length, i = 0;
+                        var len = s.length, i = 0;
                         do {
                             a = len == i || before.endsWith(s.substring(0, len - i));
                             b = after.startsWith(s.substring(len - i, len));
@@ -1348,9 +1472,10 @@ loader(function($) {
                         if (a && b) {
                             timeout = setTimeout($.invoke(this.tracking[s], this, [cp, s, { line: l, columnStart: this.column() - len + i, columnEnd: this.column() + i }]), 40);
                             break;
-                        } else if (cp.highlightOverlay) {
-                            cp.highlightOverlay.remove();
                         }
+                    }
+                    if ((!a || !b) && cp.highlightOverlay) {
+                        cp.highlightOverlay.remove();
                     }
                 }
                 return this;
@@ -1394,6 +1519,7 @@ loader(function($) {
                 return this.position(mv, column);
             },
             refresh: function() {
+                cp.removeOverlays(null);
                 return this.setPixelPosition(cp.sizes.charWidth * Math.min(column, this.textBefore().length), cp.sizes.lineHeight * line);
             },
             forceRefresh: function() {
@@ -1652,14 +1778,14 @@ loader(function($) {
             if (!this.node.parentNode) {
                 this.root.overlays.push(this);
                 this.root.wrapper.append(this.node);
-                this.emit('overlay:revealed');
+                this.emit('revealed');
             }
         },
         remove: function() {
             var i = this.root.overlays.indexOf(this);
             i != -1 && this.root.overlays.splice(i, 1);
             this.node.remove();
-            this.emit('overlay:removed');
+            this.emit('removed');
         },
         removable: function(is) {
             this.isRemovable = !!is;
@@ -1805,146 +1931,6 @@ loader(function($) {
             this.segments.info.innerHTML = str;
         }
     };
-    
-    Finder = function(cp) {
-        var self = this,
-            findnext = document.createElement('button').addClass('cpf-button cpf-findnext'),
-            findprev = document.createElement('button').addClass('cpf-button cpf-findprev'),
-            closebutton = document.createElement('button').addClass('cpf-button cpf-close'),
-            leftbox = div.cloneNode().addClass('cpf-leftbox'),
-            flexbox = div.cloneNode().addClass('cpf-flexbox'),
-            input = document.createElement('input').addClass('cpf-input'),
-            bar = div.cloneNode().addClass('cpf-bar'),
-            overlay = new CodePrinter.Overlay(cp, 'cpf-overlay', false),
-            keyMap = {
-                13: function() {
-                    if (self.searched === this.value) {
-                        self.next();
-                    } else {
-                        self.find(this.value);
-                    }
-                },
-                27: function() {
-                    cp.closeFinder();
-                },
-                38: function() {
-                    self.prev();
-                },
-                40: function() {
-                    self.next();
-                }
-            };
-        
-        findnext.innerHTML = 'Next';
-        findprev.innerHTML = 'Prev';
-        closebutton.innerHTML = 'Close';
-        input.type = 'text';
-        bar.append(leftbox.append(closebutton, findprev, findnext), flexbox.append(input));
-        
-        input.on({ keydown: function(e) {
-            var k = e.keyCode ? e.keyCode : e.charCode ? e.charCode : 0;
-            return keyMap[k] ? (keyMap[k].call(this) || e.cancel()) : true;
-        }, keyup: function(e) {
-            cp.options.searchOnTheFly && this.value !== self.searched ? self.find(this.value) : 0;
-        }});
-        findnext.on({ click: function(e) { self.next(); }});
-        findprev.on({ click: function(e) { self.prev(); }});
-        closebutton.on({ click: function(e) { cp.closeFinder(); }});
-        overlay.node.delegate('click', 'span', function(e) {
-            if (this.position) {
-                cp.selection.setStart(this.position.ls, this.position.cs).setEnd(this.position.le, this.position.ce);
-                cp.showSelection();
-                this.parentNode.removeChild(this);
-                return e.cancel();
-            }
-        });
-        
-        self.root = cp;
-        self.input = input;
-        self.bar = bar;
-        self.overlay = overlay;
-        self.searchResults = $([]);
-        
-        return self;
-    }
-    Finder.prototype = {
-        clear: function() {
-            this.searched = null;
-            this.searchResults.length = 0;
-            this.overlay.node.innerHTML = '';
-        },
-        push: function(span) {
-            this.searchResults.push(span);
-            this.overlay.node.append(span);
-        },
-        find: function(find) {
-            var root = this.root,
-                siz = root.sizes,
-                value, index, line = 0, ln = 0, last, bf;
-            
-            find = find || this.input.value;
-            this.clear();
-            
-            if (find) {
-                for (; line < root.data.lines; line++) {
-                    value = root.getTextAtLine(line);
-                    ln = 0;
-                    
-                    while (value && (index = value.indexOf(find)) !== -1) {
-                        var node = span.cloneNode().addClass('cpf-occurrence');
-                        node.textContent = node.innerText = node.innerHTML = find;
-                        ln = ln + index;
-                        node.extend({ position: {
-                            ls: line, 
-                            cs: ln,
-                            le: line,
-                            ce: ln + find.length
-                        }});
-                        node.style.extend({
-                            width: (siz.charWidth * find.length) + 2 + 'px',
-                            height: siz.lineHeight + 'px',
-                            top: (siz.paddingTop + line * siz.lineHeight + 1) + 'px',
-                            left: (siz.paddingLeft + siz.charWidth * ln + 1) + 'px'
-                        });
-                        this.push(node);
-                        ln = ln + find.length;
-                        value = value.substr(index + find.length);
-                    }
-                }
-                this.overlay.reveal();
-                this.searched = find;
-                this.searchResults.removeClass('active').get(0).addClass('active');
-                this.scrollToActive();
-            }
-        },
-        reload: function() {
-            return this.find(this.searched);
-        },
-        next: function() {
-            if (this.searchResults.length > 0) {
-                this.searchResults.removeClass('active').getNext().addClass('active');
-                this.scrollToActive();
-            } else {
-                this.find();
-            }
-        },
-        prev: function() {
-            if (this.searchResults.length > 0) {
-                this.searchResults.removeClass('active').getPrev().addClass('active');
-                this.scrollToActive();
-            } else {
-                this.find();
-            }
-        },
-        scrollToActive: function() {
-            this.root.infobar && this.root.infobar.update(this.searchResults.length ? (this.searchResults.g+1)+' of '+this.searchResults.length+' matches' : 'Unable to find '+this.searched);
-            this.searchResults.length > 0 && $(this.root.wrapper).include(this.root.counter && this.root.counter.parent).scrollTo(
-                parseInt(this.searchResults.css('left') - this.root.wrapper.clientWidth/2),
-                parseInt(this.searchResults.css('top') - this.root.wrapper.clientHeight/2),
-                this.root.options.autoScrollSpeed
-            );
-        }
-    }
     
     Stream = function(value) {
         if (!(this instanceof Stream)) {
@@ -2410,6 +2396,7 @@ loader(function($) {
             this.caret.position(0, 0);
             return false;
         },
+        'Alt+Up': CodePrinter.prototype.prevOccurrence,
         'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
         'Ctrl+Right': function() {
             this.caret.position(this.caret.line(), -1);
@@ -2419,13 +2406,13 @@ loader(function($) {
             this.caret.position(this.data.lines - 1, -1);
             return false;
         },
+        'Alt+Down': CodePrinter.prototype.nextOccurrence,
         'Alt+Ctrl+Down': CodePrinter.prototype.swapLineDown,
         'Ctrl+F': function(e) {
-            if (e.shiftKey) {
-                this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
-            } else {
-                !this.finder || this.finder.bar.parentNode == null ? this.openFinder() : this.finder.input.focus();
-            }
+            this.search(prompt('Find...'));
+        },
+        'Shift+Ctrl+F': function() {
+            this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
         },
         'Ctrl+I': function() {
             !this.infobar || this.infobar.element.parentNode == null ? this.openInfobar() : this.closeInfobar();
@@ -2806,18 +2793,18 @@ loader(function($) {
     var mouseController = function(self) {
         var moveevent, moveselection = false
         , fn = function(e) {
-            if (e.button > 0 || e.which > 1)
+            if (e.button > 0 || e.which > 1 || e.defaultPrevented)
                 return false;
             
             var sl = self.wrapper.scrollLeft
             , st = self.wrapper.scrollTop
             , o = self.sizes.bounds = self.sizes.bounds || self.wrapper.bounds()
-            , x = Math.max(0, sl + e.clientX - o.x - self.sizes.paddingLeft)
-            , y = e.clientY < o.y ? 0 : e.clientY <= o.y + self.wrapper.clientHeight ? st + e.clientY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
+            , x = Math.max(0, sl + e.pageX - o.x - self.sizes.paddingLeft)
+            , y = e.pageY < o.y ? 0 : e.pageY <= o.y + self.wrapper.clientHeight ? st + e.pageY - o.y - self.sizes.paddingTop : self.wrapper.scrollHeight
             , m = Math.ceil(y / self.sizes.lineHeight)
-            , l = Math.min(Math.max(1, m), self.data.lines) - 1
+            , l = Math.min(Math.max(1, m), self.data.size) - 1
             , s = self.getTextAtLine(l)
-            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight || m > self.data.lines ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
+            , c = y === 0 ? 0 : y === self.wrapper.scrollHeight || m > self.data.size ? s.length : Math.min(Math.max(0, Math.round(x / self.sizes.charWidth)), s.length);
             
             if (e.type === 'mousedown') {
                 self.isMouseDown = true;
@@ -2865,14 +2852,14 @@ loader(function($) {
                 self.unselectLine();
                 self.selection.setEnd(l, c);
                 
-                if (e.clientY > o.y && e.clientY < o.y + self.wrapper.clientHeight) {
-                    var i = e.clientY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.clientY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
+                if (e.pageY > o.y && e.pageY < o.y + self.wrapper.clientHeight) {
+                    var i = e.pageY <= o.y + 2 * self.sizes.lineHeight ? -1 : e.pageY >= o.y + self.wrapper.clientHeight - 2 * self.sizes.lineHeight ? 1 : 0;
                     i && setTimeout(function() {
                         if (moveevent) {
-                            self.wrapper.scrollTop += i * self.sizes.lineHeight;
+                            self.wrapper.scrollTop += i * self.sizes.lineHeight / 2;
                             fn.call(window, moveevent);
                         }
-                    }, 300);
+                    }, 50);
                     return e.cancel();
                 }
             }
@@ -2934,6 +2921,13 @@ loader(function($) {
         cp.removeBeforeCursor(x + '\n' + y);
         cp.insertText(y + '\n' + x);
         cp.caret.restorePosition();
+    }
+    function scrollToCurrentSearchResult() {
+        if (this.searches && this.searches.results && this.searches.results.length > 0) {
+            var x = Math.max(0, parseInt(this.searches.results.css('left') - this.wrapper.clientWidth/2))
+            , y = Math.max(0, parseInt(this.searches.results.css('top') - this.wrapper.clientHeight/2));
+            $(this.wrapper).scrollTo(x, y, this.options.autoScrollSpeed);
+        }
     }
     
     $.registerEvent({

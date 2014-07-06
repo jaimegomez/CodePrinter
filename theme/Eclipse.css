@@ -2,15 +2,13 @@
 
 .cps-eclipse .cp-wrapper { background:#FFFFFF; color:#000000; }
 .cps-eclipse .cp-counter,
-.cps-eclipse .cpi-bar,
-.cps-eclipse .cpf-bar { background:#FFFFFF; border-color:#AAAAAA; color:#000000; box-shadow:0 0 4px rgba(0,0,0,0.3); }
+.cps-eclipse .cpi-bar { background:#FFFFFF; border-color:#AAAAAA; color:#000000; box-shadow:0 0 4px rgba(0,0,0,0.3); }
 .cps-eclipse .cp-caret { background:#000000; box-shadow:0 0 2px rgba(0,0,0,0.5); }
 .cps-eclipse .cp-selection { background:#C8D2DE; }
 .cps-eclipse .cp-highlight { border-bottom:1px solid black; }
 .cps-eclipse .cp-activeLine { background:rgba(0,0,255,0.2); box-shadow:none; }
-.cps-eclipse .cpf-input { background:#FAFAFA; border-color:#AAAAAA; }
-.cps-eclipse .cpf-occurrence { border-color:#AAAAAA; }
-.cps-eclipse .cpf-occurrence.active { background:white; border-color:black; }
+.cps-eclipse .cp-search-occurrence { border-color:#AAAAAA; }
+.cps-eclipse .cp-search-occurrence.active { background:white; border-color:black; }
 
 .cps-eclipse .cpx-tab { border-color:#D8D8D8; }
 .cps-eclipse .cpx-bracket { color:#000000; }
