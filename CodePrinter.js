@@ -642,19 +642,37 @@ define('CodePrinter', ['Selector'], function($) {
             var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b(?!\\b'+pattern+'\\b).*$' : pattern.escape()+'(?!.*'+pattern.escape()+').*$');
             line = Math.max(0, Math.min(line, this.data.size - 1));
-            while ((dl = this.data.get(line--)) && ((i = this.convertToSpaces(dl.text).substring(0, column).search(pattern)) === -1 || !this.isState(states, line+1, i + 1))) {
-                column = Infinity;
+            while (dl = this.data.get(line)) {
+                i = this.convertToSpaces(dl.text).substring(0, column).search(pattern);
+                if (i === -1) {
+                    column = Infinity;
+                    --line;
+                } else {
+                    if (this.isState(states, line, i + 1)) {
+                        break;
+                    }
+                    column = i;
+                }
             }
-            return [line + 1, i];
+            return [line, i];
         },
         searchRight: function(pattern, line, column, states) {
             var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b' : pattern.escape());
             line = Math.max(0, Math.min(line, this.data.size - 1));
-            while ((dl = this.data.get(line++)) && ((i = this.convertToSpaces(dl.text).substr(column).search(pattern)) === -1 || !this.isState(states, line-1, i + column + 1))) {
-                column = 0;
+            while (dl = this.data.get(line)) {
+                i = this.convertToSpaces(dl.text).substr(column).search(pattern);
+                if (i === -1) {
+                    column = 0;
+                    ++line;
+                } else {
+                    if (this.isState(states, line, i + column + 1)) {
+                        break;
+                    }
+                    column += i + 1;
+                }
             }
-            return [line - 1, i + column];
+            return [line, i + column];
         },
         substring: function(from, to) {
             var str = '';
