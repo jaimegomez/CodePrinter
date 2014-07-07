@@ -729,9 +729,7 @@ define('CodePrinter', ['Selector'], function($) {
                 , dl = this.data.get(line)
                 , dlt = this.convertToSpaces(dl.text)
                 , bf = dlt.substring(0, column), af = dlt.substr(column)
-                , isb = this.cursorIsBeforePosition(line, bf.length);
-                
-                this.emit('changed', { line: line, column: this.convertToTabs(bf).length, text: text, added: true });
+                , isa = this.cursorIsAfterPosition(line, bf.length, true);
                 
                 if (s.length > 1) {
                     var i = s.length - 1;
@@ -743,8 +741,9 @@ define('CodePrinter', ['Selector'], function($) {
                 }
                 this.dispatch(dl, bf + s[0] + af);
                 this.caret.refresh(true);
-                !isb && this.caret.moveX(text.length);
+                isa && this.caret.moveX(text.length);
                 mx && this.caret.moveX(mx);
+                this.emit('changed', { line: line, column: this.convertToTabs(bf).length, text: text, added: true });
             }
             return this;
         },
@@ -769,8 +768,8 @@ define('CodePrinter', ['Selector'], function($) {
             return this;
         },
         insertNewLine: function(l, text) {
-            var old = this.data.get(l-1);
-            var dl = this.data.insert(l);
+            var old = this.data.get(l-1)
+            , dl = this.data.insert(l);
             dl.text = text || '';
             this.screen.insert(dl, l);
             if (old && old.startPoint) {
@@ -2152,7 +2151,7 @@ define('CodePrinter', ['Selector'], function($) {
         },
         tear: function() {
             this.teared = this.current().substr(this.pos);
-            this.append(this.teared ? '<span>'+this.teared+'</span>' : '');
+            this.append(this.teared.trim().length ? '<span>'+this.teared+'</span>' : this.teared);
             this.forward();
             return this;
         },
@@ -2385,7 +2384,7 @@ define('CodePrinter', ['Selector'], function($) {
             return false;
         },
         'Esc': function() {
-            this.isFullscreen && this.exitFullscreen();
+            this.isFullscreen ? this.exitFullscreen() : this.searchEnd();
             return false;
         },
         'PageUp': function() {
@@ -3045,7 +3044,7 @@ define('CodePrinter', ['Selector'], function($) {
     }
     function indentGrid(text, width) {
         var pos = text.search(/[^ ]/), tmp;
-        pos == -1 && (pos = text.length); 
+        pos == -1 && (pos = text.length);
         tmp = [text.substring(0, pos), text.substr(pos)];
         tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
         return tmp[0] + tmp[1];
