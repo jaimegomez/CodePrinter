@@ -57,6 +57,11 @@
   -ms-flex-flow: column;
   -o-flex-flow: column;
   flex-flow: column;
+  -webkit-flex: 1;
+  -moz-flex: 1;
+  -ms-flex: 1;
+  -o-flex: 1;
+  flex: 1;
   height: 100%;
   position: relative;
 }
