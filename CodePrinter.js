@@ -630,9 +630,13 @@ define('CodePrinter', ['Selector'], function($) {
             var states = getStates.call(this, this.data.get(line).parsed, column+1);
             return states || [];
         },
-        cursorIsBeforePosition: function(line, column) {
+        cursorIsBeforePosition: function(line, column, atline) {
             var l = this.caret.line(), c = this.caret.column();
-            return l == line ? c < column : l < line;
+            return l == line ? c < column : !atline && l < line;
+        },
+        cursorIsAfterPosition: function(line, column, atline) {
+            var l = this.caret.line(), c = this.caret.column();
+            return l == line ? c > column : !atline && l > line;
         },
         searchLeft: function(pattern, line, column, states) {
             var i = -1, dl;
