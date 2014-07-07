@@ -203,7 +203,7 @@ define('CodePrinter', ['Selector'], function($) {
                             if (code < 48 && code != 9 && !(kc in self.keyMap)) {
                                 kc = e.getKeyCombination(options.keyCombinationFlag | 4);
                             }
-                            if ((!/^[a-zA-Z0-9]+$/.test(ch) || !e.hasModifierKey() || options.shortcuts) && kc in self.keyMap) {
+                            if (kc.length > 1 && (!/^[A-Z0-9]+$/i.test(ch) || !e.hasModifierKey() || options.shortcuts) && kc in self.keyMap) {
                                 allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                             }
                         }
@@ -213,11 +213,14 @@ define('CodePrinter', ['Selector'], function($) {
                         return allowKeyup;
                     },
                     keypress: function(e) {
-                        var code = e.getCharCode()
+                        var a, code = e.getCharCode()
                         , ch = String.fromCharCode(code);
                         
                         if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-                            if (ch in self.parser.keyMap) {
+                            if (self.selection.isset() && (a = self.parser.selectionWrappers[ch])) {
+                                self.wrapSelection(a[0], a[1]);
+                                allowKeyup = false;
+                            } else if (ch in self.parser.keyMap) {
                                 allowKeyup = self.parser.keyMap[ch].call(self, e, code, ch);
                             }
                             if (allowKeyup !== false) {
@@ -950,6 +953,11 @@ define('CodePrinter', ['Selector'], function($) {
                 this.selection.clear();
                 this.selectLine(this.caret.line());
             }
+        },
+        wrapSelection: function(before, after) {
+            var coords = this.selection.coords();
+            after && this.put(after, coords[1][0], coords[1][1]);
+            before && this.put(before, coords[0][0], coords[0][1]) && this.selection.move(before.length, coords[0][0] == coords[1][0] ? before.length : 0);
         },
         selectAll: function() {
             var ls = this.data.size - 1;
@@ -2199,6 +2207,9 @@ define('CodePrinter', ['Selector'], function($) {
         this.onRightRemoval = {
             '}': '{', ')': '(', ']': '[', '"': '"', "'": "'"
         }
+        this.selectionWrappers = {
+            '(': ['(', ')'], '[': ['[', ']'], '{': ['{', '}'], '"': ['"', '"'], "'": ["'", "'"]
+        }
         this.indentIncrements = ['(', '[', '{', ':'];
         this.indentDecrements = [')', ']', '}'];
         this.brackets = {
@@ -2711,11 +2722,6 @@ define('CodePrinter', ['Selector'], function($) {
             coords[1] = [line, column];
             make.call(this);
         }
-        this.move = function(mv) {
-            coords[0][1] += mv;
-            coords[1][1] += mv;
-            make.call(this);
-        }
         this.isset = function() {
             return coords && coords.length == 2;
         }
@@ -2735,6 +2741,19 @@ define('CodePrinter', ['Selector'], function($) {
             return line == Math.max(c[0][0], Math.min(line, c[1][0]))
             && (line != c[0][0] || column >= c[0][1])
             && (line != c[1][0] || column <= c[1][1]);
+        },
+        moveStart: function(mv) {
+            this.start.column += mv;
+            this.emit('done', this.start, this.end);
+        },
+        moveEnd: function(mv) {
+            this.end.column += mv;
+            this.emit('done', this.start, this.end);
+        },
+        move: function(start, end) {
+            this.start.column += start;
+            this.end.column += end;
+            this.emit('done', this.start, this.end);
         }
     }
     
