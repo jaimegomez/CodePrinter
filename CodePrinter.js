@@ -54,6 +54,7 @@ define('CodePrinter', ['Selector'], function($) {
         width: 'auto',
         height: 300,
         tabWidth: 4,
+        tabIndex: -1,
         fontSize: 11,
         minFontSize: 6,
         maxFontSize: 60,
@@ -2854,6 +2855,7 @@ define('CodePrinter', ['Selector'], function($) {
             cp.container = cp.mainElement.firstChild.lastChild;
             cp.wrapper = cp.container.lastChild;
             cp.input = cp.wrapper.firstChild;
+            cp.input.tabIndex = cp.options.tabIndex;
             cp.caret.element = cp.input.nextSibling;
             cp.screen.parent = cp.caret.element.nextSibling;
             cp.screen.element = cp.screen.parent.firstChild;
