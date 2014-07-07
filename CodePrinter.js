@@ -57,7 +57,6 @@ define('CodePrinter', ['Selector'], function($) {
         fontSize: 11,
         minFontSize: 6,
         maxFontSize: 60,
-        lineHeight: 15,
         keyupInactivityTimeout: 1500,
         caretBlinkSpeed: 400,
         autoScrollSpeed: 20,
@@ -95,11 +94,10 @@ define('CodePrinter', ['Selector'], function($) {
                 var self = this
                 , options = this.options
                 , lastScrollTop = 0
-                , sizes, allowKeyup, T, T2, fn
-                , id = this.mainElement.id = $.random(options.randomIDLength);
+                , sizes, allowKeyup, T, T2, fn;
                 
                 this.mainElement.CodePrinter = this;
-                sizes = this.sizes = { lineHeight: options.lineHeight, charWidth: 0 };
+                sizes = this.sizes = { lineHeight: 13, charWidth: 0 };
                 this.overlays = [];
                 this.snippets = [];
                 this.selection = new selection;
@@ -304,7 +302,6 @@ define('CodePrinter', ['Selector'], function($) {
                     sizes.scrollTop = parseInt(s.getPropertyValue('top')) || 0;
                     setTimeout(function() { calculateCharDimensions(self); }, 150);
                     
-                    options.lineHeight != 15 && options.lineHeight > 0 && (id = '#'+id+' .cp-') && (options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+options.lineHeight+'px;'));
                     options.fontSize != 11 && options.fontSize > 0 && self.setFontSize(options.fontSize);
                     
                     self.print();
@@ -497,16 +494,10 @@ define('CodePrinter', ['Selector'], function($) {
         setFontSize: function(size) {
             size = Math.max(this.options.minFontSize, Math.min(size, this.options.maxFontSize));
             if (size != this.sizes.fontSize) {
-                var id = this.mainElement.id;
                 this.sizes.scrollTop = this.sizes.scrollTop / this.sizes.lineHeight;
-                this.sizes.lineHeight += size - this.sizes.fontSize;
-                this.screen.element.style.top = (this.wrapper.scrollTop = this.sizes.scrollTop *= this.sizes.lineHeight) + 'px';
-                id = '#'+id+' .cp-';
-                this.options.ruleIndex != null && $.stylesheet.delete(this.options.ruleIndex);
-                this.options.ruleIndex = $.stylesheet.insert(id+'screen pre, '+id+'counter, '+id+'selection', 'line-height:'+this.sizes.lineHeight+'px;');
-                this.wrapper.style.fontSize = (this.options.fontSize = this.sizes.fontSize = size)+'px';
-                this.counter.parent.style.fontSize = size+'px';
+                this.wrapper.style.fontSize = this.counter.parent.style.fontSize = (this.options.fontSize = this.sizes.fontSize = size)+'px';
                 calculateCharDimensions(this);
+                this.screen.element.style.top = (this.sizes.scrollTop *= this.sizes.lineHeight) + 'px';
                 this.caret.refresh();
                 this.emit('fontsize:changed', size);
             }
@@ -2954,7 +2945,7 @@ define('CodePrinter', ['Selector'], function($) {
         cr = sp.getBoundingClientRect();
         pr.parentNode.removeChild(pr);
         cp.sizes.charWidth = cr.width;
-        cp.sizes.charHeight = cr.height;
+        cp.sizes.charHeight = cp.sizes.lineHeight = cr.height;
         return cr;
     }
     function getPositionOf(cp, line, column) {

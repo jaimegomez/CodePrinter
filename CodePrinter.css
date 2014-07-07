@@ -256,7 +256,7 @@
   -o-transition: opacity 0.4s ease-in-out;
   transition: opacity 0.4s ease-in-out;
   width: 1px;
-  height: 10px;
+  height: 13px;
   background: #000000;
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
   position: absolute;
@@ -280,12 +280,6 @@
   word-spacing: 0px;
   word-wrap: normal;
   white-space: pre;
-}
-.codeprinter .cp-codelines pre,
-.codeprinter .cp-input,
-.codeprinter .cp-counter,
-.codeprinter .cp-selection {
-  line-height: 15px;
 }
 .codeprinter .cp-codelines pre,
 .codeprinter .cp-counter li,
