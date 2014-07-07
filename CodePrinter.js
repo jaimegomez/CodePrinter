@@ -117,6 +117,9 @@ define('CodePrinter', ['Selector'], function($) {
                 self.screen.updateHeight = function() {
                     this.parent.style.minHeight = (self.data.size * sizes.lineHeight) + sizes.paddingTop * 2 + 'px';
                 }
+                self.screen.getDesiredHeight = function() {
+                    return self.wrapper.clientHeight + 300;
+                }
                 self.counter.updateOffset = function() {
                     return this.element.style.top = sizes.scrollTop + 'px';
                 }
@@ -354,7 +357,7 @@ define('CodePrinter', ['Selector'], function($) {
             function callback(ModeObject) {
                 this.defineParser(ModeObject);
                 this.forcePrint();
-                this.screen.fill(this.wrapper.clientHeight + 300);
+                this.screen.fill();
                 this.options.autofocus && this.caret.position(0, 0) && this.input.focus();
             }
             
@@ -916,6 +919,7 @@ define('CodePrinter', ['Selector'], function($) {
                     this.emit('changed', { line: 0, column: 0, text: this.getValue(true), added: false });
                     this.init('');
                     this.caret.position(0, 0);
+                    this.screen.fill();
                 } else {
                     this.caret.position(this.selection.start.line, this.selection.start.column);
                     this.removeAfterCursor(this.getSelection());
@@ -1696,9 +1700,9 @@ define('CodePrinter', ['Selector'], function($) {
     Screen.prototype = {
         from: 0,
         to: -1,
-        fill: function(height, startDL) {
-            this.desiredHeight = height;
-            var dl = startDL || (this.lines.length ? this.lines[this.lines.length-1].next() : this.cp.data.get(0));
+        fill: function(startDL) {
+            var height = this.getDesiredHeight()
+            , dl = startDL || (this.lines.length ? this.lines[this.lines.length-1].next() : this.cp.data.get(0));
             
             while (dl != null && this.element.clientHeight < height) {
                 dl.setNode(pre.cloneNode());
@@ -1714,13 +1718,13 @@ define('CodePrinter', ['Selector'], function($) {
             this.clear();
             this.from = this.to = line;
             this.counter.startFrom(line);
-            this.fill(this.desiredHeight, dl);
+            this.fill(dl);
         },
         insert: function(dl, index) {
             if (dl instanceof Line && this.from <= index && index <= this.to+1) {
                 var q = index - this.from;
                 
-                if (this.element.clientHeight < this.desiredHeight) {
+                if (this.element.clientHeight < this.getDesiredHeight()) {
                     dl.setNode(pre.cloneNode());
                     ++this.to;
                     this.counter.increase();
