@@ -90,14 +90,6 @@
 .codeprinter .cp-container * {
   font: inherit;
 }
-.codeprinter .cp-container .cp-templine {
-  display: inline-block;
-  white-space: pre;
-  position: absolute;
-  top: -100px;
-  left: -100px;
-  visibility: hidden;
-}
 .codeprinter .cp-wrapper {
   display: -webkit-box;
   display: -moz-box;
@@ -129,8 +121,8 @@
 .codeprinter .cp-input {
   display: inline-block;
   vertical-align: top;
-  width: 10px;
-  height: 20px;
+  width: 1px;
+  height: 1px;
   background: none;
   border: none;
   color: transparent;
@@ -156,7 +148,18 @@
   color: inherit;
   overflow: visible;
 }
-.codeprinter .cp-codelines {
+.codeprinter .cp-screen pre {
+  margin: 0 -10px;
+  padding: 0 10px;
+  color: inherit;
+  position: relative;
+}
+.codeprinter .cp-screen pre span {
+  position: relative;
+  z-index: 7;
+}
+.codeprinter .cp-codelines,
+.codeprinter .cp-templine {
   display: inline-block;
   vertical-align: top;
   min-width: 100%;
@@ -164,15 +167,12 @@
   box-sizing: border-box;
   position: relative;
 }
-.codeprinter .cp-codelines pre {
-  margin: 0 -10px;
-  padding: 0 10px;
-  color: inherit;
-  position: relative;
-}
-.codeprinter .cp-codelines pre span {
-  position: relative;
-  z-index: 7;
+.codeprinter .cp-templine {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  top: -100px;
+  left: 0px;
 }
 .codeprinter .cp-counter {
   -webkit-user-select: none;
@@ -186,6 +186,7 @@
   background: #fcfcfc;
   border-right: 1px solid #d4d4d4;
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  box-sizing: border-box;
   color: #999999;
   z-index: 6;
   overflow: hidden;
@@ -202,10 +203,7 @@
 .codeprinter .cp-counter li {
   padding: 0 6px 0 15px;
   text-align: right;
-  color: inherit;
-  font-family: inherit;
-  font-size: inherit;
-  list-style-type: none;
+  line-height: 13px;
 }
 .codeprinter .cp-counter.hidden {
   display: none;
@@ -220,11 +218,6 @@
   left: 0;
   pointer-events: none;
 }
-.codeprinter .cp-overlay span {
-  margin: 0;
-  padding: 0;
-  position: absolute;
-}
 .codeprinter .cp-selection-overlay {
   z-index: 4;
 }
@@ -232,6 +225,15 @@
   background: #c8dcff;
   color: transparent;
   cursor: pointer;
+}
+.codeprinter.inactive .cp-selection {
+  background: #d0d0d0;
+}
+.codeprinter .cp-selection,
+.codeprinter .cp-highlight {
+  margin: 0;
+  padding: 0;
+  position: absolute;
 }
 .codeprinter .cp-search-occurrence {
   display: inline-block;
@@ -286,7 +288,7 @@
   word-wrap: normal;
   white-space: pre;
 }
-.codeprinter .cp-codelines pre,
+.codeprinter .cp-screen pre,
 .codeprinter .cp-counter li,
 .codeprinter .cp-overlay span {
   font-family: inherit;
@@ -296,7 +298,7 @@
   word-wrap: inherit;
   white-space: inherit;
 }
-.codeprinter .cp-activeLine {
+.codeprinter .cp-active-line {
   background: rgba(230, 239, 255, 0.6);
 }
 .codeprinter .cpx-tab {
@@ -327,8 +329,7 @@
 }
 .codeprinter .cpx-keyword,
 .codeprinter .cpx-control,
-.codeprinter .cpx-boolean,
-.codeprinter .cpx-empty-value {
+.codeprinter .cpx-builtin-constant {
   color: #025BB9;
 }
 .codeprinter .cpx-special {
@@ -368,7 +369,52 @@
   background: #E63B00;
   color: #F9F9F2;
 }
-.codeprinter.cps-default .cp-activeLine {
+.codeprinter .cpx-italic {
+  font-style: italic;
+}
+.codeprinter .cpx-bold {
+  font-weight: bold;
+}
+.codeprinter .cpx-underline {
+  text-decoration: underline;
+}
+.codeprinter .cpx-font-40 {
+  font-size: 40%;
+}
+.codeprinter .cpx-font-50 {
+  font-size: 50%;
+}
+.codeprinter .cpx-font-60 {
+  font-size: 60%;
+}
+.codeprinter .cpx-font-70 {
+  font-size: 70%;
+}
+.codeprinter .cpx-font-80 {
+  font-size: 80%;
+}
+.codeprinter .cpx-font-90 {
+  font-size: 90%;
+}
+.codeprinter .cpx-font-110 {
+  font-size: 110%;
+}
+.codeprinter .cpx-font-120 {
+  font-size: 120%;
+}
+.codeprinter .cpx-font-130 {
+  font-size: 130%;
+}
+.codeprinter .cpx-font-140 {
+  font-size: 140%;
+}
+.codeprinter .cpx-font-150 {
+  font-size: 150%;
+}
+.codeprinter .cpx-font-160 {
+  font-size: 160%;
+}
+.codeprinter.cps-default .cp-active-line {
   box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.3);
 }
 .codeprinter.cps-default .cp-highlight {
