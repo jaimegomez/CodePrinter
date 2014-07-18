@@ -397,7 +397,7 @@ define('CodePrinter', ['Selector'], function($) {
                 
                 options.fontSize != 11 && options.fontSize > 0 && self.setFontSize(options.fontSize);
                 
-                self.print();
+                if (!self.parser) self.print();
             }});
         },
         print: function(mode, source) {
@@ -407,12 +407,12 @@ define('CodePrinter', ['Selector'], function($) {
             
             function callback(ModeObject) {
                 this.defineParser(ModeObject);
-                this.document.fill();
                 this.forcePrint();
+                this.document.fill();
                 if (this.options.autofocus) {
                     this.input.focus();
+                    this.caret.position(0, 0);
                 }
-                this.caret.position(0, 0);
             }
             
             if (this.parser && this.parser.name.toLowerCase() === mode) {
@@ -420,7 +420,6 @@ define('CodePrinter', ['Selector'], function($) {
             } else {
                 CodePrinter.requireMode(mode, callback, this);
             }
-            
             return this;
         },
         forcePrint: function() {
@@ -464,8 +463,7 @@ define('CodePrinter', ['Selector'], function($) {
                 
                 if (this.parser.name === 'plaintext') {
                     var p = this.convertToSpaces(dl.text);
-                    dl.parsed = p && this.options.showIndentation ? indentGrid(p, this.options.tabWidth).replace(/(\<\/span\>)?(.*)$/, '<span>$2</span>') : '<span>'+(p || ' ')+'</span>';
-                    dl.touch();
+                    dl.setParsed(p && this.options.showIndentation ? indentGrid(p, this.options.tabWidth).replace(/(\<\/span\>)?(.*)$/, '<span>$2</span>') : '<span>'+(p || ' ')+'</span>');
                 } else if (!dl.parsed || dl.changed || force) {
                     if (dl.startPoint) {
                         return this.parse(dl.startPoint, true);
@@ -477,8 +475,7 @@ define('CodePrinter', ['Selector'], function($) {
                         
                         do {
                             p[i] = this.convertToSpaces(p[i]);
-                            dl.parsed = this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i];
-                            dl.touch();
+                            dl.setParsed(this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i]);
                         } while (++i < p.length && (dl = dl.next()));
                         
                         if (dl && (ndl = dl.next()) && ndl.startPoint) {
@@ -519,7 +516,7 @@ define('CodePrinter', ['Selector'], function($) {
                 self.options.tabWidth = tw;
                 
                 this.intervalIterate(function(dl) {
-                    this.parse(dl, true);
+                    return this.parse(dl, true);
                 });
             }
             return this;
@@ -634,8 +631,8 @@ define('CodePrinter', ['Selector'], function($) {
         increaseIndentAtLine: function(line) {
             var dl = this.document.get(line);
             if (dl) {
-                dl.text = '\t' + dl.text;
-                this.parse(dl, true);
+                dl.setText('\t' + dl.text);
+                this.parse(dl);
                 this.caret.line() == line && this.caret.moveX(this.options.tabWidth);
                 this.emit('changed', { line: line, column: 0, text: '\t', added: true });
             }
@@ -643,8 +640,8 @@ define('CodePrinter', ['Selector'], function($) {
         decreaseIndentAtLine: function(line) {
             var dl = this.document.get(line);
             if (dl && dl.text.indexOf('\t') === 0) {
-                dl.text = dl.text.substr(1);
-                this.parse(dl, true);
+                dl.setText(dl.text.substr(1));
+                this.parse(dl);
                 this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
                 this.emit('changed', { line: line, column: 0, text: '\t', added: false });
             }
@@ -831,8 +828,8 @@ define('CodePrinter', ['Selector'], function($) {
             return this;
         },
         dispatch: function(dl, text) {
-            dl.text = this.convertToTabs(text);
-            return this.parse(dl, true);
+            dl.setText(this.convertToTabs(text));
+            return this.parse(dl);
         },
         appendText: function(text) {
             var dl, text = this.convertToTabs(text);
@@ -1568,7 +1565,6 @@ define('CodePrinter', ['Selector'], function($) {
             if (str !== this.text) {
                 this.text = str;
                 this.changed = true;
-                this.root.emit('changed', this);
             }
         },
         setParsed: function(str) {
@@ -1828,13 +1824,13 @@ define('CodePrinter', ['Selector'], function($) {
         }
         this.append = function(text) {
             var dl = new Line();
-            dl.text = text;
+            dl.setText(text);
             dl.height = defHeight;
             data.append(dl);
         }
         this.insert = function(l, text) {
             var old = data.get(l), dl = data.insert(l, defHeight);
-            dl.text = text ? cp.convertToTabs(text) : '';
+            dl.setText(text ? cp.convertToTabs(text) : '');
             if (old && old.startPoint) {
                 dl.setStartPoint(old.startPoint);
             }
@@ -2163,8 +2159,8 @@ define('CodePrinter', ['Selector'], function($) {
         }
         function updateDL() {
             if (currentDL) {
-                currentDL.text = before + after;
-                cp.parse(currentDL, true);
+                currentDL.setText(before + after);
+                cp.parse(currentDL);
             }
         }
         
