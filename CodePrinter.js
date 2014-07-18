@@ -2460,15 +2460,24 @@ define('CodePrinter', ['Selector'], function($) {
             }
             if (f === false) {
                 this.tear();
-                if (this.parsed.length != this.value.length) {
+                if (index !== false && this.parsed.length < this.value.length) {
                     return this.match.apply(this, arguments);
                 }
             }
             this.found = f;
             return m && index ? this.lastMatches[index] : f;
         },
+        read: function() {
+            return this.match(/^.*$/);
+        },
         indexOf: function(v) {
             return this.value[this.row].indexOf(v);
+        },
+        search: function(pattern) {
+            return this.current().substr(this.pos+(this.found ? this.found.length : 0)).search(pattern);
+        },
+        substring: function(start, end) {
+            return this.current().substr(this.pos+(this.found ? this.found.length : 0)).substring(start, end);
         },
         eat: function(from, to, req, force) {
             this.eaten = [];
@@ -2640,12 +2649,7 @@ define('CodePrinter', ['Selector'], function($) {
             if (this.row + 1 < this.value.length) {
                 return pattern.test(this.value[this.row+1]);
             }
-            var next = this.nextLine(), r;
-            if (next && pattern.test(next.text)) { 
-                this.pushNextLine(next);
-                return true;
-            }
-            return false;
+            return this.pushNextLine() && pattern.test(this.value[this.row+1]);
         },
         cut: function(index) {
             if (this.found && index >= 0) {
@@ -2669,10 +2673,10 @@ define('CodePrinter', ['Selector'], function($) {
         },
         tear: function() {
             this.teared = this.current().substr(this.pos);
+            this.pos += this.teared.length;
             this.append(this.teared.trim().length ? '<span>'+this.teared+'</span>' : this.teared);
             this.found = false;
-            this.forward();
-            return this;
+            return this.forward();
         },
         restore: function() {
             if (this.teared) {
