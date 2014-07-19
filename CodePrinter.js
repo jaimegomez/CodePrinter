@@ -31,17 +31,12 @@ define('CodePrinter', ['Selector'], function($) {
         buildDOM(this);
         this.prepare();
         
-        if (element) {
-            if (element.nodeType) {
-                this.document.init((element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML).decode());
-                element.before(this.mainElement);
-                return this;
-            } else if ('string' === typeof element) {
-                this.document.init(element);
-                return this;
-            }
+        if (element && element.nodeType) {
+            this.document.init((element.tagName.toLowerCase() === 'textarea' ? element.value : element.innerHTML).decode());
+            element.before(this.mainElement);
+            return this;
         }
-        this.document.init();
+        this.document.init(element);
         return this;
     }
     
