@@ -45,9 +45,9 @@ CodePrinter.defineMode('JavaScript', function() {
                     }
                 } else if (/^[\w\-\$]+$/i.test(found)) {
                     if (/^(true|false)$/.test(found)) {
-                        stream.wrap('builtin-constant', 'boolean');
+                        stream.wrap('builtin', 'boolean');
                     } else if (this.constants.test(found)) {
-                        stream.wrap('builtin-constant');
+                        stream.wrap('builtin');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
                     } else if (found == '$' || this.specials.test(found)) {

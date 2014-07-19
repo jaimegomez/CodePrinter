@@ -17,7 +17,7 @@
 .cps-vibrant-ink .cpx-variable { color:#3C758D; }
 .cps-vibrant-ink .cpx-parameter { color:#F1C438; }
 .cps-vibrant-ink .cpx-constant { color:#FFFFFF; }
-.cps-vibrant-ink .cpx-builtin-constant { color:#408000; }
+.cps-vibrant-ink .cpx-builtin { color:#408000; }
 .cps-vibrant-ink .cpx-boolean { color:#EC691E; }
 .cps-vibrant-ink .cpx-special { color:#9CF828; }
 .cps-vibrant-ink .cpx-numeric { color:#477488; }

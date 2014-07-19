@@ -60,9 +60,9 @@ CodePrinter.defineMode('CoffeeScript', function() {
                     }
                 } else if (/^[\w\$]+$/i.test(found)) {
                     if (this.booleans.test(found)) {
-                        stream.wrap('builtin-constant', 'boolean');
+                        stream.wrap('builtin', 'boolean');
                     } else if (this.constants.test(found)) {
-                        stream.wrap('builtin-constant');
+                        stream.wrap('builtin');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
                     } else if (this.keywords.test(found)) {

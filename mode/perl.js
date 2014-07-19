@@ -33,7 +33,7 @@ CodePrinter.defineMode('Perl', function() {
                     }
                 } else if (/^\w+$/.test(found)) {
                     if (/^(true|false)$/.test(found)) {
-                        stream.wrap('builtin-constant', 'boolean');
+                        stream.wrap('builtin', 'boolean');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
                     } else if (this.keywords.test(found)) {

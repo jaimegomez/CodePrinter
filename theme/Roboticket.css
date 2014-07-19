@@ -15,7 +15,7 @@
 .cps-roboticket .cpx-variable { color:#55AA55; }
 .cps-roboticket .cpx-parameter { color:#55AA55; }
 .cps-roboticket .cpx-constant { color:#885D3B; }
-.cps-roboticket .cpx-builtin-constant { color:#9B5656; }
+.cps-roboticket .cpx-builtin { color:#9B5656; }
 .cps-roboticket .cpx-numeric { color:#AF0F91; }
 .cps-roboticket .cpx-function { color:#BC5A65; }
 .cps-roboticket .cpx-property { color:#566874; }

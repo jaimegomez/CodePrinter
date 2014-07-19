@@ -19,7 +19,7 @@
 .cps-solarized-dark .cpx-variable { color:#93a1a1; }
 .cps-solarized-dark .cpx-parameter { color:#d33682; }
 .cps-solarized-dark .cpx-constant { color:#cb4b16; }
-.cps-solarized-dark .cpx-builtin-constant { color:#2aa198; }
+.cps-solarized-dark .cpx-builtin { color:#2aa198; }
 .cps-solarized-dark .cpx-numeric { color:#2aa198; }
 .cps-solarized-dark .cpx-function { color:#268bd2; }
 .cps-solarized-dark .cpx-property { color:#333333; }

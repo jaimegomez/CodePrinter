@@ -18,7 +18,7 @@
 .cps-abstraction .cpx-variable { color:#6bcea5; }
 .cps-abstraction .cpx-parameter { color:#53aabc; }
 .cps-abstraction .cpx-constant { color:#e6abc2; }
-.cps-abstraction .cpx-builtin-constant { color:#e6abc2; }
+.cps-abstraction .cpx-builtin { color:#e6abc2; }
 .cps-abstraction .cpx-namespace { color:#c57a34; }
 .cps-abstraction .cpx-numeric { color:#71e4b6; }
 .cps-abstraction .cpx-function { color:#e78d56; }

@@ -49,7 +49,7 @@ CodePrinter.defineMode('Bash', function() {
                     } else if (found[0] === '-') {
                         stream.wrap('parameter');
                     } else if (/^(true|false)$/i.test(found)) {
-                        stream.wrap('builtin-constant', 'boolean');
+                        stream.wrap('builtin', 'boolean');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
                     } else if (this.keywords.test(found)) {

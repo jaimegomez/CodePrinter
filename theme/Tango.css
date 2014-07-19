@@ -13,7 +13,7 @@
 .cps-tango .cpx-variable { color:#5c8198; }
 .cps-tango .cpx-parameter { color:#cc9393; }
 .cps-tango .cpx-constant { color:#ab2525; }
-.cps-tango .cpx-builtin-constant { color:#885d3b; }
+.cps-tango .cpx-builtin { color:#885d3b; }
 .cps-tango .cpx-boolean { color:#885d3b; }
 .cps-tango .cpx-special { color:#9b5656; }
 .cps-tango .cpx-numeric { color:#801f91; }

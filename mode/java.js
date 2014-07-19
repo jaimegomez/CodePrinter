@@ -59,9 +59,9 @@ CodePrinter.defineMode('Java', function() {
                     }
                 } else if (/^[a-zA-Z0-9\_]+$/.test(found)) {
                     if (found == 'true' || found == 'false') {
-                        stream.wrap('builtin-constant', 'boolean');
+                        stream.wrap('builtin', 'boolean');
                     } else if (this.constants.test(found)) {
-                        stream.wrap('builtin-constant');
+                        stream.wrap('builtin');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
                     } else if (this.types.test(found)) {

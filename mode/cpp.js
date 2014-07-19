@@ -76,7 +76,7 @@ CodePrinter.defineMode('Cpp', function() {
                     }
                 } else if (/^\w+$/.test(found)) {
                     if (found == 'true' || found == 'false') {
-                        stream.wrap('builtin-constant', 'boolean');
+                        stream.wrap('builtin', 'boolean');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
                     } else if (this.types.test(found)) {

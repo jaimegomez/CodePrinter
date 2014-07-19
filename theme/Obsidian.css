@@ -18,7 +18,7 @@
 .cps-obsidian .cpx-variable { color:#79ABFF; }
 .cps-obsidian .cpx-parameter { color:#E0E2E4; }
 .cps-obsidian .cpx-constant { color:#A082BD; }
-.cps-obsidian .cpx-builtin-constant { color:#EFC090; }
+.cps-obsidian .cpx-builtin { color:#EFC090; }
 .cps-obsidian .cpx-boolean { color:#EFC090; }
 .cps-obsidian .cpx-numeric { color:#FFCD22; }
 .cps-obsidian .cpx-function { color:#678CB1; }

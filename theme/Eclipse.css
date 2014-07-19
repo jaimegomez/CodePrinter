@@ -17,7 +17,7 @@
 .cps-eclipse .cpx-variable { color:#000000; }
 .cps-eclipse .cpx-parameter { color:#408080; }
 .cps-eclipse .cpx-constant { color:#552200; }
-.cps-eclipse .cpx-builtin-constant { color:#0000C0; }
+.cps-eclipse .cpx-builtin { color:#0000C0; }
 .cps-eclipse .cpx-directives { color:#990000; }
 .cps-eclipse .cpx-numeric { color:#FF0000; }
 .cps-eclipse .cpx-function { color:#000000; }

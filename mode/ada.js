@@ -42,9 +42,9 @@ CodePrinter.defineMode('Ada', function() {
                     }
                 } else if (/^\w+$/.test(found)) {
                     if (/^(true|false)$/.test(found)) {
-                        stream.wrap('builtin-constant', 'boolean');
+                        stream.wrap('builtin', 'boolean');
                     } else if (found.toLowerCase() === 'null') {
-                        stream.wrap('builtin-constant');
+                        stream.wrap('builtin');
                     } else if (stream.isBefore(':') || stream.isAfter('(')) {
                         stream.wrap('function');
                     } else if (stream.isAfter(':') || memory.variables.indexOf(found) !== -1) {

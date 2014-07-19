@@ -72,9 +72,9 @@ CodePrinter.defineMode('PHP', function() {
                         m && m[2] && memory.constants.put(m[2]);
                         stream.wrap('special');
                     } else if (/^(true|false)$/i.test(found)) {
-                		stream.wrap('builtin-constant', 'boolean');
+                		stream.wrap('builtin', 'boolean');
                 	} else if (this.constants.test(found)) {
-                        stream.wrap('builtin-constant');
+                        stream.wrap('builtin');
                     } else if (this.controls.test(found)) {
                 		stream.wrap('control');
     	            } else if (this.specials.test(found)) {

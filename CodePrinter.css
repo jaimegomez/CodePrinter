@@ -329,7 +329,7 @@
 }
 .codeprinter .cpx-keyword,
 .codeprinter .cpx-control,
-.codeprinter .cpx-builtin-constant {
+.codeprinter .cpx-builtin {
   color: #025BB9;
 }
 .codeprinter .cpx-special {
