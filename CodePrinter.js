@@ -1896,8 +1896,15 @@ define('CodePrinter', ['Selector'], function($) {
                 x += cr.width;
                 c += l;
             }
-            if (r.offset == 0 && offset > 0) r = { column: c, offset: Math.floor(x), charWidth: cr.width / l }
+            if (r.offset == 0 && offset > 0) r = { column: c, offset: Math.floor(x), charWidth: cr && cr.width / l }
             r.width = Math.max(0, Math.round(w));
+            if (!r.charWidth) {
+                var sp = span.cloneNode();
+                sp.textContent = sp.innerText = 'A';
+                node.appendChild(sp);
+                r.charWidth = sp.getBoundingClientRect().width;
+                node.removeChild(sp);
+            }
             return r;
         }
         this.updateDefaultHeight = function() {
@@ -2131,8 +2138,7 @@ define('CodePrinter', ['Selector'], function($) {
             underline: function(css) {
                 css.width = lastdet.charWidth;
                 css.height = 1;
-                css.top = css.top + currentDL.height - 1;
-                css.left = css.left - 1;
+                css.top += currentDL.height - 1;
                 return css;
             },
             block: function(css) {
