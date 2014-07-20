@@ -2122,23 +2122,22 @@ define('CodePrinter', ['Selector'], function($) {
     }
     
     Caret = function(cp) {
-        var line, column, currentDL, before = '', after = '', tmp
+        var line, column, currentDL, lastdet, before = '', after = '', tmp
         , styles = {
             vertical: function(css) {
                 css.height = currentDL.height;
                 return css;
             },
             underline: function(css) {
-                css.width = cp.sizes.charWidth + 2;
+                css.width = lastdet.charWidth;
                 css.height = 1;
                 css.top = css.top + currentDL.height - 1;
                 css.left = css.left - 1;
                 return css;
             },
             block: function(css) {
-                css.width = cp.sizes.charWidth;
+                css.width = lastdet.charWidth;
                 css.height = currentDL.height;
-                css.left += 1;
                 return css;
             }
         }
@@ -2181,6 +2180,7 @@ define('CodePrinter', ['Selector'], function($) {
                 this.emit('columnChange', dl, dli.index, c);
                 column = c;
             }
+            lastdet = det;
             before = cp.convertToTabs(t.substring(0, c));
             after = cp.convertToTabs(t.substr(c));
             setPixelPosition.call(this, t ? det.offset : 0, dli.offset);
