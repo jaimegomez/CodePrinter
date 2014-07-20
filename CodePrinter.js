@@ -1846,7 +1846,7 @@ define('CodePrinter', ['Selector'], function($) {
         }
         this.measureRect = function(dl, offset, to) {
             var x = 0, c = 0, w = 0, bycolumn = arguments.length === 3, node = dl.node
-            , r = { column: 0, offset: 0, width: 0 }
+            , cr, child, l, r = { column: 0, offset: 0, width: 0, charWidth: 0 }
             
             if (!node || !node.parentNode) {
                 node = temp;
@@ -1854,7 +1854,9 @@ define('CodePrinter', ['Selector'], function($) {
                 dl.node = null;
             }
             for (var i = 0; i < node.childNodes.length; i++) {
-                var cr, child = node.childNodes[i], l = child.textContent.length;
+                child = node.childNodes[i];
+                l = child.textContent.length;
+                if (l === 0) continue;
                 
                 if (child.nodeType !== 1 || /^\s*$/.test(child.textContent)) {
                     var sp = span.cloneNode();
@@ -1869,7 +1871,7 @@ define('CodePrinter', ['Selector'], function($) {
                     if (offset != null && c + l >= offset) {
                         w = -cr.width * (offset - c) / l;
                         x -= w;
-                        r = { column: offset, offset: Math.floor(x) }
+                        r = { column: offset, offset: Math.floor(x), charWidth: cr.width / l }
                         offset = null;
                         if ('number' !== typeof to) break;
                     }
@@ -1887,14 +1889,14 @@ define('CodePrinter', ['Selector'], function($) {
                         c += t;
                         x += cr.width * t / l;
                         offset = 0;
-                        r = { column: c, offset: Math.floor(x) }
+                        r = { column: c, offset: Math.floor(x), charWidth: cr.width / l }
                         break;
                     }
                 }
                 x += cr.width;
                 c += l;
             }
-            if (r.offset == 0 && offset > 0) r = { column: c, offset: Math.floor(x) }
+            if (r.offset == 0 && offset > 0) r = { column: c, offset: Math.floor(x), charWidth: cr.width / l }
             r.width = Math.max(0, Math.round(w));
             return r;
         }
