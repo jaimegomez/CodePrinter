@@ -5,7 +5,7 @@
 .cps-oblivion .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-oblivion .cp-selection { background:rgba(225,225,225,0.15); }
 .cps-oblivion .cp-highlight { border-bottom:1px solid white; }
-.cps-oblivion .cp-activeLine { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
+.cps-oblivion .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-oblivion .cp-search-occurrence { border-color:#ddd; }
 .cps-oblivion .cp-search-occurrence.active { background:white; border-color:black; }
 

@@ -5,7 +5,7 @@
 .cps-solarized-light .cp-caret { background:#586e75; }
 .cps-solarized-light .cp-selection { background:#c0c1b9; }
 .cps-solarized-light .cp-highlight { border-bottom:1px solid #586e75; }
-.cps-solarized-light .cp-activeLine { background:#fef8a8; }
+.cps-solarized-light .cp-active-line { background:#fef8a8; }
 
 .cps-solarized-light .cpx-tab { border-color:#445544; }
 .cps-solarized-light .cpx-bracket { color:#657b83; }

@@ -5,7 +5,7 @@
 .cps-obsidian .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-obsidian .cp-selection { background:#616161; }
 .cps-obsidian .cp-highlight { border-bottom:1px solid white; }
-.cps-obsidian .cp-activeLine { background:rgba(0,0,0,0.3); box-shadow:0 0 0 1px black; }
+.cps-obsidian .cp-active-line { background:rgba(0,0,0,0.3); box-shadow:0 0 0 1px black; }
 .cps-obsidian .cp-search-occurrence { border-color:#ddd; }
 .cps-obsidian .cp-search-occurrence.active { background:#616161; color:#fff; }
 
