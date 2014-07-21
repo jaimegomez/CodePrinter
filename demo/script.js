@@ -1,7 +1,7 @@
 var cp = new CodePrinter();
 
 $.get('section').append(cp.mainElement);
-cp.print('Markdown', $.get('code#Markdown').innerHTML.decode());
+cp.print('JavaScript', $.get('code#JavaScript').innerHTML.decode());
 
 setTimeout(function() {
     cp.mainElement.animate({ translateX: 0, opacity: 1 }, 700, function() {
