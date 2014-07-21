@@ -1032,7 +1032,7 @@ define('CodePrinter', ['Selector'], function($) {
                             node.position = { _sl: line, _sc: ln, _el: line, _ec: ln + match.length }
                             node.style.top = sizes.paddingTop + offset + 'px';
                             node.style.left = sizes.paddingLeft + rect.offset + 'px';
-                            node.style.width = rect.width + 2 + 'px';
+                            node.style.width = rect.width + 3 + 'px';
                             node.style.height = dl.height + 1 + 'px';
                             
                             search.results.push(node);
