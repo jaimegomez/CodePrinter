@@ -43,7 +43,7 @@
                 <div>
                     <label>Theme</label>
                     <select name="theme">
-                        <option>default</option>
+                        <option selected>default</option>
                         <option>Abstraction</option>
                         <option>Eclipse</option>
                         <option>Homebrew</option>
@@ -61,18 +61,18 @@
                 <div>
                     <label>Caret style</label>
                     <select name="caretStyle">
-                        <option>vertical</option>
+                        <option selected>vertical</option>
                         <option>underline</option>
                         <option>block</option>
                     </select>
                 </div>
                 <div>
                     <label>Tab width</label>
-                    <input type="number" min="0" max="20" name="tabWidth" />
+                    <input type="number" min="0" max="20" name="tabWidth" value="4" />
                 </div>
                 <div>
                     <label>Font Size</label>
-                    <input type="number" min="8" max="40" name="fontSize" />
+                    <input type="number" min="8" max="40" name="fontSize" value="11" />
                 </div>
                 <div>
                     <label>Fullscreen Mode</label>
@@ -82,31 +82,31 @@
             <fieldset>
                 <div>
                     <label>Show line numbers</label>
-                    <input type="checkbox" name="counter" />
+                    <input type="checkbox" name="counter" checked />
                 </div>
                 <div>
                     <label>Insert closing brackets</label>
-                    <input type="checkbox" name="insertclosing" />
+                    <input type="checkbox" name="insertclosing" checked />
                 </div>
                 <div>
                     <label>Show indentation</label>
-                    <input type="checkbox" name="indentation" />
+                    <input type="checkbox" name="indentation" checked />
                 </div>
                 <div>
                     <label>Indent new lines</label>
-                    <input type="checkbox" name="indentNewLines">
+                    <input type="checkbox" name="indentNewLines" checked />
                 </div>
                 <div>
                     <label>Highlight Brackets</label>
-                    <input type="checkbox" name="highlightBrackets" />
+                    <input type="checkbox" name="highlightBrackets" checked />
                 </div>
                 <div>
                     <label>Allow shortcuts</label>
-                    <input type="checkbox" name="shortcuts" />
+                    <input type="checkbox" name="shortcuts" checked />
                 </div>
                 <div>
                     <label>Blink caret</label>
-                    <input type="checkbox" name="blinkCaret" />
+                    <input type="checkbox" name="blinkCaret" checked />
                 </div>
             </fieldset>
         </div>
