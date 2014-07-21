@@ -108,6 +108,7 @@ define('CodePrinter', ['Selector'], function($) {
             this.setMode(options.mode);
             
             options.lineNumbers && this.openCounter();
+            options.showIndentation || this.mainElement.addClass('without-indentation');
             options.readOnly && this.caret.disable();
             options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
@@ -468,8 +469,13 @@ define('CodePrinter', ['Selector'], function($) {
                 dl = 'number' === typeof dl ? this.document.get(dl) : dl;
                 
                 if (this.parser.name === 'plaintext') {
-                    var p = this.convertToSpaces(dl.text);
-                    dl.setParsed(p && this.options.showIndentation ? indentGrid(p, this.options.tabWidth).replace(/(\<\/span\>)?(.*)$/, '<span>$2</span>') : '<span>'+(p || ' ')+'</span>');
+                    var p = '', i = 0, l = dl.text.length;
+                    while (i < l && dl.text[i] === '\t') {
+                        p += '<span class="cpx-tab">'+(Array.apply(null, this.options.tabWidth+1).join(' '))+'</span>';
+                        ++i;
+                    }
+                    if (i < l) p += '<span>'+this.convertToSpaces(dl.text.substr(i))+'</span>';
+                    dl.setParsed(p);
                 } else if (!dl.parsed || dl.changed || force) {
                     if (dl.startPoint) {
                         return this.parse(dl.startPoint, true);
@@ -481,7 +487,7 @@ define('CodePrinter', ['Selector'], function($) {
                         
                         do {
                             p[i] = this.convertToSpaces(p[i]);
-                            dl.setParsed(this.options.showIndentation ? indentGrid(p[i], this.options.tabWidth) : p[i]);
+                            dl.setParsed(p[i]);
                         } while (++i < p.length && (dl = dl.next()));
                         
                         if (dl && (ndl = dl.next()) && ndl.startPoint) {
@@ -588,6 +594,14 @@ define('CodePrinter', ['Selector'], function($) {
             }
             this.emit('height:changed');
             return this;
+        },
+        showIndentation: function() {
+            this.options.showIndentation = true;
+            this.mainElement.removeClass('without-indentation');
+        },
+        hideIndentation: function() {
+            this.options.showIndentation = false;
+            this.mainElement.addClass('without-indentation');
         },
         getLineEnding: function() {
             return lineendings[this.options.lineEndings] || this.options.lineEndings || lineendings['LF'];
@@ -2477,14 +2491,22 @@ define('CodePrinter', ['Selector'], function($) {
             , f = false;
             
             if (s.length > 0) {
-                m = rgx.exec(s);
-                if ((this.lastMatches = m) && m[0]) {
-                    f = m[0];
-                    i = s.indexOf(f);
-                    i > 0 && this.append('<span>'+s.substring(0, i)+'</span>');
+                i = s.search(rgx);
+                if (i >= 0) {
+                    f = RegExp.lastMatch;
+                    if (i > 0) {
+                        var j = 0, sub = s.substring(0, i);
+                        if (this.pos === 0) {
+                            while (j < i && sub[j] === '\t') {
+                                this.append('<span class="cpx-tab">\t</span>');
+                                ++j;
+                            }
+                        }
+                        j < i && this.append('<span>'+(j === 0 ? sub : s.substring(j, i))+'</span>');
+                    }
                     this.indexOfFound = i;
                     this.wholeLineMatched = this.pos === 0 && i + f.length === s.length;
-                    this.pos = this.pos + i;
+                    this.pos += i;
                 }
             }
             if (f === false) {
@@ -2494,7 +2516,7 @@ define('CodePrinter', ['Selector'], function($) {
                 }
             }
             this.found = f;
-            return m && index ? this.lastMatches[index] : f;
+            return m && index ? RegExp['$'+index] : f;
         },
         read: function() {
             return this.match(/^.*$/);
@@ -3440,13 +3462,6 @@ define('CodePrinter', ['Selector'], function($) {
             }
         }
         return null;
-    }
-    function indentGrid(text, width) {
-        var pos = text.search(/[^ ]/), tmp;
-        pos == -1 && (pos = text.length);
-        tmp = [text.substring(0, pos), text.substr(pos)];
-        tmp[0] = tmp[0].replace(new RegExp("( {"+ width +"})", "g"), '<span class="cpx-tab">$1</span>');
-        return tmp[0] + tmp[1];
     }
     function complementBracket(ch) {
         var obj = { '(':')', '{':'}', '[':']', '<':'>' }
