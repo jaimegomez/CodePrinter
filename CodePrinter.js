@@ -409,7 +409,9 @@ define('CodePrinter', ['Selector'], function($) {
                 }
             }
             
-            if (this.parser && this.parser.name.toLowerCase() === mode) {
+            if (mode === 'plaintext') {
+                callback.call(this, new CodePrinter.Mode('plaintext'));
+            } else if (this.parser && this.parser.name.toLowerCase() === mode) {
                 callback.call(this, this.parser);
             } else {
                 CodePrinter.requireMode(mode, callback, this);
