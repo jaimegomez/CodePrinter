@@ -99,7 +99,7 @@ define('CodePrinter', ['Selector'], function($) {
             , T, T2, fn;
             
             this.mainElement.CodePrinter = this;
-            sizes = this.sizes = { lineHeight: 13, charWidth: 0, scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
+            sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
             this.overlays = [];
             this.snippets = [];
             doc = this.document = new Document(this);
@@ -114,6 +114,7 @@ define('CodePrinter', ['Selector'], function($) {
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
             options.width !== 'auto' && this.setWidth(options.width);
             options.height !== 300 && this.setHeight(options.height);
+            options.fontSize !== 11 && doc.updateDefaultHeight();
             
             function mouseController(e) {
                 if (e.button > 0 || e.which > 1 || e.defaultPrevented) return false;
@@ -122,15 +123,16 @@ define('CodePrinter', ['Selector'], function($) {
                 , st = self.wrapper.scrollTop
                 , o = sizes.bounds = sizes.bounds || self.wrapper.bounds()
                 , x = Math.max(0, sl + e.pageX - o.x - sizes.paddingLeft)
-                , y = e.pageY < o.y ? 0 : e.pageY <= o.y + self.wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : self.wrapper.scrollHeight;
+                , y = e.pageY < o.y ? 0 : e.pageY <= o.y + self.wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : self.wrapper.scrollHeight
+                , ry = Math.max(0, Math.min(y, doc.height()));
                 
                 self.input.focus();
-                self.caret.target(doc.lineWithOffset(Math.min(y, doc.height())), x);
+                self.caret.target(doc.lineWithOffset(ry), x);
                 var l = self.caret.line(), c = self.caret.column();
                 
                 if (e.type === 'mousedown') {
                     isMouseDown = true;
-                    if (doc.inSelection(l, c)) {
+                    if (doc.inSelection(l, c) && ry === y) {
                         moveselection = true;
                         window.on('mousemove', mouseController);
                         window.once('mouseup', function() {
@@ -232,7 +234,7 @@ define('CodePrinter', ['Selector'], function($) {
                     self.caret.focus();
                     self.mainElement.removeClass('inactive');
                 },
-                blur: function(e) {
+                blur: function() {
                     if (isMouseDown) {
                         this.focus();
                     } else {
@@ -253,7 +255,7 @@ define('CodePrinter', ['Selector'], function($) {
                     if (iscmd) {
                         if (doc.issetSelection() && kc.indexOf('+') === -1) {
                             this.value = doc.getSelection();
-                            doc.setSelectionRange(0, this.value.length);
+                            this.setSelectionRange(0, this.value.length);
                         } else if (ch in commands) {
                             allowKeyup = commands[ch].call(self, e, code, ch);
                             if (allowKeyup === false) e.cancel();
@@ -388,7 +390,6 @@ define('CodePrinter', ['Selector'], function($) {
             this.mainElement.on({ nodeInserted: function() {
                 this.removeClass('cp-animation');
                 
-                doc.updateDefaultHeight();
                 var s = window.getComputedStyle(this.querySelector('.cp-codelines'), null);
                 sizes.fontSize = parseInt(s.getPropertyValue('font-size'));
                 sizes.paddingTop = parseInt(s.getPropertyValue('padding-top'));
@@ -1200,7 +1201,7 @@ define('CodePrinter', ['Selector'], function($) {
                 main.after(this.tempnode);
                 document.body.append(main);
                 this.isFullscreen = true;
-                this.screen.fill();
+                this.document.fill();
                 this.input.focus();
                 this.emit('fullscreen:entered');
             }
@@ -1214,7 +1215,7 @@ define('CodePrinter', ['Selector'], function($) {
                 delete this.tempnode;
                 this.isFullscreen = false;
                 this.setWidth(this.options.width);
-                this.screen.fill();
+                this.document.fill();
                 this.input.focus();
                 this.emit('fullscreen:leaved');
             }
@@ -1750,8 +1751,10 @@ define('CodePrinter', ['Selector'], function($) {
             source = source || '';
             data = new Data(cp);
             
-            clear();
-            this.clearSelection();
+            if (to !== -1) {
+                clear();
+                this.clearSelection();
+            }
             history.init(source);
             source = source.split('\n');
             
@@ -2137,7 +2140,6 @@ define('CodePrinter', ['Selector'], function($) {
             return data.height;
         }
         
-        this.updateDefaultHeight();
         selection.on({ done: this.showSelection.bind(this, false) });
         cp.onchanged = function(e) {
             if (cp.options.history) {
