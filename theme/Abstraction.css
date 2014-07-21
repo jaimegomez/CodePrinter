@@ -4,8 +4,9 @@
 .cps-abstraction .cp-counter { background:#131312; color:#888981; border-color:#454642; }
 .cps-abstraction .cp-caret { background:#d8d9da; }
 .cps-abstraction .cp-selection { background:#2e2e2b; }
+.cps-abstraction.inactive .cp-selection { background:#222; }
 .cps-abstraction .cp-highlight { border-bottom:1px solid #d8d9da; }
-.cps-abstraction .cp-active-line { background:#0a0a09; box-shadow:0 0 0 1px black; }
+.cps-abstraction .cp-active-line { background:#2e2e2b; }
 .cps-abstraction .cp-search-occurrence { border-color:#888981; }
 .cps-abstraction .cp-search-occurrence.active { background:#6bcea5; color:#2e2e2b; border-color:transparent; }
 
