@@ -66,6 +66,7 @@ define('CodePrinter', ['Selector'], function($) {
         lineNumbers: true,
         lineNumberFormatter: false,
         autofocus: true,
+        readOnly: false,
         showIndentation: true,
         tracking: true,
         history: true,
@@ -107,6 +108,7 @@ define('CodePrinter', ['Selector'], function($) {
             this.setMode(options.mode);
             
             options.lineNumbers && this.openCounter();
+            options.readOnly && this.caret.disable();
             options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
             options.width !== 'auto' && this.setWidth(options.width);
@@ -259,6 +261,7 @@ define('CodePrinter', ['Selector'], function($) {
                             this.value = '';
                         }
                     }
+                    if (options.readOnly) return;
                     if (code < 48 && code != 9 && !(kc in self.keyMap)) {
                         kc = e.getKeyCombination(options.keyCombinationFlag | 4);
                     }
@@ -271,6 +274,7 @@ define('CodePrinter', ['Selector'], function($) {
                     return allowKeyup;
                 },
                 keypress: function(e) {
+                    if (options.readOnly) return;
                     var a, code = e.getCharCode()
                     , ch = String.fromCharCode(code);
                     
@@ -289,6 +293,7 @@ define('CodePrinter', ['Selector'], function($) {
                     }
                 },
                 keyup: function(e) {
+                    if (options.readOnly) return;
                     self.caret.activate();
                     if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
                         this.value.length && self.insertText(this.value);
@@ -2131,7 +2136,8 @@ define('CodePrinter', ['Selector'], function($) {
     }
     
     Caret = function(cp) {
-        var line, column, currentDL, lastdet, before = '', after = '', tmp
+        var line, column, currentDL, lastdet
+        , before = '', after = '', tmp
         , styles = {
             vertical: function(css) {
                 css.height = currentDL.height;
@@ -2151,18 +2157,20 @@ define('CodePrinter', ['Selector'], function($) {
         }
         
         function setPixelPosition(x, y) {
-            var css = {}, stl = this.style || cp.options.caretStyle;
-            
-            x >= 0 && (css.left = this.x = x = Math.floor(x + cp.sizes.paddingLeft));
-            y >= 0 && (css.top = this.y = y = Math.floor(y + cp.sizes.paddingTop));
-            
-            stl != this.style && this.setStyle(stl);
-            css = this.drawer(css);
-            this.emit('beforeMove', x, y, currentDL, line, this.column());
-            this.element.css(css);
-            cp.input.style.top = this.y + 'px';
-            cp.input.style.left = this.x + 'px';
-            this.emit('move', x, y, currentDL, line, this.column());
+            if (!this.isDisabled) {
+                var css = {}, stl = this.style || cp.options.caretStyle;
+                
+                x >= 0 && (css.left = this.x = x = Math.floor(x + cp.sizes.paddingLeft));
+                y >= 0 && (css.top = this.y = y = Math.floor(y + cp.sizes.paddingTop));
+                
+                stl != this.style && this.setStyle(stl);
+                css = this.drawer(css);
+                this.emit('beforeMove', x, y, currentDL, line, this.column());
+                this.element.css(css);
+                cp.input.style.top = this.y + 'px';
+                cp.input.style.left = this.x + 'px';
+                this.emit('move', x, y, currentDL, line, this.column());
+            }
             return this;
         }
         function updateDL() {
@@ -2331,11 +2339,13 @@ define('CodePrinter', ['Selector'], function($) {
             this.refresh();
         }
         this.activate = function() {
-            if (cp.options.blinkCaret) {
-                var elm = this.element, a = false, fn = function() { a = !a; elm.style.opacity = +a; };
-                this.interval = clearInterval(this.interval) || fn() || setInterval(fn, cp.options.caretBlinkSpeed);
+            if (!this.isDisabled) {
+                if (cp.options.blinkCaret) {
+                    var elm = this.element, a = false, fn = function() { a = !a; elm.style.opacity = +a; };
+                    this.interval = clearInterval(this.interval) || fn() || setInterval(fn, cp.options.caretBlinkSpeed);
+                }
+                this.isActive = true;
             }
-            this.isActive = true;
             return this;
         }
         this.focus = function() {
@@ -2352,15 +2362,26 @@ define('CodePrinter', ['Selector'], function($) {
     Caret.prototype = {
         isActive: false,
         isVisible: false,
+        isDisabled: false,
         show: function() {
-            this.element.style.opacity = "1";
-            this.isVisible = true;
+            if (!this.isDisabled) {
+                this.element.style.opacity = "1";
+                this.isVisible = true;
+            }
             return this;
         },
         hide: function() {
             this.element.style.opacity = "0";
             this.isVisible = false;
             return this;
+        },
+        enable: function() {
+            this.isDisabled = false;
+            this.show().activate();
+        },
+        disable: function() {
+            this.isDisabled = true;
+            this.deactivate().hide();
         },
         deactivate: function() {
             if (this.isActive) {
