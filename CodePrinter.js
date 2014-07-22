@@ -1687,55 +1687,6 @@ define('CodePrinter', ['Selector'], function($) {
             code.style.top = ol.style.top = cp.sizes.scrollTop + 'px';
             if (inwrapper) cp.wrapper.scrollTop += delta;
         }
-        function shiftCounter() {
-            if (ol.childNodes.length) {
-                var fi = ol.firstChild;
-                ol.removeChild(fi);
-                fi.innerHTML = formatter(firstNumber + (fi._index = to + 1));
-                ol.appendChild(fi);
-            }
-        }
-        function unshiftCounter() {
-            if (ol.childNodes.length) {
-                var la = ol.lastChild;
-                ol.removeChild(la);
-                la.innerHTML = formatter(firstNumber + (la._index = from - 1));
-                ol.insertBefore(la, ol.firstChild);
-            }
-        }
-        function insertCounter(index) {
-            var node = li.cloneNode(false), q = index - from;
-            node.innerHTML = formatter(firstNumber + (node._index = index));
-            if (q < ol.childNodes.length) {
-                var tmp = ol.childNodes[q];
-                ol.insertBefore(node, tmp);
-                while (tmp) {
-                    tmp.innerHTML = formatter(firstNumber + ++tmp._index);
-                    tmp = tmp.nextSibling;
-                }
-            } else {
-                ol.appendChild(node);
-            }
-            return node;
-        }
-        function removeCounter(node) {
-            var tmp = node.nextSibling;
-            while (tmp) {
-                tmp.innerHTML = formatter(firstNumber + --tmp._index);
-                tmp = tmp.nextSibling;
-            }
-            ol.removeChild(node);
-        }
-        function moveCounter(node, index) {
-            var q = index - from, tmp;
-            ol.insertBefore(node, ol.childNodes[q]);
-            node.innerHTML = formatter(firstNumber + (node._index = index));
-            tmp = node.nextSibling;
-            while (tmp) {
-                tmp.innerHTML = formatter(firstNumber + ++tmp._index);
-                tmp = tmp.nextSibling;
-            }
-        }
         function updateCounters(dl, index) {
             var tmp = dl.counter;
             while (tmp) {
