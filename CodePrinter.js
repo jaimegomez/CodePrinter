@@ -477,7 +477,7 @@ define('CodePrinter', ['Selector'], function($) {
                     }
                     if (i < l) p += '<span>'+this.convertToSpaces(dl.text.substr(i))+'</span>';
                     dl.setParsed(p);
-                } else if (!dl.parsed || dl.changed || force) {
+                } else if (!dl.parsed || dl.changed & 1 || force) {
                     if (dl.startPoint) {
                         return this.parse(dl.startPoint, true);
                     }
@@ -1497,7 +1497,7 @@ define('CodePrinter', ['Selector'], function($) {
     
     Line = function() {
         this.parent = this.root = null;
-        this.changed = false;
+        this.changed = 0;
         this.height = 0;
         return this;
     }
@@ -1508,13 +1508,13 @@ define('CodePrinter', ['Selector'], function($) {
         setText: function(str) {
             if (str !== this.text) {
                 this.text = str;
-                this.changed = true;
+                this.changed = 1;
             }
         },
         setParsed: function(str) {
             if (str !== this.parsed) {
                 this.parsed = str;
-                this.changed = false;
+                this.changed = 2;
                 this.touch();
             }
         },
@@ -1527,6 +1527,7 @@ define('CodePrinter', ['Selector'], function($) {
             delete this.startPoint;
         },
         setNode: function(node) {
+            this.changed = this.changed | 2;
             return this.node = node;
         },
         captureNode: function(dl) {
@@ -1540,6 +1541,7 @@ define('CodePrinter', ['Selector'], function($) {
             return node;
         },
         setCounter: function(counter) {
+            counter.style.lineHeight = this.height + 'px';
             return this.counter = counter;
         },
         deleteCounter: function() {
@@ -1553,19 +1555,20 @@ define('CodePrinter', ['Selector'], function($) {
             this.counter = counter;
         },
         touch: function() {
-            if (this.node) {
+            if (this.changed & 2 && this.node) {
                 this.node.innerHTML = this.parsed || ' ';
                 this.updateHeight();
+                this.changed = this.changed ^ 2;
             }
         },
         updateHeight: function() {
-            if (this.node.clientHeight) {
-                var tmp = this, delta = this.node.clientHeight - this.height;
-                this.counter.style.lineHeight = this.node.clientHeight + 'px';
+            var ch = this.node.clientHeight;
+            if (ch) {
+                var tmp = this, delta = ch - this.height;
                 if (delta && this.parent) {
+                    this.counter.style.lineHeight = ch + 'px';
                     this.height += delta;
                     this.parent.resize(0, delta);
-                    this.root.emit('height:changed', this, delta);
                 }
             }
         },
