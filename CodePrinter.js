@@ -617,7 +617,7 @@ define('CodePrinter', ['Selector'], function($) {
             if (size == 'auto') {
                 this.container.style.removeProperty('height');
             } else {
-                this.container.style.height = (this.options.height = parseInt(size)) + 'px';
+                this.container.style.height = this.container.style.flexBasis = this.container.style.MozFlexBasis = (this.options.height = parseInt(size)) + 'px';
             }
             this.emit('height:changed');
             return this;
