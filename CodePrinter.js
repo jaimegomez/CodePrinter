@@ -18,7 +18,8 @@ define('CodePrinter', ['Selector'], function($) {
     , Caret, Document, Stream, History, Selection
     , keyMap, commands, tracking, lineendings
     , extensions, div, li, pre, span
-    , BRANCH_OPTIMAL_SIZE = 40;
+    , BRANCH_OPTIMAL_SIZE = 40
+    , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null;
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
@@ -93,7 +94,7 @@ define('CodePrinter', ['Selector'], function($) {
             if (this.document) return;
             var self = this
             , options = this.options
-            , lastScrollTop = 0
+            , lastScrollTop = 0, lock
             , doc, sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
             , T, T2, fn;
@@ -192,14 +193,41 @@ define('CodePrinter', ['Selector'], function($) {
                     ++moveselection;
                 }
             }
+            function mousewheel(e) {
+                var x = e.wheelDeltaX, y = e.wheelDeltaY;
+                
+                if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
+                if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
+                
+                if (x) {
+                    if (!y && this.clientWidth >= this.scrollWidth) return;
+                    var pixels = wheelUnit * x;
+                    this.scrollLeft += pixels;
+                }
+                if (y) {
+                    var pixels = wheelUnit * y
+                    , cH = this.clientHeight
+                    , sH = this.scrollHeight;
+                    
+                    if (cH >= sH) return;
+                    if (pixels < -60) pixels = -60;
+                    else if (pixels > 60) pixels = 60;
+                    
+                    lock = true;
+                    doc.scroll(pixels, sH - cH);
+                    self.counter.scrollTop = this.scrollTop += pixels;
+                }
+                return e.cancel();
+            }
             
             this.wrapper.listen({
-                mousewheel: function() {
-                    self.counter.scrollTop = this.scrollTop;
-                },
+                mousewheel: mousewheel,
+                DOMMouseScroll: mousewheel,
                 scroll: function(e) {
-                    doc.scrollTo(this.scrollTop);
-                    self.counter.scrollTop = this.scrollTop;
+                    if (!lock) {
+                        doc.scrollTo(self.counter.scrollTop = this.scrollTop);
+                    }
+                    lock = false;
                 },
                 dblclick: function() {
                     var bf = self.caret.textBefore()
@@ -328,30 +356,29 @@ define('CodePrinter', ['Selector'], function($) {
                         var wrapper = self.wrapper
                         , pl = sizes.paddingLeft, pt = sizes.paddingTop
                         , sl = wrapper.scrollLeft, st = wrapper.scrollTop
-                        , cw = sl + wrapper.clientWidth, ch = st + wrapper.clientHeight
+                        , cw = wrapper.clientWidth, ch = wrapper.clientHeight
                         , h = dl.height;
                         
                         if (x - pl < sl) {
                             sl = x - pl;
-                        } else if (x + pl >= cw) {
-                            sl = x + pl - cw + sl;
+                        } else if (x + pl >= cw + sl) {
+                            sl = x + pl - cw;
                         }
                         wrapper.scrollLeft = sl;
-                        if (Math.abs(y - st) > wrapper.clientHeight) {
-                            if (y < wrapper.clientHeight / 2) {
+                        if (Math.abs(y - st) > ch) {
+                            if (y < ch / 2) {
                                 st = 0;
                             } else {
-                                st = y - wrapper.clientHeight / 2;
+                                st = y - ch / 2;
                             }
                         } else {
                             if (y < st + h) {
                                 st = y - h - pt;
-                            } else if (y + 2 * h >= ch) {
-                                st = y + 2 * h + pt - ch + st;
+                            } else if (y + 2 * h >= ch + st) {
+                                st = y + 2 * h + pt - ch;
                             }
                         }
-                        wrapper.scrollTop = st;
-                        wrapper.emit('scroll');
+                        doc.scrollTo(Math.max(0, Math.min(st, wrapper.scrollHeight - ch)));
                     }
                     if (options.tracking) {
                         T2 = clearTimeout(T2);
@@ -375,7 +402,6 @@ define('CodePrinter', ['Selector'], function($) {
                             self.highlightOverlay.remove();
                         }
                     }
-                    self.counter.scrollTop = self.wrapper.scrollTop;
                     self.removeOverlays('caret');
                 }
             });
@@ -855,7 +881,6 @@ define('CodePrinter', ['Selector'], function($) {
         appendText: function(text) {
             var dl, text = this.convertToTabs(text);
             (this.document.lines() == 1 && (dl = this.document.get(0)).text.length == 0) ? dl.setText(text) : this.document.append(text);
-            this.document.fill();
             return this;
         },
         swapLineUp: function() {
@@ -1609,8 +1634,8 @@ define('CodePrinter', ['Selector'], function($) {
         , screen = cp.wrapper.lastChild
         , code = screen.firstChild
         , temp = screen.lastChild.firstChild
-        , from = 0, to = -1, lastST = 0
-        , first, last, defHeight = 13, firstNumber
+        , from = 0, to = -1, lastST = 0, lines = []
+        , defHeight = 13, firstNumber
         , data, history, selection;
         
         history = new History(cp, cp.options.historyStackSize, cp.options.historyDelay);
@@ -1622,7 +1647,7 @@ define('CodePrinter', ['Selector'], function($) {
         }
         
         function desiredHeight(half) {
-            return cp.wrapper.clientHeight + (half ? 200 : 400);
+            return cp.wrapper.clientHeight + (half ? 100 : 200);
         }
         function updateHeight() {
             screen.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
@@ -1632,13 +1657,12 @@ define('CodePrinter', ['Selector'], function($) {
         }
         function link(dl, index) {
             if (dl.node && dl.counter) {
-                if (index == from) first = dl;
-                if (index == to+1) last = dl;
-                
                 dl.counter.innerHTML = formatter(firstNumber + (dl.counter._index = index));
                 if (index <= to) {
-                    code.insertBefore(dl.node, code.children[index - from]);
-                    ol.insertBefore(dl.counter, ol.children[index - from]);
+                    var q = index - from, bef = lines[q];
+                    code.insertBefore(dl.node, bef.node);
+                    ol.insertBefore(dl.counter, bef.counter);
+                    lines.splice(q, 0, dl);
                     var tmp = dl.counter.nextSibling;
                     while (tmp) {
                         tmp.innerHTML = formatter(firstNumber + (tmp._index = ++index));
@@ -1647,6 +1671,7 @@ define('CodePrinter', ['Selector'], function($) {
                 } else {
                     code.appendChild(dl.node);
                     ol.appendChild(dl.counter);
+                    lines.push(dl);
                 }
                 cp.parse(dl); dl.touch();
             }
@@ -1664,24 +1689,49 @@ define('CodePrinter', ['Selector'], function($) {
             }
             code.removeChild(dl.deleteNode());
             ol.removeChild(dl.deleteCounter());
+            lines.remove(dl);
             --to;
-            if (dl === first) first = first.next();
-            if (dl === last) last = last.prev();
         }
         function rewind(dl) {
-            clear();
-            var dli = dl.info();
-            code.style.top = ol.style.top = (cp.sizes.scrollTop = Math.max(0, dli.offset)) + 'px';
+            var tmp = dl, dli = dl.info()
+            , offset = dli.offset
+            , i = -1;
+            
+            if (from <= dli.index && dli.index <= to) return false;
+            
             from = dli.index;
             to = from - 1;
-            while (!isFilled() && dl) {
-                insert(dl);
-                dl = dl.next();
+            
+            while (tmp && ++i < lines.length) {
+                tmp.captureNode(lines[i]);
+                tmp.touch();
+                tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = to = from + i));
+                lines[i] = tmp;
+                tmp = tmp.next();
             }
+            if (++i < lines.length) {
+                var spliced = lines.splice(i, lines.length - i);
+                tmp = dl.prev();
+                while (tmp && spliced.length) {
+                    tmp.captureNode(spliced.shift());
+                    tmp.touch();
+                    tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = --from));
+                    code.insertBefore(tmp.node, lines[0].node);
+                    ol.insertBefore(tmp.counter, lines[0].counter);
+                    lines.unshift(tmp);
+                    offset -= tmp.height;
+                    tmp = tmp.prev();
+                }
+            }
+            code.style.top = ol.style.top = (cp.sizes.scrollTop = Math.max(0, offset)) + 'px';
         }
         function clear() {
+            for (var i = 0; i < lines.length; i++) {
+                lines[i].deleteNode();
+                lines[i].deleteCounter();
+            }
             to = -1; from = 0;
-            first = last = null;
+            lines.length = 0;
             code.innerHTML = ol.innerHTML = '';
             code.style.top = ol.style.top = (cp.sizes.scrollTop = 0) + 'px';
         }
@@ -1719,7 +1769,7 @@ define('CodePrinter', ['Selector'], function($) {
             return this;
         }
         this.debug = function() {
-            console.log(JSON.stringify({ from: from, to: to, first: first.text, last: last.text }));
+            console.log(JSON.stringify({ from: from, to: to, scrollTop: lastST, offsetTop: cp.sizes.scrollTop, first: lines[0].text, last: lines[lines.length-1].text }));
         }
         this.append = function(text) {
             var dl = new Line();
@@ -1735,11 +1785,11 @@ define('CodePrinter', ['Selector'], function($) {
             }
             if (l < from) {
                 ++from;
-                updateCounters(first, from);
+                updateCounters(lines[0], from);
             } else if (l <= to + 1) {
                 dl.bind(pre.cloneNode(), li.cloneNode());
                 if (isFilled()) {
-                    remove(last);
+                    remove(lines[lines.length-1]);
                 }
                 link(dl, l);
                 ++to;
@@ -1747,44 +1797,17 @@ define('CodePrinter', ['Selector'], function($) {
             updateHeight();
         }
         this.fill = function() {
-            var dl = last ? last.next() : data.get(0);
-            while (dl && !isFilled()) {
+            var half, dl = (half = !lines.length) ? data.get(0) : lines[lines.length-1].next();
+            while (dl && !isFilled(half)) {
                 insert(dl);
                 dl = dl.next();
-            }
-            updateHeight();
-        }
-        this.shift = function() {
-            var dl = last.next();
-            if (dl) {
-                scroll(first.height);
-                dl.captureNode(first);
-                if (dl.active) cp.select(dl);
-                first = first.next();
-                link(dl, to + 1);
-                ++from; ++to;
-                return dl;
-            }
-        }
-        this.unshift = function() {
-            var dl = first.prev();
-            if (dl) {
-                dl.captureNode(last);
-                if (dl.active) cp.select(dl);
-                last = last.prev();
-                link(dl, --from);
-                --to;
-                scroll(-dl.height);
-                return dl;
             }
         }
         this.remove = function(dl, line, howmany) {
             if (howmany == null) howmany = 1;
-            var rm, tmp = dl, next = line + howmany <= to ? last.next() : data.get(line + howmany), i = -1;
+            var rm, tmp = dl, next = line + howmany <= to ? lines[lines.length-1].next() : data.get(line + howmany), i = -1;
             while (tmp && ++i < howmany) {
                 if (tmp.node) {
-                    if (tmp === first) first = null;
-                    if (tmp === last) last = dl.prev();
                     remove(tmp);
                     if (next) {
                         insert(next);
@@ -1795,32 +1818,71 @@ define('CodePrinter', ['Selector'], function($) {
                 }
                 tmp = tmp.next();
             }
-            if (tmp && first == null) first = tmp;
             rm = data.remove(dl, howmany);
             if (rm[0] && rm[0].startPoint) cp.parse(rm[0].startPoint);
             updateHeight();
             return rm;
         }
         this.scrollTo = function(st) {
-            counter.scrollTop = st;
-            if (Math.abs(lastST - st) > desiredHeight()) {
-                var dl = data.getLineWithOffset(Math.max(0, st - 200));
-                rewind(dl);
-            } else {
-                var x = st - cp.sizes.scrollTop
-                , limit = 150, delta = 30;
+            this.scroll(st - lastST, cp.wrapper.scrollHeight - cp.wrapper.clientHeight);
+            counter.scrollTop = cp.wrapper.scrollTop = st;
+        }
+        this.scroll = function(delta, maxScroll) {
+            if (delta) {
+                lastST += delta;
+                if (lastST < 0) {
+                    delta = -lastST + delta;
+                    lastST = 0;
+                } else if (maxScroll && lastST > maxScroll) {
+                    delta = maxScroll - lastST + delta;
+                    lastST = maxScroll;
+                }
                 
-                if (from === 0 && x > 0 && x < limit) {
-                    this.fill();
-                } else {
-                    if (x > limit + delta) {
-                        while (this.shift() && st - cp.sizes.scrollTop > limit + delta);
-                    } else if (x < limit - delta) {
-                        while (this.unshift() && st - cp.sizes.scrollTop < limit - delta);
+                var x = lastST - cp.sizes.scrollTop
+                , limit = 100
+                , d = x - limit
+                , tmpd = d
+                , h, dl;
+                
+                if (d) {
+                    if (Math.abs(delta) > code.clientHeight) {
+                        dl = data.getLineWithOffset(Math.max(0, lastST - limit));
+                        if (rewind(dl) !== false) {
+                            return;
+                        }
+                    }
+                    if (from === 0 && d < 0) {
+                        h = lines[0].height;
+                        dl = lines[lines.length-1];
+                        while (h < x && !isFilled() && (dl = dl.next())) {
+                            insert(dl);
+                            x -= dl.height;
+                        }
+                        return;
+                    }
+                    if (d > 2) {
+                        while (lines.length && (h = lines[0].height) < d && (dl = lines[lines.length-1].next())) {
+                            var first = lines.shift();
+                            dl.captureNode(first);
+                            if (dl.active) cp.select(dl);
+                            link(dl, to + 1);
+                            ++from; ++to;
+                            d -= h;
+                        }
+                    } else if (d < -2) {
+                        while (lines.length && -(h = lines[lines.length-1].height) > d && (dl = lines[0].prev())) {
+                            var last = lines.pop();
+                            dl.captureNode(last);
+                            if (dl.active) cp.select(dl);
+                            link(dl, --from); --to;
+                            d += h;
+                        }
+                    }
+                    if (tmpd !== d) {
+                        scroll(tmpd - d);
                     }
                 }
             }
-            lastST = st;
         }
         this.measureRect = function(dl, offset, to) {
             var x = 0, c = 0, w = 0, bycolumn = arguments.length === 3, node = dl.node
@@ -2319,12 +2381,11 @@ define('CodePrinter', ['Selector'], function($) {
             return this;
         }
         this.focus = function() {
-            this.isVisible || this.refresh().show().activate();
+            this.isVisible || this.show().activate();
             cp.select(currentDL);
         }
         this.blur = function() {
             this.deactivate().hide();
-            currentDL = null;
             cp.unselect();
             this.emit('blur');
         }
@@ -2399,8 +2460,7 @@ define('CodePrinter', ['Selector'], function($) {
             this.value = dl instanceof Array ? dl : typeof dl === 'string' ? [dl] : [];
         }
         this.parsed = [];
-        this.row = 0;
-        this.pos = 0;
+        this.setRow(0);
         
         this.nextLine = function() {
             return dl && dl.next();
@@ -2424,12 +2484,20 @@ define('CodePrinter', ['Selector'], function($) {
         found: '',
         eaten: '',
         wrapped: '',
-        setRow: function(r, p) {
+        setRow: function(r) {
             if (r < 0 || r >= this.value.length) {
                 return false;
             }
             this.row = r;
-            this.pos = (p || 0);
+            this.pos = 0;
+            if (!this.parsed[r]) {
+                this.parsed[r] = '';
+                var v = this.value[r];
+                while (this.pos < v.length && v[this.pos] === '\t') {
+                    this.append('<span class="cpx-tab">\t</span>');
+                    ++this.pos;
+                }
+            }
             return this;
         },
         forward: function() {
@@ -2450,16 +2518,7 @@ define('CodePrinter', ['Selector'], function($) {
                 i = s.search(rgx);
                 if (i >= 0) {
                     f = RegExp.lastMatch;
-                    if (i > 0) {
-                        var j = 0, sub = s.substring(0, i);
-                        if (this.pos === 0) {
-                            while (j < i && sub[j] === '\t') {
-                                this.append('<span class="cpx-tab">\t</span>');
-                                ++j;
-                            }
-                        }
-                        j < i && this.append('<span>'+(j === 0 ? sub : s.substring(j, i))+'</span>');
-                    }
+                    i > 0 && this.append('<span>'+s.substring(0, i)+'</span>');
                     this.indexOfFound = i;
                     this.wholeLineMatched = this.pos === 0 && i + f.length === s.length;
                     this.pos += i;
@@ -2511,7 +2570,7 @@ define('CodePrinter', ['Selector'], function($) {
                     indexTo = str2.length;
                 } else if (to instanceof RegExp) {
                     if ((indexTo = str2.search(to)) !== -1) {
-                        to = to.exec(str2)[0];
+                        to = RegExp.lastMatch;
                     }
                 } else {
                     indexTo = str2.indexOf(to);
@@ -2522,27 +2581,26 @@ define('CodePrinter', ['Selector'], function($) {
                         this.pos += pos + str2.length;
                         
                         while (this.pushNextLine()) {
-                            this.row++;
-                            this.pos = 0;
-                            str2 = this.current();
+                            this.forward();
+                            str2 = this.current().substr(this.pos);
                             if (str2 != null) {
                                 if (to instanceof RegExp) {
                                     if ((indexTo = str2.search(to)) !== -1) {
-                                        to = to.exec(str2)[0];
+                                        to = RegExp.lastMatch;
                                     }
                                 } else {
                                     indexTo = str2.indexOf(to);
                                 }
                                 if (indexTo !== -1) {
                                     this.eaten.push(str2.substring(0, indexTo + to.length));
-                                    this.pos = indexTo + to.length;
+                                    this.pos += indexTo + to.length;
                                     return this;
                                 } else {
                                     this.eaten.push(str2);
-                                    this.pos = str2.length;
+                                    this.pos += str2.length;
                                 }
                             } else {
-                                this.row--;
+                                this.backward();
                                 this.pos = this.value[this.row].length;
                                 return this;
                             }
@@ -2588,15 +2646,12 @@ define('CodePrinter', ['Selector'], function($) {
             
             this.wrapped = [];
             tmp.length > 1 && (this.row = this.row - tmp.length + 1);
-            var i = -1;
+            var i = 0;
             
-            while (++i < tmp.length) {
+            do {
                 var ls = (tmp[i].match(/^\s*/) || [])[0];
-                this.wrapped[i] = this.append((ls || '') + (tmp[i] ? wrap(tmp[i].replace(/^\s*/, ''), classes, filter) : ''));
-                if (i < tmp.length - 1) {
-                    this.parsed[++this.row] = '';
-                }
-            }
+                this.wrapped[i] = this.append((ls || '') + (tmp[i] ? wrap(tmp[i].substr(ls.length), classes, filter) : ''));
+            } while (++i < tmp.length && ++this.row);
             return this.reset();
         },
         applyWrap: function(array) {
@@ -2619,11 +2674,7 @@ define('CodePrinter', ['Selector'], function($) {
         },
         append: function(txt) {
             if (typeof txt === 'string') {
-                if (typeof this.parsed[this.row] !== 'string') {
-                    this.parsed[this.row] = txt;
-                } else {
-                    this.parsed[this.row] = this.parsed[this.row] + txt;
-                }
+                this.parsed[this.row] += txt;
             }
             return txt;
         },
@@ -2921,14 +2972,14 @@ define('CodePrinter', ['Selector'], function($) {
             if (keyMap.__disable !== true) {
                 this.caret.moveY(-50);
                 keyMap.__disable = true;
-                setTimeout(function() { delete keyMap.__disable; }, 100);
+                setTimeout(function() { delete keyMap.__disable; }, 50);
             }
         },
         'PageDown': function() {
             if (keyMap.__disable !== true) {
                 this.caret.moveY(50);
                 keyMap.__disable = true;
-                setTimeout(function() { delete keyMap.__disable; }, 100);
+                setTimeout(function() { delete keyMap.__disable; }, 50);
             }
         },
         'End': function() {
