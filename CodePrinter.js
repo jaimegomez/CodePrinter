@@ -141,7 +141,7 @@ define('CodePrinter', ['Selector'], function($) {
                             if (moveselection > 1) {
                                 var savedpos = self.caret.savePosition();
                                 if (moveselection && doc.issetSelection() && !doc.inSelection(savedpos[0], savedpos[1])) {
-                                    var selection = self.getSelection()
+                                    var selection = doc.getSelection()
                                     , sel = doc.getSelectionRange()
                                     , isbf = self.cursorIsBeforePosition(sel.start.line, sel.start.column);
                                     
@@ -225,7 +225,10 @@ define('CodePrinter', ['Selector'], function($) {
                 DOMMouseScroll: mousewheel,
                 scroll: function(e) {
                     if (!lock) {
-                        doc.scrollTo(self.counter.scrollTop = this.scrollTop);
+                        lock = true;
+                        var st = this.scrollTop;
+                        doc.scrollTo(st, false);
+                        self.counter.scrollTop = st;
                     }
                     lock = false;
                 },
@@ -1539,7 +1542,7 @@ define('CodePrinter', ['Selector'], function($) {
         setParsed: function(str) {
             if (str !== this.parsed) {
                 this.parsed = str;
-                this.changed = 2;
+                this.changed = 6;
                 this.touch();
             }
         },
@@ -1552,7 +1555,7 @@ define('CodePrinter', ['Selector'], function($) {
             delete this.startPoint;
         },
         setNode: function(node) {
-            this.changed = this.changed | 2;
+            this.changed |= 2;
             return this.node = node;
         },
         captureNode: function(dl) {
@@ -1583,18 +1586,19 @@ define('CodePrinter', ['Selector'], function($) {
             if (this.changed & 2 && this.node) {
                 this.node.innerHTML = this.parsed || ' ';
                 this.updateHeight();
-                this.changed = this.changed ^ 2;
+                this.changed ^= 2;
             }
         },
         updateHeight: function() {
-            var ch = this.node.clientHeight;
-            if (ch) {
-                var tmp = this, delta = ch - this.height;
-                if (delta && this.parent) {
-                    this.counter.style.lineHeight = ch + 'px';
+            var oh;
+            if (this.changed & 4 && (oh = this.node.offsetHeight)) {
+                var delta = oh - this.height;
+                if (delta) {
+                    this.counter.style.lineHeight = oh + 'px';
                     this.height += delta;
-                    this.parent.resize(0, delta);
+                    this.parent && this.parent.resize(0, delta);
                 }
+                this.changed ^= 4;
             }
         },
         next: function() {
@@ -1661,7 +1665,7 @@ define('CodePrinter', ['Selector'], function($) {
                     ol.insertBefore(dl.counter, bef.counter);
                     lines.splice(q, 0, dl);
                     var tmp = dl.counter.nextSibling;
-                    while (tmp) {
+                    while (tmp && tmp._index !== index + 1) {
                         tmp.innerHTML = formatter(firstNumber + (tmp._index = ++index));
                         tmp = tmp.nextSibling;
                     }
@@ -1732,10 +1736,9 @@ define('CodePrinter', ['Selector'], function($) {
             code.innerHTML = ol.innerHTML = '';
             code.style.top = ol.style.top = (cp.sizes.scrollTop = 0) + 'px';
         }
-        function scroll(delta, inwrapper) {
+        function scroll(delta) {
             cp.sizes.scrollTop = Math.max(0, cp.sizes.scrollTop + delta);
             code.style.top = ol.style.top = cp.sizes.scrollTop + 'px';
-            if (inwrapper) cp.wrapper.scrollTop += delta;
         }
         function updateCounters(dl, index) {
             var tmp = dl.counter;
@@ -1820,9 +1823,10 @@ define('CodePrinter', ['Selector'], function($) {
             this.updateHeight();
             return rm;
         }
-        this.scrollTo = function(st) {
-            this.scroll(st - lastST, cp.wrapper.scrollHeight - cp.wrapper.clientHeight);
-            counter.scrollTop = cp.wrapper.scrollTop = st;
+        this.scrollTo = function(st, arg) {
+            var d = st - lastST;
+            this.scroll(d, cp.wrapper.scrollHeight - cp.wrapper.clientHeight);
+            if (d && arg !== false) counter.scrollTop = cp.wrapper.scrollTop = st;
         }
         this.scroll = function(delta, maxScroll) {
             if (delta) {
@@ -1842,7 +1846,7 @@ define('CodePrinter', ['Selector'], function($) {
                 , h, dl;
                 
                 if (d) {
-                    if (Math.abs(delta) > code.clientHeight) {
+                    if (Math.abs(delta) > code.offsetHeight) {
                         dl = data.getLineWithOffset(Math.max(0, lastST - limit));
                         if (rewind(dl) !== false) {
                             return;
