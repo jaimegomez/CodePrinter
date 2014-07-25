@@ -1649,9 +1649,6 @@ define('CodePrinter', ['Selector'], function($) {
         function desiredHeight(half) {
             return cp.wrapper.clientHeight + (half ? 100 : 200);
         }
-        function updateHeight() {
-            screen.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
-        }
         function isFilled(half) {
             return code.scrollHeight > desiredHeight(half);
         }
@@ -1765,7 +1762,7 @@ define('CodePrinter', ['Selector'], function($) {
             for (var i = 0; i < source.length; i++) {
                 this.append(cp.convertToTabs(source[i]));
             }
-            updateHeight();
+            this.updateHeight();
             return this;
         }
         this.debug = function() {
@@ -1794,7 +1791,7 @@ define('CodePrinter', ['Selector'], function($) {
                 link(dl, l);
                 ++to;
             }
-            updateHeight();
+            this.updateHeight();
         }
         this.fill = function() {
             var half, dl = (half = !lines.length) ? data.get(0) : lines[lines.length-1].next();
@@ -1820,7 +1817,7 @@ define('CodePrinter', ['Selector'], function($) {
             }
             rm = data.remove(dl, howmany);
             if (rm[0] && rm[0].startPoint) cp.parse(rm[0].startPoint);
-            updateHeight();
+            this.updateHeight();
             return rm;
         }
         this.scrollTo = function(st) {
@@ -1955,6 +1952,9 @@ define('CodePrinter', ['Selector'], function($) {
             document.documentElement.appendChild(pr);
             defHeight = pr.clientHeight;
             document.documentElement.removeChild(pr);
+        }
+        this.updateHeight = function() {
+            screen.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
         }
         this.getDefaultLineHeight = function() {
             return defHeight;
