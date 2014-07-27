@@ -501,7 +501,7 @@ define('CodePrinter', ['Selector'], function($) {
                 if (this.parser.name === 'plaintext') {
                     var p = '', i = 0, l = dl.text.length;
                     while (i < l && dl.text[i] === '\t') {
-                        p += '<span class="cpx-tab">'+(Array.apply(null, this.options.tabWidth+1).join(' '))+'</span>';
+                        p += '<span class="cpx-tab">'+(Array(this.options.tabWidth+1).join(' '))+'</span>';
                         ++i;
                     }
                     if (i < l) p += '<span>'+this.convertToSpaces(dl.text.substr(i))+'</span>';
