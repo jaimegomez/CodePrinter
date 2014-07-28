@@ -1082,7 +1082,7 @@ define('CodePrinter', ['Selector'], function($) {
                             node.position = { _sl: line, _sc: ln, _el: line, _ec: ln + match.length }
                             node.style.top = sizes.paddingTop + offset + 'px';
                             node.style.left = sizes.paddingLeft + rect.offset + 'px';
-                            node.style.width = rect.width + 3 + 'px';
+                            node.style.width = rect.width + 2 + 'px';
                             node.style.height = dl.height + 1 + 'px';
                             
                             search.results.push(node);
@@ -2019,25 +2019,35 @@ define('CodePrinter', ['Selector'], function($) {
                 , dloffset = dl.getOffset(), selnode
                 , delta = e.line - s.line;
                 
-                ov.node.innerHTML = '';
-                
                 if (delta) {
                     var pos = this.measureRect(dl, s.column, s.column)
                     , lastdl = data.get(e.line), lastdloffset = lastdl.getOffset();
                     
-                    selnode = createSelectionNode.call(cp, dloffset, pos.offset, null, dl.height, 0);
-                    ov.node.append(selnode);
+                    selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(), dloffset, pos.offset, null, dl.height + 1, 0);
+                    selnode.parentNode || ov.node.appendChild(selnode);
                     
                     if (delta > 1) {
-                        selnode = createSelectionNode.call(cp, dloffset + dl.height, 0, null, lastdloffset - dloffset - dl.height, 0);
-                        ov.node.append(selnode);
+                        selnode = ov.middle = createSelectionNode.call(cp, ov.middle || div.cloneNode(), dloffset + dl.height, 0, null, lastdloffset - dloffset - dl.height, 0);
+                        selnode.parentNode || ov.node.appendChild(selnode);
+                    } else if (ov.middle) {
+                        ov.node.removeChild(ov.middle);
+                        delete ov.middle;
                     }
                     pos = this.measureRect(lastdl, 0, e.column);
-                    selnode = createSelectionNode.call(cp, lastdloffset, pos.offset, pos.width, lastdl.height);
-                    ov.node.append(selnode);
+                    selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode(), lastdloffset, pos.offset, pos.width, lastdl.height);
+                    selnode.parentNode || ov.node.appendChild(selnode);
                 } else {
                     var pos = this.measureRect(dl, s.column, e.column);
-                    ov.node.append(createSelectionNode.call(cp, dloffset, pos.offset, pos.width, dl.height));
+                    selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(), dloffset, pos.offset, pos.width, dl.height);
+                    selnode.parentNode || ov.node.appendChild(selnode);
+                    if (ov.middle) {
+                        ov.node.removeChild(ov.middle);
+                        delete ov.middle;
+                    }
+                    if (ov.bottom) {
+                        ov.node.removeChild(ov.bottom);
+                        delete ov.bottom;
+                    }
                 }
                 ov.reveal();
                 cp.unselect();
@@ -3246,7 +3256,6 @@ define('CodePrinter', ['Selector'], function($) {
         this.overlay = new CodePrinter.Overlay(cp, 'cp-selection-overlay', false);
         
         this.clear = function() {
-            this.overlay.node.innerHTML = '';
             this.overlay.remove();
             coords = [];
             return this;
@@ -3434,13 +3443,13 @@ define('CodePrinter', ['Selector'], function($) {
             cp.counter = cp.container.firstChild;
         }
     })();
-    function createSelectionNode(top, left, width, height, right) {
-        var node = div.cloneNode().addClass('cp-selection');
+    function createSelectionNode(node, top, left, width, height, right) {
+        node.addClass('cp-selection');
         node.style.top = top + this.sizes.paddingTop + 'px';
         node.style.left = left + this.sizes.paddingLeft + 'px';
-        if (width != null) node.style.width = width + 'px';
-        if (height != null) node.style.height = height + 'px';
-        if (right != null) node.style.right = right + this.sizes.paddingLeft + 'px';
+        node.style.width = (width != null ? width + 'px' : null);
+        node.style.height = (height != null ? height + 'px' : null);
+        node.style.right = (right != null ? right + this.sizes.paddingLeft + 'px' : null);
         return node;
     }
     function wrap(text, classes, filter) {
