@@ -8,7 +8,6 @@
     color: #333;
 }
 body {
-    overflow: hidden;
     background: url("background.png") repeat;
 }
 img {
@@ -148,7 +147,6 @@ input[type=checkbox] {
     position: relative;
     overflow: visible;
     -webkit-appearance: none;
-    -moz-appearance: none;
 }
 input[type=checkbox]:hover {
     border-color: #9f9f9f;
@@ -178,7 +176,7 @@ input[type=checkbox]::after {
     opacity: 0;
     font-family: Helvetica Neue, Helvetica, Arial, sans-serif;
     font-size: 15px;
-    position: relative;
+    position: absolute;
     top: 0;
     left: 3px;
     content: "✔";
