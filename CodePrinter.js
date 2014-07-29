@@ -595,7 +595,7 @@ define('CodePrinter', ['Selector'], function($) {
                 this.wrapper.style.fontSize = this.counter.style.fontSize = (this.sizes.fontSize = size) + 'px';
                 
                 this.intervalIterate(function(dl) {
-                    dl.node && dl.updateHeight();
+                    dl.node && dl.updateHeight(true);
                     return dl;
                 }, function() {
                     this.document.fill();
@@ -1589,9 +1589,9 @@ define('CodePrinter', ['Selector'], function($) {
                 this.changed ^= 2;
             }
         },
-        updateHeight: function() {
+        updateHeight: function(force) {
             var oh;
-            if (this.changed & 4 && (oh = this.node.offsetHeight)) {
+            if ((force || this.changed & 4) && (oh = this.node.offsetHeight)) {
                 var delta = oh - this.height;
                 if (delta) {
                     this.counter.style.lineHeight = oh + 'px';
