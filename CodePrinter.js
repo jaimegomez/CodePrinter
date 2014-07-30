@@ -123,7 +123,7 @@ define('CodePrinter', ['Selector'], function($) {
                 var sl = self.wrapper.scrollLeft
                 , st = self.wrapper.scrollTop
                 , o = sizes.bounds = sizes.bounds || self.wrapper.bounds()
-                , x = Math.max(0, sl + e.pageX - o.x - sizes.paddingLeft)
+                , x = Math.max(0, sl + e.pageX - o.x)
                 , y = e.pageY < o.y ? 0 : e.pageY <= o.y + self.wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : self.wrapper.scrollHeight
                 , ry = Math.max(0, Math.min(y, doc.height()));
                 
@@ -505,6 +505,7 @@ define('CodePrinter', ['Selector'], function($) {
                         ++i;
                     }
                     if (i < l) p += '<span>'+this.convertToSpaces(dl.text.substr(i))+'</span>';
+                    if (!p) p = '&zwnj;';
                     dl.setParsed(p);
                 } else if (!dl.parsed || dl.changed & 1 || force) {
                     if (dl.startPoint) {
@@ -1017,7 +1018,7 @@ define('CodePrinter', ['Selector'], function($) {
                     pos = this.document.measureRect(dl, arguments[i][1], arguments[i][1] + arguments[i][2].length);
                     var sp = span.cloneNode().addClass('cp-highlight');
                     sp.style.top = dl.getOffset() + this.sizes.paddingTop + 'px';
-                    sp.style.left = pos.offset + this.sizes.paddingLeft + 'px';
+                    sp.style.left = pos.offset + 'px';
                     sp.style.width = pos.width + 'px';
                     sp.style.height = dl.height + 'px';
                     overlay.node.append(sp);
@@ -1584,7 +1585,7 @@ define('CodePrinter', ['Selector'], function($) {
         },
         touch: function() {
             if (this.changed & 2 && this.node) {
-                this.node.innerHTML = this.parsed || ' ';
+                this.node.innerHTML = this.parsed || '&zwnj;';
                 this.updateHeight();
                 this.changed ^= 2;
             }
@@ -1886,64 +1887,107 @@ define('CodePrinter', ['Selector'], function($) {
             }
         }
         this.measureRect = function(dl, offset, to) {
-            var x = 0, c = 0, w = 0, bycolumn = arguments.length === 3, node = dl.node
-            , cr, child, l, r = { column: 0, offset: 0, width: 0, charWidth: 0 }
+            var childNodes, child, first, l
+            , oL, oW, tmp = 0, i = -1
+            , node = dl.node, r = {
+                column: 0,
+                offset: 0,
+                width: 0,
+                charWidth: 0
+            }
             
             if (!node || !node.parentNode) {
                 node = temp;
-                node.innerHTML = dl.parsed || dl.text || '';
+                node.innerHTML = dl.parsed || '<span>'+(dl.text || '')+'</span>';
                 dl.node = null;
             }
-            for (var i = 0; i < node.childNodes.length; i++) {
-                child = node.childNodes[i];
-                l = child.textContent.length;
-                if (l === 0) continue;
+            childNodes = node.childNodes;
+            if (childNodes.length === 1 && (first = childNodes[0]) && first.textContent == '‌') {
+                if (first.nodeType !== 1) first = wrapTextNode(node, first);
+                return { column: 0, offset: first.offsetLeft, width: 0, charWidth: 0 }
+            }
+            
+            if (arguments.length === 3) {
+                var boo;
                 
-                if (child.nodeType !== 1 || /^\s*$/.test(child.textContent)) {
-                    var sp = span.cloneNode();
-                    sp.textContent = sp.innerText = 'A'.repeat(l);
-                    node.appendChild(sp);
-                    cr = sp.getBoundingClientRect();
-                    node.removeChild(sp);
-                } else {
-                    cr = child.getBoundingClientRect();
-                }
-                if (bycolumn) {
-                    if (offset != null && c + l >= offset) {
-                        w = -cr.width * (offset - c) / l;
-                        x -= w;
-                        r = { column: offset, offset: Math.floor(x), charWidth: cr.width / l }
-                        offset = null;
-                        if ('number' !== typeof to) break;
-                    }
-                    if (offset == null) {
-                        if (c + l >= to) {
-                            w += cr.width * (to - c) / l;
+                while (++i < childNodes.length) {
+                    child = childNodes[i];
+                    l = child.textContent.length;
+                    if (l === 0) continue;
+                    
+                    if (boo) {
+                        if (child.nodeType !== 1) child = wrapTextNode(node, child);
+                        oW = child.offsetWidth;
+                        if (to <= tmp + l) {
+                            r.width += Math.round((to - tmp) * oW / l);
                             break;
+                        }
+                        r.width += oW - 1;
+                    } else if (offset < tmp + l) {
+                        if (child.nodeType !== 1) child = wrapTextNode(node, child);
+                        
+                        oW = child.offsetWidth;
+                        oL = child.offsetLeft;
+                        r.column = offset;
+                        r.offset = Math.round(oL + (offset - tmp) * oW / l);
+                        r.charWidth = Math.round(oW / l);
+                        boo = true;
+                        
+                        if (to < offset || 'number' !== typeof to) break;
+                        if (to <= tmp + l) {
+                            r.width = Math.round((to - offset) * oW / l);
+                            break;
+                        }
+                        r.width = Math.round((l + tmp - offset) * oW / l);
+                    }
+                    tmp += l;
+                }
+                if (!boo) { r.column = tmp; r.charWidth = child ? Math.round(child.offsetWidth / l) : 0; }
+                if (!r.offset && child) r.offset = child.offsetLeft + child.offsetWidth;
+            } else {
+                var defCharWidth;
+                
+                while (++i < childNodes.length) {
+                    child = childNodes[i];
+                    l = child.textContent.length;
+                    if (l === 0) continue;
+                    
+                    if (child.nodeType === 1) {
+                        oL = child.offsetLeft;
+                        oW = child.offsetWidth;
+                    } else {
+                        if (defCharWidth) {
+                            oL = oL + oW;
+                            oW = defCharWidth * l;
                         } else {
-                            w += cr.width;
+                            var sp = span.cloneNode();
+                            sp.textContent = sp.innerText = '0';
+                            node.insertBefore(sp, child);
+                            defCharWidth = sp.offsetWidth;
+                            oL = sp.offsetLeft;
+                            oW = (child.textContent == '‌' ? 0 : l) * defCharWidth;
+                            node.removeChild(sp);
                         }
                     }
-                } else {
-                    if (x + cr.width > offset) {
-                        var t = Math.round((offset - x) * l / cr.width);
-                        c += t;
-                        x += cr.width * t / l;
-                        offset = 0;
-                        r = { column: c, offset: Math.floor(x), charWidth: cr.width / l }
+                    if (offset < oL + oW) {
+                        r.charWidth = Math.round(oW / l);
+                        var c = Math.round((offset - oL) / r.charWidth);
+                        r.column = tmp + c;
+                        r.offset = Math.round(oL + c * r.charWidth);
                         break;
                     }
+                    tmp += l;
                 }
-                x += cr.width;
-                c += l;
+                if (i === childNodes.length) {
+                    r.offset = oL + oW;
+                    r.column = tmp;
+                }
             }
-            if (r.offset == 0 && offset > 0) r = { column: c, offset: Math.floor(x), charWidth: cr && cr.width / l }
-            r.width = Math.max(0, Math.round(w));
             if (!r.charWidth) {
                 var sp = span.cloneNode();
                 sp.textContent = sp.innerText = 'A';
                 node.appendChild(sp);
-                r.charWidth = sp.getBoundingClientRect().width;
+                r.charWidth = sp.offsetWidth;
                 node.removeChild(sp);
             }
             return r;
@@ -2020,14 +2064,14 @@ define('CodePrinter', ['Selector'], function($) {
                 , delta = e.line - s.line;
                 
                 if (delta) {
-                    var pos = this.measureRect(dl, s.column, s.column)
+                    var pos = this.measureRect(dl, s.column, true)
                     , lastdl = data.get(e.line), lastdloffset = lastdl.getOffset();
                     
                     selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(), dloffset, pos.offset, null, dl.height + 1, 0);
                     selnode.parentNode || ov.node.appendChild(selnode);
                     
                     if (delta > 1) {
-                        selnode = ov.middle = createSelectionNode.call(cp, ov.middle || div.cloneNode(), dloffset + dl.height, 0, null, lastdloffset - dloffset - dl.height, 0);
+                        selnode = ov.middle = createSelectionNode.call(cp, ov.middle || div.cloneNode(), dloffset + dl.height, cp.sizes.paddingLeft, null, lastdloffset - dloffset - dl.height, 0);
                         selnode.parentNode || ov.node.appendChild(selnode);
                     } else if (ov.middle) {
                         ov.node.removeChild(ov.middle);
@@ -2187,6 +2231,7 @@ define('CodePrinter', ['Selector'], function($) {
         , styles = {
             vertical: function(css) {
                 css.height = currentDL.height;
+                css.left -= 1;
                 return css;
             },
             underline: function(css) {
@@ -2206,7 +2251,7 @@ define('CodePrinter', ['Selector'], function($) {
             if (!this.isDisabled) {
                 var css = {}, stl = this.style || cp.options.caretStyle;
                 
-                x >= 0 && (css.left = this.x = x = Math.floor(x + cp.sizes.paddingLeft));
+                x >= 0 && (css.left = this.x = x = Math.floor(Math.max(cp.sizes.paddingLeft, x)));
                 y >= 0 && (css.top = this.y = y = Math.floor(y + cp.sizes.paddingTop));
                 
                 stl != this.style && this.setStyle(stl);
@@ -2245,7 +2290,7 @@ define('CodePrinter', ['Selector'], function($) {
             lastdet = det;
             before = cp.convertToTabs(t.substring(0, c));
             after = cp.convertToTabs(t.substr(c));
-            setPixelPosition.call(this, t ? det.offset : 0, dli.offset);
+            setPixelPosition.call(this, det.offset, dli.offset);
             cp.select(dl);
         }
         
@@ -2255,7 +2300,7 @@ define('CodePrinter', ['Selector'], function($) {
             if (before !== str) {
                 before = str;
                 updateDL();
-                this.target(currentDL, col, col);
+                this.target(currentDL, col, true);
             }
             return this;
         }
@@ -2275,7 +2320,7 @@ define('CodePrinter', ['Selector'], function($) {
                 before = bf;
                 after = af;
                 updateDL();
-                this.target(currentDL, col, col);
+                this.target(currentDL, col, true);
             }
             return this;
         }
@@ -2745,8 +2790,8 @@ define('CodePrinter', ['Selector'], function($) {
         },
         tear: function() {
             this.teared = this.current().substr(this.pos);
+            this.append(this.teared ? '<span>'+this.teared+'</span>' : this.pos === 0 && '&zwnj;');
             this.pos += this.teared.length;
-            this.append(this.teared.trim().length ? '<span>'+this.teared+'</span>' : this.teared);
             this.found = false;
             return this.forward();
         },
@@ -3446,7 +3491,7 @@ define('CodePrinter', ['Selector'], function($) {
     function createSelectionNode(node, top, left, width, height, right) {
         node.addClass('cp-selection');
         node.style.top = top + this.sizes.paddingTop + 'px';
-        node.style.left = left + this.sizes.paddingLeft + 'px';
+        node.style.left = left + 'px';
         node.style.width = (width != null ? width + 'px' : null);
         node.style.height = (height != null ? height + 'px' : null);
         node.style.right = (right != null ? right + this.sizes.paddingLeft + 'px' : null);
@@ -3465,6 +3510,12 @@ define('CodePrinter', ['Selector'], function($) {
         }
         helper.wrap = wrap;
         return '<span class="'+classes+'">' + (filter instanceof Function ? filter.call(text.encode(), helper) : text.encode()) + '</span>';
+    }
+    function wrapTextNode(parent, textnode) {
+        var sp = span.cloneNode();
+        sp.textContent = sp.innerText = textnode.textContent;
+        parent.replaceChild(sp, textnode);
+        return sp;
     }
     function getStates(text, length) {
         var i = 0, cur, el = pre.cloneNode();
