@@ -94,7 +94,7 @@ define('CodePrinter', ['Selector'], function($) {
             if (this.document) return;
             var self = this
             , options = this.options
-            , lastScrollTop = 0, lock
+            , lastScrollTop = 0, lock, counterSelection = []
             , doc, sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
             , T, T2, fn;
@@ -409,11 +409,41 @@ define('CodePrinter', ['Selector'], function($) {
                 }
             });
             
-            this.counter.delegate('click', 'li', function() {
-                var l = parseInt(this.innerHTML) - 1;
-                self.caret.position(l, 0);
-                doc.setSelectionRange(l, 0, l, self.caret.textAtCurrentLine().length);
-                self.input.focus();
+            function counterMousemove(e) {
+                var dli, min, max, range;
+                if (dli = e.target._dl && e.target._dl.info()) {
+                    counterSelection[1] = dli.index;
+                    min = Math.min.apply(Math, counterSelection);
+                    max = Math.max.apply(Math, counterSelection);
+                    doc.setSelectionRange(min, 0, max + 1, 0);
+                    if (range = doc.getSelectionRange()) {
+                        var tmp = min === counterSelection[0] ? range.end : range.start;
+                        self.caret.position(tmp.line, tmp.column);
+                    }
+                }
+            }
+            function counterMouseup(e) {
+                this.removeEventListener('mousemove', counterMousemove);
+                this.removeEventListener('mouseup', counterMouseup);
+                
+                if (counterSelection.length === 1) {
+                    var range, min = counterSelection[0];
+                    doc.setSelectionRange(min, 0, min + 1, 0);
+                    if (range = doc.getSelectionRange()) self.caret.position(range.end.line, range.end.column);
+                }
+                counterSelection.length = 0;
+                isMouseDown = false;
+            }
+            
+            this.counter.delegate('mousedown', 'li', function() {
+                var dli = this._dl && this._dl.info();
+                if (dli) {
+                    counterSelection[0] = this._dl.info().index;
+                    self.input.focus();
+                    isMouseDown = true;
+                    window.addEventListener('mousemove', counterMousemove, false);
+                    window.addEventListener('mouseup', counterMouseup, false);
+                }
             });
             
             this.mainElement.on({ nodeInserted: function() {
@@ -1572,17 +1602,19 @@ define('CodePrinter', ['Selector'], function($) {
         },
         setCounter: function(counter) {
             counter.style.lineHeight = this.height + 'px';
+            counter._dl = this;
             return this.counter = counter;
         },
         deleteCounter: function() {
             var counter = this.counter;
-            if (counter) counter.className = null;
+            if (counter) counter.className = '';
             delete this.counter;
             return counter;
         },
         bind: function(node, counter) {
             this.node = node;
             this.counter = counter;
+            counter._dl = this;
             this.changed |= 2;
         },
         touch: function() {
@@ -2009,6 +2041,13 @@ define('CodePrinter', ['Selector'], function($) {
             return selection.isset() && { start: selection.start, end: selection.end }
         }
         this.setSelectionRange = function(sl, sc, el, ec) {
+            if (sl < 0) {
+                sl = sc = 0;   
+            }
+            if (el >= data.size) {
+                el = data.size - 1;
+                ec = cp.convertToSpaces(data.get(el).text).length;
+            }
             if (sl != null && sc != null) selection.setStart(sl, sc);
             if (el != null && ec != null) selection.setEnd(el, ec);
         }
