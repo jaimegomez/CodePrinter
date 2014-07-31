@@ -5,6 +5,7 @@ var cp = new CodePrinter()
 , tabWidth = $.get('[name=tabWidth]')
 , fontSize = $.get('[name=fontSize]')
 , fullscreen = $.get('[name=fullscreen]')
+, readonly = $.get('[name=readonly]')
 , counter = $.get('[name=counter]')
 , insertclosing = $.get('[name=insertclosing]')
 , indentation = $.get('[name=indentation]')
@@ -45,6 +46,9 @@ fontSize.onchange = function() {
 }
 fullscreen.onclick = function() {
     cp.enterFullscreen();
+}
+readonly.onchange = function() {
+    cp.options.readOnly = this.checked;
 }
 counter.onchange = function() {
     this.checked ? cp.openCounter() : cp.closeCounter();
