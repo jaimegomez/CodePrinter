@@ -1614,6 +1614,7 @@ define('CodePrinter', ['Selector'], function($) {
         bind: function(node, counter) {
             this.node = node;
             this.counter = counter;
+            counter.style.lineHeight = this.height + 'px';
             counter._dl = this;
             this.changed |= 2;
         },
@@ -1826,12 +1827,23 @@ define('CodePrinter', ['Selector'], function($) {
                 ++from;
                 updateCounters(lines[0], from);
             } else if (l <= to + 1) {
-                dl.bind(pre.cloneNode(), li.cloneNode());
                 if (isFilled()) {
-                    remove(lines[lines.length-1]);
+                    if (l < (to - from + 1) / 2) {
+                        dl.captureNode(lines.pop());
+                        link(dl, l);
+                    } else {
+                        var first = lines.shift();
+                        dl.captureNode(first);
+                        ++from;
+                        link(dl, l);
+                        ++to;
+                        scroll(first.height);
+                    }
+                } else {
+                    dl.bind(pre.cloneNode(), li.cloneNode());
+                    link(dl, l);
+                    ++to;
                 }
-                link(dl, l);
-                ++to;
             }
             this.updateHeight();
         }
