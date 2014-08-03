@@ -487,7 +487,7 @@ define('CodePrinter', ['Selector'], function($) {
         forcePrint: function() {
             this.memory = this.parser.memoryAlloc();
             
-            this.intervalIterate(function(dl) {
+            this.intervalIterate(function(dl, line, offset) {
                 return this.parse(dl, true);
             }, function() {
                 this.emit('printed');
@@ -495,8 +495,8 @@ define('CodePrinter', ['Selector'], function($) {
         },
         intervalIterate: function(callback, onend, options) {
             if (!(onend instanceof Function) && arguments.length === 2) options = onend;
-            var that = this, dl = this.document.get(0), fn, index = -1, offset = 0
-            , interval = 10, queue = 300;
+            var that = this, dl = this.document.get(0), fn
+            , index = -1, offset = 0, interval = 10, queue = 300;
             
             if (options) {
                 if (options.interval) interval = options.interval;
@@ -1638,25 +1638,31 @@ define('CodePrinter', ['Selector'], function($) {
             }
         },
         next: function() {
-            var i;
-            if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
-                if (i + 1 < this.parent.length) {
-                    return this.parent[i+1];
-                } else {
-                    var next = this.parent.next();
-                    return next && next.length ? next[0] : null;
+            if (this.parent) {
+                var i = this.lastIndex >= 0 && this.parent[this.lastIndex] === this ? this.lastIndex : this.parent.indexOf(this);
+                if (i >= 0) {
+                    this.lastIndex = i;
+                    if (i + 1 < this.parent.length) {
+                        return this.parent[i+1];
+                    } else {
+                        var next = this.parent.next();
+                        return next && next.length ? next[0] : null;
+                    }
                 }
             }
             return null;
         },
         prev: function() {
-            var i;
-            if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
-                if (i > 0) {
-                    return this.parent[i-1];
-                } else {
-                    var prev = this.parent.prev();
-                    return prev && prev.length ? prev[prev.length-1] : null;
+            if (this.parent) {
+                var i = this.lastIndex >= 0 && this.parent[this.lastIndex] === this ? this.lastIndex : this.parent.indexOf(this);
+                if (i >= 0) {
+                    this.lastIndex = i;
+                    if (i > 0) {
+                        return this.parent[i-1];
+                    } else {
+                        var prev = this.parent.prev();
+                        return prev && prev.length ? prev[prev.length-1] : null;
+                    }
                 }
             }
             return null;
@@ -1971,9 +1977,9 @@ define('CodePrinter', ['Selector'], function($) {
                     child = childNodes[i];
                     l = child.textContent.length;
                     if (l === 0) continue;
+                    if (child.nodeType !== 1) child = wrapTextNode(node, child);
                     
                     if (boo) {
-                        if (child.nodeType !== 1) child = wrapTextNode(node, child);
                         oW = child.offsetWidth - 1;
                         if (to <= tmp + l) {
                             r.width += (to - tmp) * oW / l;
@@ -1981,8 +1987,6 @@ define('CodePrinter', ['Selector'], function($) {
                         }
                         r.width += oW;
                     } else if (offset < tmp + l) {
-                        if (child.nodeType !== 1) child = wrapTextNode(node, child);
-                        
                         oW = child.offsetWidth - 1;
                         oL = child.offsetLeft;
                         r.column = offset;
@@ -2001,7 +2005,7 @@ define('CodePrinter', ['Selector'], function($) {
                 }
                 if (!boo) { r.column = tmp; r.charWidth = child ? Math.round((child.offsetWidth - 1) / l) : 0; }
                 else if (r.width) r.width = Math.round(r.width);
-                if (!r.offset && child) r.offset = child.offsetLeft + child.offsetWidth - 1;
+                if (!r.offset) r.offset = child ? child.offsetLeft + child.offsetWidth - 1 : 0;
             } else {
                 while (++i < childNodes.length) {
                     child = childNodes[i];
@@ -2909,7 +2913,7 @@ define('CodePrinter', ['Selector'], function($) {
             ')': ['bracket', 'bracket-round', 'bracket-close']
         }
         this.expressions = {
-            '//': { ending: '\n', classes: ['comment', 'line-comment'] }, 
+            '//': { ending: /$/, classes: ['comment', 'line-comment'] }, 
             '/*': { ending: '*/', classes: ['comment', 'block-comment'] },
             "'": { ending: /(^'|[^\\]'|\\{2}')/, classes: ['string', 'single-quote'] },
             '"': { ending: /(^"|[^\\]"|\\{2}")/, classes: ['string', 'double-quote'] }
@@ -3482,6 +3486,15 @@ define('CodePrinter', ['Selector'], function($) {
         return $.scripts.require('CodePrinter/'+req.toLowerCase(), cb, del);
     }
     CodePrinter.defineMode = function(name, obj, req) {
+        if (obj instanceof Array) {
+            req = arguments[1];
+            obj = arguments[2];
+        }
+        if (req) {
+            for (var i = 0; i < req.length; i++) {
+                req[i] = 'CodePrinter/'+(extensions[req[i]] || req[i].toLowerCase());
+            }
+        }
         $.scripts.define('CodePrinter/'+name.toLowerCase(), new CodePrinter.Mode(name, obj), req);
     }
     CodePrinter.getMode = function(name) {
