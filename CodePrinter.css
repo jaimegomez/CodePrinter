@@ -158,6 +158,9 @@
   position: relative;
   z-index: 7;
 }
+.codeprinter .cp-screen pre span span {
+  font-size: 100% !important;
+}
 .codeprinter .cp-codelines,
 .codeprinter .cp-templine {
   display: inline-block;
