@@ -15,9 +15,10 @@ if (!define) var define = function() { arguments[2]($ || Selector); }
 
 define('CodePrinter', ['Selector'], function($) {
     var CodePrinter, Data, Branch, Line
-    , Caret, Document, Stream, History, Selection
-    , keyMap, commands, tracking, lineendings
-    , extensions, div, li, pre, span
+    , Caret, Document, StreamArray, Stream
+    , History, Selection, keyMap, commands
+    , tracking, lineendings, extensions
+    , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 40
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null;
     
@@ -524,7 +525,7 @@ define('CodePrinter', ['Selector'], function($) {
                 this.tracking = (new tracking(this)).extend(parser.tracking);
             }
         },
-        parse: function(dl, force) {
+        parse: function(dl, force, state) {
             if (this.parser && dl != null) {
                 dl = 'number' === typeof dl ? this.document.get(dl) : dl;
                 
@@ -538,28 +539,58 @@ define('CodePrinter', ['Selector'], function($) {
                     if (!p) p = '&#8203;';
                     dl.setParsed(p);
                 } else if (!dl.parsed || dl.changed & 1 || force) {
-                    if (dl.startPoint) {
-                        return this.parse(dl.startPoint, true);
+                    if (arguments.length < 3) {
+                        state = dl.prev()
+                        state = state && state.stateAfter;
                     }
-                    var stream = new Stream(dl), i = 0, p, ndl;
+                    var text = dl.text, i = -1, p = '', tab = this.tabString(), stream, b;
                     
-                    try {
-                        p = this.parser.parse(stream, this.memory).parsed;
-                        
-                        do {
-                            p[i] = this.convertToSpaces(p[i]);
-                            dl.setParsed(p[i]);
-                        } while (++i < p.length && (dl = dl.next()));
-                        
-                        if (dl && (ndl = dl.next()) && ndl.startPoint) {
-                            ndl.clearStartPoint();
-                            return this.parse(ndl, true);
-                        }
-                    } catch (e) {
-                        console.error(e.message);
-                        console.trace();
+                    while (++i < dl.text.length && dl.text[i] === '\t') {
+                        p += '<span class="cpx-tab">'+tab+'</span>';
                     }
-                    return stream.lastLine();
+                    if (i) text = text.substr(i);
+                    
+                    if (!text) {
+                        dl.setParsed(p || '&#8203;');
+                        if (b = state) {
+                            dl.stateAfter = state;
+                        } else if (b = dl.stateAfter) {
+                            delete dl.stateAfter;
+                        }
+                        if (b && !this._inserting) {
+                            var next = dl.next();
+                            if (next) return this.parse(next, true, dl.stateAfter);
+                        }
+                    } else {
+                        var that = this;
+                        
+                        stream = new Stream(text, {
+                            stateBefore: state,
+                            onchanged: function() {
+                                dl.setParsed(p + that.convertToSpaces(that.parser.parse(stream, that.memory).toString()));
+                                var keys = dl.stateAfter && Object.keys(dl.stateAfter);
+                                
+                                if (stream.stateAfter) {
+                                    dl.stateAfter = stream.stateAfter;
+                                    b = keys ? keys.toString() !== Object.keys(dl.stateAfter).toString() : true;
+                                } else if (b = dl.stateAfter) {
+                                    delete dl.stateAfter;
+                                }
+                                if (b && !that._inserting) {
+                                    var next = dl.next();
+                                    if (next) return that.parse(next, true, dl.stateAfter);
+                                }
+                            },
+                            testNextLine: function(rgx) {
+                                if (rgx instanceof RegExp) {
+                                    var next = dl.next();
+                                    if (next) return rgx.test(next.text);
+                                }
+                                return false;
+                            }
+                        });
+                        stream.onchanged();
+                    }
                 }
             }
             return dl;
@@ -850,19 +881,24 @@ define('CodePrinter', ['Selector'], function($) {
             this.document.issetSelection() && this.document.removeSelection();
             var pos, s = this.convertToSpaces(text).split('\n')
             , bf = this.caret.textBefore()
-            , af = this.caret.textAfter()
-            , dl = this.caret.dl()
             , line = this.caret.line()
             , col = this.caret.column(true);
             
-            this.caret.setTextBefore(bf + s[0]);
             if (s.length > 1) {
+                var af = this.caret.textAfter()
+                , dl = this.caret.dl();
+                
+                this._inserting = true;
+                this.caret.setTextBefore(bf + s[0]);
                 for (var i = 1; i < s.length; i++) {
                     this.caret.setTextAfter('');
                     dl = this.document.insert(line + i, s[i]);
                 }
                 this.caret.position(line + s.length - 1, -1);
+                delete this._inserting;
                 this.caret.setTextAfter(af);
+            } else {
+                this.caret.setTextBefore(bf + s[0]);
             }
             mx && this.caret.moveX(mx);
             text.length && this.emit('changed', { line: line, column: col, text: text, added: true });
@@ -1578,14 +1614,6 @@ define('CodePrinter', ['Selector'], function($) {
                 this.touch();
             }
         },
-        setStartPoint: function(sp) {
-            if (sp instanceof Line) {
-                this.startPoint = sp;
-            }
-        },
-        clearStartPoint: function() {
-            delete this.startPoint;
-        },
         setNode: function(node) {
             this.changed |= 2;
             return this.node = node;
@@ -1824,11 +1852,8 @@ define('CodePrinter', ['Selector'], function($) {
             data.append(dl);
         }
         this.insert = function(l, text) {
-            var old = data.get(l), dl = data.insert(l, defHeight);
+            var dl = data.insert(l, defHeight);
             dl.setText(text ? cp.convertToTabs(text) : '');
-            if (old && old.startPoint) {
-                dl.setStartPoint(old.startPoint);
-            }
             if (l < from) {
                 ++from;
                 updateCounters(lines[0], from);
@@ -1883,7 +1908,6 @@ define('CodePrinter', ['Selector'], function($) {
             }
             if (scrolldelta) scroll(scrolldelta);
             rm = data.remove(dl, howmany);
-            if (rm[0] && rm[0].startPoint) cp.parse(rm[0].startPoint);
             this.updateHeight();
             return rm;
         }
@@ -2565,247 +2589,223 @@ define('CodePrinter', ['Selector'], function($) {
         }
     }
     
-    Stream = function(dl) {
-        if (dl instanceof Line) {
-            this.value = [dl.text];
-        } else {
-            this.value = dl instanceof Array ? dl : typeof dl === 'string' ? [dl] : [];
-        }
-        this.parsed = [];
-        this.setRow(0);
-        
-        this.nextLine = function() {
-            return dl && dl.next();
-        }
-        this.pushNextLine = function(arg) {
-            var next = arg || (dl && dl.next());
-            if (next) {
-                next.setStartPoint(dl.startPoint || dl);
-                this.value.push(next.text);
-                dl = next;
-                return true;
+    StreamArray = function() {}
+    StreamArray.prototype = {
+        push: Array.prototype.push,
+        wrapAll: function() {
+            for (var i = 0; i < this.length; i++) {
+                this[i].wrap.apply(this[i], arguments);
             }
-            return false;
         }
-        this.lastLine = function() {
-            return dl;
+    }
+    
+    Stream = function(value, extend) {
+        if (value) {
+            this.pos = this.start = 0;
+            this.value = value;
+            this.tree = [];
+            if (extend) {
+                for (var k in extend) {
+                    this[k] = extend[k];
+                }
+            }
         }
         return this;
     }
     Stream.prototype = {
-        found: '',
-        eaten: '',
-        wrapped: '',
-        setRow: function(r) {
-            if (r < 0 || r >= this.value.length) {
-                return false;
-            }
-            this.row = r;
-            this.pos = 0;
-            if (!this.parsed[r]) {
-                this.parsed[r] = '';
-                var v = this.value[r];
-                while (this.pos < v.length && v[this.pos] === '\t') {
-                    this.append('<span class="cpx-tab">\t</span>');
-                    ++this.pos;
-                }
-            }
-            return this;
-        },
-        forward: function() {
-            return this.setRow(this.row + 1);
-        },
-        backward: function() {
-            return this.setRow(this.row - 1);
-        },
-        current: function() {
-            return this.row < this.value.length ? this.value[this.row || 0] : '';
-        },
         match: function(rgx, index) {
-            this.found.length && this.skip();
-            var m, i, s = this.current().substr(this.pos)
-            , f = false;
+            this.found && this.cut(this.found.length);
+            var f = false, i, v = this.value.substr(this.pos);
             
-            if (s.length > 0) {
-                i = s.search(rgx);
+            if (v) {
+                i = v.search(rgx);
                 if (i >= 0) {
                     f = RegExp.lastMatch;
-                    i > 0 && this.append('<span>'+s.substring(0, i)+'</span>');
                     this.indexOfFound = i;
-                    this.wholeLineMatched = this.pos === 0 && i + f.length === s.length;
-                    this.pos += i;
-                }
-            }
-            if (f === false) {
-                this.tear();
-                if (index !== false && this.parsed.length < this.value.length) {
-                    return this.match.apply(this, arguments);
+                    this.wholeLineMatched = this.pos === 0 && i + f.length === v.length;
+                    i > 0 && this.cut(i);
                 }
             }
             this.found = f;
-            return m && index ? RegExp['$'+index] : f;
+            return f && index ? RegExp['$'+index] : f;
         },
-        read: function() {
-            return this.match(/^.*$/);
+        capture: function(rgx, index) {
+            var v = this.value.substr(this.pos)
+            , m = v.match(rgx);
+            return m && m[0] ? index ? m[index] : m[0] : null;
         },
-        indexOf: function(v) {
-            return this.value[this.row].indexOf(v);
+        readline: function(index) {
+            return this.found = this.value;
         },
-        search: function(pattern) {
-            return this.current().substr(this.pos+(this.found ? this.found.length : 0)).search(pattern);
+        indexOf: function(value) {
+            return Math.max(-1, this.value.indexOf(value, this.pos) - this.pos);
         },
-        substring: function(start, end) {
-            return this.current().substr(this.pos+(this.found ? this.found.length : 0)).substring(start, end);
-        },
-        eat: function(from, to, req, force) {
-            this.eaten = [];
-            var str = this.current().substr(this.pos),
-                indexFrom = 0, indexTo = 0, pos = 0;
+        eat: function(from, to, whenNotFound) {
+            if (!arguments.length) from = this.found;
             
-            from = from || this.found;
-            
-            if (from instanceof RegExp) {
-                if ((indexFrom = str.search(from)) !== -1) {
-                    from = str.match(from)[0];
-                } else
-                    return this;
-            } else if ((indexFrom = str.indexOf(from)) === -1) {
-                return this;
-            }
-            pos = indexFrom + from.length;
-            this.append(str.substring(0, indexFrom));
-            this.pos = this.pos + indexFrom;
-            
-            if (to) {
-                var str2 = str.substr(pos);
-                if (to === '\n') {
-                    indexTo = str2.length;
-                } else if (to instanceof RegExp) {
-                    if ((indexTo = str2.search(to)) !== -1) {
-                        to = RegExp.lastMatch;
+            if (from) {
+                var v = this.value.substr(this.pos)
+                , indexFrom = 0, indexTo = 0, eaten;
+                
+                if (from !== this.found) {
+                    if (from instanceof RegExp) {
+                        indexFrom = v.search(from);
+                        from = RegExp.lastMatch;
+                    } else {
+                        indexFrom = v.indexOf(from);
                     }
-                } else {
-                    indexTo = str2.indexOf(to);
                 }
-                if (indexTo === -1) {
-                    if (force) {
-                        this.eaten = [str.substr(indexFrom)];
-                        this.pos += pos + str2.length;
-                        
-                        while (this.pushNextLine()) {
-                            this.forward();
-                            str2 = this.current().substr(this.pos);
-                            if (str2 != null) {
-                                if (to instanceof RegExp) {
-                                    if ((indexTo = str2.search(to)) !== -1) {
-                                        to = RegExp.lastMatch;
-                                    }
-                                } else {
-                                    indexTo = str2.indexOf(to);
-                                }
-                                if (indexTo !== -1) {
-                                    this.eaten.push(str2.substring(0, indexTo + to.length));
-                                    this.pos += indexTo + to.length;
-                                    return this;
-                                } else {
-                                    this.eaten.push(str2);
-                                    this.pos += str2.length;
-                                }
-                            } else {
-                                this.backward();
-                                this.pos = this.value[this.row].length;
-                                return this;
+                if (indexFrom >= 0) {
+                    if (to) {
+                        delete this.unfinished;
+                        v = this.value.substr(this.pos + indexFrom + from.length);
+                        if (to instanceof RegExp) {
+                            indexTo = v.search(to);
+                            to = RegExp.lastMatch;
+                        } else {
+                            indexTo = v.indexOf(to);
+                        }
+                    }
+                    if (indexTo >= 0) {
+                        indexTo += indexFrom + from.length + (to ? to.length : 0);
+                    } else {
+                        if (whenNotFound instanceof Function) {
+                            whenNotFound.call(this);
+                            return new Stream();
+                        } else {
+                            indexTo = indexFrom + from.length;
+                            if (whenNotFound) {
+                                indexTo += v.length;
+                                this.unfinished = true;
                             }
                         }
-                        return this;
-                    } else if (req) {
-                        indexTo = pos + str2.length;
-                        if (req instanceof Function) {
-                            this.eaten = [str.substring(indexFrom, indexTo)];
-                            this.pos = this.pos + (indexTo - indexFrom);
-                            req.call(this);
-                            return this;
-                        }
                     }
-                } else {
-                    indexTo = indexTo + pos + to.length;
+                    indexFrom > 0 && this.cut(indexFrom - this.pos);
+                    eaten = this.cut(indexTo - indexFrom);
+                    this.found = null;
+                    return eaten;
                 }
             }
-            if (indexTo <= 0) {
-                indexTo = pos;
+            return new Stream();
+        },
+        eatGreedily: function(from, to) {
+            return this.eat(from, to, true);
+        },
+        eatWhile: function(to) {
+            var eaten, v, i;
+            if (to) {
+                v = this.value.substr(this.pos);
+                if (to instanceof RegExp) {
+                    i = v.search(to);
+                    to = RegExp.lastMatch;
+                } else {
+                    i = v.indexOf(to);
+                }
+                if (i >= 0) {
+                    eaten = this.cut(i + to.length);
+                }
             }
-            
-            this.eaten = [str.substring(indexFrom, indexTo)];
-            this.pos = this.pos + (indexTo - indexFrom);
+            if (this.unfinished = !eaten) {
+                eaten = this.tear();
+            }
+            this.found = null;
+            return eaten;
+        },
+        eatEach: function(rgx) {
+            var sa = new StreamArray, found;
+            while (found = this.match(rgx)) {
+                sa.push(this.eat(found));
+            }
+            return sa;
+        },
+        eatAll: function(from) {
+            var i = 0;
+            if (from !== this.found) {
+                i = from instanceof RegExp ? v.search(from) : v.indexOf(from);
+            }
+            i > 0 && this.cut(i);
+            return i >= 0 ? this.tear() : new Stream();
+        },
+        wrap: function(/*, .. styles */) {
+            if (this.found) {
+                var e = this.eat(this.found);
+                return e.wrap.apply(e, arguments);
+            } else if (!this.styles) {
+                this.styles = Array.apply(null, arguments);
+            }
             return this;
         },
-        eatWhile: function(from, to) {
-            return this.eat(from, to, true, true);
-        },
-        wrap: function() {
-            if (!this.eaten.length) {
-                if (this.found) {
-                    this.eat(this.found);
-                } else {
-                    return this;
-                }
-            }
-            var tmp = this.eaten, args = Array.apply(null, arguments), classes, filter;
-            if (args[args.length-1] instanceof Function) {
-                filter = args.pop();
-            }
-            classes = 'cpx-'+args.join(' cpx-');
-            
-            this.wrapped = [];
-            tmp.length > 1 && (this.row = this.row - tmp.length + 1);
-            var i = 0;
-            
-            do {
-                var ls = (tmp[i].match(/^\s*/) || [])[0];
-                this.wrapped[i] = this.append((ls || '') + (tmp[i] ? wrap(tmp[i].substr(ls.length), classes, filter) : ''));
-            } while (++i < tmp.length && ++this.row);
-            return this.reset();
+        unwrap: function() {
+            this.styles = null;
+            return this;
         },
         applyWrap: function(array) {
             return this.wrap.apply(this, array);
         },
-        unwrap: function() {
-            if (this.wrapped.length) {
-                var p = this.parsed[this.row];
-                if (p.endsWith(this.wrapped[0])) {
-                    this.parsed[this.row] = p.substr(0, p.length - this.wrapped[0].length);
+        isWrapped: function() {
+            return !!(this.styles && this.styles.length);
+        },
+        cut: function(length) {
+            if (length < 0 || 'number' !== typeof length) length = 1;
+            if (length) {
+                var v = this.value.substring(this.pos, this.pos + length), ss = v && new Stream(v, { start: this.pos });
+                if (ss) {
+                    this.tree.push(ss);
+                    this.pos += length;
+                    return ss;
                 }
-                this.eaten = this._eaten;
-                delete this._eaten;
-                this.wrapped = [];
             }
+            return new Stream();
+        },
+        tear: function() {
+            return this.cut(this.value.length - this.pos);
+        },
+        skip: function(found) {
+            found = found || this.found;
+            if (found && this.value.indexOf(found, this.pos) === this.pos) {
+                this.cut(found.length);
+                this.found = false;
+            }
+        },
+        reset: function() {
+            this.found = false;
+            if (this.isAborted) delete this.isAborted;
             return this;
         },
-        isWrapped: function() {
-            return this.wrapped && this._eaten && !this.found;
-        },
-        append: function(txt) {
-            if (txt && typeof txt === 'string') {
-                this.parsed[this.row] += txt;
+        revert: function() {
+            if (this.tree.length) {
+                var last = this.tree.pop();
+                this.pos = last.start;
             }
-            return txt;
         },
-        push: function() {
-            var e = this.eaten;
-            if (e.length) {
-                for (var i = this.row - e.length + 1, j = 0; j < e.length; i++, j++) {
-                    if (this.parsed[i] == null) {
-                        this.parsed[i] = '';
+        abort: function() {
+            this.isAborted = true;
+            return this;
+        },
+        save: function() {
+            this.savedPos = this.pos;
+        },
+        restore: function() {
+            if (this.savedPos) {
+                var i = this.tree.length, last;
+                while (i-- > 0 && (last = this.tree[i]).start >= this.savedPos) {
+                    this.tree.pop();
+                    this.pos = last.start;
+                }
+                if (i) {
+                    if (last.start + last.value.length < this.savedPos) {
+                        last.value = last.value.substring(0, this.savedPos - last.start);
                     }
-                    this.parsed[i] += e[j].encode();
+                } else {
+                    this.pos = 0;
                 }
             }
         },
         before: function(l) {
-            return this.current().substring(l != null ? this.pos - l : 0, this.pos);
+            return this.value.substring(l != null ? this.pos - l : 0, this.pos);
         },
         after: function(l) {
-            return this.current().substr(this.pos + (this.found.length || 0), l);
+            return this.value.substr(this.pos + (this.found ? this.found.length : 0), l);
         },
         isAfter: function(s) {
             var af = this.after();
@@ -2815,78 +2815,69 @@ define('CodePrinter', ['Selector'], function($) {
             var bf = this.before(), t, i;
             return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.endsWith(s);
         },
-        testNextLine: function(pattern) {
-            if (this.row + 1 < this.value.length) {
-                return pattern.test(this.value[this.row+1]);
-            }
-            return this.pushNextLine() && pattern.test(this.value[this.row+1]);
-        },
-        cut: function(index) {
-            if (this.found && index >= 0) {
-                this.found = this.found.substring(0, index);
-            }
-            return this;
-        },
-        back: function() {
-            if (this.eaten.length) {
-                this.row = this.row - this.eaten.length + 1;
-                this.pos = this.eaten.length > 1 ? this.value[this.row].rbreak(this.eaten[0]).length : this.pos - this.eaten[0].length;
-                this.eaten = [];
-            }
-            return this;
-        },
-        reset: function() {
-            this.found = false;
-            this._eaten = this.eaten;
-            this.eaten = [];
-            return this;
-        },
-        tear: function() {
-            this.teared = this.current().substr(this.pos);
-            this.append(this.teared ? '<span>'+this.teared+'</span>' : this.pos === 0 && '&#8203;');
-            this.pos += this.teared.length;
-            this.found = false;
-            return this.forward();
-        },
-        restore: function() {
-            if (this.teared) {
-                var p = this.parsed[this.row];
-                this.backward();
-                this.parsed[this.row] = p.substr(0, p.length - this.teared.length - 13);
-                this.pos = this.value[this.row].length - this.teared.length;
-                this.teared = null;
-            }
-            return this;
-        },
-        revert: function() {
-            if (this.found) {
-                this.pos = this.pos - this.found.length;
-                this.found = false;
-            }
-            return this;
-        },
-        skip: function(found) {
-            var str = this.current().substr(this.pos);
-            found = found || this.found;
-            if (found && str.indexOf(found) === 0) {
-                this.append('<span>'+found+'</span>');
-                this.pos = this.pos + found.length;
-                this.found = false;
-            }
-            return this;
+        isEmpty: function() {
+            return this.value == null;
         },
         peek: function(q) {
             q = q || 0;
-            return this.current().charAt(this.pos + q);
+            return this.value.charAt(this.pos + q);
         },
         eol: function() {
-            return this.pos === this.current().length;
+            return this.pos === this.value.length;
         },
         sol: function() {
             return this.pos === 0;
         },
+        isStillHungry: function() {
+            return this.eol() && this.unfinished === true;
+        },
+        setStateAfter: function(arg) {
+            if ('string' === typeof arg) {
+                var str = arg;
+                arg = {};
+                arg[str] = true;
+            }
+            if (arg) {
+                if (!this.stateAfter) this.stateAfter = {}
+                for (var k in arg) {
+                    this.stateAfter[k] = arg[k];
+                }
+            }
+        },
+        continueState: function(/*, .. keys */) {
+            if (this.stateBefore) {
+                if (!this.stateAfter) this.stateAfter = {};
+                if (arguments.length) {
+                    for (var i = 0; i < arguments.length; i++) {
+                        var k = arguments[i];
+                        if (this.stateBefore[k]) {
+                            this.stateAfter[k] = this.stateBefore[k];
+                        }
+                    }
+                } else {
+                    for (var k in this.stateBefore) {
+                        this.stateAfter[k] = this.stateBefore[k];
+                    }
+                }
+            }
+        },
         toString: function() {
-            return this.parsed.join('\n');
+            var v = this.value, tree = this.tree, node
+            , tmp = 0, r = [], hasStyle = !!this.styles;
+            
+            hasStyle && r.push('<span class="cpx-'+this.styles.join(' cpx-')+'">');
+            
+            for (var i = 0; i < tree.length; i++) {
+                node = tree[i];
+                if (tmp < node.start) {
+                    r.push(hasStyle ? v.substring(tmp, node.start).encode() : '<span>'+v.substring(tmp, node.start).encode()+'</span>');
+                }
+                r.push(node.toString());
+                tmp = node.start + node.value.length;
+            }
+            tmp < v.length && r.push(hasStyle ? v.substr(tmp).encode() : '<span>'+v.substr(tmp).encode()+'</span>');
+            hasStyle && r.push('</span>');
+            return r.join('');
         }
     }
     
@@ -2960,11 +2951,10 @@ define('CodePrinter', ['Selector'], function($) {
             return {};
         },
         parse: function(stream, memory) {
-            stream.parsed = stream.value;
             return stream;
         },
         compile: function(string, memory) {
-            return this.parse(new Stream(string), memory).parsed;
+            return this.parse(new Stream(string), memory || this.memoryAlloc()).toString();
         },
         indentation: function(textBefore, textAfter, line, indent, parser) {
             var charBefore = textBefore.slice(-1)
