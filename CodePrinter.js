@@ -2622,20 +2622,22 @@ define('CodePrinter', ['Selector'], function($) {
                 if (i >= 0) {
                     f = RegExp.lastMatch;
                     this.indexOfFound = i;
-                    this.wholeLineMatched = this.pos === 0 && i + f.length === v.length;
                     i > 0 && this.cut(i);
                 }
             }
             this.found = f;
             return f && index ? RegExp['$'+index] : f;
         },
-        capture: function(rgx, index) {
-            var v = this.value.substr(this.pos)
+        capture: function(rgx, index, offset) {
+            var v = this.value.substr(this.pos + ('number' === typeof offset ? offset : 0))
             , m = v.match(rgx);
-            return m && m[0] ? index ? m[index] : m[0] : null;
+            if (m && m[0]) {
+                this.indexOfFound = RegExp.leftContext.length;
+                return m['number' === typeof index ? index : 0];
+            }
         },
         readline: function(index) {
-            return this.found = this.value;
+            return this.found = this.value.substr(this.pos);
         },
         indexOf: function(value) {
             return Math.max(-1, this.value.indexOf(value, this.pos) - this.pos);
@@ -2691,7 +2693,7 @@ define('CodePrinter', ['Selector'], function($) {
         eatGreedily: function(from, to) {
             return this.eat(from, to, true);
         },
-        eatWhile: function(to) {
+        eatWhile: function(to, until) {
             var eaten, v, i;
             if (to) {
                 v = this.value.substr(this.pos);
@@ -2702,7 +2704,7 @@ define('CodePrinter', ['Selector'], function($) {
                     i = v.indexOf(to);
                 }
                 if (i >= 0) {
-                    eaten = this.cut(i + to.length);
+                    eaten = this.cut(i + (until ? 0 : to.length));
                 }
             }
             if (this.unfinished = !eaten) {
@@ -2710,6 +2712,9 @@ define('CodePrinter', ['Selector'], function($) {
             }
             this.found = null;
             return eaten;
+        },
+        eatUntil: function(to) {
+            return this.eatWhile(to, true);
         },
         eatEach: function(rgx) {
             var sa = new StreamArray, found;
@@ -2750,7 +2755,7 @@ define('CodePrinter', ['Selector'], function($) {
             if (length) {
                 var v = this.value.substring(this.pos, this.pos + length), ss = v && new Stream(v, { start: this.pos });
                 if (ss) {
-                    this.tree.push(ss);
+                    this.tree.push(this.lastEaten = ss);
                     this.pos += length;
                     return ss;
                 }
@@ -2763,7 +2768,7 @@ define('CodePrinter', ['Selector'], function($) {
         skip: function(found) {
             found = found || this.found;
             if (found && this.value.indexOf(found, this.pos) === this.pos) {
-                this.cut(found.length);
+                this.pos += found.length;
                 this.found = false;
             }
         },
@@ -2783,22 +2788,24 @@ define('CodePrinter', ['Selector'], function($) {
             return this;
         },
         save: function() {
-            this.savedPos = this.pos;
+            if (!this.savedPos) this.savedPos = [];
+            this.savedPos.push(this.pos);
         },
         restore: function() {
-            if (this.savedPos) {
-                var i = this.tree.length, last;
-                while (i-- > 0 && (last = this.tree[i]).start >= this.savedPos) {
-                    this.tree.pop();
-                    this.pos = last.start;
-                }
-                if (i) {
-                    if (last.start + last.value.length < this.savedPos) {
-                        last.value = last.value.substring(0, this.savedPos - last.start);
+            if (this.savedPos && this.savedPos.length) {
+                var pos = this.savedPos.pop(), last;
+                if (this.tree.length) {
+                    while (this.tree.length && (last = this.tree[this.tree.length-1]).start >= pos) {
+                        this.tree.pop();
+                        this.pos = last.start;
                     }
-                } else {
-                    this.pos = 0;
+                    if (this.tree.length) {
+                        if (last.start + last.value.length < pos) {
+                            last.value = last.value.substring(0, pos - last.start);
+                        }
+                    }
                 }
+                this.pos = Math.max(0, Math.min(pos, this.value.length));
             }
         },
         before: function(l) {
