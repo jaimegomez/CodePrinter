@@ -2888,8 +2888,8 @@ define('CodePrinter', ['Selector'], function($) {
         }
     }
     
-    CodePrinter.Mode = function(name, extend) {
-        this.name = name;
+    CodePrinter.Mode = function(extend) {
+        this.name = 'plaintext';
         this.keyMap = {};
         this.onLeftRemoval = {
             '{': '}', '(': ')', '[': ']', '"': '"', "'": "'"
@@ -2985,6 +2985,12 @@ define('CodePrinter', ['Selector'], function($) {
                 return -i;
             }
             return 0;
+        },
+        codeCompletion: function(memory) {
+            return [];
+        },
+        parseBy: function(helper, stream) {
+            return helper.parse(stream, helper.memoryAlloc(), true);
         }
     }
     
@@ -3492,10 +3498,7 @@ define('CodePrinter', ['Selector'], function($) {
                 req[i] = 'CodePrinter/'+(extensions[req[i]] || req[i].toLowerCase());
             }
         }
-        $.scripts.define('CodePrinter/'+name.toLowerCase(), new CodePrinter.Mode(name, obj), req);
-    }
-    CodePrinter.getMode = function(name) {
-        return $.scripts.get('CodePrinter/'+name.toLowerCase());
+        $.scripts.define('CodePrinter/'+name.toLowerCase(), obj, req);
     }
     CodePrinter.hasMode = function(name) {
         return $.scripts.has('CodePrinter/'+name.toLowerCase());
