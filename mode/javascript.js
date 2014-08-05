@@ -1,7 +1,8 @@
 /* CodePrinter - JavaScript Mode */
 
 CodePrinter.defineMode('JavaScript', function() {
-    var controls = ['if','else','elseif','for','switch','while','do','try','catch','finally']
+    var commentRgxHelper = /\*\/|(^|.)(?=\<\s*\/\s*script\s*>)/i
+    , controls = ['if','else','elseif','for','switch','while','do','try','catch','finally']
     , constants = ['null','undefined','NaN','Infinity']
     , keywords = [
         'var','return','new','continue','break','instanceof','typeof','case','let','debugger',
@@ -15,12 +16,13 @@ CodePrinter.defineMode('JavaScript', function() {
         'StopIteration','SyntaxError','TypeError','URIError'
     ]
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'JavaScript',
         controls: new RegExp('^('+controls.join('|')+')$'),
         keywords: new RegExp('^('+keywords.join('|')+')$'),
         specials: new RegExp('^('+specials.join('|')+')$'),
         constants: new RegExp('^('+constants.join('|')+')$'),
-        regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
+        regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|<\s*\/\s*script\s*>|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
         
         memoryAlloc: function() {
             return {
@@ -29,8 +31,14 @@ CodePrinter.defineMode('JavaScript', function() {
                 constants: []
             }
         },
-        parse: function(stream, memory) {
-            var found;
+        parse: function(stream, memory, isHTMLHelper) {
+            var sb = stream.stateBefore, found;
+            
+            if (sb && sb.comment) {
+                var e = this.expressions['/*'];
+                stream.eatWhile(isHTMLHelper ? commentRgxHelper : e.ending).applyWrap(e.classes);
+                stream.isStillHungry() && stream.continueState();
+            }
             
             while (found = stream.match(this.regexp)) {
                 if (!isNaN(found) && found != 'Infinity') {
@@ -43,7 +51,7 @@ CodePrinter.defineMode('JavaScript', function() {
                             stream.wrap('numeric', 'float');
                         }
                     }
-                } else if (/^[\w\-\$]+$/i.test(found)) {
+                } else if (/^[\w\$]+$/i.test(found)) {
                     if (/^(true|false)$/.test(found)) {
                         stream.wrap('builtin', 'boolean');
                     } else if (this.constants.test(found)) {
@@ -69,24 +77,29 @@ CodePrinter.defineMode('JavaScript', function() {
                         stream.wrap('variable');
                     }
                 } else if (found.length == 1) {
-                    if (found in this.operators) {
+                    if (this.operators[found]) {
                         stream.wrap('operator', this.operators[found]);
-                    } else if (found in this.punctuations) {
+                    } else if (this.punctuations[found]) {
                         stream.wrap('punctuation', this.punctuations[found]);
-                    } else if (found in this.brackets) {
+                    } else if (this.brackets[found]) {
                         stream.applyWrap(this.brackets[found]);
                     } else if (found === '"' || found === "'") {
                         stream.eat(found, this.expressions[found].ending, function() {
-                            return this.wrap('invalid').reset();
+                            this.tear().wrap('invalid');
                         }).applyWrap(this.expressions[found].classes);
                     }
-                } else if (found in this.expressions) {
-                    stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                } else if (this.expressions[found]) {
+                    var until = this.expressions[found].ending;
+                    if (isHTMLHelper && found === '/*') {
+                        until = commentRgxHelper;
+                    }
+                    stream.eatGreedily(found, until).applyWrap(this.expressions[found].classes);
+                    stream.isStillHungry() && stream.setStateAfter('comment');
                 } else if (found[0] == '/') {
-                    stream.cut(found.search(/([^\\]\/[gimy]{0,4})/g) + RegExp.$1.length);
-                    stream.wrap('regexp', function(helper) {
-                        return this.replace(/(\\.)/g, helper('$1', 'escaped'));
-                    });
+                    found = found.substring(0, found.search(/([^\\]\/[gimy]{0,4})/g) + RegExp.$1.length);
+                    stream.eat(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
+                } else if (isHTMLHelper && found[0] === '<' && found[found.length-1] === '>') {
+                    return stream.abort();
                 }
             }
             return stream;
@@ -119,5 +132,5 @@ CodePrinter.defineMode('JavaScript', function() {
                 cursorMove: -8
             }
         }
-    }
+    });
 });

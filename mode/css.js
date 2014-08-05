@@ -1,7 +1,8 @@
 /* CodePrinter - CSS Mode */
 
 CodePrinter.defineMode('CSS', function() {
-    var tags = [
+    var commentRgxHelper = /\*\/|(^|.)(?=\<\s*\/\s*style\s*>)/i
+    , tags = [
         'html','body','div','a','ol','ul','li','span','p',
         'h1','h2','h3','h4','h5','h6','img','input','textarea',
         'button','form','label','select','option','optgroup',
@@ -10,15 +11,22 @@ CodePrinter.defineMode('CSS', function() {
         'thead','tbody','tfoot','frameset','frame','iframe'
     ]
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'CSS',
         tags: new RegExp('^('+ tags.join('|') +')$', 'i'),
-        regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@\w+|[^\w\s]/,
+        regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@\w+|<\s*\/\s*style\s*>|[^\w\s]/,
     	values: /\/\*|\;|,|#[0-9a-f]+|\-?\d+[a-z%]*|\-?\d*\.\d+[a-z%]*|[@!]?[a-z\-]+\b|'|"/i,
         units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
         lineComment: '/*[text content]*/',
         
-        parse: function(stream) {
-            var found;
+        parse: function(stream, memory, isHTMLHelper) {
+            var sb = stream.stateBefore, found;
+            
+            if (sb && sb.comment) {
+                var e = this.expressions['/*'];
+                stream.eatWhile(isHTMLHelper ? commentRgxHelper : e.ending).applyWrap(e.classes);
+                stream.isStillHungry() && stream.continueState();
+            }
             
             while (found = stream.match(this.regexp)) {
                 if (this.symbols[found[0]]) {
@@ -36,7 +44,10 @@ CodePrinter.defineMode('CSS', function() {
                 } else if (this.operators[found]) {
                     stream.wrap(this.operators[found]);
                 } else if (found === '/*') {
-                    stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                    stream.eatGreedily(found, isHTMLHelper ? commentRgxHelper : this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                    stream.isStillHungry() && stream.setStateAfter('comment');
+                } else if (isHTMLHelper && found[0] === '<' && found[found.length-1] === '>') {
+                    return stream.abort();
                 }
             }  
             return stream;
@@ -75,9 +86,9 @@ CodePrinter.defineMode('CSS', function() {
                             } else {
                                 stream.wrap('numeric');
                             }
-                        } else if (this.punctuations.hasOwnProperty(found)) {
+                        } else if (this.punctuations[found]) {
                             stream.wrap('punctuation', this.punctuations[found]);
-                        } else if (this.expressions.hasOwnProperty(found)) {
+                        } else if (this.expressions[found]) {
                             stream.eat(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
                         } else if (stream.isAfter('(')) {
                             stream.wrap('function');
@@ -85,7 +96,6 @@ CodePrinter.defineMode('CSS', function() {
                             stream.wrap('escaped', 'value');
                         }
                     }
-                    !found && stream.restore();
                 } else if (/^\:\:?[\w\-\(\)]+$/.test(found)) {
                     stream.wrap('string', 'css-pseudo');
                 }
@@ -111,5 +121,5 @@ CodePrinter.defineMode('CSS', function() {
         extension: {
             onLeftRemoval: { ':': ';' }
         }
-    }
+    });
 });

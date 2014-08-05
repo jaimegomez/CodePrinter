@@ -30,7 +30,8 @@ CodePrinter.defineMode('Java', function() {
         'ClassLoader','Cloneable','Class','CharSequence','Comparable'
     ]
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'Java',
         controls: new RegExp('^('+ controls.join('|') +')$'),
         keywords: new RegExp('^('+ keywords.join('|') +')$'),
         specials: new RegExp('^('+ specials.join('|') +')$'),
@@ -44,7 +45,13 @@ CodePrinter.defineMode('Java', function() {
             }
         },
         parse: function(stream, memory) {
-            var found;
+            var sb = stream.stateBefore, found;
+            
+            if (sb && sb.comment) {
+                var e = this.expressions['/*'];
+                stream.eatWhile(e.ending).applyWrap(e.classes);
+                stream.isStillHungry() && stream.continueState();
+            }
             
             while (found = stream.match(this.regexp)) {
                 if (!isNaN(found) && found != 'Infinity') {
@@ -72,19 +79,13 @@ CodePrinter.defineMode('Java', function() {
                         stream.wrap('special');
                     } else if (found == 'class') {
                         stream.wrap('keyword');
-                        if (found = stream.match(/^\s*(\w+)/, 1)) {
+                        if (found = stream.capture(/^\s*(\w+)/, 1)) {
                             memory.classes.put(found);
-                            stream.reset();
-                        } else {
-                            stream.restore();
                         }
                     } else if (found == 'import') {
                         stream.wrap('keyword');
-                        if (found = stream.match(/^.*[\s\.]([a-zA-Z0-9]+);$/, 1)) {
+                        if (found = stream.capture(/^.*[\s\.]([a-zA-Z0-9]+);$/, 1)) {
                             memory.classes.put(found);
-                            stream.reset();
-                        } else {
-                            stream.restore();
                         }
                     } else if (stream.isAfter('(')) {
                         stream.wrap('function');
@@ -98,15 +99,14 @@ CodePrinter.defineMode('Java', function() {
                         stream.applyWrap(this.brackets[found]);
                     } else if (found === '"' || found === "'") {
                         stream.eat(found, this.expressions[found].ending, function() {
-                            return this.wrap('invalid').reset();
+                            this.tear().wrap('invalid');
                         }).applyWrap(this.expressions[found].classes);
-                    } else {
-                        stream.wrap('other');
                     }
-                } else if (this.expressions[found]) {
-                    stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-                } else {
-                    stream.wrap('other');
+                } else if (found === '/*') {
+                    stream.eatGreedily(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                    if (stream.isStillHungry()) {
+                        stream.setStateAfter('comment');
+                    }
                 }
             }
             return stream;
@@ -134,5 +134,5 @@ CodePrinter.defineMode('Java', function() {
                 cursorMove: -1
             }
         }
-    }
+    });
 });

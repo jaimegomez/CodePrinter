@@ -26,13 +26,14 @@ CodePrinter.defineMode('CoffeeScript', function() {
         }
     }
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'CoffeeScript',
         controls: new RegExp('^('+ controls.join('|') +')$'),
         keywords: new RegExp('^('+ keywords.join('|') +')$'),
         specials: new RegExp('^('+ specials.join('|') +')$'),
         booleans: new RegExp('^('+ booleans.join('|') +')$'),
         constants: new RegExp('^('+ constants.join('|') +')$'),
-        regexp: /\#{1,3}|\-\>|\/\/\/|\/.*\/[gimy]*|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
+        regexp: /\#{3}|\#|\-\>|\/\/\/|\/.*\/[gimy]*|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
         indentIncrements: ['->', '='],
         indentDecrements: [],
         blockCommentStart: '###',
@@ -45,7 +46,13 @@ CodePrinter.defineMode('CoffeeScript', function() {
             }
         },
         parse: function(stream, memory) {
-            var found;
+            var sb = stream.stateBefore, found;
+            
+            if (sb && sb.comment) {
+                var e = this.expressions['###'];
+                stream.eatWhile(e.ending).applyWrap(e.classes);
+                stream.isStillHungry() && stream.continueState();
+            }
             
             while (found = stream.match(this.regexp)) {
                 if (!isNaN(found) && found != 'Infinity') {
@@ -78,7 +85,8 @@ CodePrinter.defineMode('CoffeeScript', function() {
                 } else if (found == '->' || found == '@') {
                     stream.wrap('special');
                 } else if (this.expressions[found]) {
-                    stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                    stream.eatGreedily(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                    found === '###' && stream.isStillHungry() && stream.setStateAfter('comment');
                 } else if (found.length == 1) {
                     if (this.operators[found]) {
                         stream.wrap('operator', this.operators[found]);
@@ -87,20 +95,14 @@ CodePrinter.defineMode('CoffeeScript', function() {
                     } else if (this.brackets[found]) {
                         stream.applyWrap(this.brackets[found]);
                     } else if (found == '"') {
-                        stream.eatWhile(found, /(^"|[^\\]\"|\\{2}")/).wrap('string', 'double-quote', function(helper) {
-                            return this.replace(/(\#\{[^\}]*\})/g, helper('$1', 'escaped'));
-                        });
+                        stream.eatGreedily(found, /(^"|[^\\]\"|\\{2}")/).wrap('string', 'double-quote').eatEach(/(\#\{[^\}]*\})/).wrapAll('escaped');
                     }
                 } else if (found[0] == '/') {
                     if (found[1] == '/' && found[2] == '/') {
-                        stream.eatWhile(found, found).wrap('regexp', function(helper) {
-                            return this.replace(/(\\.|\#\{[^\}]*\})/g, helper('$1', 'escaped'));
-                        });
+                        stream.eatGreedily(found, found).wrap('regexp').eatEach(/(\\.|\#\{[^\}]*\})/).wrapAll('escaped');
                     } else {
-                        stream.cut(found.search(/([^\\]\/[gimy]{0,4})/g) + RegExp.$1.length);
-                        stream.wrap('regexp', function(helper) {
-                            return this.replace(/(\\.)/g, helper('$1', 'escaped'));
-                        });
+                        found = found.substring(0, found.search(/([^\\]\/[gimy]{0,4})/) + RegExp.$1.length);
+                        stream.eat(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
                     }
                 }
             }
@@ -127,7 +129,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
         keyMap: keyMap,
         expressions: {
             '#': {
-                ending: '\n',
+                ending: /$/,
                 classes: ['comment', 'line-comment']
             },
             '###': {
@@ -158,5 +160,5 @@ CodePrinter.defineMode('CoffeeScript', function() {
                 cursorMove: -5
             }
         }
-    }
+    });
 });

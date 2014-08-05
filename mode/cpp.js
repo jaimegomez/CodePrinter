@@ -46,7 +46,8 @@ CodePrinter.defineMode('Cpp', function() {
     }
     includeMap.iostream.union(includeMap.istream).union(includeMap.ostream);
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'Cpp',
         controls: new RegExp('^('+ controls.join('|') +')$'),
         keywords: new RegExp('^('+ keywords.join('|') +')$'),
         types: new RegExp('^('+ types.join('|') +')$'),
@@ -61,7 +62,13 @@ CodePrinter.defineMode('Cpp', function() {
             }
         },
         parse: function(stream, memory) {
-            var found;
+            var sb = stream.stateBefore, found;
+            
+            if (sb && sb.comment) {
+                var e = this.expressions['/*'];
+                stream.eatWhile(e.ending).applyWrap(e.classes);
+                stream.isStillHungry() && stream.continueState();
+            }
             
             while (found = stream.match(this.regexp)) {
                 if (!isNaN(found)) {
@@ -121,13 +128,12 @@ CodePrinter.defineMode('Cpp', function() {
                         stream.applyWrap(this.brackets[found]);
                     } else if (found === '"' || found === "'") {
                         stream.eat(found, this.expressions[found].ending, function() {
-                            return this.wrap('invalid').reset();
+                            this.tear().wrap('invalid');
                         }).applyWrap(this.expressions[found].classes);
-                    } else {
-                        stream.wrap('other');
                     }
                 } else if (this.expressions[found]) {
-                    stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                    stream.eatGreedily(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                    found === '/*' && stream.isStillHungry() && stream.setStateAfter('comment');
                 }
             }
             return stream;
@@ -143,5 +149,5 @@ CodePrinter.defineMode('Cpp', function() {
                 cursorMove: -1
             }
         }
-    }
+    });
 });

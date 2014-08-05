@@ -13,7 +13,8 @@ CodePrinter.defineMode('Ada', function() {
         'terminate','then','type','until','use','with','xor'
     ]
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'Ada',
         keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
         types: new RegExp('^('+ types.join('|') +')$', 'i'),
         controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
@@ -66,7 +67,7 @@ CodePrinter.defineMode('Ada', function() {
                     stream.wrap('punctuation', this.punctuations[found]);
                 } else if (this.expressions[found]) {
                     stream.eat(found, this.expressions[found].ending, function() {
-                        return this.wrap('invalid').reset();
+                        this.tear().wrap('invalid');
                     }).applyWrap(this.expressions[found].classes);
                 }
             }
@@ -76,8 +77,8 @@ CodePrinter.defineMode('Ada', function() {
             return [types, keywords, controls, memory.variables, memory.tasks];
         },
         expressions: {
-            '--': { ending: '\n', classes: ['comment', 'line-comment'] },
+            '--': { ending: /$/, classes: ['comment', 'line-comment'] },
             '"': { ending: /(^"|[^\\]"|\\{2}")/, classes: ['string', 'double-quote'] }
         }
-    }
+    });
 });

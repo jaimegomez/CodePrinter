@@ -2,84 +2,89 @@
 
 CodePrinter.defineMode('Markdown', function() {
     
-    var italicRgx = /[^\\\*](\*|\_)(?!\1)/
-    , boldRgx = /[^\\](\*\*|\_\_)/;
+    var italicRgx = /(^|[^\\])(\*|\_)(?!\2)/
+    , boldRgx = /(^|[^\\])(\*\*|\_\_)/;
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'Markdown',
         regexp: /([\~\*\_]){1,2}|\`+/,
         
         parse: function(stream, memory) {
-            var line, trim, found, _found;
+            var sb = stream.stateBefore
+            , line, trim, found, _found;
             
-            while (line = stream.read()) {
-                trim = line.trim();
+            if (sb && sb.code) {
+                var c = sb.code;
+                stream.eatWhile(c).wrap('comment', 'code');
+                stream.isStillHungry() && stream.continueState();
+            }
+            
+            line = stream.readline();
+            trim = line.trim();
+            
+            if (trim[0] === '>') {
+                stream.wrap('string', 'blockquote');
+            } else if (/^(\-+\s+){2,}\-+$/.test(trim) || /^(\*+\s+){2,}\*+$/.test(trim)) {
+                stream.wrap('escaped', 'horizontal-rule');
+            } else if (/^\s*\d+\.\s/.test(line)) {
+                stream.wrap('numeric', 'ordered-list');
+            } else if (/^[\*\+\-]\s/.test(trim)) {
+                stream.wrap('numeric', 'hex', 'unordered-list');
+            } else if (/^(\#+)/.test(trim)) {
+                var c = Math.max(4, 16 - RegExp.$1.length);
+                stream.wrap('namespace', 'header', 'font-'+c+'0');
+            } else if (/^(\=+|\-+)$/.test(trim)) {
+                stream.wrap('operator', 'header-rule');
+            } else if (stream.testNextLine(/^\s*(\=|\-){2,}\s*$/)) {
+                stream.wrap('namespace', 'header', 'font-' + (RegExp.$1 === '=' ? '150' : '140'));
+            } else {
+                stream.reset();
                 
-                if (trim[0] === '>') {
-                    stream.wrap('string', 'blockquote');
-                } else if (/^\-+\s*\-+\s*\-+$/.test(trim) || /^\*+\s*\*+\s*\*+$/.test(trim)) {
-                    stream.wrap('escaped', 'horizontal-rule');
-                } else if (/^\s*\d+\.\s/.test(line)) {
-                    stream.wrap('numeric', 'ordered-list');
-                } else if (/^[\*\+\-]\s/.test(trim)) {
-                    stream.wrap('numeric', 'hex', 'unordered-list');
-                } else if (/^(\#+)/.test(trim)) {
-                    var c = Math.max(4, 16 - RegExp.$1.length);
-                    stream.wrap('namespace', 'header', 'font-'+c+'0');
-                } else if (/^(\=+|\-+)$/.test(trim)) {
-                    stream.wrap('operator', 'header-rule');
-                } else if (stream.testNextLine(/^\s*(\=|\-){2,}\s*$/)) {
-                    stream.wrap('namespace', 'header', 'font-' + (RegExp.$1 === '=' ? '150' : '140'));
-                } else {
-                    stream.reset();
-                    
-                    while (found = stream.match(this.regexp, false)) {
-                        if (found[0] === '*' || found[0] === '_') {
-                            var ss, rest, lasti = 0, isbold = found[0] === found[1]
-                            , base = isbold ? 'bold' : 'italic'
-                            , s = stream.search(isbold ? boldRgx : italicRgx)
-                            , rgx = isbold ? italicRgx : boldRgx;
+                while (found = stream.match(this.regexp)) {
+                    if (found[0] === '*' || found[0] === '_') {
+                        var begin = found
+                        , isbold = found[0] === found[1]
+                        , cls = isbold ? 'bold' : 'italic'
+                        , rgx = isbold ? italicRgx : boldRgx
+                        , i, _found, _rgx;
+                        
+                        stream.save();
+                        stream.wrap('comment');
+                        
+                        while (found = stream.capture(rgx, 2)) {
+                            i = stream.indexOfFound + RegExp.$1.length;
+                            var escape = found.escape();
+                            _rgx = new RegExp(isbold ? '(^|[^\\\\'+escape+'])('+escape+')(?=[^\\2][^\\2])' : '(^|[^\\\\'+found[0].escape()+'])('+escape+')');
                             
-                            if (s >= 0) {
-                                stream.wrap('comment');
-                                ss = rest = stream.substring(0, s+1);
-                                
-                                while ((s = rest.search(rgx)) >= 0) {
-                                    var s2, _found = RegExp.$1
-                                    , leftContext = RegExp.leftContext
-                                    , lastMatch = RegExp.lastMatch;
-                                    
-                                    if ((s2 = rest.substr(leftContext.length + 1 + _found.length).search(rgx)) >= 0) {
-                                        var wrapped = RegExp.leftContext + RegExp.lastMatch[0];
-                                        if (s > 0) {
-                                            stream.eat(leftContext + lastMatch[0]).wrap('parameter', base);
-                                            lasti += leftContext.length + 1;
-                                        }
-                                        stream.eat(_found).wrap('comment');
-                                        stream.eat(wrapped).wrap('parameter', 'bold', 'italic');
-                                        stream.eat(_found).wrap('comment');
-                                        rest = ss.substr(lasti += 2 * _found.length + wrapped.length);
-                                    } else {
-                                        break;
-                                    }
-                                }
-                                
-                                if (rest.length) stream.eat(rest).wrap('parameter', base);
+                            if (_found = stream.capture(_rgx, 2, i + found.length)) {
+                                i > 0 && stream.cut(i).wrap('parameter', cls);
                                 stream.eat(found).wrap('comment');
+                                stream.cut(stream.indexOfFound + RegExp.$1.length).wrap('parameter', 'bold', 'italic');
+                                stream.eat(_found).wrap('comment');
                             } else {
-                                stream.skip();
+                                break;
                             }
-                        } else if (found[0] === '`') {
-                            if (found.length > 1) stream.eatWhile(found, found);
-                            else stream.eat(found, found);
-                            stream.wrap('comment', 'code');
-                        } else {
-                            stream.wrap('other');
                         }
+                        if (found = stream.capture(new RegExp(isbold ? '(^|[^\\\\])('+begin[0].escape()+')\\2(?!\\2)' : '(^|[^\\\\])('+begin.escape()+')(?!\\2)'), 2)) {
+                            stream.cut(stream.indexOfFound + RegExp.$1.length).wrap('parameter', cls);
+                            stream.eat(isbold ? found + found : found).wrap('comment');
+                        } else {
+                            stream.restore();
+                            stream.skip(begin);
+                        }
+                    } else if (found[0] === '`') {
+                        var ss;
+                        if (found.length > 1) {
+                            ss = stream.eatGreedily(found, found);
+                            stream.isStillHungry() && stream.setStateAfter({ code: found });
+                        } else {
+                            ss = stream.eat(found, found);
+                        }
+                        ss.wrap('comment', 'code');
                     }
                 }
             }
-            
             return stream;
         }
-    }
+    });
 });

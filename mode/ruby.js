@@ -104,7 +104,8 @@ CodePrinter.defineMode('Ruby', function() {
         }
     }
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'Ruby',
         controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
         keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
         specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
@@ -116,7 +117,12 @@ CodePrinter.defineMode('Ruby', function() {
         lineComment: '#',
         
         parse: function(stream) {
-            var found;
+            var sb = stream.stateBefore, found;
+            
+            if (sb && sb.comment) {
+                stream.eatWhile('=end').wrap('comment', 'block-comment');
+                stream.isStillHungry() && stream.continueState();
+            }
             
             while (found = stream.match(this.regexp)) {
                 if (!isNaN(found)) {
@@ -152,17 +158,16 @@ CodePrinter.defineMode('Ruby', function() {
                         stream.applyWrap(this.brackets[found]);
                     } else if (found === '"' || found === "'") {
                         stream.eat(found, this.expressions[found].ending, function() {
-                            return this.wrap('invalid').reset();
+                            this.tear().wrap('invalid');
                         }).applyWrap(this.expressions[found].classes);
                     } else if (found == '#') {
-                        stream.eatWhile(found, '\n').wrap('comment', 'line-comment');
+                        stream.eatAll(found).wrap('comment', 'line-comment');
                     }
                 } else if (found[0] == '=') {
-                    stream.eatWhile(found, '=end').wrap('comment', 'block-comment');
+                    stream.eatGreedily(found, '=end').wrap('comment', 'block-comment');
+                    stream.isStillHungry() && stream.setStateAfter('comment');
                 } else if (found[0] == '/') {
-                    stream.wrap('regexp', function(helper) {
-                        return this.replace(/(\\.)/g, helper('$1', 'escaped'));
-                    });
+                    stream.wrap('regexp').eatEach(/\\./).wrapAll('escaped');
                 }
             }
             return stream;
@@ -183,5 +188,5 @@ CodePrinter.defineMode('Ruby', function() {
         },
         keyMap: keyMap,
         tracking: tracking
-    }
+    });
 });

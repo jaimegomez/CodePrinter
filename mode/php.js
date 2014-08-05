@@ -29,7 +29,8 @@ CodePrinter.defineMode('PHP', function() {
         }
     }
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'PHP',
     	controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
     	keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
         specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
@@ -46,7 +47,15 @@ CodePrinter.defineMode('PHP', function() {
             }
         },
     	parse: function(stream, memory) {
-    		var found;
+    		var sb = stream.stateBefore, found;
+            
+            if (sb) {
+                var e = this.expressions[sb.comment ? '/*' : sb.string];
+                if (e) {
+                    stream.eatWhile(e.ending).applyWrap(e.classes);
+                    stream.isStillHungry() && stream.continueState();
+                }
+            }
             
     		while (found = stream.match(this.regexp)) {
                 if (found[0] === '$') {
@@ -94,7 +103,8 @@ CodePrinter.defineMode('PHP', function() {
                     }
                 } else if (found.length == 1) {
                     if (found == '"' || found == "'") {
-                        stream.eatWhile(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                        stream.eatGreedily(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                        stream.isStillHungry() && stream.setStateAfter({ string: found });
                     } else if (this.operators[found]) {
                         stream.wrap('operator', this.operators[found]);
                     } else if (this.punctuations[found]) {
@@ -105,7 +115,13 @@ CodePrinter.defineMode('PHP', function() {
                 } else if (/^(<\?(php|=?)|\?>)$/.test(found)) {
                     stream.wrap('phptag', found == '?>' ? 'closetag' : 'opentag');
                 } else if (this.expressions[found]) {
-                    stream.eat(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                    var e = this.expressions[found];
+                    if (found === '//') {
+                        stream.eatAll(found).applyWrap(e.classes);
+                    } else if (found === '/*') {
+                        stream.eatGreedily(found, e.ending).applyWrap(e.classes);
+                        stream.isStillHungry() && stream.setStateAfter('comment');
+                    }
                 }
     		}
     		return stream;
@@ -151,5 +167,5 @@ CodePrinter.defineMode('PHP', function() {
                 "'": { ending: "'", classes: ['string', 'single-quote'] }
             }
         }
-    }
+    });
 });

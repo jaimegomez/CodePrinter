@@ -5,7 +5,8 @@ CodePrinter.defineMode('Perl', function() {
     , keywords = ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','my','ne','no','or','package','q','qq','qr','qw','qx','s','sub','tr','use','xor','y']
     , specials = ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','STDIN','STDOUT','STDERR','print','printf','sprintf','return']
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'Perl',
         controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
         keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
         specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
@@ -50,7 +51,7 @@ CodePrinter.defineMode('Perl', function() {
                     }
                 } else if (found.length == 1) {
                     if (found == '#') {
-                        stream.eatWhile(found, '\n').wrap('comment', 'line-comment');
+                        stream.eat(found, /$/).wrap('comment', 'line-comment');
                     } else if (this.punctuations[found]) {
                         stream.wrap('punctuation', this.punctuations[found]);
                     } else if (this.operators[found]) {
@@ -59,7 +60,7 @@ CodePrinter.defineMode('Perl', function() {
                         stream.applyWrap(this.brackets[found]);
                     } else if (found === '"' || found === "'") {
                         stream.eat(found, this.expressions[found].ending, function() {
-                            return this.wrap('invalid').reset();
+                            this.tear().wrap('invalid');
                         }).applyWrap(this.expressions[found].classes);
                     }
                 } else if (found[0] == '$' || found[0] == '@' || found[0] == '%') {
@@ -68,13 +69,11 @@ CodePrinter.defineMode('Perl', function() {
                     stream.wrap('function');
                 } else if (/^m(\W)|^\//.test(found)) {
                     if (found[0] == 'm') {
-                        stream.cut(2 + found.substr(2).search(new RegExp('([^\\\\]'+RegExp.$1.escape()+'[gimy]{0,4})')) + RegExp.$1.length);
+                        found = found.substring(0, found.substr(2).search(new RegExp('([^\\\\]'+RegExp.$1.escape()+'[gimy]{0,4})')) + RegExp.$1.length);
                     } else {
-                        stream.cut(found.search(/([^\\]\/[gimy]{0,4})/) + RegExp.$1.length);
+                        found = found.substring(0, found.search(/([^\\]\/[gimy]{0,4})/) + RegExp.$1.length);
                     }
-                    stream.wrap('regexp', function(helper) {
-                        return this.replace(/(\\.)/g, helper('$1', 'escaped'));
-                    });
+                    stream.eat(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
                 }
             }
             return stream;
@@ -87,5 +86,5 @@ CodePrinter.defineMode('Perl', function() {
                 '~': 'match'
             }
         }
-    }
+    });
 });

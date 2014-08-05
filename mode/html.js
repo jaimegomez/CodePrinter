@@ -1,10 +1,11 @@
 /* CodePrinter - HTML mode */
 
-CodePrinter.defineMode('HTML', function() {
+CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) {
     var selfClosingTagsRgx = /^(area|base|br|c(ol|ommand)|embed|hr|i(mg|nput)|keygen|link|meta|param|source|track|wbr)$/i
     , matchTagNameRgx = /<\s*(\w+)\s*[^>]*$/;
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'HTML',
         regexp: /<!--|<!\w+|<\/?|&[^;]+;/,
         regexp2: /[a-zA-Z\-]+|=|"|'|<|\/?\s*>/,
         blockCommentStart: '<!--',
@@ -12,12 +13,27 @@ CodePrinter.defineMode('HTML', function() {
         lineComment: '<!--[text content]-->',
         
         parse: function(stream) {
-            var found;
+            var sb = stream.stateBefore, found;
+            
+            if (sb) {
+                if (sb.HTMLComment) {
+                    stream.eatWhile('-->').wrap('comment');
+                    stream.isStillHungry() && stream.continueState();
+                } else if (sb.script || sb.style) {
+                    this.parseBy(sb.parser, stream);
+                    if (stream.isAborted) {
+                        stream.reset();
+                    } else {
+                        stream.continueState(sb.script ? 'script' : 'style', 'parser');
+                    }
+                }
+            }
             
             while (found = stream.match(this.regexp)) {
                 if (found.substr(0, 2) === '<!') {
                     if (found === '<!--') {
-                        stream.eatWhile(found, '-->').wrap('comment');
+                        stream.eatGreedily(found, '-->').wrap('comment');
+                        stream.isStillHungry() && stream.setStateAfter('HTMLComment');
                     } else {
                         stream.eat(found, '>').wrap('special', 'doctype');
                     }
@@ -25,6 +41,8 @@ CodePrinter.defineMode('HTML', function() {
                     stream.wrap('bracket', 'bracket-angle', 'bracket-open');
                     
                     if (found = stream.match(/^\b[a-zA-Z]+/)) {
+                        var tag = found.toLowerCase()
+                        , isclosetag = stream.isBefore('/');
                         stream.wrap('keyword', found);
                         
                         while (found = stream.match(this.regexp2)) {
@@ -40,19 +58,39 @@ CodePrinter.defineMode('HTML', function() {
                             } else if (found[found.length-1] === '>') {
                                 stream.wrap('bracket', 'bracket-angle', 'bracket-close');
                                 break;
-                            } else {
-                                stream.wrap('other');
+                            }
+                        }
+                        if (found !== '<' && !isclosetag) {
+                            if (tag === 'script') {
+                                this.parseBy(JavaScript, stream);
+                                
+                                if (stream.isAborted) {
+                                    stream.reset();
+                                } else {
+                                    stream.setStateAfter({
+                                        script: true,
+                                        parser: JavaScript
+                                    });
+                                }
+                            } else if (tag === 'style') {
+                                this.parseBy(CSS, stream);
+                                
+                                if (stream.isAborted) {
+                                    stream.reset();
+                                } else {
+                                    stream.setStateAfter({
+                                        style: true,
+                                        parser: CSS
+                                    });
+                                }
                             }
                         }
                     } else {
-                        stream.restore().unwrap().wrap('invalid');
+                        stream.wrap('invalid');
                         continue;
                     }
-                    !found && stream.restore();
                 } else if (found[0] === '&') {
                     stream.wrap('escaped');
-                } else {
-                    stream.wrap('other');
                 }
             }
             
@@ -87,5 +125,5 @@ CodePrinter.defineMode('HTML', function() {
                 }
             }
         }
-    }
+    });
 });

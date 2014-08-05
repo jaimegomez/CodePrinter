@@ -15,7 +15,8 @@ CodePrinter.defineMode('Bash', function() {
         }
     }
     
-    return {
+    return new CodePrinter.Mode({
+        name: 'Bash',
         controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
         keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
         specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
@@ -71,7 +72,7 @@ CodePrinter.defineMode('Bash', function() {
                         stream.wrap('special');
                     } else if (found == '#') {
                         if (stream.isBefore(/^$|\s$/)) {
-                            stream.eatWhile(found, '\n').wrap('comment', 'line-comment');
+                            stream.eatAll(found).wrap('comment', 'line-comment');
                         } else {
                             stream.wrap('operator');
                         }
@@ -83,7 +84,7 @@ CodePrinter.defineMode('Bash', function() {
                         stream.applyWrap(this.brackets[found]);
                     } else if (this.expressions[found]) {
                         stream.eat(found, this.expressions[found].ending, function() {
-                            return this.wrap('invalid').reset();
+                            this.tear().wrap('invalid');
                         }).applyWrap(this.expressions[found].classes);
                     }
                 }
@@ -115,5 +116,5 @@ CodePrinter.defineMode('Bash', function() {
                 '`': { ending: /(^\`|[^\\]\`)/, classes: ['string', 'backquote'] }
             }
         }
-    }
+    });
 });
