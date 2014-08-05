@@ -3056,10 +3056,11 @@ define('CodePrinter', ['Selector'], function($) {
         'Enter': function() {
             if (this.options.indentNewLines) {
                 var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line)
+                , dl = this.caret.dl(), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
                 , af = this.caret.textAfter(), spacesAfter = 0;
                 
-                if (this.parser && this.parser.indentation) {
-                    var i = this.parser.indentation.call(this, this.caret.textBefore().trim(), af.trim(), line, indent, this.parser);
+                if (parser && parser.indentation) {
+                    var i = parser.indentation.call(this, this.caret.textBefore().trim(), af.trim(), line, indent, parser);
                     if (i instanceof Array) {
                         var first = i.shift();
                         while (i.length) {
