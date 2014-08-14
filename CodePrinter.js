@@ -742,48 +742,52 @@ define('CodePrinter', ['Selector'], function($) {
                 this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
             }
         },
-        increaseIndentAtLine: function(line) {
-            var dl = this.document.get(line);
-            if (dl) {
-                dl.setText('\t' + dl.text);
-                this.parse(dl);
-                this.caret.line() == line && this.caret.moveX(this.options.tabWidth);
-                this.emit('changed', { line: line, column: 0, text: '\t', added: true });
+        indent: function(line) {
+            var range;
+            if (arguments.length || !(range = this.document.getSelectionRange())) {
+                line = line >= 0 ? line : this.caret.line();
+                var dl = this.document.get(line);
+                if (dl) {
+                    dl.setText('\t' + dl.text);
+                    this.parse(dl);
+                    this.caret.line() == line && this.caret.moveX(this.options.tabWidth);
+                    this.emit('changed', { line: line, column: 0, text: '\t', added: true });
+                }
+            } else {
+                var w = this.options.tabWidth, i, l;
+                this.caret.position(i = range.start.line, range.start.column);
+                l = range.end.line;
+                range.start.column += w;
+                range.end.column += w;
+                this.document.setSelectionRange(range);
+                do this.indent(i); while (++i <= l);
+                this.document.showSelection();
             }
         },
-        decreaseIndentAtLine: function(line) {
-            var dl = this.document.get(line);
-            if (dl && dl.text.indexOf('\t') === 0) {
-                dl.setText(dl.text.substr(1));
-                this.parse(dl);
-                this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
-                this.emit('changed', { line: line, column: 0, text: '\t', added: false });
+        unindent: function(line) {
+            var range;
+            if (arguments.length || !(range = this.document.getSelectionRange())) {
+                line = line >= 0 ? line : this.caret.line();
+                var dl = this.document.get(line);
+                if (dl && dl.text.indexOf('\t') === 0) {
+                    dl.setText(dl.text.substr(1));
+                    this.parse(dl);
+                    this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
+                    this.emit('changed', { line: line, column: 0, text: '\t', added: false });
+                }
+            } else {
+                var w = this.options.tabWidth, i, l;
+                
+                this.caret.position(i = range.start.line, range.start.column);
+                l = range.end.line;
+                
+                if (this.document.get(i).text.indexOf('\t') === 0) {
+                    range.start.column -= w;
+                }
+                this.document.setSelectionRange(range);
+                do this.unindent(i); while (++i <= l);
+                this.document.showSelection();
             }
-        },
-        increaseIndentOfSelection: function() {
-            var w = this.options.tabWidth
-            , s = this.selection, i, l;
-            
-            this.caret.position(i = s.start.line, s.start.column);
-            l = s.end.line;
-            
-            s.start.column += w;
-            s.end.column += w;
-            do this.increaseIndentAtLine(i); while (++i <= l);
-            this.showSelection();
-        },
-        decreaseIndentOfSelection: function() {
-            var w = this.options.tabWidth
-            , s = this.selection, i, l;
-            
-            this.caret.position(i = s.start.line, s.start.column);
-            l = s.end.line;
-            
-            if (this.document.get(i).text.indexOf('\t') === 0) {
-                s.start.column -= w;
-            }
-            do this.decreaseIndentAtLine(i); while (++i <= l);
-            this.showSelection();
         },
         getNextLineIndent: function(line) {
             var indent = this.getIndentAtLine(line);
@@ -3031,7 +3035,7 @@ define('CodePrinter', ['Selector'], function($) {
         },
         'Tab': function() {
             if (this.document.issetSelection()) {
-                this.increaseIndentOfSelection();
+                this.indent();
             } else {
                 var bf = this.caret.textBefore();
                 if (this.options.tabTriggers) {
@@ -3046,14 +3050,8 @@ define('CodePrinter', ['Selector'], function($) {
             }
             return false;
         },
-        'Alt+Tab': function() {
-            this.document.issetSelection() ? this.increaseIndentOfSelection() : this.increaseIndentAtLine(this.caret.line());
-            return false;
-        },
-        'Shift+Tab': function(e) {
-            this.document.issetSelection() ? this.decreaseIndentOfSelection() : this.decreaseIndentAtLine(this.caret.line());
-            return false;
-        },
+        'Alt+Tab': CodePrinter.prototype.indent,
+        'Shift+Tab': CodePrinter.prototype.unindent,
         'Enter': function() {
             if (this.options.indentNewLines) {
                 var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line)
@@ -3220,12 +3218,6 @@ define('CodePrinter', ['Selector'], function($) {
                 is && this.selection.move(sm);
                 this.showSelection();
             }
-        },
-        'Ctrl+[': function() {
-            this.document.issetSelection() ? this.decreaseIndentOfSelection() : this.decreaseIndentAtLine(this.caret.line());
-        },
-        'Ctrl+]': function() {
-            this.document.issetSelection() ? this.increaseIndentOfSelection() : this.increaseIndentAtLine(this.caret.line());
         },
         'Shift+Left': function(e, c) {
             if (!this.document.issetSelection()) {
