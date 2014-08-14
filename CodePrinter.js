@@ -20,7 +20,8 @@ define('CodePrinter', ['Selector'], function($) {
     , tracking, lineendings, extensions
     , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 40
-    , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null;
+    , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
+    , setImmediate = window.global && window.global.setImmediate || window.setImmediate || function(fn) { return setTimeout(fn, 1); };
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
@@ -172,7 +173,7 @@ define('CodePrinter', ['Selector'], function($) {
                             window.off('mousemove', mouseController);
                             self.caret.activate();
                             self.sizes.bounds = moveevent = null;
-                            document.activeElement != self.input && ($.browser.firefox ? setTimeout(function() { self.input.focus() }, 0) : self.input.focus());
+                            document.activeElement != self.input && ($.browser.firefox ? setImmediate(function() { self.input.focus() }) : self.input.focus());
                             return isMouseDown = e.cancel();
                         });
                     }
@@ -504,7 +505,7 @@ define('CodePrinter', ['Selector'], function($) {
                 if (options.queue) queue = options.queue;
             }
             
-            (fn = function() {
+            setImmediate(fn = function() {
                 var j = 0, r;
                 while (dl && j++ < queue) {
                     r = callback.call(that, dl, ++index, offset);
@@ -515,8 +516,8 @@ define('CodePrinter', ['Selector'], function($) {
                     onend instanceof Function && onend.call(that, index);
                     return false;
                 }
-                setTimeout(fn, interval);
-            })();
+                setImmediate(fn);
+            });
         },
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode && this.parser !== parser) {
@@ -596,7 +597,7 @@ define('CodePrinter', ['Selector'], function($) {
             return dl;
         },
         focus: function() {
-            setTimeout($.invoke(this.input.focus, this.input), 1);
+            setImmediate(this.input.focus.bind(this.input));
         },
         requireStyle: function(style, callback) {
             $.require($.glue(this.options.path, 'theme', style+'.css'), callback);
@@ -3259,7 +3260,7 @@ define('CodePrinter', ['Selector'], function($) {
         'V': function(e) {
             this.document.removeSelection();
             this.emit('cmd.paste');
-            setTimeout(this.input.emit.bind(this.input, 'keyup'), 5);
+            setImmediate(this.input.emit.bind(this.input, 'keyup'));
             return true;
         },
         'X': function() {
