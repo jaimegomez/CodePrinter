@@ -955,8 +955,21 @@ define('CodePrinter', ['Selector'], function($) {
             return this.parse(dl);
         },
         appendText: function(text) {
+            text = text.split(/\n/);
+            if (text[0]) {
+                var last = this.document.get(this.document.lines()-1);
+                last && this.dispatch(last, last.text + text[0]);
+            }
+            for (var i = 1; i < text.length; i++) {
+                this.parse(this.document.append(this.convertToTabs(text[i])));
+            }
+            if (!this.document.isFilled) this.document.isFilled = this.document.fill();
+            return this;
+        },
+        appendLine: function(text) {
             var dl, text = this.convertToTabs(text);
             (this.document.lines() == 1 && (dl = this.document.get(0)).text.length == 0) ? dl.setText(text) : this.document.append(text);
+            if (!this.document.isFilled) this.document.isFilled = this.document.fill();
             return this;
         },
         swapLineUp: function() {
