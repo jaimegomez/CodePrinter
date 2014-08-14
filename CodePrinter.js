@@ -495,11 +495,12 @@ define('CodePrinter', ['Selector'], function($) {
         intervalIterate: function(callback, onend, options) {
             if (!(onend instanceof Function) && arguments.length === 2) options = onend;
             var that = this, dl = this.document.get(0), fn
-            , index = -1, offset = 0, interval = 10, queue = 300;
+            , index = -1, offset = 0, queue = 150;
             
             if (options) {
-                if (options.interval) interval = options.interval;
                 if (options.queue) queue = options.queue;
+                if ('number' === typeof options.start) dl = this.document.get(options.start);
+                else if (options.start instanceof Line) dl = options.start;
             }
             
             setImmediate(fn = function() {
@@ -1037,7 +1038,7 @@ define('CodePrinter', ['Selector'], function($) {
                     r = r + arg[i] + '\n';
                     this.caret.setTextAfter(af.substr(arg[i++].length));
                     nextdl = dl.next();
-                    af = nextdl ? cp.convertToSpaces(nextdl.text) : '';
+                    af = nextdl ? this.convertToSpaces(nextdl.text) : '';
                     this.document.remove(nextdl, l+1);
                 }
                 if (af.indexOf(arg[i]) === 0) {
@@ -1060,7 +1061,7 @@ define('CodePrinter', ['Selector'], function($) {
                         this.caret.setTextAfter('');
                         arg = arg - af.length - 1;
                         nextdl = dl.next();
-                        af = cp.convertToSpaces(nextdl.text);
+                        af = this.convertToSpaces(nextdl.text);
                         this.document.remove(nextdl, l+1);
                     }
                     this.caret.setTextAfter(af.substr(arg));
@@ -1161,7 +1162,7 @@ define('CodePrinter', ['Selector'], function($) {
                             
                             node.position = { _sl: line, _sc: ln, _el: line, _ec: ln + match.length }
                             node.style.top = sizes.paddingTop + offset + 'px';
-                            node.style.left = sizes.paddingLeft + rect.offset + 'px';
+                            node.style.left = rect.offset + 'px';
                             node.style.width = rect.width + 2 + 'px';
                             node.style.height = dl.height + 1 + 'px';
                             
@@ -1845,7 +1846,7 @@ define('CodePrinter', ['Selector'], function($) {
         }
         
         this.init = function(source) {
-            source = source || '';
+            source = cp.convertToTabs(source || '');
             data = new Data(cp);
             
             if (to !== -1) {
@@ -1856,7 +1857,7 @@ define('CodePrinter', ['Selector'], function($) {
             source = source.split('\n');
             
             for (var i = 0; i < source.length; i++) {
-                this.append(cp.convertToTabs(source[i]));
+                this.append(source[i]);
             }
             this.updateHeight();
             this.fill();
@@ -2031,14 +2032,14 @@ define('CodePrinter', ['Selector'], function($) {
                     if (child.nodeType !== 1) child = wrapTextNode(node, child);
                     
                     if (boo) {
-                        oW = child.offsetWidth - 1;
+                        oW = child.offsetWidth;
                         if (to <= tmp + l) {
                             r.width += (to - tmp) * oW / l;
                             break;
                         }
                         r.width += oW;
                     } else if (offset < tmp + l) {
-                        oW = child.offsetWidth - 1;
+                        oW = child.offsetWidth;
                         oL = child.offsetLeft;
                         r.column = offset;
                         r.offset = Math.round(oL + (offset - tmp) * oW / l);
@@ -2054,9 +2055,9 @@ define('CodePrinter', ['Selector'], function($) {
                     }
                     tmp += l;
                 }
-                if (!boo) { r.column = tmp; r.charWidth = child ? Math.round((child.offsetWidth - 1) / l) : 0; }
+                if (!boo) { r.column = tmp; r.charWidth = child ? Math.round(child.offsetWidth / l) : 0; }
                 else if (r.width) r.width = Math.round(r.width);
-                if (!r.offset) r.offset = child ? child.offsetLeft + child.offsetWidth - 1 : 0;
+                if (!r.offset) r.offset = child ? child.offsetLeft + child.offsetWidth : 0;
             } else {
                 while (++i < childNodes.length) {
                     child = childNodes[i];
@@ -2065,7 +2066,7 @@ define('CodePrinter', ['Selector'], function($) {
                     
                     if (child.nodeType !== 1) child = wrapTextNode(node, child);
                     oL = child.offsetLeft;
-                    oW = child.offsetWidth - 1;
+                    oW = child.offsetWidth;
                     if (offset < oL + oW) {
                         r.charWidth = Math.round(oW / l);
                         var c = Math.round((offset - oL) * l / oW);
@@ -2108,6 +2109,12 @@ define('CodePrinter', ['Selector'], function($) {
             return selection.isset() && { start: selection.start, end: selection.end }
         }
         this.setSelectionRange = function(sl, sc, el, ec) {
+            if (arguments.length === 1 && sl instanceof Object) {
+                ec = sl.end.column;
+                el = sl.end.line;
+                sc = sl.start.column;
+                sl = sl.start.line;
+            }
             if (sl < 0) {
                 sl = sc = 0;   
             }
@@ -2325,7 +2332,6 @@ define('CodePrinter', ['Selector'], function($) {
             }
             cp.removeOverlays('changed');
         }
-        
         return this;
     }
     
@@ -2899,7 +2905,7 @@ define('CodePrinter', ['Selector'], function($) {
             var v = this.value, tree = this.tree, node
             , tmp = 0, r = [], hasStyle = !!this.styles;
             
-            hasStyle && r.push('<span class="cpx-'+this.styles.join(' cpx-')+'">');
+            hasStyle && r.push('<span class="cpx-', this.styles.join(' cpx-'), '">');
             
             for (var i = 0; i < tree.length; i++) {
                 node = tree[i];
@@ -3562,6 +3568,7 @@ define('CodePrinter', ['Selector'], function($) {
             cp.wrapper = cp.container.lastChild;
             cp.input = cp.wrapper.firstChild;
             cp.input.tabIndex = cp.options.tabIndex;
+            cp.input.autofocus = cp.options.autofocus;
             cp.caret.element = cp.input.nextSibling;
             cp.counter = cp.container.firstChild;
         }
