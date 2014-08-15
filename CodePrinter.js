@@ -117,7 +117,7 @@ define('CodePrinter', ['Selector'], function($) {
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
             options.width !== 'auto' && this.setWidth(options.width);
             options.height !== 300 && this.setHeight(options.height);
-            options.fontSize !== 11 && this.setFontSize(options.fontSize);
+            options.fontSize !== 11 && setImmediate(this.setFontSize.bind(this, options.fontSize));
             
             function mouseController(e) {
                 if (e.button > 0 || e.which > 1 || e.defaultPrevented) return false;
