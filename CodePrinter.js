@@ -534,7 +534,7 @@ define('CodePrinter', ['Selector'], function($) {
                         p += '<span class="cpx-tab">'+(Array(this.options.tabWidth+1).join(' '))+'</span>';
                         ++i;
                     }
-                    if (i < l) p += '<span>'+this.convertToSpaces(dl.text.substr(i))+'</span>';
+                    if (i < l) p += '<span>'+this.convertToSpaces(dl.text.substr(i)).encode()+'</span>';
                     if (!p) p = '&#8203;';
                     dl.setParsed(p);
                 } else if (!dl.parsed || dl.changed & 1 || force) {
