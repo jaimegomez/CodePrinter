@@ -1799,6 +1799,7 @@ define('CodePrinter', ['Selector'], function($) {
                     lines.push(dl);
                 }
                 cp.parse(dl); dl.touch();
+                cp.emit('link', dl);
             }
         }
         function insert(dl) {
@@ -1820,6 +1821,7 @@ define('CodePrinter', ['Selector'], function($) {
             ol.removeChild(dl.deleteCounter());
             lines.remove(dl);
             --to;
+            cp.emit('unlink', dl);
         }
         function rewind(dl) {
             var tmp = dl, dli = dl.info()
