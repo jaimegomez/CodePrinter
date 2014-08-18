@@ -229,9 +229,6 @@
   color: transparent;
   cursor: pointer;
 }
-.codeprinter.inactive .cp-selection {
-  background: #d0d0d0;
-}
 .codeprinter .cp-selection,
 .codeprinter .cp-highlight {
   margin: 0;
@@ -423,6 +420,9 @@
 }
 .codeprinter .cpx-font-160 {
   font-size: 160%;
+}
+.codeprinter.cps-default.inactive .cp-selection {
+  background: #d0d0d0;
 }
 .codeprinter.cps-default .cp-active-line {
   box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.3);

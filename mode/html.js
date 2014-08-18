@@ -2,12 +2,12 @@
 
 CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) {
     var selfClosingTagsRgx = /^(area|base|br|c(ol|ommand)|embed|hr|i(mg|nput)|keygen|link|meta|param|source|track|wbr)$/i
-    , matchTagNameRgx = /<\s*(\w+)\s*[^>]*$/;
+    , matchTagNameRgx = /<\s*(\w+)\s*[^>]*>?$/;
     
     return new CodePrinter.Mode({
         name: 'HTML',
         regexp: /<!--|<!\w+|<\/?|&[^;]+;/,
-        regexp2: /[a-zA-Z\-]+|=|"|'|<|\/?\s*>/,
+        regexp2: /[a-z\-]+|=|"|'|\/?\s*>|</i,
         blockCommentStart: '<!--',
         blockCommentEnd: '-->',
         lineComment: '<!--[text content]-->',
@@ -40,7 +40,7 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
                 } else if (found[0] === '<') {
                     stream.wrap('bracket', 'bracket-angle', 'bracket-open');
                     
-                    if (found = stream.match(/^\b[a-zA-Z]+/)) {
+                    if (found = stream.match(/^[a-z]+/i)) {
                         var tag = found.toLowerCase()
                         , isclosetag = stream.isBefore('/');
                         stream.wrap('keyword', found);
@@ -113,9 +113,10 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
         keyMap: {
             '>': function() {
                 if (this.options.insertClosingBrackets) {
-                    var m = this.caret.textBefore().match(matchTagNameRgx);
+                    var bf = this.caret.textBefore()
+                    , m = bf.match(matchTagNameRgx);
                     
-                    if (m && m[1]) {
+                    if (m && m[1] && bf[bf.length-1] !== '>') {
                         var z = m[1].trim();
                         if (z[z.length-1] !== '/' && !selfClosingTagsRgx.test(m[1])) {
                             this.insertText('></'+m[1]+'>', -m[1].length - 3);

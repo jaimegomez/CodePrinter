@@ -497,7 +497,7 @@ define('CodePrinter', ['Selector'], function($) {
         intervalIterate: function(callback, onend, options) {
             if (!(onend instanceof Function) && arguments.length === 2) options = onend;
             var that = this, dl = this.document.get(0), fn
-            , index = -1, offset = 0, queue = 150;
+            , index = -1, offset = 0, queue = 300;
             
             if (options) {
                 if (options.queue) queue = options.queue;
@@ -558,10 +558,6 @@ define('CodePrinter', ['Selector'], function($) {
                         } else if (b = dl.stateAfter) {
                             delete dl.stateAfter;
                         }
-                        if (b && !this._inserting) {
-                            var next = dl.next();
-                            if (next) return this.parse(next, true, dl.stateAfter);
-                        }
                     } else {
                         stream = new Stream(text, {
                             stateBefore: state,
@@ -584,10 +580,10 @@ define('CodePrinter', ['Selector'], function($) {
                         } else if (b = dl.stateAfter) {
                             dl.stateAfter = undefined;
                         }
-                        if (b && !this._inserting) {
-                            var next = dl.next();
-                            if (next) return this.parse(next, true, dl.stateAfter);
-                        }
+                    }
+                    if (b && !this._inserting) {
+                        var next = dl.next();
+                        if (next) return this.parse(next, true, dl.stateAfter);
                     }
                 }
             }
@@ -649,10 +645,9 @@ define('CodePrinter', ['Selector'], function($) {
             return this;
         },
         setFontSize: function(size) {
-            size = Math.max(this.options.minFontSize, Math.min(size, this.options.maxFontSize));
-            if (size != this.sizes.fontSize) {
+            if ('number' === typeof size && this.options.minFontSize <= size && size <= this.options.maxFontSize) {
                 var dl = this.document.get(0);
-                this.wrapper.style.fontSize = this.counter.style.fontSize = (this.sizes.fontSize = size) + 'px';
+                this.wrapper.style.fontSize = this.counter.style.fontSize = (this.options.fontSize = size) + 'px';
                 this.document.updateDefaultHeight();
                 
                 this.intervalIterate(function(dl) {
@@ -666,8 +661,8 @@ define('CodePrinter', ['Selector'], function($) {
             }
             return this;
         },
-        increaseFontSize: function() { this.setFontSize(this.sizes.fontSize+1); },
-        decreaseFontSize: function() { this.setFontSize(this.sizes.fontSize-1); },
+        increaseFontSize: function() { this.setFontSize(this.options.fontSize+1); },
+        decreaseFontSize: function() { this.setFontSize(this.options.fontSize-1); },
         setWidth: function(size) {
             if (size == 'auto') {
                 this.mainElement.style.removeProperty('width');
@@ -1998,6 +1993,9 @@ define('CodePrinter', ['Selector'], function($) {
                 }
             }
         }
+        this.isLineVisible = function(dl) {
+            return lines.indexOf(dl) >= 0;
+        }
         this.eachVisibleLines = function(callback) {
             for (var i = 0; i < lines.length; i++) {
                 callback.call(this, lines[i], from + i, i && lines[i-1]);
@@ -2513,7 +2511,7 @@ define('CodePrinter', ['Selector'], function($) {
         }
         this.refresh = function() {
             cp.removeOverlays(null);
-            return this.position(line, column);
+            return this.position(line || 0, column || 0);
         }
         this.dl = function() {
             return currentDL;
@@ -2553,6 +2551,9 @@ define('CodePrinter', ['Selector'], function($) {
         }
         this.focus = function() {
             this.isVisible || this.show().activate();
+            if (!cp.document.isLineVisible(currentDL)) {
+                cp.document.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
+            }
             cp.select(currentDL);
         }
         this.blur = function() {

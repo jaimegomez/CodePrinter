@@ -5,6 +5,7 @@
 .cps-monokai .cp-counter { background:#272822; border-color:#555; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.7); }
 .cps-monokai .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-monokai .cp-selection { background:rgba(255,255,255,0.15); }
+.cps-monokai.inactive .cp-selection { background:rgba(255,255,255,0.1); }
 .cps-monokai .cp-highlight { border-bottom:1px solid white; }
 .cps-monokai .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-monokai .cp-search-occurrence { background:#666; color:#fff; border:none; margin:0; }
