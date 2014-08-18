@@ -69,6 +69,7 @@ define('CodePrinter', ['Selector'], function($) {
         lineNumbers: true,
         lineNumberFormatter: false,
         autofocus: true,
+        abortSelectionOnBlur: false,
         readOnly: false,
         showIndentation: true,
         tracking: true,
@@ -274,6 +275,7 @@ define('CodePrinter', ['Selector'], function($) {
                         self.caret.blur();
                         self.mainElement.addClass('inactive');
                         self.removeOverlays('blur');
+                        if (options.abortSelectionOnBlur) doc.clearSelection();
                     }
                 },
                 keydown: function(e) {
