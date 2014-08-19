@@ -498,18 +498,18 @@ define('CodePrinter', ['Selector'], function($) {
         intervalIterate: function(callback, onend, options) {
             if (!(onend instanceof Function) && arguments.length === 2) options = onend;
             var that = this, dl = this.document.get(0), fn
-            , index = -1, offset = 0, queue = 300;
+            , index = 0, offset = 0, queue = 300;
             
             if (options) {
                 if (options.queue) queue = options.queue;
-                if ('number' === typeof options.start) dl = this.document.get(options.start);
+                if ('number' === typeof options.start) dl = this.document.get(index = options.start);
                 else if (options.start instanceof Line) dl = options.start;
             }
             
             setImmediate(fn = function() {
                 var j = 0, r;
                 while (dl && j++ < queue) {
-                    r = callback.call(that, dl, ++index, offset);
+                    r = callback.call(that, dl, index++, offset);
                     offset += dl.height;
                     dl = r ? r.next() : r == null ? dl.next() : null;
                 }
