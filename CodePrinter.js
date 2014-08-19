@@ -14,7 +14,7 @@
 if (!define) var define = function() { arguments[2]($ || Selector); }
 
 define('CodePrinter', ['Selector'], function($) {
-    var CodePrinter, Data, Branch, Line
+    var CodePrinter, EventEmitter, Data, Branch, Line
     , Caret, Document, StreamArray, Stream
     , History, Selection, keyMap, commands
     , tracking, lineendings, extensions
@@ -31,6 +31,7 @@ define('CodePrinter', ['Selector'], function($) {
             source = null;
         }
         options = this.options = $.extend({}, CodePrinter.defaults, options);
+        EventEmitter.call(this);
         buildDOM(this);
         this.prepare();
         
@@ -100,7 +101,7 @@ define('CodePrinter', ['Selector'], function($) {
             , lastScrollTop = 0, lock, counterSelection = []
             , doc, sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
-            , T, T2, fn, listeners = {};
+            , T, T2, fn;
             
             this.mainElement.CodePrinter = this;
             sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
@@ -355,43 +356,6 @@ define('CodePrinter', ['Selector'], function($) {
                     delete activeLine.active;
                 }
                 activeLine = null;
-            }
-            this.emit = function(eventName) {
-                var lst = listeners[eventName];
-                if (lst && lst.length) {
-                    var args = Array.apply(null, arguments);
-                    args.shift();
-                    for (var i = 0; i < lst.length; i++) {
-                        lst[i].apply(this, args);
-                    }
-                }
-                return this;
-            }
-            this.on = function(arg) {
-                if (arguments.length === 2) {
-                    arg = {}
-                    arg[arguments[0]] = arguments[1];
-                }
-                for (var k in arg) {
-                    if (!listeners[k]) listeners[k] = [];
-                    listeners[k].push(arg[k]);
-                }
-                return this;
-            }
-            this.off = function(eventName, listener) {
-                if (eventName) {
-                    var lst = listeners[eventName], i;
-                    if (lst) {
-                        if (listener && (i = lst.indexOf(listener)) >= 0) {
-                            lst.splice(i, 1);
-                        } else {
-                            lst.length = 0;
-                        }
-                    }
-                } else {
-                    listeners = {}
-                }
-                return this;
             }
             
             this.caret.on({
@@ -1392,6 +1356,47 @@ define('CodePrinter', ['Selector'], function($) {
         insertAfter: function(node) { node.after(this.mainElement); return this; }
     }
     
+    EventEmitter = function() {
+        var listeners = {};
+        this.emit = function(eventName) {
+            var lst = listeners[eventName];
+            if (lst && lst.length) {
+                var args = Array.apply(null, arguments);
+                args.shift();
+                for (var i = 0; i < lst.length; i++) {
+                    lst[i].apply(this, args);
+                }
+            }
+            return this;
+        }
+        this.on = function(arg) {
+            if (arguments.length === 2) {
+                arg = {}
+                arg[arguments[0]] = arguments[1];
+            }
+            for (var k in arg) {
+                if (!listeners[k]) listeners[k] = [];
+                listeners[k].push(arg[k]);
+            }
+            return this;
+        }
+        this.off = function(eventName, listener) {
+            if (eventName) {
+                var lst = listeners[eventName], i;
+                if (lst) {
+                    if (listener && (i = lst.indexOf(listener)) >= 0) {
+                        lst.splice(i, 1);
+                    } else {
+                        lst.length = 0;
+                    }
+                }
+            } else {
+                listeners = {}
+            }
+            return this;
+        }
+    }
+    
     Branch = function(leaf) {
         this.parent = this.root = null;
         this.isLeaf = leaf == null ? true : leaf;
@@ -1759,6 +1764,7 @@ define('CodePrinter', ['Selector'], function($) {
         , defHeight = 13, firstNumber
         , data, history, selection;
         
+        EventEmitter.call(this);
         history = new History(cp, cp.options.historyStackSize, cp.options.historyDelay);
         selection = new Selection(cp);
         
