@@ -1109,9 +1109,15 @@ define('CodePrinter', ['Selector'], function($) {
             if (find) {
                 var search = this.searches = this.searches || {};
                 
-                if (!search.value || find.toString() != search.value.toString() || !search.results || !search.results.length) {
-                    var self = this, sizes = this.sizes, isregexp = find instanceof RegExp;
-                    search.results = $([]);
+                if (!search.value || find.toString() != search.value.toString() || !search.results || !search.length) {
+                    var cp = this, j = 0, results = search.results = {}, cur, linkCallback, escape;
+                    search.value = find;
+                    
+                    linkCallback = function(dl, line) {
+                        if (cur = cp.searches.results[line]) {
+                            searchAppendResult.call(cp, dl, cur);
+                        }
+                    }
                     
                     if (!(search.overlay instanceof CodePrinter.Overlay)) {
                         search.overlay = new CodePrinter.Overlay(this, 'cp-search-overlay', false);
@@ -1119,68 +1125,77 @@ define('CodePrinter', ['Selector'], function($) {
                         
                         search.overlay.on({
                             refresh: function(a) {
-                                if (a == 'caret') {
-                                    for (var j = 0; j < search.results.length; j++) {
-                                        search.results[j].style.opacity == "0" && search.results[j].fadeIn();
+                                if (a === 'caret' || a === 'blur') {
+                                    var children = search.overlay.node.children, k = 0;
+                                    for (var i = 0; i < children.length; i++) {
+                                        children[i].style.opacity == "0" && ++k && children[i].fadeIn();
                                     }
+                                    k && cp.document.clearSelection();
                                 } else if (!search.mute) {
-                                    search.results.length = 0;
-                                    search.overlay.node.innerHTML = '';
-                                    self.search(search.value, false);
+                                    search.length = 0;
+                                    cp.search(search.value, false);
                                 }
                             },
                             removed: function() {
-                                delete self.searches;
+                                cp.searches.results = cp.searches.active = undefined;
+                                cp.searches.length = 0;
                             }
                         });
                         search.overlay.node.delegate('mousedown', 'span', function(e) {
-                            var pos = this.position;
-                            if (pos) {
+                            var res = this._searchResult;
+                            if (res) {
                                 search.mute = true;
-                                self.document.setSelectionRange(pos._sl, pos._sc, pos._el, pos._ec);
-                                self.caret.position(pos._el, pos._ec);
+                                cp.input.focus();
+                                cp.document.setSelectionRange(res.line, res.startColumn, res.line, res.startColumn + res.length);
+                                cp.caret.position(res.line, res.startColumn + res.length);
                                 this.fadeOut();
                                 search.mute = false;
                             }
                             return e.cancel();
                         });
-                    } else {
-                        search.overlay.node.innerHTML = '';
+                        this.on({
+                            link: linkCallback,
+                            unlink: function(dl, line) {
+                                if (cur = this.searches.results[line]) {
+                                    for (var i = 0; i < cur.length; i++) {
+                                        if (cur[i].node) {
+                                            cur[i].node.parentNode && search.overlay.node.removeChild(cur[i].node);
+                                            cur[i].node = undefined;
+                                        }
+                                    }
+                                }
+                            }
+                        });
                     }
                     
+                    if ('string' === typeof find) escape = find.escape();
+                    else escape = find;
+                    
                     this.intervalIterate(function(dl, line, offset) {
-                        var text = this.convertToSpaces(dl.text)
-                        , ln = 0, i;
-                        
-                        while (text && (i = text.search(find)) !== -1) {
-                            ln += i;
-                            var match = isregexp ? RegExp.lastMatch : find
-                            , node = span.cloneNode().addClass('cp-search-occurrence')
-                            , rect = this.document.measureRect(dl, ln, ln + match.length);
-                            
-                            node.position = { _sl: line, _sc: ln, _el: line, _ec: ln + match.length }
-                            node.style.top = sizes.paddingTop + offset + 'px';
-                            node.style.left = rect.offset + 'px';
-                            node.style.width = rect.width + 2 + 'px';
-                            node.style.height = dl.height + 1 + 'px';
-                            
-                            search.results.push(node);
-                            search.overlay.node.append(node);
-                            ln += match.length;
-                            text = text.substr(i + match.length);
+                        if (this.searches.value !== find) return false;
+                        j += searchOverLine.call(cp, escape, dl, line, offset);
+                    }, function(index, last) {
+                        search.overlay.node.innerHTML = '';
+                        if (last !== false) {
+                            if (j) {
+                                if (scroll !== false || search.length === 0) {
+                                    for (var k in results) {
+                                        if (results[k].length) {
+                                            search.active = results[k][0];
+                                            this.document.scrollTo(results[k][0].offset - this.wrapper.offsetHeight/2);
+                                            break;
+                                        }
+                                    }
+                                }
+                                this.document.eachVisibleLines(linkCallback);
+                            }
+                            search.length = j;
+                            search.overlay.reveal();
+                            this.emit('search:completed', find, j);
                         }
-                        return dl;
-                    }, function() {
-                        search.overlay.reveal();
-                        search.value = find;
-                        search.results.removeClass('active').get(0).addClass('active');
-                        scroll !== false && scrollToCurrentSearchResult.call(this);
-                    }, {
-                        interval: 5,
-                        queue: 500
                     });
                 } else {
-                    this.nextOccurrence();
+                    this.searchNext();
                 }
             }
             return this;
@@ -1190,47 +1205,107 @@ define('CodePrinter', ['Selector'], function($) {
                 this.searches.overlay.remove();
             }
         },
-        nextOccurrence: function() {
+        searchNext: function() {
             if (this.searches) {
-                this.searches.results.removeClass('active').getNext().addClass('active');
-                scrollToCurrentSearchResult.call(this);
+                var search = this.searches
+                , results = search.results
+                , activeLine = search.active.line
+                , newActive;
+                
+                if (search.active) {
+                    var i = results[activeLine].indexOf(search.active);
+                    if (i < results[activeLine].length - 1) {
+                        newActive = results[activeLine][i+1];
+                    } else {
+                        var keys = Object.keys(results)
+                        , j = keys.indexOf(''+activeLine);
+                        newActive = results[keys[j+1 < keys.length ? j+1 : 0]][0];
+                    }
+                    search.active.node.removeClass('active');
+                } else {
+                    for (var k in results) {
+                        newActive = results[k][0];
+                        break;
+                    }
+                }
+                if (newActive) {
+                    this.document.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
+                    (search.active = newActive).node.addClass('active');
+                } else {
+                    search.active = undefined;
+                }
             }
         },
-        prevOccurrence: function() {
+        searchPrev: function() {
             if (this.searches) {
-                this.searches.results.removeClass('active').getPrev().addClass('active');
-                scrollToCurrentSearchResult.call(this);
+                var search = this.searches
+                , results = search.results
+                , activeLine = search.active.line
+                , newActive;
+                
+                if (search.active) {
+                    var i = results[activeLine].indexOf(search.active);
+                    if (i > 0) {
+                        newActive = results[activeLine][i-1];
+                    } else {
+                        var keys = Object.keys(results)
+                        , j = keys.indexOf(''+activeLine)
+                        , cur = results[keys[j > 0 ? j-1 : keys.length - 1]];
+                        newActive = cur[cur.length-1];
+                    }
+                    search.active.node.removeClass('active');
+                } else {
+                    for (var k in results) {
+                        newActive = results[k][0];
+                        break;
+                    }
+                }
+                if (newActive) {
+                    this.document.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
+                    (search.active = newActive).node.addClass('active');
+                }
             }
         },
-        replace: function(replaceWith, vol, offset) {
+        replace: function(replaceWith, vol) {
             if ('string' === typeof replaceWith && this.searches) {
                 var search = this.searches
                 , results = search.results
-                , lastline = 0, cmv = 0;
+                , cur, tmp;
                 
-                if (results.length) {
-                    vol = Math.min(Math.max(0, vol || results.length), results.length);
-                    offset = offset || results.g || 0;
-                    
-                    while (vol-- > 0) {
-                        var node = results[offset], value = node.text();
-                        if (node.position) {
-                            cmv = node.position.el == lastline ? cmv : 0;
-                            search.results.remove(node);
-                            search.overlay.node.removeChild(node);
-                            search.mute = true;
-                            this.caret.position(node.position.el, node.position.ec - cmv);
-                            this.removeBeforeCursor(value);
-                            this.insertText(replaceWith);
-                            search.mute = false;
-                            cmv = replaceWith.length - value.length;
-                        }
-                        lastline = node.position.el;
-                        results.get(offset);
-                    }
-                    search.overlay.emit('refresh');
+                if (arguments.length === 1) {
+                    vol = 1;
                 }
+                vol = Math.max(0, Math.min(vol, search.length));
+                
+                search.mute = true;
+                while (vol-- > 0 && (cur = search.active) && results[cur.line]) {
+                    this.searchNext();
+                    if ((tmp = results[cur.line]).length > 1) {
+                        tmp.splice(tmp.indexOf(cur), 1);
+                    } else {
+                        delete results[cur.line];
+                    }
+                    --search.length;
+                    cur.node && search.overlay.node.removeChild(cur.node);
+                    
+                    this.caret.position(cur.line, cur.startColumn);
+                    this.removeAfterCursor(cur.value);
+                    this.insertText(replaceWith);
+                    
+                    if (cur.line === search.active.line) {
+                        var cmv = replaceWith.length - cur.length
+                        , dl = this.document.get(cur.line);
+                        for (var i = 0, l = tmp.length; i < l; i++) {
+                            tmp[i].startColumn += cmv;
+                            searchUpdateNode.call(this, dl, tmp[i].node, tmp[i]);
+                        }
+                    }
+                }
+                search.mute = false;
             }
+        },
+        replaceAll: function(replaceWith) {
+            return this.searches && this.replace(replaceWith, this.searches.length);
         },
         findSnippet: function(trigger) {
             if (trigger) {
@@ -3233,16 +3308,17 @@ define('CodePrinter', ['Selector'], function($) {
             this.caret.position(this.caret.line(), 0);
             return false;
         },
-        'Alt+Up': CodePrinter.prototype.prevOccurrence,
-        'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
         'Ctrl+Right': function() {
             this.caret.position(this.caret.line(), -1);
             return false;
         },
-        'Alt+Down': CodePrinter.prototype.nextOccurrence,
+        'Alt+Up': CodePrinter.prototype.searchPrev,
+        'Alt+Down': CodePrinter.prototype.searchNext,
+        'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
         'Alt+Ctrl+Down': CodePrinter.prototype.swapLineDown,
         'Ctrl+F': function(e) {
-            this.search(prompt('Find...'));
+            var p = prompt('Find...');
+            p ? this.search(p) : this.searchEnd();
         },
         'Shift+Ctrl+F': function() {
             this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
@@ -3681,11 +3757,40 @@ define('CodePrinter', ['Selector'], function($) {
         cp.insertText(y + '\n' + x);
         cp.caret.restorePosition();
     }
-    function scrollToCurrentSearchResult() {
-        if (this.searches && this.searches.results && this.searches.results.length > 0) {
-            var x = Math.max(0, parseInt(this.searches.results.css('left') - this.wrapper.clientWidth/2))
-            , y = Math.max(0, parseInt(this.searches.results.css('top') - this.wrapper.clientHeight/2));
-            $(this.wrapper).scrollTo(x, y, this.options.autoScrollSpeed);
+    function searchOverLine(find, dl, line, offset) {
+        var results = this.searches.results
+        , text = this.convertToSpaces(dl.text), ln = 0, i, j = 0;
+        
+        while (text && (i = text.search(find)) !== -1 && ++j) {
+            var match = RegExp.lastMatch
+            , cur = results[line] = results[line] || [];
+            
+            cur.push({ value: match, line: line, startColumn: ln + i, length: match.length, offset: offset });
+            ln += i + match.length;
+            text = text.substr(i + match.length);
+        }
+        return j;
+    }
+    function searchAppendResult(dl, res) {
+        for (var i = 0; i < res.length; i++) {
+            var node = res[i].node || span.cloneNode();
+            node.className = 'cp-search-occurrence';
+            node.innerHTML = res[i].value.encode();
+            searchUpdateNode.call(this, dl, node, res[i]);
+            this.searches.overlay.node.appendChild(node);
+        }
+    }
+    function searchUpdateNode(dl, node, res) {
+        var rect = this.document.measureRect(dl, res.startColumn, res.startColumn + res.length);
+        node._searchResult = res;
+        node.style.top = this.sizes.paddingTop + res.offset + 'px';
+        node.style.left = rect.offset + 'px';
+        node.style.width = rect.width + 2 + 'px';
+        node.style.height = dl.height + 1 + 'px';
+        res.node = node;
+        if (this.searches.active === res && scroll !== false) {
+            node.addClass('active');
+            this.wrapper.scrollLeft = rect.offset - this.wrapper.clientWidth / 2;
         }
     }
     
