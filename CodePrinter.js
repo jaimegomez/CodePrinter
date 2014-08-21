@@ -119,7 +119,7 @@ define('CodePrinter', ['Selector'], function($) {
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
             options.width !== 'auto' && this.setWidth(options.width);
             options.height !== 300 && this.setHeight(options.height);
-            options.fontSize !== 11 && setImmediate(this.setFontSize.bind(this, options.fontSize));
+            options.fontSize !== 11 && this.setFontSize(options.fontSize);
             
             function mouseController(e) {
                 if (e.button > 0 || e.which > 1 || e.defaultPrevented) return false;
@@ -466,6 +466,7 @@ define('CodePrinter', ['Selector'], function($) {
                     this.caret.position(0, 0);
                 }
                 if (b) {
+                    this.sizes.paddingTop = parseInt(this.wrapper.querySelector('.cp-codelines').getStyle('padding-top'), 10) || 5;
                     setImmediate(this.emit.bind(this, 'ready'));
                 }
             }
@@ -498,7 +499,7 @@ define('CodePrinter', ['Selector'], function($) {
         intervalIterate: function(callback, onend, options) {
             if (!(onend instanceof Function) && arguments.length === 2) options = onend;
             var that = this, dl = this.document.get(0), fn
-            , index = 0, offset = 0, queue = 300;
+            , index = 0, offset = 0, queue = 500;
             
             if (options) {
                 if (options.queue) queue = options.queue;
@@ -511,10 +512,10 @@ define('CodePrinter', ['Selector'], function($) {
                 while (dl && j++ < queue) {
                     r = callback.call(that, dl, index++, offset);
                     offset += dl.height;
-                    dl = r ? r.next() : r == null ? dl.next() : null;
+                    dl = r ? r.next() : r == null ? dl.next() : false;
                 }
                 if (!dl) {
-                    onend instanceof Function && onend.call(that, index);
+                    onend instanceof Function && onend.call(that, index, dl);
                     return false;
                 }
                 setImmediate(fn);
@@ -572,7 +573,7 @@ define('CodePrinter', ['Selector'], function($) {
                         });
                         
                         this.parser.parse(stream, this.memory);
-                        dl.setParsed(p + stream.toString());
+                        dl.setParsed(p + this.convertToSpaces(stream.toString()));
                         var keys = dl.stateAfter && Object.keys(dl.stateAfter);
                         
                         if (stream.stateAfter) {
@@ -647,18 +648,19 @@ define('CodePrinter', ['Selector'], function($) {
         },
         setFontSize: function(size) {
             if ('number' === typeof size && this.options.minFontSize <= size && size <= this.options.maxFontSize) {
-                var dl = this.document.get(0);
+                var i = 0;
                 this.wrapper.style.fontSize = this.counter.style.fontSize = (this.options.fontSize = size) + 'px';
                 this.document.updateDefaultHeight();
                 
-                this.intervalIterate(function(dl) {
-                    dl.node && dl.updateHeight(true);
-                    return dl;
-                }, function() {
+                this.document.eachVisibleLines(function(dl) {
+                    ++i;
+                    dl.updateHeight(true);
+                });
+                if (i) {
                     this.document.fill();
                     this.caret.refresh();
-                    this.emit('fontsize:changed', size);
-                });
+                }
+                this.emit('fontsize:changed', size);
             }
             return this;
         },
@@ -957,7 +959,7 @@ define('CodePrinter', ['Selector'], function($) {
                 this.parse(this.document.append(this.convertToTabs(text[i])));
             }
             if (!this.document.isFilled) this.document.isFilled = this.document.fill();
-            return this;
+            return this.document.isFilled;
         },
         appendLine: function(text) {
             var dl, text = this.convertToTabs(text);
@@ -1836,7 +1838,7 @@ define('CodePrinter', ['Selector'], function($) {
         , code = screen.firstChild
         , temp = screen.lastChild.firstChild
         , from = 0, to = -1, lastST = 0, lines = []
-        , defHeight = 13, firstNumber
+        , defHeight = $.browser.firefox ? 14 : 13, firstNumber
         , data, history, selection;
         
         EventEmitter.call(this);
@@ -1877,10 +1879,11 @@ define('CodePrinter', ['Selector'], function($) {
                 } else {
                     code.appendChild(dl.node);
                     ol.appendChild(dl.counter);
-                    lines.push(dl);
+                    index = lines.push(dl) + from;
                 }
-                cp.parse(dl); dl.touch();
-                cp.emit('link', dl);
+                cp.parse(dl);
+                dl.touch();
+                cp.emit('link', dl, index);
             }
         }
         function insert(dl) {
@@ -1907,7 +1910,7 @@ define('CodePrinter', ['Selector'], function($) {
         function rewind(dl) {
             var tmp = dl, dli = dl.info()
             , offset = dli.offset
-            , i = -1;
+            , i = -1, oldfrom = from;
             
             if (from <= dli.index && dli.index <= to) return false;
             
@@ -1915,22 +1918,26 @@ define('CodePrinter', ['Selector'], function($) {
             to = from - 1;
             
             while (tmp && ++i < lines.length) {
+                cp.emit('unlink', lines[i], oldfrom + i);
                 tmp.captureNode(lines[i]);
                 tmp.touch();
                 tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = to = from + i));
                 lines[i] = tmp;
+                cp.emit('link', tmp, from + i);
                 tmp = tmp.next();
             }
             if (++i < lines.length) {
                 var spliced = lines.splice(i, lines.length - i);
                 tmp = dl.prev();
                 while (tmp && spliced.length) {
+                    cp.emit('unlink', spliced[0], oldfrom + i++);
                     tmp.captureNode(spliced.shift());
                     tmp.touch();
                     tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = --from));
                     code.insertBefore(tmp.node, lines[0].node);
                     ol.insertBefore(tmp.counter, lines[0].counter);
                     lines.unshift(tmp);
+                    cp.emit('link', tmp, from);
                     offset -= tmp.height;
                     tmp = tmp.prev();
                 }
@@ -1981,7 +1988,7 @@ define('CodePrinter', ['Selector'], function($) {
             return this;
         }
         this.debug = function() {
-            console.log(JSON.stringify({ from: from, to: to, scrollTop: lastST, offsetTop: cp.sizes.scrollTop, first: lines[0].text, last: lines[lines.length-1].text }));
+            console.log(JSON.stringify({ from: from, to: to, scrollTop: lastST, offsetTop: cp.sizes.scrollTop, defHeight: defHeight }));
         }
         this.append = function(text) {
             var dl = new Line();
@@ -2088,6 +2095,7 @@ define('CodePrinter', ['Selector'], function($) {
                             var first = lines.shift();
                             dl.captureNode(first);
                             if (dl.active) cp.select(dl);
+                            cp.emit('unlink', first, from);
                             link(dl, to + 1);
                             ++from; ++to;
                             d -= h;
@@ -2097,6 +2105,7 @@ define('CodePrinter', ['Selector'], function($) {
                             var last = lines.pop();
                             dl.captureNode(last);
                             if (dl.active) cp.select(dl);
+                            cp.emit('unlink', last, to);
                             link(dl, --from); --to;
                             d += h;
                         }
@@ -2108,7 +2117,7 @@ define('CodePrinter', ['Selector'], function($) {
             }
         }
         this.isLineVisible = function(dl) {
-            return lines.indexOf(dl) >= 0;
+            return lines.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
         }
         this.eachVisibleLines = function(callback) {
             for (var i = 0; i < lines.length; i++) {
@@ -2146,12 +2155,10 @@ define('CodePrinter', ['Selector'], function($) {
                     if (child.nodeType !== 1) child = wrapTextNode(node, child);
                     
                     if (boo) {
-                        oW = child.offsetWidth;
                         if (to <= tmp + l) {
-                            r.width += (to - tmp) * oW / l;
+                            r.width = child.offsetLeft - r.offset + (to - tmp) * child.offsetWidth / l;
                             break;
                         }
-                        r.width += oW;
                     } else if (offset < tmp + l) {
                         oW = child.offsetWidth;
                         oL = child.offsetLeft;
@@ -2165,7 +2172,6 @@ define('CodePrinter', ['Selector'], function($) {
                             r.width = Math.round((to - offset) * oW / l);
                             break;
                         }
-                        r.width = (l + tmp - offset) * oW / l;
                     }
                     tmp += l;
                 }
@@ -2210,7 +2216,7 @@ define('CodePrinter', ['Selector'], function($) {
             pr.style.fontFamily = cp.options.fontFamily;
             pr.innerHTML = 'CP';
             document.documentElement.appendChild(pr);
-            defHeight = pr.clientHeight;
+            defHeight = pr.offsetHeight;
             document.documentElement.removeChild(pr);
         }
         this.updateHeight = function() {
@@ -2440,16 +2446,18 @@ define('CodePrinter', ['Selector'], function($) {
         }
         
         selection.on({ done: this.showSelection.bind(this, false) });
-        cp.onchanged = function(e) {
+        cp.on('changed', function(e) {
             if (cp.options.history) {
                 history.pushChanges(e.line, e.column, cp.convertToTabs(e.text), e.added);
             }
-            cp.removeOverlays('changed');
-        }
+            Array.prototype.unshift.call(arguments, 'changed');
+            cp.removeOverlays.apply(cp, arguments);
+        });
         return this;
     }
     
     Caret = function(cp) {
+        EventEmitter.call(this);
         var line, column, currentDL, lastdet
         , before = '', after = '', tmp
         , styles = {
@@ -2899,6 +2907,11 @@ define('CodePrinter', ['Selector'], function($) {
         },
         isWrapped: function() {
             return !!(this.styles && this.styles.length);
+        },
+        font: function(size) {
+            size = Math.max(0.4, Math.min(size, 1.6));
+            this.styles.push('font-'+parseInt(size*100));
+            return this;
         },
         cut: function(length) {
             if (length < 0 || 'number' !== typeof length) length = 1;
