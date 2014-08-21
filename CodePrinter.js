@@ -20,7 +20,7 @@ define('CodePrinter', ['Selector'], function($) {
     , tracking, lineendings, extensions
     , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 40
-    , wheelUnit = $.browser.chrome ? -0.7 : $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
+    , wheelUnit = $.browser.chrome ? -0.7 : $.browser.webkit ? -0.2 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
     , setImmediate = window.global && window.global.setImmediate || window.setImmediate || function(fn) { return setTimeout(fn, 1); };
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
