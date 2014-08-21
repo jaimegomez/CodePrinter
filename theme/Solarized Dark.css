@@ -8,7 +8,7 @@
 .cps-solarized-dark .cp-highlight { border-bottom:1px solid #e0e0e0; }
 .cps-solarized-dark .cp-active-line { background:#001b26; box-shadow:none; }
 .cps-solarized-dark .cp-search-occurrence { background:#002b36; border-color:#e0e2e4; color:white; }
-.cps-solarized-dark .cp-search-occurrence.active { background:#e0e0e0; }
+.cps-solarized-dark .cp-search-occurrence.active { background:#e0e2e4; color:#002b36; }
 
 .cps-solarized-dark .cpx-tab { border-color:#445544; }
 .cps-solarized-dark .cpx-bracket { color:#839496; }

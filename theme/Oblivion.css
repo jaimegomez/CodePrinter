@@ -7,7 +7,7 @@
 .cps-oblivion .cp-highlight { border-bottom:1px solid white; }
 .cps-oblivion .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-oblivion .cp-search-occurrence { border-color:#ddd; }
-.cps-oblivion .cp-search-occurrence.active { background:white; border-color:black; }
+.cps-oblivion .cp-search-occurrence.active { background:white; border-color:#111; color:#333; }
 
 .cps-oblivion .cpx-tab { border-color:#445544; }
 .cps-oblivion .cpx-bracket { color:#D8D8D8; }

@@ -194,7 +194,6 @@
   z-index: 6;
   overflow: hidden;
   cursor: default;
-  -webkit-transform: translate3d(0, 0, 0);
 }
 .codeprinter .cp-counter ol {
   display: block;
@@ -235,9 +234,6 @@
   padding: 0;
   position: absolute;
 }
-.codeprinter .cp-search-overlay {
-  z-index: 4;
-}
 .codeprinter .cp-search-occurrence {
   display: inline-block;
   vertical-align: top;
@@ -254,9 +250,6 @@
   z-index: 4;
 }
 .codeprinter .cp-search-occurrence.active {
-  background: #aaeeff;
-  border-color: #666;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
   z-index: 5;
 }
 .codeprinter .cp-caret {
@@ -441,6 +434,11 @@
 }
 .codeprinter.cps-default .cpx-broket {
   color: #025BB9;
+}
+.codeprinter.cps-default .cp-search-occurrence.active {
+  background: #aaeeff;
+  color: #444;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
 }
 .codeprinter.cp-fullscreen {
   display: -webkit-box;

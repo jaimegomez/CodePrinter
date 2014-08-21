@@ -4,7 +4,8 @@
 .cps-xcode .cp-counter { background:#ffffff; color:#555555; border-color:#cacaca; }
 .cps-xcode .cp-selection { background:#BDD8F2; }
 .cps-xcode .cp-highlight { border-bottom:1px solid black; }
-.cps-xcode .cp-search-occurrence.active { background:#BDD8F2; }
+.cps-xcode .cp-search-occurrence {}
+.cps-xcode .cp-search-occurrence.active { background:#BDD8F2; color:black; }
 
 .cps-xcode .cpx-tab { border-color:#BBBBBB; }
 .cps-xcode .cpx-bracket { color:#000000; }

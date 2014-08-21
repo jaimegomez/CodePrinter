@@ -7,7 +7,8 @@
 .cps-vibrant-ink .cp-selection { background:rgba(255,255,255,0.1); }
 .cps-vibrant-ink .cp-highlight { border-bottom:1px solid white; }
 .cps-vibrant-ink .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
-.cps-vibrant-ink .cp-search-occurrence { background:#616161; color:#fff; border:none; margin:0; }
+.cps-vibrant-ink .cp-search-occurrence { background:#616161; color:#fff; }
+.cps-vibrant-ink .cp-search-occurrence.active { background:#F1C438; border-color:#F1C438; color:#191919; }
 
 .cps-vibrant-ink .cpx-tab { border-color:#6A6A6A; }
 .cps-vibrant-ink .cpx-bracket { color:#FFFFFF; }

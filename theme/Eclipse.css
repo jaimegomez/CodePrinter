@@ -6,7 +6,7 @@
 .cps-eclipse .cp-selection { background:#C8D2DE; }
 .cps-eclipse .cp-highlight { border-bottom:1px solid black; }
 .cps-eclipse .cp-search-occurrence { border-color:#AAAAAA; }
-.cps-eclipse .cp-search-occurrence.active { background:white; border-color:black; }
+.cps-eclipse .cp-search-occurrence.active { background:white; border-color:black; color:black; box-shadow:0 0 5px rgba(0,0,0,0.1); }
 
 .cps-eclipse .cpx-tab { border-color:#D8D8D8; }
 .cps-eclipse .cpx-bracket { color:#000000; }

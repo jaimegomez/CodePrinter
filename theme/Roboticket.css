@@ -5,6 +5,8 @@
 .cps-roboticket .cp-selection { background:#BDD8F2; }
 .cps-roboticket .cp-highlight { border-bottom:1px solid black; }
 .cps-roboticket .cp-active-line { background:rgba(132,152,255,0.15); box-shadow:0 0 1px 1px rgba(69,69,255,0.3); color:#405060 !important; }
+.cps-roboticket .cp-search-occurrence {}
+.cps-roboticket .cp-search-occurrence.active { background:#BC5A65; border-color:#BC5A65; color:#F5F5F5; }
 
 .cps-roboticket .cpx-tab { border-color:#445544; }
 .cps-roboticket .cpx-bracket { color:#B05A65; }
