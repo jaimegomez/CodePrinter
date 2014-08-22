@@ -1475,7 +1475,7 @@ define('CodePrinter', ['Selector'], function($) {
     }
     
     Branch = function(leaf) {
-        this.parent = this.root = null;
+        this.parent = null;
         this.isLeaf = leaf == null ? true : leaf;
         this.size = this.height = 0;
         return this;
@@ -1488,13 +1488,12 @@ define('CodePrinter', ['Selector'], function($) {
             for (var i = index; i < l; i++) {
                 size -= this[i].size;
                 height -= this[i].height;
-                this[i].parent = this[i].root = null;
+                this[i].parent = null;
             }
             for (var i = 2; i < arguments.length; i++) {
                 size += arguments[i].size;
                 height += arguments[i].height;
                 arguments[i].parent = this;
-                arguments[i].root = this.root || this;
             }
             this.resize(this.isLeaf ? arguments.length - 2 - l + index : size, height);
             return Array.prototype.splice.apply(this, arguments);
@@ -1505,7 +1504,6 @@ define('CodePrinter', ['Selector'], function($) {
                 size += arguments[i].size;
                 height += arguments[i].height;
                 arguments[i].parent = this;
-                arguments[i].root = this.root || this;
             }
             this.resize(this.isLeaf ? arguments.length : size, height);
             return Array.prototype.push.apply(this, arguments);
@@ -1721,7 +1719,7 @@ define('CodePrinter', ['Selector'], function($) {
     Data.prototype = Branch.prototype;
     
     Line = function() {
-        this.parent = this.root = null;
+        this.parent = null;
         this.changed = 0;
         this.height = 0;
         return this;
