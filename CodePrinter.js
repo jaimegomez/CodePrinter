@@ -1116,7 +1116,7 @@ define('CodePrinter', ['Selector'], function($) {
                     search.value = find;
                     
                     linkCallback = function(dl, line) {
-                        if (cur = cp.searches.results[line]) {
+                        if (cp.searches.results && (cur = cp.searches.results[line])) {
                             searchAppendResult.call(cp, dl, cur);
                         }
                     }
@@ -1158,7 +1158,7 @@ define('CodePrinter', ['Selector'], function($) {
                         this.on({
                             link: linkCallback,
                             unlink: function(dl, line) {
-                                if (cur = this.searches.results[line]) {
+                                if (cp.searches.results && (cur = cp.searches.results[line])) {
                                     for (var i = 0; i < cur.length; i++) {
                                         if (cur[i].node) {
                                             cur[i].node.parentNode && search.overlay.node.removeChild(cur[i].node);
