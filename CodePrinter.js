@@ -20,7 +20,7 @@ define('CodePrinter', ['Selector'], function($) {
     , tracking, lineendings, extensions
     , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 40
-    , wheelUnit = $.browser.chrome ? -0.7 : $.browser.webkit ? -0.2 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
+    , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
     , setImmediate = window.global && window.global.setImmediate || window.setImmediate || function(fn) { return setTimeout(fn, 1); };
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
@@ -210,12 +210,10 @@ define('CodePrinter', ['Selector'], function($) {
                     this.scrollLeft += pixels;
                 }
                 if (y) {
-                    var pixels = wheelUnit * options.scrollSpeed * y
-                    , sT = this.scrollTop;
+                    var pixels = wheelUnit * options.scrollSpeed * y, sT = this.scrollTop;
                     
-                    if (this.offsetHeight >= this.scrollHeight) return;
-                    if (pixels < -60) pixels = -60;
-                    else if (pixels > 60) pixels = 60;
+                    if (pixels < -70) pixels = -70;
+                    else if (pixels > 70) pixels = 70;
                     
                     lock = true;
                     
@@ -1775,20 +1773,7 @@ define('CodePrinter', ['Selector'], function($) {
         touch: function() {
             if (this.changed & 2 && this.node) {
                 this.node.innerHTML = this.parsed || '&#8203;';
-                this.updateHeight();
                 this.changed ^= 2;
-            }
-        },
-        updateHeight: function(force) {
-            var oh;
-            if ((force || this.changed & 4) && (oh = this.node.offsetHeight)) {
-                var delta = oh - this.height;
-                if (delta) {
-                    this.counter.style.lineHeight = oh + 'px';
-                    this.height += delta;
-                    this.parent && this.parent.resize(0, delta);
-                }
-                this.changed ^= 4;
             }
         },
         next: function() {
@@ -1835,7 +1820,7 @@ define('CodePrinter', ['Selector'], function($) {
         , code = screen.firstChild
         , temp = screen.lastChild.firstChild
         , from = 0, to = -1, lastST = 0, lines = []
-        , defHeight = $.browser.firefox ? 14 : 13, firstNumber
+        , defHeight = 13, firstNumber
         , data, history, selection;
         
         EventEmitter.call(this);
@@ -1880,6 +1865,7 @@ define('CodePrinter', ['Selector'], function($) {
                 }
                 cp.parse(dl);
                 dl.touch();
+                //updateLineHeight(dl);
                 cp.emit('link', dl, index);
             }
         }
@@ -1964,6 +1950,24 @@ define('CodePrinter', ['Selector'], function($) {
         }
         function formatter(i) {
             return i;
+        }
+        function updateLineHeight(dl, force) {
+            if (force || dl.changed & 4) {
+                var oh, node = dl.node;
+                if (!node) {
+                    node = temp;
+                    node.innerHTML = dl.parsed || '&#8203;';
+                }
+                if (oh = node.offsetHeight) {
+                    var d = oh = dl.height;
+                    if (d) {
+                        if (dl.counter) dl.counter.style.lineHeight = oh + 'px';
+                        dl.height += d;
+                        dl.parent && dl.parent.resize(0, d);
+                    }
+                    dl.changed ^= 4;
+                }
+            }
         }
         
         this.init = function(source) {
@@ -2442,6 +2446,7 @@ define('CodePrinter', ['Selector'], function($) {
             return data.height;
         }
         
+        this.updateDefaultHeight();
         selection.on({ done: this.showSelection.bind(this, false) });
         cp.on('changed', function(e) {
             if (cp.options.history) {
