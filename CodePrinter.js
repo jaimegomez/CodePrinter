@@ -3239,6 +3239,10 @@ define('CodePrinter', ['Selector'], function($) {
             }
             return false;
         },
+        'Shift+Enter': function() {
+            this.caret.position(this.caret.line(), -1);
+            return this.call('Enter');
+        },
         'Esc': function() {
             this.isFullscreen ? this.exitFullscreen() : this.searchEnd();
             return false;
