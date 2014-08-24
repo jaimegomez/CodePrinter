@@ -167,6 +167,9 @@ define('CodePrinter', ['Selector'], function($) {
                     } else {
                         self.input.value = '';
                         self.caret.deactivate().show();
+                        if (y > ry) self.caret.position(l, -1);
+                        else if (y < 0) self.caret.position(l, 0);
+                        
                         self.document.beginSelection();
                         window.on('mousemove', mouseController);
                         window.once('mouseup', function(e) {
