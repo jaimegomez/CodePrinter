@@ -275,6 +275,13 @@
   transition: all 0 ease-in-out;
   z-index: 6 !important;
 }
+.codeprinter .cp-animation-blink {
+  -webkit-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
+  -moz-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
+  -ms-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
+  -o-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
+  animation: cp-animation-blink 500ms ease-in-out infinite alternate;
+}
 .codeprinter .cp-screen,
 .codeprinter .cp-input,
 .codeprinter .cp-counter,
@@ -465,4 +472,44 @@
   -ms-flex: 1;
   -o-flex: 1;
   flex: 1;
+}
+@-webkit-keyframes cp-animation-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@-moz-keyframes cp-animation-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@-ms-keyframes cp-animation-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@-o-keyframes cp-animation-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes cp-animation-blink {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }

@@ -61,7 +61,6 @@ define('CodePrinter', ['Selector'], function($) {
         minFontSize: 6,
         maxFontSize: 60,
         keyupInactivityTimeout: 1500,
-        caretBlinkSpeed: 400,
         scrollSpeed: 1,
         autoScrollSpeed: 20,
         historyStackSize: 100,
@@ -2661,10 +2660,7 @@ define('CodePrinter', ['Selector'], function($) {
         }
         this.activate = function() {
             if (!this.isDisabled) {
-                if (cp.options.blinkCaret) {
-                    var elm = this.element, a = false, fn = function() { a = !a; elm.style.opacity = +a; };
-                    this.interval = clearInterval(this.interval) || fn() || setInterval(fn, cp.options.caretBlinkSpeed);
-                }
+                if (cp.options.blinkCaret) this.element.addClass('cp-animation-blink');
                 this.isActive = true;
             }
             return this;
@@ -2688,7 +2684,7 @@ define('CodePrinter', ['Selector'], function($) {
         isDisabled: false,
         show: function() {
             if (!this.isDisabled) {
-                this.element.style.opacity = "1";
+                this.element.style.opacity = "";
                 this.isVisible = true;
             }
             return this;
@@ -2708,7 +2704,7 @@ define('CodePrinter', ['Selector'], function($) {
         },
         deactivate: function() {
             if (this.isActive) {
-                this.interval && (this.interval = clearInterval(this.interval));
+                this.element.removeClass('cp-animation-blink');
                 this.isActive = false;
             }
             return this;
