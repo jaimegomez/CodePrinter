@@ -58,6 +58,7 @@
         fontFamily: 'Menlo, Monaco, Consolas, Courier, monospace',
         minFontSize: 6,
         maxFontSize: 60,
+        viewportMargin: 50,
         keyupInactivityTimeout: 1500,
         scrollSpeed: 1,
         autoScrollSpeed: 20,
@@ -1832,7 +1833,7 @@
         }
         
         function desiredHeight(half) {
-            return (cp.wrapper.clientHeight || cp.options.height) + (half ? 100 : 200);
+            return (cp.wrapper.clientHeight || cp.options.height) + cp.options.viewportMargin * (half ? 1 : 2);
         }
         function isFilled(half) {
             return (code.scrollHeight || heightOfLines()) > desiredHeight(half);
@@ -2071,7 +2072,7 @@
                 lastST += delta;
                 
                 var x = lastST - cp.sizes.scrollTop
-                , limit = 100
+                , limit = cp.options.viewportMargin
                 , d = Math.round(x - limit)
                 , tmpd = d
                 , h, dl;
