@@ -110,6 +110,14 @@ CodePrinter.defineMode('JavaScript', function() {
             }
             return [controls, keywords, specials, memory.variables, memory.constants];
         },
+        keyMap: {
+            '/': function() {
+                if (/(^|=|\,|\(|\&|\||return)\s*(\/)?$/i.test(this.caret.textBefore())) {
+                    if (RegExp.$2) this.caret.moveX(1);
+                    else this.insertText('/', -1);
+                }
+            }
+        },
         snippets: {
             'log': {
                 content: 'console.log();',
