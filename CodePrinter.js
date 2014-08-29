@@ -79,6 +79,7 @@
         indentNewLines: true,
         insertClosingBrackets: true,
         insertClosingQuotes: true,
+        useParserKeyMap: true,
         tabTriggers: true,
         shortcuts: true,
         keyCombinationFlag: 1
@@ -316,7 +317,7 @@
                         if (doc.issetSelection() && (a = self.parser.selectionWrappers[ch])) {
                             doc.wrapSelection(a[0], a[1]);
                             allowKeyup = false;
-                        } else if (ch in self.parser.keyMap) {
+                        } else if (options.useParserKeyMap && self.parser.keyMap[ch]) {
                             allowKeyup = self.parser.keyMap[ch].call(self, e, code, ch);
                         }
                         if (allowKeyup !== false) {
