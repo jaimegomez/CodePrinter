@@ -1749,7 +1749,7 @@
         },
         deleteNode: function() {
             var node = this.node;
-            if (node) node.className = null;
+            if (node) node.className = '';
             this.node = undefined;
             return node;
         },
