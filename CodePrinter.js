@@ -1891,43 +1891,6 @@
             --to;
             cp.emit('unlink', dl);
         }
-        function rewind(dl) {
-            var tmp = dl, dli = dl.info()
-            , offset = dli.offset
-            , i = -1, oldfrom = from;
-            
-            if (from <= dli.index && dli.index <= to) return false;
-            
-            from = dli.index;
-            to = from - 1;
-            
-            while (tmp && ++i < lines.length) {
-                cp.emit('unlink', lines[i], oldfrom + i);
-                tmp.captureNode(lines[i]);
-                tmp.touch();
-                tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = to = from + i));
-                lines[i] = tmp;
-                cp.emit('link', tmp, from + i);
-                tmp = tmp.next();
-            }
-            if (++i < lines.length) {
-                var spliced = lines.splice(i, lines.length - i);
-                tmp = dl.prev();
-                while (tmp && spliced.length) {
-                    cp.emit('unlink', spliced[0], oldfrom + i++);
-                    tmp.captureNode(spliced.shift());
-                    tmp.touch();
-                    tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = --from));
-                    code.insertBefore(tmp.node, lines[0].node);
-                    ol.insertBefore(tmp.counter, lines[0].counter);
-                    lines.unshift(tmp);
-                    cp.emit('link', tmp, from);
-                    offset -= tmp.height;
-                    tmp = tmp.prev();
-                }
-            }
-            code.style.top = ol.style.top = (cp.sizes.scrollTop = Math.max(0, offset)) + 'px';
-        }
         function clear() {
             for (var i = 0; i < lines.length; i++) {
                 lines[i].deleteNode();
@@ -2034,6 +1997,43 @@
             }
             return b;
         }
+        this.rewind = function(dl) {
+            var tmp = dl, dli = dl.info()
+            , offset = dli.offset
+            , i = -1, oldfrom = from;
+            
+            if (from <= dli.index && dli.index <= to) return false;
+            
+            from = dli.index;
+            to = from - 1;
+            
+            while (tmp && ++i < lines.length) {
+                cp.emit('unlink', lines[i], oldfrom + i);
+                tmp.captureNode(lines[i]);
+                tmp.touch();
+                tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = to = from + i));
+                lines[i] = tmp;
+                cp.emit('link', tmp, from + i);
+                tmp = tmp.next();
+            }
+            if (++i < lines.length) {
+                var spliced = lines.splice(i, lines.length - i);
+                tmp = dl.prev();
+                while (tmp && spliced.length) {
+                    cp.emit('unlink', spliced[0], oldfrom + i++);
+                    tmp.captureNode(spliced.shift());
+                    tmp.touch();
+                    tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = --from));
+                    code.insertBefore(tmp.node, lines[0].node);
+                    ol.insertBefore(tmp.counter, lines[0].counter);
+                    lines.unshift(tmp);
+                    cp.emit('link', tmp, from);
+                    offset -= tmp.height;
+                    tmp = tmp.prev();
+                }
+            }
+            code.style.top = ol.style.top = (cp.sizes.scrollTop = Math.max(0, offset)) + 'px';
+        }
         this.remove = function(dl, line, howmany) {
             if (howmany == null) howmany = 1;
             var rm, tmp = dl, prev = lines[0].prev(), scrolldelta = 0
@@ -2078,7 +2078,7 @@
                 if (d) {
                     if (Math.abs(delta) > code.offsetHeight) {
                         dl = data.getLineWithOffset(Math.max(0, lastST - limit));
-                        if (rewind(dl) !== false) {
+                        if (this.rewind(dl) !== false) {
                             lastST = cp.wrapper.scrollTop;
                             return;
                         }
