@@ -2776,7 +2776,7 @@
     Stream.prototype = {
         match: function(rgx, index) {
             this.found && this.cut(this.found.length);
-            var f = false, i, v = this.value.substr(this.pos);
+            var f = false, i, v = (this.value || '').substr(this.pos);
             
             if (v) {
                 i = v.search(rgx);

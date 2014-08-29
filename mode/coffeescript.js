@@ -101,8 +101,8 @@ CodePrinter.defineMode('CoffeeScript', function() {
                     if (found[1] == '/' && found[2] == '/') {
                         stream.eatGreedily(found, found).wrap('regexp').eatEach(/(\\.|\#\{[^\}]*\})/).wrapAll('escaped');
                     } else {
-                        found = found.substring(0, found.search(/([^\\]\/[gimy]{0,4})/) + RegExp.$1.length);
-                        stream.eat(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
+                        found = found.substring(0, found.search(/(((\\\\)+|[^\\])\/[gimy]{0,4})/) + RegExp.$1.length);
+                        stream.eatGreedily(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
                     }
                 }
             }

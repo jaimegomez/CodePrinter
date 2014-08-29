@@ -69,11 +69,11 @@ CodePrinter.defineMode('Perl', function() {
                     stream.wrap('function');
                 } else if (/^m(\W)|^\//.test(found)) {
                     if (found[0] == 'm') {
-                        found = found.substring(0, found.substr(2).search(new RegExp('([^\\\\]'+RegExp.$1.escape()+'[gimy]{0,4})')) + RegExp.$1.length);
+                        found = found.substring(0, found.substr(2).search(new RegExp('(((\\\\\\\\)+|[^\\\\])'+RegExp.$1.escape()+'[gimy]{0,4})')) + RegExp.$1.length);
                     } else {
-                        found = found.substring(0, found.search(/([^\\]\/[gimy]{0,4})/) + RegExp.$1.length);
+                        found = found.substring(0, found.search(/(((\\\\)+|[^\\])\/[gimy]{0,4})/) + RegExp.$1.length);
                     }
-                    stream.eat(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
+                    stream.eatGreedily(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
                 }
             }
             return stream;

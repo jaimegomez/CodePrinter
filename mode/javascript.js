@@ -96,8 +96,8 @@ CodePrinter.defineMode('JavaScript', function() {
                     stream.eatGreedily(found, until).applyWrap(this.expressions[found].classes);
                     stream.isStillHungry() && stream.setStateAfter('comment');
                 } else if (found[0] == '/') {
-                    found = found.substring(0, found.search(/([^\\]\/[gimy]{0,4})/g) + RegExp.$1.length);
-                    stream.eat(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
+                    found = found.substring(0, found.search(/(((\\\\)+|[^\\])\/[gimy]{0,4})/g) + RegExp.$1.length);
+                    stream.eatGreedily(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
                 } else if (isHTMLHelper && found[0] === '<' && found[found.length-1] === '>') {
                     return stream.abort();
                 }
