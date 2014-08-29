@@ -11,9 +11,7 @@
 
 "use strict";
 
-if (!define) var define = function() { arguments[2]($ || Selector); }
-
-define('CodePrinter', ['Selector'], function($) {
+(window.define || function() { arguments[2]($ || Selector); })('CodePrinter', ['Selector'], function($) {
     var CodePrinter, EventEmitter, Data, Branch, Line
     , Caret, Document, StreamArray, Stream
     , History, Selection, keyMap, commands
