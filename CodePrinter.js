@@ -2673,7 +2673,7 @@
         }
         this.focus = function() {
             this.isVisible || this.show().activate();
-            if (!cp.document.isLineVisible(currentDL)) {
+            if (currentDL && !cp.document.isLineVisible(currentDL)) {
                 cp.document.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
             }
             cp.select(currentDL);
