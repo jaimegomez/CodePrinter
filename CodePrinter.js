@@ -1815,8 +1815,7 @@
     }
     
     Document = function(cp) {
-        var counter = cp.container.firstChild
-        , ol = counter.firstChild
+        var ol = cp.counter.firstChild
         , screen = cp.wrapper.lastChild
         , code = screen.firstChild
         , temp = screen.lastChild.firstChild
@@ -2493,8 +2492,6 @@
                 css = this.drawer(css);
                 this.emit('beforeMove', x, y, currentDL, line, this.column());
                 this.element.css(css);
-                cp.input.style.top = this.y + 'px';
-                cp.input.style.left = this.x + 'px';
                 this.emit('move', x, y, currentDL, line, this.column());
             }
             return this;
@@ -3684,13 +3681,13 @@
         , u = div.cloneNode().addClass('cp-caret')
         , n = div.cloneNode().addClass('cp-counter');
         
-        w.appendChild(document.createElement('textarea').addClass('cp-input'));
         w.appendChild(u);
         s.appendChild(l);
         t.appendChild(pre.cloneNode());
         s.appendChild(t);
         w.appendChild(s);
         n.appendChild(document.createElement('ol'));
+        c.appendChild(document.createElement('textarea').addClass('cp-input'));
         c.appendChild(n);
         c.appendChild(w);
         b.appendChild(c);
@@ -3700,12 +3697,12 @@
             cp.caret = new Caret(cp);
             cp.mainElement = m.cloneNode(true);
             cp.container = cp.mainElement.firstChild.lastChild;
-            cp.wrapper = cp.container.lastChild;
-            cp.input = cp.wrapper.firstChild;
+            cp.input = cp.container.firstChild;
             cp.input.tabIndex = cp.options.tabIndex;
             cp.input.autofocus = cp.options.autofocus;
-            cp.caret.element = cp.input.nextSibling;
-            cp.counter = cp.container.firstChild;
+            cp.counter = cp.input.nextSibling;
+            cp.wrapper = cp.container.lastChild;
+            cp.caret.element = cp.wrapper.firstChild;
         }
     })();
     function createSelectionNode(node, top, left, width, height, right) {
