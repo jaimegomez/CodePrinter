@@ -228,10 +228,7 @@
                 mousewheel: mousewheel,
                 DOMMouseScroll: mousewheel,
                 scroll: function(e) {
-                    if (!lock) {
-                        lock = true;
-                        doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
-                    }
+                    if (!lock) doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
                     lock = false;
                 },
                 dblclick: function() {
@@ -384,7 +381,8 @@
                                 st = y + 2 * h + pt - ch;
                             }
                         }
-                        doc.scrollTo(Math.max(0, Math.min(st, wrapper.scrollHeight - ch)));
+                        lock = true;
+                        doc.scrollTo(st);
                     }
                     if (options.tracking) {
                         T2 = clearTimeout(T2);
@@ -2061,7 +2059,10 @@
         }
         this.scrollTo = function(st, arg) {
             st = Math.max(0, Math.min(st, cp.wrapper.scrollHeight - cp.wrapper.offsetHeight));
-            if (st !== lastST && arg !== false) counter.scrollTop = cp.wrapper.scrollTop = st;
+            if (st !== lastST && arg !== false) {
+                cp.wrapper.scrollTop = st;
+                cp.counter.scrollTop = st;
+            }
             this.scroll(st - lastST);
         }
         this.scroll = function(delta) {
@@ -2078,7 +2079,7 @@
                     if (Math.abs(delta) > code.offsetHeight) {
                         dl = data.getLineWithOffset(Math.max(0, lastST - limit));
                         if (this.rewind(dl) !== false) {
-                            lastST = cp.wrapper.scrollTop;
+                            lastST = cp.counter.scrollTop = cp.wrapper.scrollTop;
                             return;
                         }
                     }
@@ -2541,6 +2542,7 @@
             if (after !== str) {
                 after = str;
                 updateDL();
+                this.target(currentDL, column, true);
             }
             return this;
         }
@@ -2669,8 +2671,10 @@
             return this;
         }
         this.focus = function() {
-            this.isVisible || this.show().activate();
-            if (currentDL && !cp.document.isLineVisible(currentDL)) {
+            var isVisible = this.isVisible;
+            if (!isVisible) {
+                this.show().activate();
+            } else if (currentDL && !cp.document.isLineVisible(currentDL)) {
                 cp.document.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
             }
             cp.select(currentDL);
