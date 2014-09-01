@@ -28,7 +28,7 @@ setTimeout(function() {
 }, 150);
 
 demo.onchange = function() {
-    cp.print(this.value, $.get('code#'+this.value).innerHTML.decode());
+    cp.print(this.value, $.get('code#'+this.value.replace(/\+/g, 'p')).innerHTML.decode());
 }
 theme.onchange = function() {
     cp.setTheme(this.value);

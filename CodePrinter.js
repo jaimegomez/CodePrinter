@@ -632,7 +632,7 @@
         setMode: function(mode) {
             var mlc = mode.toLowerCase();
             mode = extensions[mlc] || mlc || 'plaintext';
-            this.mainElement.removeClass('cp-'+this.options.mode.toLowerCase()).addClass('cp-'+mode.toLowerCase());
+            this.mainElement.removeClass('cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase()).addClass('cp-'+mode.replace(/\+/g, 'p').toLowerCase());
             this.options.mode = mode;
             return this;
         },
@@ -3636,8 +3636,8 @@
         'json': 'javascript',
         'htm': 'html',
         'less': 'css',
-        'h': 'cpp',
-        'c++': 'cpp',
+        'h': 'c++',
+        'cpp': 'c++',
         'rb': 'ruby',
         'pl': 'perl',
         'sh': 'bash',

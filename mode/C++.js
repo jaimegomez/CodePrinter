@@ -1,6 +1,6 @@
 /* CodePrinter - Cpp Mode */
 
-CodePrinter.defineMode('Cpp', function() {
+CodePrinter.defineMode('C++', function() {
     var controls = ['if','else','elseif','for','switch','while','do','try','catch']
     , types = [
         'void','int','double','short','long','char','float','bool','unsigned',
@@ -47,7 +47,7 @@ CodePrinter.defineMode('Cpp', function() {
     includeMap.iostream.union(includeMap.istream).union(includeMap.ostream);
     
     return new CodePrinter.Mode({
-        name: 'Cpp',
+        name: 'C++',
         controls: new RegExp('^('+ controls.join('|') +')$'),
         keywords: new RegExp('^('+ keywords.join('|') +')$'),
         types: new RegExp('^('+ types.join('|') +')$'),
