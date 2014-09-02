@@ -1455,6 +1455,17 @@
             }
             return this;
         }
+        this.once = function(eventName, listener) {
+            if ('string' === typeof eventName && listener instanceof Function) {
+                var listenerWrapper = function() {
+                    listener.apply(this, arguments);
+                    this.off(eventName, listenerWrapper);
+                }
+                if (!listeners[eventName]) listeners[eventName] = [];
+                listeners[eventName].push(listenerWrapper);
+            }
+            return this;
+        }
         this.off = function(eventName, listener) {
             if (eventName) {
                 var lst = listeners[eventName], i;
