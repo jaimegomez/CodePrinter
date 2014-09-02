@@ -112,9 +112,10 @@ CodePrinter.defineMode('JavaScript', function() {
         },
         keyMap: {
             '/': function() {
-                if (/(^|=|\,|\(|\&|\||return)\s*(\/)?$/i.test(this.caret.textBefore())) {
-                    if (RegExp.$2) this.caret.moveX(1);
-                    else this.insertText('/', -1);
+                if (this.textAfterCursor(1) === '/') {
+                    this.caret.moveX(1);
+                } else if (/(^|=|\,|\(|\&|\||return)\s*$/i.test(this.caret.textBefore())) {
+                    this.insertText('/', -1);
                 }
             }
         },
