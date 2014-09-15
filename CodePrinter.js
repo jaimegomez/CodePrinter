@@ -195,7 +195,6 @@
                                 mouseController.call(self.wrapper, moveevent);
                             }
                         }, 50);
-                        return e.cancel();
                     }
                 } else {
                     ++moveselection;
