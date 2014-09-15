@@ -77,7 +77,7 @@
         highlightCurrentLine: true,
         blinkCaret: true,
         autoScroll: true,
-        indentNewLines: true,
+        autoIndent: true,
         insertClosingBrackets: true,
         insertClosingQuotes: true,
         useParserKeyMap: true,
@@ -3225,7 +3225,7 @@
         'Alt+Tab': CodePrinter.prototype.indent,
         'Shift+Tab': CodePrinter.prototype.unindent,
         'Enter': function() {
-            if (this.options.indentNewLines) {
+            if (this.options.autoIndent) {
                 var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line)
                 , dl = this.caret.dl(), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
                 , af = this.caret.textAfter(), spacesAfter = 0;
