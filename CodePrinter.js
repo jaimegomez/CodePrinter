@@ -2652,6 +2652,9 @@
         this.dl = function() {
             return currentDL;
         }
+        this.isCurrentLine = function(dl) {
+            return currentDL === dl;
+        }
         this.line = function() {
             return line;
         }
