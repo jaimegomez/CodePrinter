@@ -17,7 +17,8 @@ CodePrinter.defineMode('CSS', function() {
         regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@\w+|<\s*\/\s*style\s*>|[^\w\s]/,
     	values: /\/\*|\;|,|#[0-9a-f]+|\-?\d+[a-z%]*|\-?\d*\.\d+[a-z%]*|[@!]?[a-z\-]+\b|'|"/i,
         units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
-        lineComment: '/*[text content]*/',
+        blockCommentStart: '/*',
+        blockCommentEnd: '*/',
         
         parse: function(stream, memory, isHTMLHelper) {
             var sb = stream.stateBefore, found;

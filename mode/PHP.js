@@ -38,6 +38,9 @@ CodePrinter.defineMode('PHP', function() {
     	regexp: /\$[\w\d\_]+|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b|\/\*|\/\/|\?>|<\?php|<\?=?|[^\w\s]/,
         indentIncrements: ['else', ':', '[', '{'],
         indentDecrements: ['endif', 'endfor', 'endforeach', 'endswitch', 'endwhile', 'enddeclare', ']', '}'],
+        blockCommentStart: '/*',
+        blockCommentEnd: '*/',
+        lineComment: '//',
         
         memoryAlloc: function() {
             return {

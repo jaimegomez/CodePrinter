@@ -38,6 +38,9 @@ CodePrinter.defineMode('Java', function() {
         constants: new RegExp('^('+ constants.join('|') +')$'),
         types: new RegExp('^('+ types.join('|') +')$'),
         regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
+        blockCommentStart: '/*',
+        blockCommentEnd: '*/',
+        lineComment: '//',
         
         memoryAlloc: function() {
             return {

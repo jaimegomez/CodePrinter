@@ -23,6 +23,9 @@ CodePrinter.defineMode('JavaScript', function() {
         specials: new RegExp('^('+specials.join('|')+')$'),
         constants: new RegExp('^('+constants.join('|')+')$'),
         regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|<\s*\/\s*script\s*>|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
+        blockCommentStart: '/*',
+        blockCommentEnd: '*/',
+        lineComment: '//',
         
         memoryAlloc: function() {
             return {
@@ -116,6 +119,11 @@ CodePrinter.defineMode('JavaScript', function() {
                     this.caret.moveX(1);
                 } else if (/(^|=|\,|\(|\&|\||return)\s*$/i.test(this.caret.textBefore())) {
                     this.insertText('/', -1);
+                }
+            },
+            '*': function() {
+                if (this.textBeforeCursor(1) === '/' && this.textAfterCursor(1) === '/') {
+                    this.removeAfterCursor('/');
                 }
             }
         },

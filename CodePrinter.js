@@ -3126,9 +3126,6 @@
         this.init();
     }
     CodePrinter.Mode.prototype = {
-        blockCommentStart: '/*',
-        blockCommentEnd: '*/',
-        lineComment: '//',
         init: function() {},
         memoryAlloc: function() {
             return {};
