@@ -788,6 +788,77 @@
                 return indent + (i instanceof Array ? i.shift() : parseInt(i) || 0);
             }
         },
+        toggleComment: function() {
+            if (this.parser && this.parser.lineComment) {
+                var start, end, line, sm, insert
+                , comment = this.parser.lineComment
+                , range = this.document.getSelectionRange();
+                
+                if (range) {
+                    start = range.start.line;
+                    end = range.end.line;
+                } else {
+                    start = end = this.caret.line();
+                }
+                for (var line = end; line >= start; line--) {
+                    var text = this.getTextAtLine(line)
+                    , i = text.search(new RegExp('^(\\s*)'+comment.escape()))
+                    , s = RegExp.$1.length;
+                    
+                    if (insert !== false && i === -1) {
+                        insert = true;
+                        this.put(comment, line, 0);
+                    } else if (insert !== true) {
+                        insert = false;
+                        this.erase(comment, line, s + comment.length);
+                    }
+                }
+                if (range) {
+                    var mv = (insert ? 1 : -1) * comment.length;
+                    this.document.moveSelection(mv, mv);
+                }
+            } else {
+                this.toggleBlockComment();
+            }
+        },
+        toggleBlockComment: function() {
+            var cs, ce;
+            if (this.parser && (cs = this.parser.blockCommentStart) && (ce = this.parser.blockCommentEnd)) {
+                var range = this.document.getSelectionRange()
+                , l = this.caret.line(), c = this.caret.column()
+                , bc = 'block-comment';
+                
+                if (this.isState(bc, l, c)) {
+                    var sl = this.searchLeft(cs, l, c, bc)
+                    , sr = this.searchRight(ce, l, c, bc);
+                    if (sl && sr) {
+                        this.erase(ce, sr[0], sr[1] + ce.length);
+                        this.erase(cs, sl[0], sl[1] + cs.length);
+                        if (range && range.start.line === sl[0]) {
+                            this.document.moveSelectionStart(-cs.length);
+                            if (sl[1] <= c) this.caret.moveX(-cs.length);
+                        }
+                    }
+                } else {
+                    if (range) {
+                        var start = range.start, end = range.end
+                        , sel = this.document.getSelection();
+                        
+                        if (new RegExp('^'+cs.escape()).test(sel) && new RegExp(ce.escape()+'$').test(sel)) {
+                            this.erase(ce, end.line, end.column);
+                            this.erase(cs, start.line, start.column + ce.length);
+                        } else {
+                            this.document.wrapSelection(cs, ce);
+                            if (l === start.line) this.caret.position(l, c + cs.length);
+                        }
+                    } else {
+                        this.insertText(cs + ce, -ce.length);
+                    }
+                }
+            } else {
+                this.toggleComment();
+            }
+        },
         textBeforeCursor: function(i) {
             var bf = this.caret.textBefore();
             return i > 0 ? bf.slice(-i) : bf;
@@ -3364,37 +3435,8 @@
         },
         'Ctrl++': CodePrinter.prototype.increaseFontSize,
         'Ctrl+-': CodePrinter.prototype.decreaseFontSize,
-        'Ctrl+/': function() {
-            if (this.parser && this.parser.lineComment) {
-                var start, end, is, sm = 0, comment = this.parser.lineComment.split('[text content]');
-                
-                if (is = this.document.issetSelection()) {
-                    start = this.selection.start.line;
-                    end = this.selection.end.line;
-                } else {
-                    start = end = this.caret.line();
-                }
-                
-                for (var line = end; line >= start; line--) {
-                    var text = this.getTextAtLine(line)
-                    , i = text.search(/[^ ]/);
-                    if (i >= 0) {
-                        if (text.search(new RegExp('(^ *'+comment[0].escape()+')')) == 0) {
-                            var r1 = RegExp.$1;
-                            sm = -comment[0].length;
-                            this.erase(comment[0].length, line, r1.length);
-                            comment[1] && text.match(new RegExp('(\\s*'+comment[1].escape()+'\\s*)$')) && this.erase(RegExp.$1.length, line, text.length - r1.length);
-                        } else {
-                            sm = comment[0].length;
-                            this.put(comment[0], line, 0);
-                            comment[1] && this.put(comment[1], line, text.length + comment[0].length);
-                        }
-                    }
-                }
-                is && this.selection.move(sm);
-                this.showSelection();
-            }
-        },
+        'Ctrl+/': CodePrinter.prototype.toggleComment,
+        'Shift+Ctrl+/': CodePrinter.prototype.toggleBlockComment,
         'Shift+Left': function(e, c) {
             if (!this.document.issetSelection()) {
                 this.document.beginSelection();
