@@ -123,7 +123,7 @@
 
 function hello(arg) {
     var string = arg.join('');
-    if (/^H\w{2}.o\s*/i.test(string)) {
+    if (/^H\w{2}.o\s*$/i.test(string)) {
         return string;
     }
 }

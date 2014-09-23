@@ -172,7 +172,7 @@
                         if (y > ry) self.caret.position(l, -1);
                         else if (y < 0) self.caret.position(l, 0);
                         
-                        self.document.beginSelection();
+                        doc.beginSelection();
                         window.on('mousemove', mouseController);
                         window.once('mouseup', function(e) {
                             !doc.issetSelection() && doc.clearSelection();
@@ -290,7 +290,7 @@
                         if (doc.issetSelection() && kc.indexOf('+') === -1) {
                             this.value = doc.getSelection();
                             this.setSelectionRange(0, this.value.length);
-                        } else if (ch in commands) {
+                        } else if (commands[ch]) {
                             allowKeyup = commands[ch].call(self, e, code, ch);
                             if (allowKeyup === false) e.cancel();
                             return allowKeyup;
@@ -299,10 +299,10 @@
                         }
                     }
                     if (options.readOnly && (code < 37 || code > 40)) return;
-                    if (code < 48 && code != 9 && !(kc in self.keyMap)) {
+                    if (code < 48 && code != 9 && !self.keyMap[kc]) {
                         kc = e.getKeyCombination(options.keyCombinationFlag | 4);
                     }
-                    if (kc.length > 1 && (!/^[A-Z0-9]+$/i.test(ch) || !e.hasModifierKey() || options.shortcuts) && kc in self.keyMap) {
+                    if (kc.length > 1 && (!/^[A-Z0-9]+$/i.test(ch) || !e.hasModifierKey() || options.shortcuts) && self.keyMap[kc]) {
                         allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                     if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
@@ -323,7 +323,7 @@
                             allowKeyup = self.parser.keyMap[ch].call(self, e, code, ch);
                         }
                         if (allowKeyup !== false) {
-                            (ch in self.keyMap ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
+                            (self.keyMap[ch] ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                             this.value = '';
                             return e.cancel();
                         }
@@ -822,10 +822,10 @@
                     this.document.moveSelection(mv, mv);
                 }
             } else {
-                this.toggleBlockComment();
+                this.toggleBlockComment(true);
             }
         },
-        toggleBlockComment: function() {
+        toggleBlockComment: function(lineComment) {
             var cs, ce;
             if (this.parser && (cs = this.parser.blockCommentStart) && (ce = this.parser.blockCommentEnd)) {
                 var range = this.document.getSelectionRange()
@@ -840,8 +840,8 @@
                         this.erase(cs, sl[0], sl[1] + cs.length);
                         if (range && range.start.line === sl[0]) {
                             this.document.moveSelectionStart(-cs.length);
-                            if (sl[1] <= c) this.caret.moveX(-cs.length);
                         }
+                        if (sl[0] === l && sl[1] < c) this.caret.moveX(-cs.length);
                     }
                 } else {
                     if (range) {
@@ -851,12 +851,20 @@
                         if (new RegExp('^'+cs.escape()).test(sel) && new RegExp(ce.escape()+'$').test(sel)) {
                             this.erase(ce, end.line, end.column);
                             this.erase(cs, start.line, start.column + ce.length);
+                            if (l === start.line) this.caret.moveX(-cs.length);
                         } else {
                             this.document.wrapSelection(cs, ce);
-                            if (l === start.line) this.caret.position(l, c + cs.length);
+                            if (l === start.line) this.caret.moveX(cs.length);
                         }
                     } else {
-                        this.insertText(cs + ce, -ce.length);
+                        if (lineComment) {
+                            var txt = this.getTextAtLine(l);
+                            this.put(ce, l, txt.length);
+                            this.put(cs, l, 0);
+                            this.caret.moveX(cs.length);
+                        } else {
+                            this.insertText(cs + ce, -ce.length);
+                        }
                     }
                 }
             } else {
@@ -950,7 +958,7 @@
             return false;
         },
         insertText: function(text, mx) {
-            this.document.issetSelection() && this.document.removeSelection();
+            this.document.removeSelection();
             var pos, s = this.convertToSpaces(text).split('\n')
             , bf = this.caret.textBefore()
             , line = this.caret.line()
@@ -1008,12 +1016,12 @@
             return this;
         },
         erase: function(arg, line, column, mx) {
-            var isb = this.cursorIsBeforePosition(line, column);
+            var isa = this.cursorIsAfterPosition(line, column, true);
             this.caret.savePosition();
             this.caret.position(line, column);
             this.removeBeforeCursor(arg);
             this.caret.restorePosition();
-            !isb && this.caret.moveX(-(arg.length || arg));
+            isa && this.caret.moveX(-(arg.length || arg));
             mx && this.caret.moveX(mx);
             return this;
         },
@@ -2483,6 +2491,16 @@
                 this.clearSelection();
             }
         }
+        
+        this.moveSelection = selection.move.bind(selection);
+        
+        this.moveSelectionStart = function(mv) {
+            selection.move(mv, null);
+        }
+        this.moveSelectionEnd = function(mv) {
+            selection.move(null, mv);
+        }
+        
         this.wrapSelection = function(before, after) {
             var r = this.getSelectionRange();
             if (r) {
@@ -3628,17 +3646,9 @@
             && (line != c[0][0] || column >= c[0][1])
             && (line != c[1][0] || column <= c[1][1]);
         },
-        moveStart: function(mv) {
-            this.start.column += mv;
-            this.emit('done', this.start, this.end);
-        },
-        moveEnd: function(mv) {
-            this.end.column += mv;
-            this.emit('done', this.start, this.end);
-        },
         move: function(start, end) {
-            this.start.column += start;
-            this.end.column += end;
+            if (start != null) this.start.column += start;
+            if (end != null) this.end.column += end;
             this.emit('done', this.start, this.end);
         }
     }
