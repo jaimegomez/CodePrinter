@@ -302,7 +302,7 @@
                     if (code < 48 && code != 9 && !self.keyMap[kc]) {
                         kc = e.getKeyCombination(options.keyCombinationFlag | 4);
                     }
-                    if (kc.length > 1 && (!/^[A-Z0-9]+$/i.test(ch) || !e.hasModifierKey() || options.shortcuts) && self.keyMap[kc]) {
+                    if (kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
                         allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                     if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
