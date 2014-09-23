@@ -19,7 +19,9 @@
     , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 40
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
-    , setImmediate = window.global && window.global.setImmediate || window.setImmediate || function(fn) { return setTimeout(fn, 1); };
+    , setImmediate = window.global && window.global.setImmediate || window.setImmediate || function(fn) { return setTimeout(fn, 1); }
+    , activeClassName = 'cp-active-line'
+    , markClassName = 'cp-marked';
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
@@ -341,14 +343,16 @@
             this.select = function(dl) {
                 this.unselect();
                 if (this.options.highlightCurrentLine && !moveselection && !doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
-                    dl.node.className = dl.counter.className = 'cp-active-line';
+                    dl.node.addClass(activeClassName);
+                    dl.counter.addClass(activeClassName);
                     dl.active = true;
                     activeLine = dl;
                 }
             }
             this.unselect = function() {
                 if (activeLine && activeLine.node) {
-                    activeLine.node.className = activeLine.counter.className = '';
+                    activeLine.node.removeClass(activeClassName);
+                    activeLine.counter.removeClass(activeClassName);
                     activeLine.active = undefined;
                 }
                 activeLine = null;
@@ -1853,9 +1857,33 @@
             this.changed |= 2;
         },
         touch: function() {
-            if (this.changed & 2 && this.node) {
-                this.node.innerHTML = this.parsed || '&#8203;';
-                this.changed ^= 2;
+            if (this.node) {
+                if (this.changed & 2) {
+                    this.node.innerHTML = this.parsed || '&#8203;';
+                    this.changed ^= 2;
+                }
+                this.node.className = this.counter.className = getLineClasses(this);
+            }
+        },
+        mark: function(className) {
+            if (!className) className = markClassName;
+            if (!this.classes) this.classes = [className];
+            else this.classes.push(className);
+            if (this.node) {
+                this.node.addClass(className);
+                this.counter.addClass(className);
+            }
+        },
+        unmark: function(className) {
+            if (!className) className = markClassName;
+            var i = this.classes ? this.classes.indexOf(className) : -1;
+            if (i >= 0) {
+                this.classes.splice(i, 1);
+                if (this.classes.length === 0) this.classes = undefined;
+                if (this.node) {
+                    this.node.removeClass(className);
+                    this.counter.removeClass(className);
+                }
             }
         },
         next: function() {
@@ -3421,6 +3449,10 @@
         'Ctrl+J': function() {
             this.setCursorPosition(parseInt(prompt("Jump to line..."), 10) - 1, 0);
         },
+        'Ctrl+M': function() {
+            var dl = this.caret.dl();
+            if (dl) dl.classes && dl.classes.indexOf(markClassName) >= 0 ? dl.unmark() : dl.mark();
+        },
         'Ctrl+N': function() {
             this.counter.hasClass('hidden') ? this.openCounter() : this.closeCounter();
         },
@@ -3808,6 +3840,15 @@
             }
         }
         return null;
+    }
+    function getLineClasses(line) {
+        var isact = line.node && line.node.hasClass(activeClassName);
+        if (isact) {
+            var cls = activeClassName;
+            if (line.classes && line.classes.length) cls += ' '+line.classes.join(' ');
+            return cls;
+        }
+        return line.classes ? line.classes.join(' ') : '';
     }
     function complementBracket(ch) {
         var obj = { '(':')', '{':'}', '[':']', '<':'>' }

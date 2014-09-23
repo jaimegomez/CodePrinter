@@ -296,6 +296,9 @@
   word-wrap: inherit;
   white-space: inherit;
 }
+.codeprinter .cp-marked {
+  background: #f0f0f0;
+}
 .codeprinter .cp-active-line {
   background: rgba(230, 239, 255, 0.6);
 }
