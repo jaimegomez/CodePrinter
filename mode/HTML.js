@@ -10,7 +10,6 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
         regexp2: /[a-z\-]+|=|"|'|\/?\s*>|</i,
         blockCommentStart: '<!--',
         blockCommentEnd: '-->',
-        lineComment: '<!--[text content]-->',
         
         parse: function(stream) {
             var sb = stream.stateBefore, found;
