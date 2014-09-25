@@ -21,7 +21,8 @@
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
     , setImmediate = window.global && window.global.setImmediate || window.setImmediate || function(fn) { return setTimeout(fn, 1); }
     , activeClassName = 'cp-active-line'
-    , markClassName = 'cp-marked';
+    , markClassName = 'cp-marked'
+    , zws = '&#8203;';
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
     
@@ -544,7 +545,7 @@
                         ++i;
                     }
                     if (i < l) p += '<span>'+this.convertToSpaces(dl.text.substr(i)).encode()+'</span>';
-                    if (!p) p = '&#8203;';
+                    if (!p) p = zws;
                     dl.setParsed(p);
                 } else if (!dl.parsed || dl.changed & 1 || force) {
                     if (arguments.length < 3) {
@@ -559,7 +560,7 @@
                     if (i) text = text.substr(i);
                     
                     if (!text) {
-                        dl.setParsed(p || '&#8203;');
+                        dl.setParsed(p || zws);
                         if (b = state) {
                             dl.stateAfter = state;
                         } else if (b = dl.stateAfter) {
@@ -659,7 +660,7 @@
                 
                 this.document.eachVisibleLines(function(dl) {
                     ++i;
-                    dl.updateHeight(true);
+                    updateLineHeight(dl, true);
                 });
                 if (i) {
                     this.document.fill();
@@ -1871,7 +1872,7 @@
         touch: function() {
             if (this.node) {
                 if (this.changed & 2) {
-                    this.node.innerHTML = this.parsed || '&#8203;';
+                    this.node.innerHTML = this.parsed || zws;
                     this.changed ^= 2;
                 }
                 this.node.className = this.counter.className = getLineClasses(this);
@@ -1986,7 +1987,7 @@
                 }
                 cp.parse(dl);
                 dl.touch();
-                //updateLineHeight(dl);
+                updateLineHeight(dl);
                 cp.emit('link', dl, index);
             }
         }
@@ -2034,24 +2035,6 @@
         }
         function formatter(i) {
             return i;
-        }
-        function updateLineHeight(dl, force) {
-            if (force || dl.changed & 4) {
-                var oh, node = dl.node;
-                if (!node) {
-                    node = temp;
-                    node.innerHTML = dl.parsed || '&#8203;';
-                }
-                if (oh = node.offsetHeight) {
-                    var d = oh = dl.height;
-                    if (d) {
-                        if (dl.counter) dl.counter.style.lineHeight = oh + 'px';
-                        dl.height += d;
-                        dl.parent && dl.parent.resize(0, d);
-                    }
-                    dl.changed ^= 4;
-                }
-            }
         }
         
         this.init = function(source) {
@@ -2110,7 +2093,7 @@
             this.updateHeight();
         }
         this.fill = function() {
-            var half, b, dl = (half = !lines.length) ? data.get(0) : lines[lines.length-1].next();
+            var half, b, dl = (half = lines.length === 0) ? data.get(0) : lines[lines.length-1].next();
             while (dl && !(b = isFilled(half))) {
                 insert(dl);
                 dl = dl.next();
@@ -2337,9 +2320,10 @@
         }
         this.updateDefaultHeight = function() {
             var pr = pre.cloneNode();
+            pr.style.position = 'absolute';
             pr.style.fontSize = cp.options.fontSize + 'px';
             pr.style.fontFamily = cp.options.fontFamily;
-            pr.innerHTML = 'CP';
+            pr.innerHTML = zws;
             document.documentElement.appendChild(pr);
             defHeight = pr.offsetHeight;
             document.documentElement.removeChild(pr);
@@ -3837,6 +3821,26 @@
         sp.textContent = sp.innerText = textnode.textContent;
         parent.replaceChild(sp, textnode);
         return sp;
+    }
+    function updateLineHeight(dl, force) {
+        if (force || dl.changed & 4) {
+            var oh, node = dl.node;
+            if (!node) {
+                node = temp;
+                node.innerHTML = dl.parsed || zws;
+            }
+            if (oh = node.offsetHeight) {
+                var d = oh - dl.height;
+                if (d) {
+                    if (dl.counter) dl.counter.style.lineHeight = oh + 'px';
+                    dl.height += d;
+                    dl.parent && dl.parent.resize(0, d);
+                }
+                dl.changed ^= 4;
+                return oh;
+            }
+        }
+        return 0;
     }
     function getStates(text, length) {
         var i = 0, cur, el = pre.cloneNode();
