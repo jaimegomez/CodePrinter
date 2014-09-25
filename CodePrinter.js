@@ -104,6 +104,10 @@
             , isMouseDown, moveevent, moveselection
             , T, T2, fn;
             
+            if (options.fontFamily !== CodePrinter.defaults.fontFamily) {
+                this.container.style.fontFamily = options.fontFamily;
+            }
+            
             this.mainElement.CodePrinter = this;
             sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
             this.overlays = [];
