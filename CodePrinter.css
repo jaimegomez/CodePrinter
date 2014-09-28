@@ -419,32 +419,6 @@
 .codeprinter .cpx-font-160 {
   font-size: 160%;
 }
-.codeprinter.cps-default.inactive .cp-selection {
-  background: #d0d0d0;
-}
-.codeprinter.cps-default .cp-active-line {
-  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.3);
-}
-.codeprinter.cps-default .cp-highlight {
-  border-bottom: 1px solid black;
-}
-.codeprinter.cps-default .cpx-control,
-.codeprinter.cps-default .cpx-phptag {
-  font-weight: bold;
-}
-.codeprinter.cps-default .cpx-special,
-.codeprinter.cps-default .cpx-hex,
-.codeprinter.cps-default .cpx-comment {
-  font-style: italic;
-}
-.codeprinter.cps-default .cpx-broket {
-  color: #025BB9;
-}
-.codeprinter.cps-default .cp-search-occurrence.active {
-  background: #aaeeff;
-  color: #444;
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
-}
 .codeprinter.cp-fullscreen {
   display: -webkit-box;
   display: -moz-box;
@@ -470,6 +444,32 @@
   -ms-flex: 1;
   -o-flex: 1;
   flex: 1;
+}
+.cps-default.inactive .cp-selection {
+  background: #d0d0d0;
+}
+.cps-default .cp-active-line {
+  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.3);
+}
+.cps-default .cp-highlight {
+  border-bottom: 1px solid black;
+}
+.cps-default .cpx-control,
+.cps-default .cpx-phptag {
+  font-weight: bold;
+}
+.cps-default .cpx-special,
+.cps-default .cpx-hex,
+.cps-default .cpx-comment {
+  font-style: italic;
+}
+.cps-default .cpx-broket {
+  color: #025BB9;
+}
+.cps-default .cp-search-occurrence.active {
+  background: #aaeeff;
+  color: #444;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
 }
 @-webkit-keyframes cp-animation-blink {
   from {
