@@ -2407,7 +2407,7 @@
                     var pos = this.measureRect(dl, s.column, true)
                     , lastdl = data.get(e.line), lastdloffset = lastdl.getOffset();
                     
-                    selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(), dloffset, pos.offset, null, dl.height + 1, 0);
+                    selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(), dloffset, pos.offset, null, dl.height, 0);
                     selnode.parentNode || ov.node.appendChild(selnode);
                     
                     if (delta > 1) {
