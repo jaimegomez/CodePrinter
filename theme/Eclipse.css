@@ -24,7 +24,7 @@
 .cps-eclipse .cpx-property { color:#000000; }
 .cps-eclipse .cpx-regexp { color:#FF9869; }
 .cps-eclipse .cpx-escaped { color:#7CA5D5; }
-.cps-eclipse .cpx-phptag { color:#FF0000; }
+.cps-eclipse .cpx-external { color:#FF0000; }
 .cps-eclipse .cpx-string { color:#A60000; }
 .cps-eclipse .cpx-comment { color:#557F5F; }
 .cps-eclipse .cpx-invalid { background:#A60000; }

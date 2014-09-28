@@ -116,7 +116,7 @@ CodePrinter.defineMode('PHP', function() {
                         stream.applyWrap(this.brackets[found]);
                     }
                 } else if (/^(<\?(php|=?)|\?>)$/.test(found)) {
-                    stream.wrap('phptag', found == '?>' ? 'closetag' : 'opentag');
+                    stream.wrap('external');
                 } else if (this.expressions[found]) {
                     var e = this.expressions[found];
                     if (found === '//') {

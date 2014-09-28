@@ -25,13 +25,13 @@
 .cps-obsidian .cpx-property { color:#E0E2E4; }
 .cps-obsidian .cpx-regexp { color:#D25252; }
 .cps-obsidian .cpx-escaped { color:#EFC090; }
-.cps-obsidian .cpx-phptag { color:#FFFFFF; }
+.cps-obsidian .cpx-external { color:#FFFFFF; }
 .cps-obsidian .cpx-string { color:#EC7600; }
 .cps-obsidian .cpx-comment { color:#7D8C93; }
 
 .cps-obsidian .cpx-control,
 .cps-obsidian .cpx-boolean,
-.cps-obsidian .cpx-phptag { font-weight:bold; }
+.cps-obsidian .cpx-external { font-weight:bold; }
 
 .cps-obsidian .cpx-string,
 .cps-obsidian .cpx-function { font-style:italic; }
