@@ -668,6 +668,7 @@
                 });
                 if (i) {
                     this.document.fill();
+                    this.document.showSelection();
                     this.caret.refresh();
                 }
                 this.emit('fontsize:changed', size);
