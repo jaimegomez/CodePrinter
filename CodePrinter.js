@@ -86,6 +86,7 @@
         useParserKeyMap: true,
         tabTriggers: true,
         shortcuts: true,
+        disableThemeClassName: false,
         keyCombinationFlag: 1
     }
     
@@ -634,7 +635,10 @@
         },
         setTheme: function(name, dontrequire) {
             typeof name === 'string' && name !== 'default' ? dontrequire != true && this.requireStyle(name) : name = 'default';
-            this.mainElement.removeClass('cps-'+this.options.theme.toLowerCase()).addClass('cps-'+(this.options.theme = name.replace(' ', '-')).toLowerCase());
+            if (!this.options.disableThemeClassName) {
+                this.mainElement.removeClass('cps-'+this.options.theme.replace(' ', '-').toLowerCase()).addClass('cps-'+name.replace(' ', '-').toLowerCase());
+            }
+            this.options.theme = name;
             return this;
         },
         setMode: function(mode) {
