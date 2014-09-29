@@ -95,13 +95,13 @@ CodePrinter.defineMode('PHP', function() {
     	            	stream.wrap('keyword');
     	            } else if (stream.isAfter('(')) {
                 		stream.wrap('function');
-                	} else if (stream.isBefore('class')) {
+                	} else if (stream.isBefore(/\bclass\b/)) {
                         stream.wrap('special');
                         memory.classes.put(found);
                     } else if (stream.isBefore('const') || memory.constants.indexOf(found) >= 0) {
                         stream.wrap('constant');
                         memory.constants.put(found);
-                    } else if (stream.isAfter('::')) {
+                    } else if (stream.isAfter('::') || stream.isBefore(/\bnamespace\b/)) {
                         stream.wrap('namespace');
                     }
                 } else if (found.length == 1) {
