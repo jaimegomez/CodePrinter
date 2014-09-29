@@ -106,7 +106,7 @@ CodePrinter.defineMode('C++', function() {
                         stream.wrap('parameter');
                     }
                 } else if (found[0] === '#') {
-                    stream.wrap('special', 'directives');
+                    stream.wrap('directive');
                     if (found === '#include') {
                         var af = stream.after();
                         stream.eat(af).wrap('string');
