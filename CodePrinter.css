@@ -188,9 +188,9 @@
   min-width: 36px;
   background: #fcfcfc;
   border-right: 1px solid #d4d4d4;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
   box-sizing: border-box;
   color: #999999;
+  position: relative;
   z-index: 6;
   overflow: hidden;
   cursor: default;
@@ -256,7 +256,6 @@
   width: 1px;
   height: 13px;
   background: #000000;
-  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
   position: absolute;
   top: -50px;
   left: -50px;
@@ -302,22 +301,15 @@
 .codeprinter .cp-active-line {
   background: rgba(230, 239, 255, 0.6);
 }
-.codeprinter .cpx-tab {
-  margin: 0 0 0 -1px;
-  padding: 0;
-  border-color: transparent;
-  border-left: 1px dotted #c8c8c8;
-}
 .codeprinter.without-indentation .cpx-tab {
-  margin: 0 !important;
   border-width: 0 !important;
 }
 .codeprinter .cp-highlight {
   color: transparent;
 }
 .codeprinter .cpx-tab {
-  margin: 0 0 0 -1px;
   padding: 0;
+  border-color: transparent;
   border-left: 1px dotted #c8c8c8;
 }
 .codeprinter .cpx-bracket {
@@ -448,14 +440,20 @@
 .cps-default.inactive .cp-selection {
   background: #d0d0d0;
 }
+.cps-default .cp-counter {
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+.cps-default .cp-caret {
+  box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
+}
+.cps-default .cp-highlight {
+  border-bottom: 1px solid #000;
+}
 .cps-default .cp-active-line {
   box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.3);
 }
-.cps-default .cp-highlight {
-  border-bottom: 1px solid black;
-}
 .cps-default .cpx-control,
-.cps-default .cpx-phptag {
+.cps-default .cpx-external {
   font-weight: bold;
 }
 .cps-default .cpx-special,
