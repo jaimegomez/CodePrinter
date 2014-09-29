@@ -2664,7 +2664,7 @@
             if (after !== str) {
                 after = str;
                 updateDL();
-                this.target(currentDL, column, true);
+                this.target(currentDL, this.column(), true);
             }
             return this;
         }
