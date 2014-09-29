@@ -306,6 +306,8 @@
 }
 .codeprinter .cp-highlight {
   color: transparent;
+  border: solid transparent;
+  border-width: 0 0 1px 0;
 }
 .codeprinter .cpx-tab {
   padding: 0;
