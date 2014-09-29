@@ -7,7 +7,7 @@
 .cps-oblivion .cp-highlight { border-bottom:1px solid white; }
 .cps-oblivion .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-oblivion .cp-search-occurrence { border-color:#ddd; }
-.cps-oblivion .cp-search-occurrence.active { background:white; border-color:#111; color:#333; }
+.cps-oblivion .cp-search-occurrence.active { background:white; border-color:white; color:#333; }
 
 .cps-oblivion .cpx-tab { border-color:#445544; }
 .cps-oblivion .cpx-bracket { color:#D8D8D8; }
@@ -16,11 +16,14 @@
 .cps-oblivion .cpx-control { color:#D197D9; }
 .cps-oblivion .cpx-variable { color:#79ABFF; }
 .cps-oblivion .cpx-parameter { color:#79ABFF; }
-.cps-oblivion .cpx-constant { color:#EFC090; }
 .cps-oblivion .cpx-builtin { color:#7FB347; }
 .cps-oblivion .cpx-boolean { color:#7FB347; }
+.cps-oblivion .cpx-constant { color:#EFC090; }
 .cps-oblivion .cpx-special { color:#D25252; }
+.cps-oblivion .cpx-directive { color:#D25252; }
+.cps-oblivion .cpx-namespace { color:#CCDF32; }
 .cps-oblivion .cpx-numeric { color:#7FB347; }
+.cps-oblivion .cpx-hex { color:#7FB347; }
 .cps-oblivion .cpx-function { color:#BED6FF; }
 .cps-oblivion .cpx-property { color:#BED6FF; }
 .cps-oblivion .cpx-regexp { color:#D9E577; }
