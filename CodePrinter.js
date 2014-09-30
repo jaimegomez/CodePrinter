@@ -3895,9 +3895,8 @@
             var match = RegExp.lastMatch
             , cur = results[line] = results[line] || [];
             
-            cur.push({ value: match, line: line, startColumn: ln + i, length: match.length, offset: offset });
-            ln += i + match.length;
-            text = text.substr(i + match.length);
+            match && cur.push({ value: match, line: line, startColumn: ln + i, length: match.length, offset: offset });
+            text = text.substr(ln += Math.max(1, i + match.length));
         }
         return j;
     }
