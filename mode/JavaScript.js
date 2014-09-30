@@ -90,6 +90,8 @@ CodePrinter.defineMode('JavaScript', function() {
                         stream.eat(found, this.expressions[found].ending, function() {
                             this.tear().wrap('invalid');
                         }).applyWrap(this.expressions[found].classes);
+                    } else if (found === '#' && stream.peek(1) === '!' && stream.isBefore(/^\s*$/)) {
+                        stream.eatAll(found).wrap('directive');
                     }
                 } else if (this.expressions[found]) {
                     var until = this.expressions[found].ending;
