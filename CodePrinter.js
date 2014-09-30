@@ -1260,7 +1260,7 @@
                         });
                     }
                     
-                    if ('string' === typeof find) escape = find.escape();
+                    if ('string' === typeof find) escape = new RegExp(find.escape());
                     else escape = find;
                     
                     this.intervalIterate(function(dl, line, offset) {
@@ -3889,14 +3889,17 @@
     }
     function searchOverLine(find, dl, line, offset) {
         var results = this.searches.results
-        , text = this.convertToSpaces(dl.text), ln = 0, i, j = 0;
+        , text = this.convertToSpaces(dl.text), ln = 0, i, j = 0
+        , match, startflag = find.source.search(/(^|[^\\])\^/) >= 0;
         
-        while (text && (i = text.search(find)) !== -1 && ++j) {
-            var match = RegExp.lastMatch
-            , cur = results[line] = results[line] || [];
-            
-            match && cur.push({ value: match, line: line, startColumn: ln + i, length: match.length, offset: offset });
-            text = text.substr(ln += Math.max(1, i + match.length));
+        while (text && (i = text.search(find)) !== -1) {
+            if (match = RegExp.lastMatch) {
+                var cur = results[line] = results[line] || [];
+                cur.push({ value: match, line: line, startColumn: ln + i, length: match.length, offset: offset });
+                ++j;
+            }
+            if (startflag && ln + i === 0) break;
+            text = text.substr(ln += (i + match.length) || 1);
         }
         return j;
     }
