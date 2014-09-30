@@ -1,33 +1,36 @@
 /* CodePrinter - Obsidian theme */
 
 .cps-obsidian .cp-wrapper { background:#293134; color:#e0e2e4; }
-.cps-obsidian .cp-counter { background:#293134; border-color:#81969a; color:#81969a; }
+.cps-obsidian .cp-counter { background:#293134; border-color:#81969a; color:#81969a; box-shadow:0 0 20px rgba(0,0,0,0.3); }
 .cps-obsidian .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
-.cps-obsidian .cp-selection { background:#616161; }
+.cps-obsidian .cp-selection { background:#434B4E; }
 .cps-obsidian .cp-highlight { border-bottom:1px solid white; }
 .cps-obsidian .cp-active-line { background:rgba(0,0,0,0.3); box-shadow:0 0 0 1px black; }
 .cps-obsidian .cp-search-occurrence { border-color:#ddd; }
-.cps-obsidian .cp-search-occurrence.active { background:#616161; color:#fff; }
+.cps-obsidian .cp-search-occurrence.active { background:#434B4E; color:#fff; }
 
 .cps-obsidian .cpx-tab { border-color:#445544; }
 .cps-obsidian .cpx-bracket { color:#E8E2B7; }
 .cps-obsidian .cpx-operator { color:#E8E2B7; }
 .cps-obsidian .cpx-keyword { color:#93C763; }
 .cps-obsidian .cpx-control { color:#93C763; }
-.cps-obsidian .cpx-special { color:#678CB1; }
 .cps-obsidian .cpx-variable { color:#79ABFF; }
 .cps-obsidian .cpx-parameter { color:#E0E2E4; }
-.cps-obsidian .cpx-constant { color:#A082BD; }
 .cps-obsidian .cpx-builtin { color:#EFC090; }
 .cps-obsidian .cpx-boolean { color:#EFC090; }
+.cps-obsidian .cpx-constant { color:#A082BD; }
+.cps-obsidian .cpx-special { color:#678CB1; }
+.cps-obsidian .cpx-directive { color:#FF8BFF; }
+.cps-obsidian .cpx-namespace { color:#FFCD22; }
 .cps-obsidian .cpx-numeric { color:#FFCD22; }
 .cps-obsidian .cpx-function { color:#678CB1; }
 .cps-obsidian .cpx-property { color:#E0E2E4; }
 .cps-obsidian .cpx-regexp { color:#D25252; }
 .cps-obsidian .cpx-escaped { color:#EFC090; }
-.cps-obsidian .cpx-external { color:#FFFFFF; }
+.cps-obsidian .cpx-external { color:#A082BD; }
 .cps-obsidian .cpx-string { color:#EC7600; }
 .cps-obsidian .cpx-comment { color:#7D8C93; }
+.cps-obsidian .cpx-invalid { background:#EC7600; }
 
 .cps-obsidian .cpx-control,
 .cps-obsidian .cpx-boolean,
