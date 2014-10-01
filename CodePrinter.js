@@ -1451,8 +1451,8 @@
         },
         unregisterKey: function() {
             for (var i = 0; i < arguments.length; i++) {
-                if (arguments[i] in this.keyMap) {
-                    this.keyMap[arguments[i]] = function() { return false; }
+                if (this.keyMap[arguments[i]]) {
+                    delete this.keyMap[arguments[i]];
                 }
             }
             return this;
@@ -1460,7 +1460,7 @@
         call: function(keyCombination, code, prototype) {
             if (keyCombination) {
                 var obj = prototype ? keyMap.prototype : this.keyMap;
-                if (keyCombination in obj) {
+                if (obj[keyCombination]) {
                     return obj[keyCombination].call(this, {}, code || 0, keyCombination);
                 }
             }
