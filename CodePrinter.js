@@ -3725,6 +3725,7 @@
         'less': 'css',
         'h': 'c++',
         'cpp': 'c++',
+        'java': 'java',
         'rb': 'ruby',
         'pl': 'perl',
         'sh': 'bash',
