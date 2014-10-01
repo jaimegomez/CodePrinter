@@ -336,6 +336,9 @@
 .codeprinter .cpx-special {
   color: #C93800;
 }
+.codeprinter .cpx-directive {
+  color: #74482E;
+}
 .codeprinter .cpx-namespace {
   color: #885D3B;
 }
