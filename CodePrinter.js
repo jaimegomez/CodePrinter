@@ -1452,7 +1452,7 @@
         unregisterKey: function() {
             for (var i = 0; i < arguments.length; i++) {
                 if (this.keyMap[arguments[i]]) {
-                    delete this.keyMap[arguments[i]];
+                    this.keyMap[arguments[i]] = function() { return true; }
                 }
             }
             return this;
