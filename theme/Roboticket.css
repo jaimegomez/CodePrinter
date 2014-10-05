@@ -1,23 +1,24 @@
 /* CodePrinter - Roboticket theme */
 
 .cps-roboticket .cp-wrapper { background:#F5F5F5; color:#585858; }
-.cps-roboticket .cp-counter { background:#F5F5F5; color:#9FAFBF; border-color:#AFBFCF; }
-.cps-roboticket .cp-selection { background:#BDD8F2; }
-.cps-roboticket .cp-highlight { border-bottom:1px solid black; }
-.cps-roboticket .cp-active-line { background:rgba(132,152,255,0.15); box-shadow:0 0 1px 1px rgba(69,69,255,0.3); color:#405060 !important; }
+.cps-roboticket .cp-counter { background:#F5F5F5; color:#AFBFCF; border-color:#AFBFCF; }
+.cps-roboticket .cp-selection { background:#E0E0FF; }
+.cps-roboticket .cp-active-line { background:#E0E0FF; box-shadow:0 0 0 1px rgba(69,69,255,0.3); color:#405060 !important; }
 .cps-roboticket .cp-search-occurrence {}
-.cps-roboticket .cp-search-occurrence.active { background:#BC5A65; border-color:#BC5A65; color:#F5F5F5; }
+.cps-roboticket .cp-search-occurrence.active { background:#FFCFBB; border-color:#FFCFBB; color:#585858; }
 
 .cps-roboticket .cpx-tab { border-color:#445544; }
-.cps-roboticket .cpx-bracket { color:#B05A65; }
+.cps-roboticket .cpx-bracket { color:#585858; }
 .cps-roboticket .cpx-operator { color:#000000; }
 .cps-roboticket .cpx-keyword { color:#295F94; }
 .cps-roboticket .cpx-control { color:#295F94; }
-.cps-roboticket .cpx-special { color:#AB2525; }
 .cps-roboticket .cpx-variable { color:#55AA55; }
 .cps-roboticket .cpx-parameter { color:#55AA55; }
-.cps-roboticket .cpx-constant { color:#885D3B; }
 .cps-roboticket .cpx-builtin { color:#9B5656; }
+.cps-roboticket .cpx-constant { color:#885D3B; }
+.cps-roboticket .cpx-special { color:#AB2525; }
+.cps-roboticket .cpx-directive { color:#B05A65; }
+.cps-roboticket .cpx-namespace { color:#55AA55; }
 .cps-roboticket .cpx-numeric { color:#AF0F91; }
 .cps-roboticket .cpx-function { color:#BC5A65; }
 .cps-roboticket .cpx-property { color:#566874; }
