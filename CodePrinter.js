@@ -2071,24 +2071,24 @@
             return dl;
         }
         this.insert = function(l, text) {
-            var dl = data.insert(l, defHeight);
+            var dl = data.insert(l, defHeight), dlr;
             dl.setText(text ? cp.convertToTabs(text) : '');
             if (l < from) {
                 ++from;
                 updateCounters(lines[0], from);
             } else if (l <= to + 1) {
                 if (isFilled()) {
-                    if (l < (to - from + 1) / 2) {
-                        dl.captureNode(lines.pop());
+                    if (lastST - cp.sizes.scrollTop < cp.options.viewportMargin * 1.3) {
+                        dlr = lines.pop();
+                        dl.captureNode(dlr);
                         link(dl, l);
                     } else {
-                        var first = lines.shift();
-                        dl.captureNode(first);
-                        ++from;
-                        link(dl, l);
-                        ++to;
-                        scroll(first.height);
+                        dlr = lines.shift();
+                        dl.captureNode(dlr);
+                        ++from; link(dl, l); ++to;
+                        scroll(dlr.height);
                     }
+                    cp.emit('unlink', dlr);
                 } else {
                     dl.bind(pre.cloneNode(), li.cloneNode());
                     link(dl, l);
