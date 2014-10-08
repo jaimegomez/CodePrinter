@@ -105,11 +105,9 @@ CodePrinter.defineMode('Java', function() {
                             this.tear().wrap('invalid');
                         }).applyWrap(this.expressions[found].classes);
                     }
-                } else if (found === '/*') {
+                } else if (this.expressions[found]) {
                     stream.eatGreedily(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-                    if (stream.isStillHungry()) {
-                        stream.setStateAfter('comment');
-                    }
+                    found === '/*' && stream.isStillHungry() && stream.setStateAfter('comment');
                 }
             }
             return stream;
