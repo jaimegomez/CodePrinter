@@ -15,7 +15,7 @@
     var CodePrinter, EventEmitter, Data, Branch, Line
     , Caret, Document, StreamArray, Stream
     , History, Selection, keyMap, commands
-    , tracking, lineendings, extensions
+    , tracking, lineendings, aliases
     , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 40
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
@@ -323,7 +323,7 @@
                     
                     if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
                         if (doc.issetSelection() && (a = self.parser.selectionWrappers[ch])) {
-                            doc.wrapSelection(a[0], a[1]);
+                            'string' === typeof a ? doc.wrapSelection(a, a) : doc.wrapSelection(a[0], a[1]);
                             allowKeyup = false;
                         } else if (options.useParserKeyMap && self.parser.keyMap[ch]) {
                             allowKeyup = self.parser.keyMap[ch].call(self, e, code, ch);
@@ -643,7 +643,7 @@
         },
         setMode: function(mode) {
             var mlc = mode.toLowerCase();
-            mode = extensions[mlc] || mlc || 'plaintext';
+            mode = aliases[mlc] || mlc || 'plaintext';
             this.mainElement.removeClass('cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase()).addClass('cp-'+mode.replace(/\+/g, 'p').toLowerCase());
             this.options.mode = mode;
             return this;
@@ -1416,18 +1416,31 @@
                         result = f(this.parser.snippets);
                         if (result) return result;
                     }
-                    var cc = this.parser.codeCompletion.call(this, this.memory, this.parser);
+                    var cc = this.parser.codeCompletion.call(this, this.memory, this.parser)
+                    , cs = this.parser.caseSensitive, islowercase, parseResult;
+                    
+                    if (!cs) {
+                        var ltrig = trigger.toLowerCase();
+                        islowercase = trigger === ltrig;
+                        trigger = ltrig;
+                    }
+                    
+                    parseResult = function(v) {
+                        if (!cs) v = v[islowercase ? 'toLowerCase' : 'toUpperCase']();
+                        return v;
+                    }
+                    
                     if (cc && cc instanceof Array) {
                         for (var i = 0; i < cc.length; i++) {
                             if (cc[i] instanceof Array) {
                                 for (var j = 0; j < cc[i].length; j++) {
                                     if (cc[i][j].startsWith(trigger)) {
-                                        return { trigger: trigger, content: cc[i][j], cursorMove: 0 }
+                                        return { trigger: arguments[0], content: parseResult(cc[i][j]), cursorMove: 0 }
                                     }
                                 }
                             } else {
                                 if (cc[i].startsWith(trigger)) {
-                                    return { trigger: trigger, content: cc[i], cursorMove: 0 }
+                                    return { trigger: arguments[0], content: parseResult(cc[i]), cursorMove: 0 }
                                 }
                             }
                         }
@@ -3034,6 +3047,10 @@
         isWrapped: function() {
             return !!(this.styles && this.styles.length);
         },
+        is: function(/*, .. styles */) {
+            var s = this.styles;
+            return s && s.contains.apply(s, arguments);
+        },
         font: function(size) {
             size = Math.max(0.4, Math.min(size, 1.6));
             this.styles.push('font-'+parseInt(size*100));
@@ -3097,6 +3114,16 @@
                 this.pos = Math.max(0, Math.min(pos, this.value.length));
             }
         },
+        last: function(lastIndex) {
+            if (!lastIndex) lastIndex = 1;
+            var l = this.tree.length;
+            return l && this.tree[l-lastIndex];
+        },
+        lastWrapped: function(lastIndex) {
+            var i = lastIndex || 1, l = this.tree.length, tmp;
+            while ((tmp = this.tree[l - i++]) && (!tmp.styles || !tmp.styles.length));
+            return tmp;
+        },
         before: function(l) {
             return this.value.substring(l != null ? this.pos - l : 0, this.pos);
         },
@@ -3119,7 +3146,7 @@
             return this.value.charAt(this.pos + q);
         },
         eol: function() {
-            return this.pos === this.value.length;
+            return this.pos === this.value.length - (this.found ? this.found.length : 0);
         },
         sol: function() {
             return this.pos === 0;
@@ -3180,6 +3207,7 @@
     CodePrinter.Mode = function(extend) {
         this.name = 'plaintext';
         this.keyMap = {};
+        this.caseSensitive = true;
         this.onLeftRemoval = {
             '{': '}', '(': ')', '[': ']', '"': '"', "'": "'"
         }
@@ -3187,7 +3215,7 @@
             '}': '{', ')': '(', ']': '[', '"': '"', "'": "'"
         }
         this.selectionWrappers = {
-            '(': ['(', ')'], '[': ['[', ']'], '{': ['{', '}'], '"': ['"', '"'], "'": ["'", "'"]
+            '(': ['(', ')'], '[': ['[', ']'], '{': ['{', '}'], '"': '"', "'": "'"
         }
         this.indentIncrements = ['(', '[', '{', ':'];
         this.indentDecrements = [')', ']', '}'];
@@ -3718,19 +3746,19 @@
     
     lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
     
-    extensions = {
+    aliases = {
         'js': 'javascript',
         'json': 'javascript',
         'htm': 'html',
         'less': 'css',
         'h': 'c++',
         'cpp': 'c++',
-        'java': 'java',
         'rb': 'ruby',
         'pl': 'perl',
         'sh': 'bash',
         'adb': 'ada',
-        'coffee': 'coffeescript'
+        'coffee': 'coffeescript',
+        'md': 'markdown'
     }
     
     CodePrinter.requireMode = function(req, cb, del) {
@@ -3743,21 +3771,25 @@
         }
         if (req) {
             for (var i = 0; i < req.length; i++) {
-                req[i] = 'CodePrinter/'+(extensions[req[i]] || req[i].toLowerCase());
+                req[i] = 'CodePrinter/'+(aliases[req[i]] || req[i].toLowerCase());
             }
         }
-        $.scripts.define('CodePrinter/'+name.toLowerCase(), obj, req);
+        var lc = name.toLowerCase();
+        $.scripts.define('CodePrinter/'+lc, obj, req);
+        $.scripts.require('CodePrinter/'+lc, function(mode) {
+            mode.name = name;
+        });
     }
     CodePrinter.hasMode = function(name) {
         return $.scripts.has('CodePrinter/'+name.toLowerCase());
     }
     CodePrinter.registerExtension = function(ext, parserName) {
-        extensions[ext.toLowerCase()] = parserName.toLowerCase();
+        aliases[ext.toLowerCase()] = parserName.toLowerCase();
     }
     CodePrinter.issetExtension = function(ext) {
-        if (extensions[ext]) return true;
-        for (var k in extensions) {
-            if (extensions[k] == ext) {
+        if (aliases[ext]) return true;
+        for (var k in aliases) {
+            if (aliases[k] == ext) {
                 return true;
             }
         }
