@@ -96,11 +96,13 @@ CodePrinter.defineMode('Ruby', function() {
     }
     
     keyMap['D'] = keyMap['d'] = function(e) {
-        var bf = this.caret.textBefore();
-        if (/^\s*en$/i.test(this.caret.textBefore())) {
-            var line = this.caret.line()
-            , indent = this.getNextLineIndent(line-1);
-            this.caret.setTextBefore(this.tabString(indent-1) + bf.trim());
+        if (this.options.autoIndent) {
+            var bf = this.caret.textBefore();
+            if (/^\s*en$/i.test(bf)) {
+                var line = this.caret.line()
+                , indent = this.getNextLineIndent(line-1);
+                this.caret.setTextBefore(this.tabString(indent-1) + bf.trim());
+            }
         }
     }
     
