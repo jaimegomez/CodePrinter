@@ -185,7 +185,7 @@
   user-select: none;
   display: inline-block;
   vertical-align: top;
-  min-width: 36px;
+  min-width: 32px;
   background: #fcfcfc;
   border-right: 1px solid #d4d4d4;
   box-sizing: border-box;
@@ -203,7 +203,7 @@
   position: relative;
 }
 .codeprinter .cp-counter li {
-  padding: 0 6px 0 15px;
+  padding: 0 6px 0 12px;
   text-align: right;
   line-height: 13px;
 }
