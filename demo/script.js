@@ -41,7 +41,7 @@ tabWidth.onchange = function() {
     this.focus();
 }
 fontSize.onchange = function() {
-    cp.setFontSize(this.value);
+    cp.setFontSize(parseInt(this.value, 10));
     this.focus();
 }
 fullscreen.onclick = function() {

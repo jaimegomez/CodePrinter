@@ -38,6 +38,7 @@
                         <option>Perl</option>
                         <option>PHP</option>
                         <option>Ruby</option>
+                        <option>SQL</option>
                     </select>
                 </div>
                 <div>
@@ -72,7 +73,7 @@
                 </div>
                 <div>
                     <label>Font Size</label>
-                    <input type="number" min="8" max="40" name="fontSize" value="11" />
+                    <input type="number" min="6" max="60" name="fontSize" value="11" />
                 </div>
                 <div>
                     <label>Fullscreen Mode</label>
@@ -354,6 +355,29 @@ Numbered list:
 
 The rain---not the reign---in
 Spain.</code>
+        <code id="SQL">-- SQL example
+
+SELECT Book.title AS Title, COUNT(*) AS Authors FROM  Book JOIN  Book_author ON  Book.isbn = Book_author.isbn GROUP BY Book.title;
+
+CREATE TABLE tbl_1(id INT);
+INSERT INTO tbl_1(id) VALUES(1);
+INSERT INTO tbl_1(id) VALUES(2);
+COMMIT;
+
+UPDATE tbl_1 SET id=200 WHERE id=1;
+SAVEPOINT id_1upd;
+UPDATE tbl_1 SET id=1000 WHERE id=2;
+ROLLBACK TO id_1upd;
+SELECT id FROM tbl_1;
+
+CASE
+    WHEN n &gt; 0
+        THEN 'positive'
+    WHEN n &lt; 0
+        THEN 'negative'
+    ELSE 'zero'
+END
+</code>
         </div>
         <script type="text/javascript" src="demo/script.js"></script>
     </body>
