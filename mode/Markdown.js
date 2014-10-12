@@ -2,16 +2,12 @@
 
 CodePrinter.defineMode('Markdown', function() {
     
-    var italicRgx = /(^|[^\\])(\*|\_)(?!\2)/
-    , boldRgx = /(^|[^\\])(\*\*|\_\_)/;
-    
     return new CodePrinter.Mode({
-        name: 'Markdown',
-        regexp: /([\~\*\_]){1,2}|\`+/,
+        regexp: /([\~\*\_]){1,2}|\`+|!?\[(.*)\]\((.*)\)/,
         
         parse: function(stream, memory) {
             var sb = stream.stateBefore
-            , line, trim, found, _found;
+            , line, trim, found;
             
             if (sb && sb.code) {
                 var c = sb.code;
@@ -36,42 +32,20 @@ CodePrinter.defineMode('Markdown', function() {
             } else if (/^(\=+|\-+)$/.test(trim)) {
                 stream.wrap('operator', 'header-rule');
             } else if (stream.testNextLine(/^\s*(\=|\-){2,}\s*$/)) {
-                stream.wrap('namespace', 'header', 'font-' + (RegExp.$1 === '=' ? '150' : '140'));
+                stream.wrap('namespace', 'header');
             } else {
                 stream.reset();
                 
                 while (found = stream.match(this.regexp)) {
-                    if (found[0] === '*' || found[0] === '_') {
-                        var begin = found
-                        , isbold = found[0] === found[1]
-                        , cls = isbold ? 'bold' : 'italic'
-                        , rgx = isbold ? italicRgx : boldRgx
-                        , i, _found, _rgx;
-                        
-                        stream.save();
-                        stream.wrap('comment');
-                        
-                        while (found = stream.capture(rgx, 2)) {
-                            i = stream.indexOfFound + RegExp.$1.length;
-                            var escape = found.escape();
-                            _rgx = new RegExp(isbold ? '(^|[^\\\\'+escape+'])('+escape+')(?=[^\\2][^\\2])' : '(^|[^\\\\'+found[0].escape()+'])('+escape+')');
-                            
-                            if (_found = stream.capture(_rgx, 2, i + found.length)) {
-                                i > 0 && stream.cut(i).wrap('parameter', cls);
-                                stream.eat(found).wrap('comment');
-                                stream.cut(stream.indexOfFound + RegExp.$1.length).wrap('parameter', 'bold', 'italic');
-                                stream.eat(_found).wrap('comment');
-                            } else {
-                                break;
-                            }
-                        }
-                        if (found = stream.capture(new RegExp(isbold ? '(^|[^\\\\])('+begin[0].escape()+')\\2(?!\\2)' : '(^|[^\\\\])('+begin.escape()+')(?!\\2)'), 2)) {
-                            stream.cut(stream.indexOfFound + RegExp.$1.length).wrap('parameter', cls);
-                            stream.eat(isbold ? found + found : found).wrap('comment');
-                        } else {
-                            stream.restore();
-                            stream.skip(begin);
-                        }
+                    if (found[0] === '!' || found[0] === '[') {
+                        stream.eat('!').wrap('directive');
+                        stream.eat('[').wrap('bracket');
+                        stream.eat(RegExp.$2).wrap('string');
+                        stream.eat('](').wrap('bracket');
+                        stream.eat(RegExp.$3).wrap('keyword');
+                        stream.eat(')').wrap('bracket');
+                    } else if (found[0] === '*' || found[0] === '_' || found[0] === '~') {
+                        stream.eat(found, found).wrap('parameter');
                     } else if (found[0] === '`') {
                         var ss;
                         if (found.length > 1) {
