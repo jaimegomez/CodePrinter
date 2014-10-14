@@ -1,11 +1,11 @@
 /* CodePrinter - Java Mode */
 
 CodePrinter.defineMode('Java', function() {
-    var controls = ['if','else','while','for','case','switch','try','catch','finally']
+    var controls = ['if','else','while','for','do','case','switch','try','catch','finally']
     , types = ['byte','short','int','long','float','double','boolean','char']
     , constants = ['null','undefined','NaN','Infinity']
     , keywords = [
-        'abstract','assert','break','const','continue','default','do','enum','extends',
+        'abstract','assert','break','const','continue','default','enum','extends',
         'final','goto','implements','instanceof','interface','native','new','package',
         'private','protected','public','return','static','strictfp','super',
         'synchronized','this','throw','throws','transient','void','volatile'
