@@ -460,6 +460,9 @@
 .cps-default .cp-active-line {
   box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.3);
 }
+.cps-default .cp-marked {
+  box-shadow: 0 0 0 1px rgba(69, 69, 69, 0.2);
+}
 .cps-default .cpx-control,
 .cps-default .cpx-external {
   font-weight: bold;
