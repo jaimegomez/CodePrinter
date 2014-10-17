@@ -3138,6 +3138,9 @@
             var bf = this.before(), t, i;
             return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.endsWith(s);
         },
+        has: function(s) {
+            return s instanceof RegExp ? s.test(this.value) : this.value.indexOf(s) >= 0;
+        },
         isEmpty: function() {
             return this.value == null;
         },
