@@ -35,7 +35,7 @@ CodePrinter.defineMode('JavaScript', function() {
             }
         },
         parse: function(stream, memory, isHTMLHelper) {
-            var sb = stream.stateBefore, found;
+            var sb = stream.stateBefore, found, tmp;
             
             if (sb && sb.comment) {
                 var e = this.expressions['/*'];
@@ -66,10 +66,12 @@ CodePrinter.defineMode('JavaScript', function() {
                     } else if (this.keywords.test(found)) {
                         stream.wrap('keyword');
                     } else if (stream.isAfter('(')) {
+                        if (stream.isBefore(/\bfunction\s+$/)) stream.isDefinition = true;
                         stream.wrap('function');
                     } else if (stream.isBefore(/function\s*\w*\s*\([^\(]*$/)) {
                         stream.wrap('parameter');
-                    } else if (stream.isBefore('.') || stream.isAfter(':')) {
+                    } else if ((tmp = stream.isAfter(':')) || stream.isBefore('.')) {
+                        if (tmp && stream.isAfter(/^:\s*function\b/)) stream.isDefinition = true;
                         memory.properties.put(found);
                         stream.wrap('property');
                     } else if (stream.isBefore(/const\s*$/) || memory.constants.indexOf(found) >= 0) {

@@ -112,6 +112,7 @@
             
             this.mainElement.CodePrinter = this;
             sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
+            this.definitions = {};
             this.overlays = [];
             this.snippets = [];
             doc = this.document = new Document(this);
@@ -394,6 +395,7 @@
                         }
                         lock = true;
                         doc.scrollTo(st);
+                        self.counter.scrollTop = st;
                     }
                     if (options.tracking) {
                         T2 = clearTimeout(T2);
@@ -494,6 +496,7 @@
             return this;
         },
         forcePrint: function() {
+            this.definitions = {};
             this.memory = this.parser.memoryAlloc();
             this.document.isFilled = undefined;
             
@@ -581,8 +584,13 @@
                         
                         this.parser.parse(stream, this.memory);
                         dl.setParsed(p + this.convertToSpaces(stream.toString()));
-                        var keys = dl.stateAfter && Object.keys(dl.stateAfter);
                         
+                        if (stream.isDefinition) {
+                            var dli = dl.info();
+                            if (dli) this.definitions[dli.index] = dl;
+                        }
+                        
+                        var keys = dl.stateAfter && Object.keys(dl.stateAfter);
                         if (stream.stateAfter) {
                             dl.stateAfter = stream.stateAfter;
                             b = keys ? keys.toString() !== Object.keys(dl.stateAfter).toString() : true;
@@ -1398,6 +1406,16 @@
         },
         replaceAll: function(replaceWith) {
             return this.searches && this.replace(replaceWith, this.searches.length);
+        },
+        nextDefinition: function() {
+            var l = this.caret.line()
+            , next = objNearProperty(this.definitions, l, 1);
+            this.setCursorPosition(+next, -1);
+        },
+        previousDefinition: function() {
+            var l = this.caret.line()
+            , prev = objNearProperty(this.definitions, l, -1);
+            this.setCursorPosition(+prev, -1);
         },
         findSnippet: function(trigger) {
             if (trigger) {
@@ -3481,6 +3499,8 @@
         'Alt+Down': CodePrinter.prototype.searchNext,
         'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
         'Alt+Ctrl+Down': CodePrinter.prototype.swapLineDown,
+        'Ctrl+D': CodePrinter.prototype.nextDefinition,
+        'Alt+Ctrl+D': CodePrinter.prototype.previousDefinition,
         'Ctrl+F': function(e) {
             var p = prompt('Find...');
             p ? this.search(p) : this.searchEnd();
@@ -3922,6 +3942,20 @@
         cp.removeBeforeCursor(x + '\n' + y);
         cp.insertText(y + '\n' + x);
         cp.caret.restorePosition();
+    }
+    function objNearProperty(obj, property, delta) {
+        var keys = Object.keys(obj)
+        , i = keys.indexOf(''+property);
+        return keys.item(i >= 0 ? i + delta : binarySearch(keys, +property) + (delta > 0 ? delta - 1 : delta));
+    }
+    function binarySearch(arr, value) {
+        var l = 0, r = arr.length;
+        while (l < r) {
+            var m = (l + r) >>> 1;
+            if (+arr[m] < value) l = m + 1;
+            else r = m;
+        }
+        return l;
     }
     function searchOverLine(find, dl, line, offset) {
         var results = this.searches.results
