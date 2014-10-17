@@ -10,19 +10,22 @@ CodePrinter.defineMode('SQL', function() {
         'medium','mediumblob','mediumint','mediumtext','time','timestamp',
         'tinyblob','tinyint','tinytext','text','bigint','int','int1','int2',
         'int3','int4','int8','integer','float','float4','float8','double',
-        'char','varbinary','varchar','varcharacter','precision','real',
+        'char','varbinary','varchar','varcharacter','precision','real','null',
         'date','datetime','year','unsigned','signed','decimal','numeric'
     ]
     , controls = [
         'begin','case','else','end','then','when'
     ]
+    , operators = [
+        'all','and','any','between','exists','in','like','not','or','is','unique'
+    ]
     , keywords = [
-        'add','alter','and','as','asc','between','by','clustered','collate','collation',
-        'collations','column','columns','commit','constraint','count','create','declare',
-        'delete','desc','distinct','drop','for','foreign','from','group','having','in',
-        'index','insert','into','is','join','key','like','nonclustered','not','on','or',
-        'order','primary','rollback','savepoint','select','set','table','to','trigger',
-        'union','update','use','values','view','where'
+        'add','alter','as','asc','by','clustered','collate','collation','collations',
+        'column','columns','commit','constraint','count','create','declare','delete',
+        'desc','distinct','drop','for','foreign','from','group','having','index',
+        'insert','into','join','key','nonclustered','on','order','primary',
+        'rollback','savepoint','select','set','table','to','trigger','union',
+        'update','use','values','view','where'
     ];
     
     keyMap['D'] = keyMap['d'] = function(e) {
@@ -39,6 +42,7 @@ CodePrinter.defineMode('SQL', function() {
     return new CodePrinter.Mode({
         builtins: new RegExp('^('+builtins.join('|')+')$', 'i'),
         controls: new RegExp('^('+controls.join('|')+')$', 'i'),
+        wordOperators: new RegExp('^('+operators.join('|')+')$', 'i'),
         keywords: new RegExp('^('+keywords.join('|')+')$', 'i'),
         regexp: /\/\*|\-\-|\b\d*\.?\d+\b|(\b|@)\w+\b|[^\w\s]/,
         blockCommentStart: '/*',
@@ -73,6 +77,8 @@ CodePrinter.defineMode('SQL', function() {
                         stream.wrap('builtin');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
+                    } else if (this.wordOperators.test(found)) {
+                        stream.wrap('operator');
                     } else if (this.keywords.test(found)) {
                         stream.wrap('keyword');
                     } else if (stream.isAfter('(')) {
