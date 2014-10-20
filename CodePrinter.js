@@ -14,8 +14,8 @@
 (window.define || function() { arguments[2]($ || Selector); })('CodePrinter', ['Selector'], function($) {
     var CodePrinter, EventEmitter, Data, Branch, Line
     , Caret, Document, StreamArray, Stream
-    , History, Selection, keyMap, commands
-    , tracking, lineendings, aliases
+    , ReadStream, History, Selection, keyMap
+    , commands, tracking, lineendings, aliases
     , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 40
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
@@ -730,6 +730,7 @@
                     column = t.length + column % t.length + 1;
                 }
                 this.caret.target(dl, column, true);
+                this.focus();
             }
         },
         getTextAtLine: function(line) {
@@ -1175,15 +1176,16 @@
             return this.document.lines() === 1 && !this.document.get(0).text;
         },
         getValue: function(withTabs) {
-            var self = this, r = []
-            , fn = withTabs
-            ? function(obj) { return obj.text; }
-            : function(obj) { return self.convertToSpaces(obj.text); };
+            var cp = this, r = []
+            , fn = withTabs ? returnTabbedText : returnSpacedText;
             
             this.document.each(function() {
-                r.push(fn(this));
+                r.push(fn(cp, this));
             });
             return r.join(this.getLineEnding());
+        },
+        createReadStream: function(withTabs) {
+            return new ReadStream(this, withTabs ? returnTabbedText : returnSpacedText);
         },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
@@ -3225,6 +3227,44 @@
         }
     }
     
+    ReadStream = function(cp, textWrapper) {
+        var rs = this, stack = []
+        , dl = cp.document.get(0)
+        , le = cp.getLineEnding(), fn;
+        
+        EventEmitter.call(this);
+        setImmediate(fn = function() {
+            var r = 25 + 50 * Math.random(), i = -1;
+            
+            while (dl && ++i < r) {
+                stack[i] = textWrapper(cp, dl);
+                dl = dl.next();
+            }
+            if (stack.length) {
+                rs.emit('data', stack.join(le));
+                stack.length = 0;
+                setImmediate(fn);
+            } else {
+                rs.emit('end');
+            }
+        });
+        return this;
+    }
+    
+    ReadStream.prototype = {
+        pipe: function(stream) {
+            if (stream) {
+                'function' === typeof stream.write && this.on('data', function(data) {
+                    stream.write(data);
+                });
+                'function' === typeof stream.end && this.on('end', function() {
+                    stream.end();
+                });
+            }
+            return this;
+        }
+    }
+    
     CodePrinter.Mode = function(extend) {
         this.name = 'plaintext';
         this.keyMap = {};
@@ -3942,6 +3982,12 @@
         cp.removeBeforeCursor(x + '\n' + y);
         cp.insertText(y + '\n' + x);
         cp.caret.restorePosition();
+    }
+    function returnTabbedText(cp, obj) {
+        return obj.text;
+    }
+    function returnSpacedText(cp, obj) {
+        return cp.convertToSpaces(obj.text);
     }
     function objNearProperty(obj, property, delta) {
         var keys = Object.keys(obj)
