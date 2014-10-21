@@ -3237,7 +3237,7 @@
             var r = 25 + 50 * Math.random(), i = -1;
             
             while (dl && ++i < r) {
-                stack[i] = textWrapper(cp, dl);
+                stack[stack.length] = textWrapper(cp, dl);
                 dl = dl.next();
             }
             if (stack.length) {
