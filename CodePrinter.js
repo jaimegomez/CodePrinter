@@ -666,20 +666,22 @@
         },
         setFontSize: function(size) {
             if ('number' === typeof size && this.options.minFontSize <= size && size <= this.options.maxFontSize) {
-                var i = 0;
+                var i = 0, doc = this.document;
+                this.emit('fontSize:change', size);
                 this.wrapper.style.fontSize = this.counter.style.fontSize = (this.options.fontSize = size) + 'px';
-                this.document.updateDefaultHeight();
+                doc.updateDefaultHeight();
                 
-                this.document.eachVisibleLines(function(dl) {
-                    ++i;
-                    updateLineHeight(dl, true);
-                });
-                if (i) {
-                    this.document.fill();
-                    this.document.showSelection();
-                    this.caret.refresh();
+                if (doc.initialized) {
+                    this.intervalIterate(function(dl) {
+                        doc.updateLineHeight(dl, true);
+                    }, function() {
+                        doc.updateHeight();
+                        doc.fill();
+                        doc.showSelection();
+                        this.caret.refresh();
+                        this.emit('fontSize:changed', size);
+                    });
                 }
-                this.emit('fontsize:changed', size);
             }
             return this;
         },
@@ -1975,7 +1977,8 @@
     }
     
     Document = function(cp) {
-        var ol = cp.counter.firstChild
+        var doc = this
+        , ol = cp.counter.firstChild
         , screen = cp.wrapper.lastChild
         , code = screen.firstChild
         , temp = screen.lastChild.firstChild
@@ -2025,7 +2028,7 @@
                 }
                 cp.parse(dl);
                 dl.touch();
-                updateLineHeight(dl);
+                doc.updateLineHeight(dl);
                 cp.emit('link', dl, index);
             }
         }
@@ -2077,6 +2080,7 @@
         
         this.init = function(source) {
             source = cp.convertToTabs(source || '');
+            this.initialized = true;
             data = new Data(cp);
             
             if (to !== -1) {
@@ -2368,6 +2372,26 @@
         }
         this.updateHeight = function() {
             screen.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
+        }
+        this.updateLineHeight = function(dl, force) {
+            if (force || dl.changed & 4) {
+                var oh, node = dl.node;
+                if (!node) {
+                    node = temp;
+                    node.innerHTML = dl.parsed || zws;
+                }
+                if (oh = node.offsetHeight) {
+                    var d = oh - dl.height;
+                    if (d) {
+                        if (dl.counter) dl.counter.style.lineHeight = oh + 'px';
+                        dl.height += d;
+                        dl.parent && dl.parent.resize(0, d);
+                    }
+                    dl.changed ^= 4;
+                    return oh;
+                }
+            }
+            return 0;
         }
         this.getDefaultLineHeight = function() {
             return defHeight;
@@ -3922,26 +3946,6 @@
         sp.textContent = sp.innerText = textnode.textContent;
         parent.replaceChild(sp, textnode);
         return sp;
-    }
-    function updateLineHeight(dl, force) {
-        if (force || dl.changed & 4) {
-            var oh, node = dl.node;
-            if (!node) {
-                node = temp;
-                node.innerHTML = dl.parsed || zws;
-            }
-            if (oh = node.offsetHeight) {
-                var d = oh - dl.height;
-                if (d) {
-                    if (dl.counter) dl.counter.style.lineHeight = oh + 'px';
-                    dl.height += d;
-                    dl.parent && dl.parent.resize(0, d);
-                }
-                dl.changed ^= 4;
-                return oh;
-            }
-        }
-        return 0;
     }
     function getStates(text, length) {
         var i = 0, cur, el = pre.cloneNode();
