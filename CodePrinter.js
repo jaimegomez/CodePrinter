@@ -3242,7 +3242,7 @@
             }
             if (stack.length) {
                 rs.emit('data', stack.join(le));
-                stack.length = 0;
+                stack = [''];
                 setImmediate(fn);
             } else {
                 rs.emit('end');
