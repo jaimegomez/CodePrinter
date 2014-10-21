@@ -3237,10 +3237,10 @@
             var r = 25 + 50 * Math.random(), i = -1;
             
             while (dl && ++i < r) {
-                stack[stack.length] = textWrapper(cp, dl);
+                stack.push(textWrapper(cp, dl));
                 dl = dl.next();
             }
-            if (stack.length) {
+            if (i >= 0) {
                 rs.emit('data', stack.join(le));
                 stack = [''];
                 setImmediate(fn);
