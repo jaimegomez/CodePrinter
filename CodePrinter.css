@@ -143,10 +143,12 @@
   user-select: none;
   display: inline-block;
   vertical-align: top;
+  min-width: 100%;
   height: 100%;
   border-width: 0;
   color: inherit;
   overflow: visible;
+  position: absolute;
 }
 .codeprinter .cp-screen pre {
   margin: 0 -10px;

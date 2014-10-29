@@ -113,7 +113,6 @@
             this.mainElement.CodePrinter = this;
             sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
             this.definitions = {};
-            this.overlays = [];
             this.snippets = [];
             doc = this.document = new Document(this);
             this.keyMap = new keyMap;
@@ -280,7 +279,7 @@
                     } else {
                         self.caret.blur();
                         self.mainElement.addClass('inactive');
-                        self.removeOverlays('blur');
+                        doc.removeOverlays('blur');
                         if (options.abortSelectionOnBlur) doc.clearSelection();
                     }
                 },
@@ -419,7 +418,7 @@
                             self.highlightOverlay.remove();
                         }
                     }
-                    self.removeOverlays('caret');
+                    doc.removeOverlays('caret');
                 }
             });
             
@@ -1192,7 +1191,7 @@
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
             var self = this, args = arguments
-            , overlay = this.highlightOverlay = new CodePrinter.Overlay(this, 'cp-highlight-overlay', false);
+            , overlay = this.highlightOverlay = new CodePrinter.Overlay(this.document, 'cp-highlight-overlay', false);
             overlay.on('refresh', function(a) { /^(blur|changed)$/.test(a) && overlay.remove(); });
             for (var i = 0; i < arguments.length; i++) {
                 var dl = this.document.get(arguments[i][0]), pos;
@@ -1224,7 +1223,7 @@
                     }
                     
                     if (!(search.overlay instanceof CodePrinter.Overlay)) {
-                        search.overlay = new CodePrinter.Overlay(this, 'cp-search-overlay', false);
+                        search.overlay = new CodePrinter.Overlay(this.document, 'cp-search-overlay', false);
                         search.mute = false;
                         
                         search.overlay.on({
@@ -1534,17 +1533,6 @@
         },
         closeCounter: function() {
             this.counter.addClass('hidden');
-        },
-        removeOverlays: function() {
-            if (this.overlays) {
-                for (var i = 0; i < this.overlays.length; i++) {
-                    if (this.overlays[i].isRemovable) {
-                        this.overlays[i].remove();
-                    } else {
-                        this.overlays[i].emit('refresh', Array.apply(null, arguments));
-                    }
-                }
-            }
         },
         convertToSpaces: function(text) {
             return text.replace(/\t/g, Array(this.options.tabWidth+1).join(' ')).replace(/\r/g, '');
@@ -1987,8 +1975,10 @@
         , data, history, selection;
         
         EventEmitter.call(this);
+        doc.screen = screen;
+        doc.overlays = [];
         history = new History(cp, cp.options.historyStackSize, cp.options.historyDelay);
-        selection = new Selection(cp);
+        selection = new Selection(doc);
         
         firstNumber = cp.options.firstLineNumber;
         if (cp.options.lineNumberFormatter instanceof Function) {
@@ -2565,6 +2555,16 @@
             selection.clear();
             cp.select(cp.caret.dl());
         }
+        this.removeOverlays = function() {
+            var ov = this.overlays;
+            for (var i = 0; i < ov.length; i++) {
+                if (ov[i].isRemovable) {
+                    ov[i].remove();
+                } else {
+                    ov[i].emit('refresh', Array.apply(null, arguments));
+                }
+            }
+        }
         this.undo = function() {
             if (history.index >= 0 && history.index <= history.states.length && history.states.length) {
                 history.timeout = clearTimeout(history.timeout);
@@ -2633,7 +2633,7 @@
                 history.pushChanges(e.line, e.column, cp.convertToTabs(e.text), e.added);
             }
             Array.prototype.unshift.call(arguments, 'changed');
-            cp.removeOverlays.apply(cp, arguments);
+            doc.removeOverlays.apply(doc, arguments);
         });
         return this;
     }
@@ -2813,7 +2813,7 @@
             return this.position(mv, column);
         }
         this.refresh = function() {
-            cp.removeOverlays(null);
+            cp.document.removeOverlays(null);
             return this.position(line || 0, column || 0);
         }
         this.dl = function() {
@@ -2905,23 +2905,23 @@
         }
     }
     
-    CodePrinter.Overlay = function(cp, classes, removable) {
+    CodePrinter.Overlay = function(doc, classes, removable) {
         this.node = div.cloneNode().addClass('cp-overlay '+classes);
         this.isRemovable = !!removable;
-        this.root = cp;
+        this.doc = doc;
         return this;
     }
     CodePrinter.Overlay.prototype = {
         reveal: function() {
             if (!this.node.parentNode) {
-                this.root.overlays.push(this);
-                this.root.wrapper.append(this.node);
+                this.doc.overlays.push(this);
+                this.doc.screen.append(this.node);
                 this.emit('revealed');
             }
         },
         remove: function() {
-            var i = this.root.overlays.indexOf(this);
-            i != -1 && this.root.overlays.splice(i, 1);
+            var i = this.doc.overlays.indexOf(this);
+            i != -1 && this.doc.overlays.splice(i, 1);
             this.node.remove();
             this.emit('removed');
         },
@@ -3713,7 +3713,7 @@
         }
     }
     
-    Selection = function(cp) {
+    Selection = function(doc) {
         var coords = [], make = function() {
             if (coords.length == 2 && (coords[1][0] < coords[0][0] || coords[0][0] === coords[1][0] && coords[1][1] < coords[0][1])) {
                 this.start = { line: coords[1][0], column: coords[1][1] }
@@ -3724,7 +3724,7 @@
             }
             this.emit('done', this.start, this.end);
         }
-        this.overlay = new CodePrinter.Overlay(cp, 'cp-selection-overlay', false);
+        this.overlay = new CodePrinter.Overlay(doc, 'cp-selection-overlay', false);
         
         this.clear = function() {
             this.overlay.remove();
