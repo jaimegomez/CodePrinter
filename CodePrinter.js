@@ -4019,7 +4019,9 @@
                 ++j;
             }
             if (startflag && ln + i === 0) break;
-            text = text.substr(ln += (i + match.length) || 1);
+            var d = (i + match.length) || 1;
+            ln += d;
+            text = text.substr(d);
         }
         return j;
     }
