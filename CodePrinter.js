@@ -2649,13 +2649,13 @@
                 return css;
             },
             underline: function(css) {
-                css.width = lastdet.charWidth;
+                css.width = lastdet.charWidth || currentDL.height/2;
                 css.height = 1;
                 css.top += currentDL.height - 1;
                 return css;
             },
             block: function(css) {
-                css.width = lastdet.charWidth;
+                css.width = lastdet.charWidth || currentDL.height/2;
                 css.height = currentDL.height;
                 return css;
             }
