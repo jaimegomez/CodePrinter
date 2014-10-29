@@ -14,8 +14,9 @@ And then create a CodePrinter object
 ```javascript
 var cp = new CodePrinter();
 // and add a node to the DOM structure
-cp.appendTo(document.body); // is equals to document.body.appendChild(cp.mainElement)
+cp.appendTo(document.body);
+// is equals to document.body.appendChild(cp.mainElement)
 ```
 
-The constructor allows you to enter the source code as a first argument. It could be a String or HTMLElement (like textarea). You can also specify custom options by providing the next argument (an object) which will overwrite the default settings. 
+The constructor allows you to enter the source code as a first argument. It could be a `String` or `HTMLElement` (like textarea). You can also specify custom options by providing the next argument (an object) which will overwrite the default settings. 
 More information will soon be found on the [Wiki](https://github.com/tsapeta/CodePrinter/wiki).
