@@ -1,33 +1,35 @@
 /* CodePrinter - Eclipse theme */
 
-.cps-eclipse .cp-wrapper { background:#FFFFFF; color:#000000; }
-.cps-eclipse .cp-counter,
-.cps-eclipse .cpi-bar { background:#FFFFFF; border-color:#AAAAAA; color:#000000; box-shadow:0 0 4px rgba(0,0,0,0.3); }
+.cps-eclipse .cp-wrapper { background:#FFFFFF; color:#333; }
+.cps-eclipse .cp-counter { background:#FFFFFF; border-color:#AAAAAA; color:#000000; box-shadow:0 0 5px rgba(0,0,0,0.1); }
 .cps-eclipse .cp-caret { background:#000000; box-shadow:0 0 2px rgba(0,0,0,0.5); }
 .cps-eclipse .cp-selection { background:#C8D2DE; }
 .cps-eclipse .cp-highlight { border-bottom:1px solid black; }
-.cps-eclipse .cp-activeLine { background:rgba(0,0,255,0.2); box-shadow:none; }
 .cps-eclipse .cp-search-occurrence { border-color:#AAAAAA; }
-.cps-eclipse .cp-search-occurrence.active { background:white; border-color:black; }
+.cps-eclipse .cp-search-occurrence.active { background:white; border-color:black; color:black; box-shadow:0 0 5px rgba(0,0,0,0.1); }
 
 .cps-eclipse .cpx-tab { border-color:#D8D8D8; }
 .cps-eclipse .cpx-bracket { color:#000000; }
 .cps-eclipse .cpx-operator { color:#0000FF; }
+.cps-eclipse .cpx-keyword { color:#7F0055; }
+.cps-eclipse .cpx-control { color:#7F0055; }
+.cps-eclipse .cpx-special { color:#0000C0; }
+.cps-eclipse .cpx-variable { color:#000000; }
+.cps-eclipse .cpx-parameter { color:#408080; }
+.cps-eclipse .cpx-constant { color:#552200; }
+.cps-eclipse .cpx-builtin { color:#0000C0; }
+.cps-eclipse .cpx-directives { color:#990000; }
+.cps-eclipse .cpx-numeric { color:#FF0000; }
+.cps-eclipse .cpx-function { color:#000000; }
+.cps-eclipse .cpx-property { color:#000000; }
+.cps-eclipse .cpx-regexp { color:#FF9869; }
+.cps-eclipse .cpx-escaped { color:#7CA5D5; }
+.cps-eclipse .cpx-external { color:#FF0000; }
+.cps-eclipse .cpx-string { color:#A60000; }
+.cps-eclipse .cpx-comment { color:#557F5F; }
+.cps-eclipse .cpx-invalid { background:#A60000; }
+
 .cps-eclipse .cpx-keyword,
-.cps-eclipse .cpx-control,
-.cps-eclipse .cpx-boolean,
-.cps-eclipse .cpx-special { color:#7F0055; font-weight:bold; }
-.cps-eclipse .cpx-variable { color:#000099; font-style:italic; }
-.cps-eclipse .cpx-empty-value { color:#AF0000; }
+.cps-eclipse .cpx-control { font-weight:bold; }
+
 .cps-eclipse .cpx-special { font-style:italic; }
-.cps-eclipse .cpx-special.cpx-doctype { color:#006600; font-style:normal; font-weight:normal; }
-.cps-eclipse .cpx-numeric { color:#557F5F; font-weight:bold; }
-.cps-eclipse .cpx-hex { color:#990099; font-weight:normal; }
-.cps-eclipse .cpx-function { color:#006600; }
-.cps-eclipse .cpx-property { color:#006600; }
-.cps-eclipse .cpx-regexp { color:#FF0000; }
-.cps-eclipse .cpx-escaped { color:#990099; }
-.cps-eclipse .cpx-phptag { color:#000000; }
-.cps-eclipse .cpx-string { color:#0000C0; }
-.cps-eclipse .cpx-comment { color:#3F5FD1; }
-.cps-eclipse .cpx-line-comment { color:#637F5F; }

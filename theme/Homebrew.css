@@ -1,14 +1,13 @@
 /* CodePrinter - Homebrew theme */
 
 .cps-homebrew .cp-wrapper { background:#000000; color:#00FF00; }
-.cps-homebrew .cp-counter,
-.cps-homebrew .cpi-bar { background:#000000; border-color:#666666; color:#00FF00; }
-.cps-homebrew .cp-caret { background:#00FF00; box-shadow:0 0 2px rgba(0,0,0,0.5); }
+.cps-homebrew .cp-counter { background:#000000; border-color:#666666; color:#00FF00; }
+.cps-homebrew .cp-caret { background:#00FF00; box-shadow:0 0 2px rgba(255,255,255,0.6); }
 .cps-homebrew .cp-selection { background:#666666; }
 .cps-homebrew .cp-highlight { border-bottom:1px solid #00FF00; }
-.cps-homebrew .cp-activeLine { background:rgba(255,255,255,0.2); }
-.cps-homebrew .cp-search-occurrence { border-color:#777777; }
-.cps-homebrew .cp-search-occurrence.active { background:white; border-width:0; }
+.cps-homebrew .cp-active-line { background:rgba(255,255,255,0.2); }
+.cps-homebrew .cp-search-occurrence { border-color:#999; }
+.cps-homebrew .cp-search-occurrence.active { background:#00FF00; border-color:transparent; color:black; }
 
 .cps-homebrew .cpx-tab { border-color:#666666; }
 .cps-homebrew .cp-codelines span { color:#00FF00 !important; }

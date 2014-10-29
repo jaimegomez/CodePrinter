@@ -1,0 +1,37 @@
+/* CodePrinter - Abstraction theme */
+
+.cps-abstraction .cp-wrapper { background:#131312; color:#888981; }
+.cps-abstraction .cp-counter { background:#131312; color:#888981; border-color:#454642; }
+.cps-abstraction .cp-caret { background:#d8d9da; }
+.cps-abstraction .cp-selection { background:#2e2e2b; }
+.cps-abstraction.inactive .cp-selection { background:#222; }
+.cps-abstraction .cp-highlight { border-bottom:1px solid #d8d9da; }
+.cps-abstraction .cp-active-line { background:#2e2e2b; }
+.cps-abstraction .cp-search-occurrence { border-color:#888981; }
+.cps-abstraction .cp-search-occurrence.active { background:#6bcea5; color:#2e2e2b; border-color:transparent; }
+
+.cps-abstraction .cpx-tab { border-color:#454642; }
+.cps-abstraction .cpx-bracket { color:#888981; }
+.cps-abstraction .cpx-operator { color:#c5c7c3; }
+.cps-abstraction .cpx-keyword { color:#1badc4; }
+.cps-abstraction .cpx-control { color:#1badc4; }
+.cps-abstraction .cpx-special { color:#aa95f4; }
+.cps-abstraction .cpx-variable { color:#6bcea5; }
+.cps-abstraction .cpx-parameter { color:#53aabc; }
+.cps-abstraction .cpx-constant { color:#e6abc2; }
+.cps-abstraction .cpx-builtin { color:#e6abc2; }
+.cps-abstraction .cpx-namespace { color:#c57a34; }
+.cps-abstraction .cpx-numeric { color:#71e4b6; }
+.cps-abstraction .cpx-function { color:#e78d56; }
+.cps-abstraction .cpx-property { color:#e78d56; }
+.cps-abstraction .cpx-regexp { color:#a0ca9e; }
+.cps-abstraction .cpx-escaped { color:#e75656; }
+.cps-abstraction .cpx-external { color:#888981; }
+.cps-abstraction .cpx-string { color:#53aabc; }
+.cps-abstraction .cpx-comment { color:#454642; }
+.cps-abstraction .cpx-invalid { background:#e75656; }
+
+.cps-abstraction .cpx-control,
+.cps-abstraction .cpx-external { font-weight:bold; }
+
+.cps-abstraction .cpx-comment { font-style:italic; }

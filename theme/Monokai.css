@@ -1,0 +1,36 @@
+/* CodePrinter - Monokai theme */
+
+.cps-monokai .cp-wrapper,
+.cps-monokai .cp-source { background:#272822; color:#F9FAF4; }
+.cps-monokai .cp-counter { background:#272822; border-color:#555; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.7); }
+.cps-monokai .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
+.cps-monokai .cp-selection { background:rgba(255,255,255,0.15); }
+.cps-monokai.inactive .cp-selection { background:rgba(255,255,255,0.1); }
+.cps-monokai .cp-highlight { border-bottom:1px solid white; }
+.cps-monokai .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
+.cps-monokai .cp-search-occurrence { border:1px solid #999; margin:0; }
+.cps-monokai .cp-search-occurrence.active { background:#fdd017; border-color:#fdd017; color:#333; }
+
+.cps-monokai .cpx-tab { border-color:#6A6A6A; }
+.cps-monokai .cpx-bracket { color:#F9FAF4; }
+.cps-monokai .cpx-operator { color:#FF007F; }
+.cps-monokai .cpx-keyword { color:#FF007F; }
+.cps-monokai .cpx-control { color:#FF007F; }
+.cps-monokai .cpx-variable { color:#FFFFFF; }
+.cps-monokai .cpx-parameter { color:#FF9919; }
+.cps-monokai .cpx-builtin { color:#888DFF; }
+.cps-monokai .cpx-constant { color:#CFBFAD; }
+.cps-monokai .cpx-special { color:#52E3F6; }
+.cps-monokai .cpx-namespace { color:#BFA4A4; }
+.cps-monokai .cpx-numeric { color:#C48CFF; }
+.cps-monokai .cpx-hex { color:#888DFF; }
+.cps-monokai .cpx-function { color:#B2DA16; }
+.cps-monokai .cpx-property { color:#B2DA16; }
+.cps-monokai .cpx-regexp { color:#E0D670; }
+.cps-monokai .cpx-escaped { color:#888DFF; }
+.cps-monokai .cpx-external { color:#FFFFFF; }
+.cps-monokai .cpx-string { color:#E0D670; }
+.cps-monokai .cpx-comment { color:#75705D; }
+
+.cps-monokai .cpx-variable,
+.cps-monokai .cpx-special { font-style:italic; }
