@@ -91,6 +91,7 @@ CodePrinter.defineMode('Java', function() {
                             memory.classes.put(found);
                         }
                     } else if (stream.isAfter('(')) {
+                        if (stream.isBefore(/\bp(ublic|rotected|rivate)\b/)) stream.isDefinition = true;
                         stream.wrap('function');
                     }
                 } else if (found.length == 1) {
