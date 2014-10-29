@@ -119,7 +119,7 @@
             this.setTheme(options.theme);
             this.setMode(options.mode);
             
-            options.lineNumbers && this.openCounter();
+            options.lineNumbers ? this.openCounter() : this.closeCounter();
             options.drawIndentGuides || this.mainElement.addClass('without-indentation');
             options.readOnly && this.caret.disable();
             options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
