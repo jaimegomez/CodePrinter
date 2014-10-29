@@ -73,7 +73,7 @@
         autofocus: true,
         abortSelectionOnBlur: false,
         readOnly: false,
-        showIndentation: true,
+        drawIndentGuides: true,
         tracking: true,
         history: true,
         highlightBrackets: true,
@@ -120,7 +120,7 @@
             this.setMode(options.mode);
             
             options.lineNumbers && this.openCounter();
-            options.showIndentation || this.mainElement.addClass('without-indentation');
+            options.drawIndentGuides || this.mainElement.addClass('without-indentation');
             options.readOnly && this.caret.disable();
             options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
@@ -705,11 +705,11 @@
             return this;
         },
         showIndentation: function() {
-            this.options.showIndentation = true;
+            this.options.drawIndentGuides = true;
             this.mainElement.removeClass('without-indentation');
         },
         hideIndentation: function() {
-            this.options.showIndentation = false;
+            this.options.drawIndentGuides = false;
             this.mainElement.addClass('without-indentation');
         },
         getLineEnding: function() {
