@@ -3849,7 +3849,9 @@
         'sh': 'bash',
         'adb': 'ada',
         'coffee': 'coffeescript',
-        'md': 'markdown'
+        'md': 'markdown',
+        'svg': 'xml',
+        'plist': 'xml'
     }
     
     CodePrinter.requireMode = function(req, cb, del) {
