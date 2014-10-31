@@ -2,7 +2,9 @@
 
 CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) {
     var selfClosingTagsRgx = /^(area|base|br|c(ol|ommand)|embed|hr|i(mg|nput)|keygen|link|meta|param|source|track|wbr)$/i
-    , matchTagNameRgx = /<\s*(\w+)\s*[^>]*>?$/;
+    , matchTagNameRgx = /<\s*(\w+)\s*[^>]*>?$/
+    , isOpenTag = /<[^\/!][^<>]+[^\/\s]\s*>$/
+    , isCloseTag = /^<\//;
     
     return new CodePrinter.Mode({
         name: 'HTML',
@@ -48,7 +50,7 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
                             if (found === '<') {
                                 break;
                             }
-                            if (/^\w+$/.test(found)) {
+                            if (/^[\w\-]+$/.test(found)) {
                                 stream.wrap('property', found);
                             } else if (found === '=') {
                                 stream.wrap('operator', 'equal');
@@ -96,8 +98,8 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
             return stream;
         },
         indentation: function(textBefore, textAfter, line, indent, parser) {
-            var isOpenTagBefore = /<[^\/!][^<>]+[^\/]>$/.test(textBefore)
-            , isCloseTagAfter = /^<\//.test(textAfter);
+            var isOpenTagBefore = isOpenTag.test(textBefore)
+            , isCloseTagAfter = isCloseTag.test(textAfter);
             if (isOpenTagBefore) {
                 var tag = (textBefore.match(matchTagNameRgx) || [])[0];
                 if (tag && !selfClosingTagsRgx.test(tag)) {
