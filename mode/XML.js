@@ -6,7 +6,7 @@ CodePrinter.defineMode('XML', function() {
     , isCloseTag = /^<\//;
     
     return new CodePrinter.Mode({
-        mainRegExp: /<!--|<(\?|\/?)(?=\w+)|<!|&[^;]+;/,
+        mainRegExp: /<!--|<(\?|\/?|!)|&[^;]+;/,
         innerTagRegExp: /[a-z\-]+|=|"|'|\/?\s*>|</i,
         blockCommentStart: '<!--',
         blockCommentEnd: '-->',
@@ -45,13 +45,13 @@ CodePrinter.defineMode('XML', function() {
                         stream.eatGreedily(found, '>').wrap(state);
                         stream.isStillHungry() && stream.setStateAfter(state);
                     } else {
-                        stream.wrap('bracket', 'bracket-angle');
+                        var bracket = stream.wrap('bracket', 'bracket-angle');
                         
                         if (found = stream.match(/^[a-z\-\:\.]+/i)) {
                             stream.wrap('keyword');
                             this.innerTagParse(stream);
                         } else {
-                            stream.wrap('invalid');
+                            bracket.unwrap().wrap('invalid');
                         }
                     }
                 } else if (found[0] === '&') {
