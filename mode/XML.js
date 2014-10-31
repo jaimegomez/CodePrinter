@@ -99,7 +99,7 @@ CodePrinter.defineMode('XML', function() {
                     var bf = this.caret.textBefore()
                     , m = bf.match(matchTagNameRgx);
                     
-                    if (m && m[1] && bf[bf.length-1] !== '>') {
+                    if (m && m[1] && !/(\/\s*|>)$/.test(bf)) {
                         var z = m[1].trim();
                         if (z[z.length-1] !== '/') {
                             this.insertText('></'+m[1]+'>', -m[1].length - 3);
