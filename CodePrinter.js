@@ -1278,6 +1278,7 @@
                         if (this.searches.value !== find) return false;
                         j += searchOverLine.call(cp, escape, dl, line, offset);
                     }, function(index, last) {
+                        var sl = this.wrapper.scrollLeft;
                         search.overlay.node.innerHTML = '';
                         if (last !== false) {
                             if (j) {
@@ -1285,7 +1286,7 @@
                                     for (var k in results) {
                                         if (results[k].length) {
                                             search.active = results[k][0];
-                                            this.document.scrollTo(results[k][0].offset - this.wrapper.offsetHeight/2);
+                                            scroll !== false && this.document.scrollTo(results[k][0].offset - this.wrapper.offsetHeight/2);
                                             break;
                                         }
                                     }
@@ -1294,6 +1295,7 @@
                             }
                             search.length = j;
                             search.overlay.reveal();
+                            this.wrapper.scrollLeft = sl;
                             this.emit('search:completed', find, j);
                         }
                     });
@@ -1332,7 +1334,9 @@
                     }
                 }
                 if (newActive) {
-                    this.document.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
+                    if (newActive.offset < this.wrapper.scrollHeight || newActive.offset > this.wrapper.scrollHeight + this.wrapper.offsetHeight) {
+                        this.document.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
+                    }
                     (search.active = newActive).node.addClass('active');
                 } else {
                     search.active = undefined;
@@ -1986,7 +1990,7 @@
         }
         
         function desiredHeight(half) {
-            return (cp.wrapper.clientHeight || cp.options.height) + cp.options.viewportMargin * (half ? 1 : 2);
+            return (cp.body.offsetHeight || cp.options.height) + cp.options.viewportMargin * (half ? 1 : 2);
         }
         function isFilled(half) {
             return (code.scrollHeight || heightOfLines()) > desiredHeight(half);
@@ -2915,7 +2919,7 @@
         reveal: function() {
             if (!this.node.parentNode) {
                 this.doc.overlays.push(this);
-                this.doc.screen.append(this.node);
+                this.doc.screen.appendChild(this.node);
                 this.emit('revealed');
             }
         },
@@ -3909,7 +3913,8 @@
         return function(cp) {
             cp.caret = new Caret(cp);
             cp.mainElement = m.cloneNode(true);
-            cp.container = cp.mainElement.firstChild.lastChild;
+            cp.body = cp.mainElement.firstChild;
+            cp.container = cp.body.lastChild;
             cp.input = cp.container.firstChild;
             cp.input.tabIndex = cp.options.tabIndex;
             cp.input.autofocus = cp.options.autofocus;
