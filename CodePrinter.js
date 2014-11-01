@@ -81,6 +81,7 @@
         blinkCaret: true,
         autoScroll: true,
         autoIndent: true,
+        indentByTabs: false,
         insertClosingBrackets: true,
         insertClosingQuotes: true,
         useParserKeyMap: true,
@@ -1176,17 +1177,17 @@
         isEmpty: function() {
             return this.document.lines() === 1 && !this.document.get(0).text;
         },
-        getValue: function(withTabs) {
+        getValue: function() {
             var cp = this, r = []
-            , fn = withTabs ? returnTabbedText : returnSpacedText;
+            , fn = this.options.indentByTabs ? returnTabbedText : returnSpacedText;
             
             this.document.each(function() {
                 r.push(fn(cp, this));
             });
             return r.join(this.getLineEnding());
         },
-        createReadStream: function(withTabs) {
-            return new ReadStream(this, withTabs ? returnTabbedText : returnSpacedText);
+        createReadStream: function() {
+            return new ReadStream(this, this.options.indentByTabs ? returnTabbedText : returnSpacedText);
         },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
