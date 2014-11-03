@@ -737,6 +737,9 @@
         },
         getTextAtLine: function(line) {
             var dl = this.document.get(line < 0 ? this.document.lines() + line : line);
+            return this.textOf(dl);
+        },
+        textOf: function(dl) {
             return dl ? this.convertToSpaces(dl.text) : '';
         },
         getIndentAtLine: function(line, dl) {
@@ -748,9 +751,15 @@
             }
             return 0;
         },
-        setIndentAtLine: function(line, indent) {
+        setIndentAtLine: function(line, indent, dl) {
             indent = Math.max(0, indent);
-            var dl = this.document.get(line), old, diff;
+            var old, diff;
+            if (line instanceof Line) {
+                dl = line;
+                line = dl.info().index;
+            } else if ('number' === typeof line) {
+                dl = dl || this.document.get(line);
+            }
             if (dl) {
                 old = this.getIndentAtLine(old, dl);
                 diff = indent - old;
@@ -758,6 +767,7 @@
                 this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
                 this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
             }
+            return indent;
         },
         indent: function(line) {
             var range;
@@ -808,10 +818,7 @@
         },
         getNextLineIndent: function(line) {
             var indent = this.getIndentAtLine(line);
-            if (this.parser.indentation) {
-                var i = this.parser.indentation.call(this, this.getTextAtLine(line).trim(), '', line, indent, this.parser);
-                return indent + (i instanceof Array ? i.shift() : parseInt(i) || 0);
-            }
+            return nextLineIndent(this, indent, line);
         },
         toggleComment: function() {
             if (this.parser && this.parser.lineComment) {
@@ -4014,6 +4021,15 @@
             else r = m;
         }
         return l;
+    }
+    function nextLineIndent(cp, indent, line, dl) {
+        var parser = cp.parser;
+        if (arguments.length < 4) dl = cp.document.get(line);
+        if (parser && parser.indentation) {
+            var i = parser.indentation.call(cp, cp.textOf(dl).trim(), '', line, indent, parser);
+            return indent + (i instanceof Array ? i.shift() : parseInt(i) || 0);
+        }
+        return indent;
     }
     function searchOverLine(find, dl, line, offset) {
         var results = this.searches.results
