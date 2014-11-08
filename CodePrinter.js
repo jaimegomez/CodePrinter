@@ -19,7 +19,7 @@
     , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 40
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
-    , setImmediate = window.global && window.global.setImmediate || window.setImmediate || function(fn) { return setTimeout(fn, 1); }
+    , imsg = 'immediateMessage', timeouts = []
     , activeClassName = 'cp-active-line'
     , markClassName = 'cp-marked'
     , zws = '&#8203;';
@@ -4071,6 +4071,21 @@
             this.wrapper.scrollLeft = rect.offset - this.wrapper.clientWidth / 2;
         }
     }
+    
+    function setImmediate(fn) {
+        timeouts.push(fn);
+        window.postMessage(imsg, '*');
+    }
+    
+    window.addEventListener('message', function(e) {
+        if (e.source == window && e.data === imsg) {
+            e.stopPropagation();
+            if (timeouts.length > 0) {
+                var fn = timeouts.shift();
+                fn();
+            }
+        }
+    });
     
     return window.CodePrinter = CodePrinter;
 });
