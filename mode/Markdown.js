@@ -1,6 +1,7 @@
 /* CodePrinter - Markdown Mode */
 
 CodePrinter.defineMode('Markdown', function() {
+    var listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/;
     
     return new CodePrinter.Mode({
         regexp: /([\~\*\_]){1,2}|\`+|!?\[(.*)\]\((.*)\)/,
@@ -22,10 +23,6 @@ CodePrinter.defineMode('Markdown', function() {
                 stream.wrap('string', 'blockquote');
             } else if (/^(\-+\s+){2,}\-+$/.test(trim) || /^(\*+\s+){2,}\*+$/.test(trim)) {
                 stream.wrap('escaped', 'horizontal-rule');
-            } else if (/^\s*\d+\.\s/.test(line)) {
-                stream.wrap('numeric', 'ordered-list');
-            } else if (/^[\*\+\-]\s/.test(trim)) {
-                stream.wrap('numeric', 'hex', 'unordered-list');
             } else if (/^(\#+)/.test(trim)) {
                 var c = Math.max(4, 16 - RegExp.$1.length);
                 stream.wrap('namespace', 'header', 'font-'+c+'0');
@@ -35,6 +32,15 @@ CodePrinter.defineMode('Markdown', function() {
                 stream.wrap('namespace', 'header');
             } else {
                 stream.reset();
+                
+                if (found = stream.match(listsRegexp)) {
+                    var sign = RegExp.$1, eaten = stream.eat(sign);
+                    if (isNaN(sign)) {
+                        eaten.wrap('numeric', 'hex', 'unordered-list');
+                    } else {
+                        eaten.wrap('numeric', 'ordered-list');
+                    }
+                }
                 
                 while (found = stream.match(this.regexp)) {
                     if (found[0] === '!' || found[0] === '[') {
