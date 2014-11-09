@@ -66,7 +66,7 @@
         scrollSpeed: 1,
         autoScrollSpeed: 20,
         historyStackSize: 100,
-        historyDelay: 500,
+        historyDelay: 1000,
         firstLineNumber: 1,
         lineNumbers: true,
         lineNumberFormatter: false,
@@ -1989,7 +1989,7 @@
         EventEmitter.call(this);
         doc.screen = screen;
         doc.overlays = [];
-        history = new History(cp, cp.options.historyStackSize, cp.options.historyDelay);
+        history = new History(cp, doc, cp.options.historyStackSize, cp.options.historyDelay);
         selection = new Selection(doc);
         
         firstNumber = cp.options.firstLineNumber;
@@ -2089,7 +2089,6 @@
                 clear();
                 this.clearSelection();
             }
-            history.init(source);
             source = source.split('\n');
             
             for (var i = 0; i < source.length; i++) {
@@ -2578,49 +2577,16 @@
             }
         }
         this.undo = function() {
-            if (history.index >= 0 && history.index <= history.states.length && history.states.length) {
-                history.timeout = clearTimeout(history.timeout);
-                (!history.states[history.index] || !history.states[history.index].length) && --history.index;
-                history.mute();
-                var state = history.states[history.index];
-                selection.clear();
-                for (var i = state.length - 1; i >= 0; i--) {
-                    var a = state[i], dl = data.get(a.line)
-                    , t = dl.text.substring(0, a.column);
-                    
-                    cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true);
-                    if (a.added) {
-                        cp.removeAfterCursor(a.text);
-                    } else {
-                        cp.insertText(a.text);
-                    }
-                }
-                history.emit('undo', history.states[history.index--]).unmute();
-                history.performed = true;
-            }
+            history.undo();
         }
         this.redo = function() {
-            history.index < 0 && (history.index = 0);
-            if (history.index < history.states.length) {
-                history.timeout = clearTimeout(history.timeout);
-                history.mute();
-                var state = history.states[history.index];
-                selection.clear();
-                for (var i = 0; i < state.length; i++) {
-                    var a = state[i], dl = data.get(a.line)
-                    , t = dl.text.substring(0, a.column);
-                    
-                    cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true).savePosition();
-                    if (a.added) {
-                        cp.insertText(a.text);
-                    } else {
-                        cp.removeAfterCursor(a.text);
-                    }
-                }
-                cp.caret.restorePosition();
-                history.emit('redo', history.states[history.index++]).unmute();
-                history.performed = true;
-            }
+            history.redo();
+        }
+        this.getHistory = function(stringify) {
+            return history.getStates(stringify);
+        }
+        this.clearHistory = function() {
+            history.clear();
         }
         this.each = function() {
             return data.foreach.apply(data, arguments);
@@ -3656,24 +3622,75 @@
         }
     }
     
-    History = function(cp, stackSize, delay) {
-        this.pushChanges = function(line, column, text, added) {
-            if (!this.muted && arguments.length == 4) {
-                var self = this
-                , changes = { line: line, column: column, text: text, added: added };
-                
-                if (this.index < this.states.length - 1) {
-                    ++this.index;
-                    this.states.splice(this.index, this.states.length - this.index);
-                }
-                if (this.performed) {
-                    this.states = [];
-                    this.performed = false;
-                }
-                if (!this.states[this.index]) {
-                    this.states[this.index] = [changes];
+    History = function(cp, doc, stackSize, delay) {
+        var states, initialState
+        , index, timeout, muted, performed;
+        
+        this.undo = function() {
+            if (0 <= index && index <= states.length && states.length) {
+                var state;
+                muted = true;
+                if (timeout == null) {
+                    state = states[--index];
                 } else {
-                    var last = this.states[this.index].last(), b = false;
+                    timeout = clearTimeout(timeout);
+                    state = states[index];
+                }
+                doc.clearSelection();
+                if (state) {
+                    for (var i = state.length - 1; i >= 0; i--) {
+                        var a = state[i], dl = doc.get(a.line)
+                        , t = dl.text.substring(0, a.column);
+                        
+                        cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true);
+                        if (a.added) {
+                            cp.removeAfterCursor(a.text);
+                        } else {
+                            cp.insertText(a.text);
+                        }
+                    }
+                    this.emit('undo', state);
+                    muted = false;
+                    performed = true;
+                }
+            }
+        }
+        this.redo = function() {
+            if (index < 0) index = 0;
+            if (index < states.length) {
+                timeout = clearTimeout(timeout);
+                muted = true;
+                var state = states[index];
+                doc.clearSelection();
+                if (state) {
+                    for (var i = 0; i < state.length; i++) {
+                        var a = state[i], dl = doc.get(a.line)
+                        , t = dl.text.substring(0, a.column);
+                        
+                        cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true);
+                        if (a.added) {
+                            cp.insertText(a.text);
+                        } else {
+                            cp.removeAfterCursor(a.text);
+                        }
+                    }
+                    this.emit('redo', state);
+                    ++index;
+                    muted = false;
+                    performed = true;
+                }
+            }
+        }
+        this.pushChanges = function(line, column, text, added) {
+            if (!muted && arguments.length == 4) {
+                if (performed && index < states.length) {
+                    states.splice(index, states.length - index);
+                }
+                performed = false;
+                if (!states[index]) {
+                    states[index] = [{ line: line, column: column, text: text, added: added }];
+                } else {
+                    var last = states[index].last(), b = false;
                     if (last.line == line && added == last.added) {
                         if (b = (last.column + (added ? last.text.length : '') == column)) {
                             last.text += text;
@@ -3682,47 +3699,38 @@
                             last.column = column;
                         }
                     }
-                    !b && this.states[this.index].push(changes);
+                    !b && states[index].push({ line: line, column: column, text: text, added: added });
                 }
-                this.timeout = clearTimeout(this.timeout) || setTimeout(function() {
-                    self.save();
-                }, delay);
+                timeout = clearTimeout(timeout) || setTimeout(this.save, delay);
             }
             return this;
         }
         this.save = function() {
-            ++this.index;
-            while (this.states.length >= stackSize) {
-                this.shift();
+            timeout = null;
+            ++index;
+            while (states.length >= stackSize) {
+                shift();
             }
-            return this;
         }
-    }
-    History.prototype = {
-        init: function(content) {
-            this.states = [];
-            this.initialState = [{ line: 0, column: 0, text: content, added: true }];
-            this.index = 0;
-            this.muted = false;
-        },
-        getState: function(index) {
-            return this.states[index];
-        },
-        shift: function() {
-            if (this.states[0]) {
-                this.initialState.push.apply(this.initialState, this.states[0]);
-                this.states.shift();
-                --this.index;
+        this.clear = function() {
+            states = [];
+            initialState = [];
+            index = 0;
+            timeout = null;
+            muted = performed = false;
+        }
+        this.getStates = function(stringify) {
+            var str  = JSON.stringify(states);
+            return stringify ? str : JSON.parse(str);
+        }
+        function shift() {
+            var state = states.shift();
+            if (state) {
+                initialState.push.apply(initialState, state);
+                --index;
             }
-        },
-        mute: function() {
-            this.muted = true;
-            return this;
-        },
-        unmute: function() {
-            this.muted = false;
-            return this;
         }
+        this.clear();
     }
     
     Selection = function(doc) {
