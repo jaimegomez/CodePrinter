@@ -65,6 +65,16 @@ CodePrinter.defineMode('Markdown', function() {
                 }
             }
             return stream;
+        },
+        afterEnterKey: function(bf, af) {
+            if (listsRegexp.test(bf)) {
+                var sign = RegExp.$1;
+                if (isNaN(sign)) {
+                    this.insertText(sign+' ');
+                } else {
+                    this.insertText(parseInt(sign)+1 + '. ');
+                }
+            }
         }
     });
 });
