@@ -4,7 +4,7 @@ CodePrinter.defineMode('Markdown', function() {
     var listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/;
     
     return new CodePrinter.Mode({
-        regexp: /([\~\*\_]){1,2}|\`+|!?\[(.*)\]\((.*)\)/,
+        regexp: /([\~\*\_]){1,2}|\`+|!?\[([^\]]*)\]\(([^\)]*)\)/,
         
         parse: function(stream, memory) {
             var sb = stream.stateBefore
