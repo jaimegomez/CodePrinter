@@ -3425,10 +3425,13 @@
         'Alt+Tab': CodePrinter.prototype.indent,
         'Shift+Tab': CodePrinter.prototype.unindent,
         'Enter': function() {
+            var bf = this.caret.textBefore()
+            , af = this.caret.textAfter();
+            
             if (this.options.autoIndent) {
                 var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line)
                 , dl = this.caret.dl(), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
-                , af = this.caret.textAfter(), spacesAfter = 0;
+                , spacesAfter = 0;
                 
                 if (parser && parser.indentation) {
                     var i = parser.indentation.call(this, this.caret.textBefore().trim(), af.trim(), line, indent, parser);
@@ -3448,6 +3451,9 @@
                 this.insertText('\n' + this.tabString(indent).slice(spacesAfter) + rest, -rest.length + spacesAfter);
             } else {
                 this.insertText('\n');
+            }
+            if (this.parser && this.parser.afterEnterKey) {
+                this.parser.afterEnterKey.call(this, bf, af);
             }
             return false;
         },
