@@ -3001,7 +3001,7 @@
                             }
                         }
                     }
-                    indexFrom > 0 && this.cut(indexFrom - this.pos);
+                    indexFrom > 0 && this.cut(indexFrom);
                     eaten = this.cut(indexTo - indexFrom);
                     this.found = null;
                     return eaten;
