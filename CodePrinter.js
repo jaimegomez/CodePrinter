@@ -72,6 +72,7 @@
         lineNumberFormatter: false,
         autofocus: true,
         abortSelectionOnBlur: false,
+        legacyScrollbars: false,
         readOnly: false,
         drawIndentGuides: true,
         tracking: true,
@@ -122,6 +123,7 @@
             
             options.lineNumbers ? this.openCounter() : this.closeCounter();
             options.drawIndentGuides || this.mainElement.addClass('without-indentation');
+            options.legacyScrollbars && this.wrapper.addClass('legacy-scrollbars');
             options.readOnly && this.caret.disable();
             options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
@@ -3523,8 +3525,12 @@
         },
         '(': function(e, k, ch) {
             this.insertText(ch);
-            if (this.options.insertClosingBrackets && /^(\W|$)/.test(this.caret.textAfter())) {
-                this.insertText(complementBracket(ch), -1);
+            if (this.options.insertClosingBrackets) {
+                var af = this.caret.textAfter()[0]
+                , cb = complementBracket(ch);
+                if (!af || af === cb || /\s/.test(af)) {
+                    this.insertText(cb, -cb.length);
+                }
             }
             return false;
         },
