@@ -584,6 +584,7 @@
                         
                         this.parser.parse(stream, this.memory);
                         dl.setParsed(p + this.convertToSpaces(stream.toString()));
+                        this.document.updateLineHeight(dl);
                         
                         if (stream.isDefinition) {
                             var dli = dl.info();

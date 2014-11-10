@@ -24,8 +24,8 @@ CodePrinter.defineMode('Markdown', function() {
             } else if (/^(\-+\s+){2,}\-+$/.test(trim) || /^(\*+\s+){2,}\*+$/.test(trim)) {
                 stream.wrap('escaped', 'horizontal-rule');
             } else if (/^(\#+)/.test(trim)) {
-                var c = Math.max(4, 16 - RegExp.$1.length);
-                stream.wrap('namespace', 'header', 'font-'+c+'0');
+                var c = Math.max(0.4, 1.6 - RegExp.$1.length/10);
+                stream.wrap('namespace', 'header').font(c);
             } else if (/^(\=+|\-+)$/.test(trim)) {
                 stream.wrap('operator', 'header-rule');
             } else if (stream.testNextLine(/^\s*(\=|\-){2,}\s*$/)) {
