@@ -3523,7 +3523,7 @@
         },
         '(': function(e, k, ch) {
             this.insertText(ch);
-            if (this.options.insertClosingBrackets) {
+            if (this.options.insertClosingBrackets && /^(\W|$)/.test(this.caret.textAfter())) {
                 this.insertText(complementBracket(ch), -1);
             }
             return false;
