@@ -1,4 +1,6 @@
-var cp = new CodePrinter()
+var cp = new CodePrinter({
+    addons: ['scrollbars']
+})
 , demo = $.get('[name=demo]')
 , theme = $.get('[name=theme]')
 , caretStyle = $.get('[name=caretStyle]')
