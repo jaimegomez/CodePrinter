@@ -256,6 +256,7 @@
                 scroll: function(e) {
                     if (!lock) doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
                     lock = false;
+                    self.emit('scroll');
                 },
                 dblclick: function() {
                     var bf = self.caret.textBefore()
@@ -289,6 +290,7 @@
                 focus: function() {
                     self.caret.focus();
                     self.mainElement.removeClass('inactive');
+                    self.emit('focus');
                 },
                 blur: function() {
                     if (isMouseDown) {
@@ -298,6 +300,7 @@
                         self.mainElement.addClass('inactive');
                         doc.removeOverlays('blur');
                         if (options.abortSelectionOnBlur) doc.clearSelection();
+                        self.emit('blur');
                     }
                 },
                 keydown: function(e) {
@@ -4118,12 +4121,10 @@
             this.wrapper.scrollLeft = rect.offset - this.wrapper.clientWidth / 2;
         }
     }
-    
     function setImmediate(fn) {
         timeouts.push(fn);
         window.postMessage(imsg, '*');
     }
-    
     window.addEventListener('message', function(e) {
         if (e.source == window && e.data === imsg) {
             e.stopPropagation();
