@@ -25,6 +25,7 @@
     , zws = '&#8203;';
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
+    $.scripts.registerNamespace('CodePrinter/addons', 'addons/');
     
     CodePrinter = function(source, options) {
         if (arguments.length === 1 && source == '[object Object]') {
@@ -103,6 +104,7 @@
             if (this.document) return;
             var self = this
             , options = this.options
+            , addons = options.addons
             , lastScrollTop = 0, lock, counterSelection = []
             , doc, sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
@@ -130,6 +132,18 @@
             options.width !== 'auto' && this.setWidth(options.width);
             options.height !== 300 && this.setHeight(options.height);
             options.fontSize !== 11 && this.setFontSize(options.fontSize);
+            
+            if (addons) {
+                if (addons instanceof Array) {
+                    for (var i = 0; i < addons.length; i++) {
+                        this.initAddon(addons[i]);
+                    }
+                } else {
+                    for (var k in addons) {
+                        this.initAddon(k, addons[k]);
+                    }
+                }
+            }
             
             function mouseController(e) {
                 if (e.button > 0 || e.which > 1 || e.defaultPrevented) return false;
@@ -507,6 +521,12 @@
             }, function() {
                 this.emit('printed');
             }, 10);
+        },
+        initAddon: function(addon, options) {
+            var cp = this;
+            CodePrinter.requireAddon(addon, function(construct) {
+                construct.call(null, cp, options);
+            });
         },
         intervalIterate: function(callback, onend, options) {
             if (!(onend instanceof Function) && arguments.length === 2) options = onend;
@@ -3904,6 +3924,12 @@
     }
     CodePrinter.hasMode = function(name) {
         return $.scripts.has('CodePrinter/'+name.toLowerCase());
+    }
+    CodePrinter.requireAddon = function(name, cb, del) {
+        $.scripts.require('CodePrinter/addons/'+name, cb, del);
+    }
+    CodePrinter.defineAddon = function(name, obj) {
+        $.scripts.define('CodePrinter/addons/'+name, obj);
     }
     CodePrinter.registerExtension = function(ext, parserName) {
         aliases[ext.toLowerCase()] = parserName.toLowerCase();
