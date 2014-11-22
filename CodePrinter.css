@@ -215,6 +215,43 @@
 .codeprinter .cp-counter.hidden {
   display: none;
 }
+.codeprinter .cp-scrollbar {
+  -webkit-transition: all 0.4s ease-in-out;
+  -moz-transition: all 0.4s ease-in-out;
+  -ms-transition: all 0.4s ease-in-out;
+  -o-transition: all 0.4s ease-in-out;
+  transition: all 0.4s ease-in-out;
+  padding: 2px;
+  background: none;
+  position: absolute;
+  opacity: 0;
+  z-index: 10;
+}
+.codeprinter .cp-scrollbar.visible {
+  opacity: 1;
+}
+.codeprinter .cp-scrollbar .cp-scrollbar-slider {
+  display: inline-block;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 50px;
+  position: relative;
+}
+.codeprinter .cp-scrollbar-horizontal {
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+.codeprinter .cp-scrollbar-horizontal .cp-scrollbar-slider {
+  height: 7px;
+}
+.codeprinter .cp-scrollbar-vertical {
+  top: 0;
+  right: 0;
+  bottom: 0;
+}
+.codeprinter .cp-scrollbar-vertical .cp-scrollbar-slider {
+  width: 7px;
+}
 .codeprinter .cp-overlay {
   background: none !important;
   z-index: 7;
