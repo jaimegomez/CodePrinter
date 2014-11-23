@@ -16,7 +16,7 @@
     , Caret, Document, StreamArray, Stream
     , ReadStream, History, Selection, keyMap
     , commands, tracking, lineendings, aliases
-    , div, li, pre, span
+    , div, li, pre, span, raf
     , BRANCH_OPTIMAL_SIZE = 40
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
     , imsg = 'immediateMessage', timeouts = []
@@ -230,23 +230,8 @@
                 
                 if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
                 if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
-                
-                if (x) {
-                    if (!y && this.clientWidth >= this.scrollWidth) return;
-                    var pixels = wheelUnit * options.scrollSpeed * x;
-                    this.scrollLeft += pixels;
-                }
-                if (y) {
-                    var pixels = wheelUnit * options.scrollSpeed * y, sT = this.scrollTop;
-                    
-                    if (pixels < -70) pixels = -70;
-                    else if (pixels > 70) pixels = 70;
-                    
-                    lock = true;
-                    
-                    self.counter.scrollTop = this.scrollTop += pixels;
-                    doc.scroll(this.scrollTop - sT);
-                }
+                if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
+                if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
                 return e.cancel();
             }
             
@@ -254,8 +239,8 @@
                 mousewheel: mousewheel,
                 DOMMouseScroll: mousewheel,
                 scroll: function(e) {
-                    if (!lock) doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
-                    lock = false;
+                    if (!this._lockedScrolling) doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
+                    this._lockedScrolling = true;
                     self.emit('scroll');
                 },
                 dblclick: function() {
@@ -2095,6 +2080,13 @@
             cp.sizes.scrollTop = Math.max(0, cp.sizes.scrollTop + delta);
             code.style.top = ol.style.top = cp.sizes.scrollTop + 'px';
         }
+        function scrollTo(st) {
+            cp.counter.scrollTop = cp.wrapper.scrollTop = st;
+        }
+        function scrollBy(delta, s) {
+            cp.counter.scrollTop = cp.wrapper.scrollTop += delta;
+            s !== false && scroll(delta);
+        }
         function updateCounters(dl, index) {
             var tmp = dl.counter;
             while (tmp) {
@@ -2232,29 +2224,24 @@
             this.updateHeight();
             return rm;
         }
-        this.scrollTo = function(st, arg) {
-            st = Math.max(0, Math.min(st, cp.wrapper.scrollHeight - cp.wrapper.offsetHeight));
-            if (st !== lastST && arg !== false) {
-                cp.wrapper.scrollTop = st;
-                cp.counter.scrollTop = st;
-            }
-            this.scroll(st - lastST);
-        }
-        this.scroll = function(delta) {
-            if (delta) {
-                lastST += delta;
-                
-                var x = lastST - cp.sizes.scrollTop
+        this.scrollTo = function(st) {
+            var wh = cp.wrapper.scrollHeight - cp.wrapper.offsetHeight;
+            st = Math.max(0, Math.min(st, wh));
+            cp.wrapper._lockedScrolling = true;
+            
+            raf(function() {
+                var x = st - cp.sizes.scrollTop
                 , limit = cp.options.viewportMargin
                 , d = Math.round(x - limit)
+                , abs = Math.abs(d)
                 , tmpd = d
                 , h, dl;
                 
                 if (d) {
-                    if (Math.abs(delta) > code.offsetHeight) {
-                        dl = data.getLineWithOffset(Math.max(0, lastST - limit));
-                        if (this.rewind(dl) !== false) {
-                            lastST = cp.counter.scrollTop = cp.wrapper.scrollTop;
+                    if (abs > 300 && abs > 3 * code.offsetHeight) {
+                        dl = data.getLineWithOffset(Math.max(0, st - limit));
+                        if (doc.rewind(dl) !== false) {
+                            scrollTo(lastST = st);
                             return;
                         }
                     }
@@ -2265,10 +2252,8 @@
                             insert(dl);
                             x -= dl.height;
                         }
-                        return;
-                    }
-                    if (d > 3) {
-                        while (lines.length && (h = lines[0].height) < d && (dl = lines[lines.length-1].next())) {
+                    } else if (d > 0) {
+                        while (lines.length && (h = lines[0].height) <= d && (dl = lines[lines.length-1].next())) {
                             var first = lines.shift();
                             dl.captureNode(first);
                             if (dl.active) cp.select(dl);
@@ -2277,8 +2262,8 @@
                             ++from; ++to;
                             d -= h;
                         }
-                    } else if (d < -3) {
-                        while (lines.length && -(h = lines[lines.length-1].height) > d && (dl = lines[0].prev())) {
+                    } else if (d < 0) {
+                        while (lines.length && (h = lines[lines.length-1].height) <= -d && (dl = lines[0].prev())) {
                             var last = lines.pop();
                             dl.captureNode(last);
                             if (dl.active) cp.select(dl);
@@ -2287,11 +2272,12 @@
                             d += h;
                         }
                     }
-                    if (tmpd !== d) {
+                    if (tmpd != d) {
                         scroll(tmpd - d);
                     }
                 }
-            }
+                scrollTo(lastST = st);
+            });
         }
         this.isLineVisible = function(dl) {
             return lines.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
@@ -4134,6 +4120,9 @@
             }
         }
     });
+    raf = window.requestAnimationFrame || window.webkitRequestAnimationFrame 
+    || window.mozRequestAnimationFrame || window.msRequestAnimationFrame 
+    || window.oRequestAnimationFrame || function(callback) { setTimeout(callback, 16); };
     
     return window.CodePrinter = CodePrinter;
 });
