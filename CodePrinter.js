@@ -5,7 +5,7 @@
  * Released under the MIT License.
  *
  * author:  Tomasz Sapeta
- * version: 0.7.0
+ * version: 0.7.1
  * source:  https://github.com/tsapeta/CodePrinter
  */
 
@@ -16,15 +16,16 @@
     , Caret, Document, StreamArray, Stream
     , ReadStream, History, Selection, keyMap
     , commands, tracking, lineendings, aliases
-    , div, li, pre, span
+    , div, li, pre, span, raf
     , BRANCH_OPTIMAL_SIZE = 40
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
-    , setImmediate = window.global && window.global.setImmediate || window.setImmediate || function(fn) { return setTimeout(fn, 1); }
+    , imsg = 'immediateMessage', timeouts = []
     , activeClassName = 'cp-active-line'
     , markClassName = 'cp-marked'
     , zws = '&#8203;';
     
     $.scripts.registerNamespace('CodePrinter', 'mode/');
+    $.scripts.registerNamespace('CodePrinter/addons', 'addons/');
     
     CodePrinter = function(source, options) {
         if (arguments.length === 1 && source == '[object Object]') {
@@ -45,7 +46,7 @@
         return this.print();
     }
     
-    CodePrinter.version = '0.7.0';
+    CodePrinter.version = '0.7.1';
     
     CodePrinter.defaults = {
         path: '',
@@ -66,12 +67,13 @@
         scrollSpeed: 1,
         autoScrollSpeed: 20,
         historyStackSize: 100,
-        historyDelay: 500,
+        historyDelay: 1000,
         firstLineNumber: 1,
         lineNumbers: true,
         lineNumberFormatter: false,
         autofocus: true,
         abortSelectionOnBlur: false,
+        legacyScrollbars: false,
         readOnly: false,
         drawIndentGuides: true,
         tracking: true,
@@ -81,6 +83,7 @@
         blinkCaret: true,
         autoScroll: true,
         autoIndent: true,
+        indentByTabs: false,
         insertClosingBrackets: true,
         insertClosingQuotes: true,
         useParserKeyMap: true,
@@ -101,6 +104,7 @@
             if (this.document) return;
             var self = this
             , options = this.options
+            , addons = options.addons
             , lastScrollTop = 0, lock, counterSelection = []
             , doc, sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
@@ -121,12 +125,25 @@
             
             options.lineNumbers ? this.openCounter() : this.closeCounter();
             options.drawIndentGuides || this.mainElement.addClass('without-indentation');
+            options.legacyScrollbars && this.wrapper.addClass('legacy-scrollbars');
             options.readOnly && this.caret.disable();
             options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
             options.width !== 'auto' && this.setWidth(options.width);
             options.height !== 300 && this.setHeight(options.height);
             options.fontSize !== 11 && this.setFontSize(options.fontSize);
+            
+            if (addons) {
+                if (addons instanceof Array) {
+                    for (var i = 0; i < addons.length; i++) {
+                        this.initAddon(addons[i]);
+                    }
+                } else {
+                    for (var k in addons) {
+                        this.initAddon(k, addons[k]);
+                    }
+                }
+            }
             
             function mouseController(e) {
                 if (e.button > 0 || e.which > 1 || e.defaultPrevented) return false;
@@ -213,23 +230,8 @@
                 
                 if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
                 if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
-                
-                if (x) {
-                    if (!y && this.clientWidth >= this.scrollWidth) return;
-                    var pixels = wheelUnit * options.scrollSpeed * x;
-                    this.scrollLeft += pixels;
-                }
-                if (y) {
-                    var pixels = wheelUnit * options.scrollSpeed * y, sT = this.scrollTop;
-                    
-                    if (pixels < -70) pixels = -70;
-                    else if (pixels > 70) pixels = 70;
-                    
-                    lock = true;
-                    
-                    self.counter.scrollTop = this.scrollTop += pixels;
-                    doc.scroll(this.scrollTop - sT);
-                }
+                if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
+                if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
                 return e.cancel();
             }
             
@@ -237,8 +239,9 @@
                 mousewheel: mousewheel,
                 DOMMouseScroll: mousewheel,
                 scroll: function(e) {
-                    if (!lock) doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
-                    lock = false;
+                    if (!this._lockedScrolling) doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
+                    this._lockedScrolling = true;
+                    self.emit('scroll');
                 },
                 dblclick: function() {
                     var bf = self.caret.textBefore()
@@ -272,6 +275,7 @@
                 focus: function() {
                     self.caret.focus();
                     self.mainElement.removeClass('inactive');
+                    self.emit('focus');
                 },
                 blur: function() {
                     if (isMouseDown) {
@@ -281,6 +285,7 @@
                         self.mainElement.addClass('inactive');
                         doc.removeOverlays('blur');
                         if (options.abortSelectionOnBlur) doc.clearSelection();
+                        self.emit('blur');
                     }
                 },
                 keydown: function(e) {
@@ -505,6 +510,12 @@
                 this.emit('printed');
             }, 10);
         },
+        initAddon: function(addon, options) {
+            var cp = this;
+            CodePrinter.requireAddon(addon, function(construct) {
+                construct.call(null, cp, options);
+            });
+        },
         intervalIterate: function(callback, onend, options) {
             if (!(onend instanceof Function) && arguments.length === 2) options = onend;
             var that = this, dl = this.document.get(0), fn
@@ -583,6 +594,7 @@
                         
                         this.parser.parse(stream, this.memory);
                         dl.setParsed(p + this.convertToSpaces(stream.toString()));
+                        this.document.updateLineHeight(dl);
                         
                         if (stream.isDefinition) {
                             var dli = dl.info();
@@ -736,6 +748,9 @@
         },
         getTextAtLine: function(line) {
             var dl = this.document.get(line < 0 ? this.document.lines() + line : line);
+            return this.textOf(dl);
+        },
+        textOf: function(dl) {
             return dl ? this.convertToSpaces(dl.text) : '';
         },
         getIndentAtLine: function(line, dl) {
@@ -747,9 +762,15 @@
             }
             return 0;
         },
-        setIndentAtLine: function(line, indent) {
+        setIndentAtLine: function(line, indent, dl) {
             indent = Math.max(0, indent);
-            var dl = this.document.get(line), old, diff;
+            var old, diff;
+            if (line instanceof Line) {
+                dl = line;
+                line = dl.info().index;
+            } else if ('number' === typeof line) {
+                dl = dl || this.document.get(line);
+            }
             if (dl) {
                 old = this.getIndentAtLine(old, dl);
                 diff = indent - old;
@@ -757,6 +778,7 @@
                 this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
                 this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
             }
+            return indent;
         },
         indent: function(line) {
             var range;
@@ -807,10 +829,7 @@
         },
         getNextLineIndent: function(line) {
             var indent = this.getIndentAtLine(line);
-            if (this.parser.indentation) {
-                var i = this.parser.indentation.call(this, this.getTextAtLine(line).trim(), '', line, indent, this.parser);
-                return indent + (i instanceof Array ? i.shift() : parseInt(i) || 0);
-            }
+            return nextLineIndent(this, indent, line);
         },
         toggleComment: function() {
             if (this.parser && this.parser.lineComment) {
@@ -1176,17 +1195,17 @@
         isEmpty: function() {
             return this.document.lines() === 1 && !this.document.get(0).text;
         },
-        getValue: function(withTabs) {
+        getValue: function() {
             var cp = this, r = []
-            , fn = withTabs ? returnTabbedText : returnSpacedText;
+            , fn = this.options.indentByTabs ? returnTabbedText : returnSpacedText;
             
             this.document.each(function() {
                 r.push(fn(cp, this));
             });
             return r.join(this.getLineEnding());
         },
-        createReadStream: function(withTabs) {
-            return new ReadStream(this, withTabs ? returnTabbedText : returnSpacedText);
+        createReadStream: function() {
+            return new ReadStream(this, this.options.indentByTabs ? returnTabbedText : returnSpacedText);
         },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
@@ -1278,6 +1297,7 @@
                         if (this.searches.value !== find) return false;
                         j += searchOverLine.call(cp, escape, dl, line, offset);
                     }, function(index, last) {
+                        var sl = this.wrapper.scrollLeft;
                         search.overlay.node.innerHTML = '';
                         if (last !== false) {
                             if (j) {
@@ -1285,7 +1305,7 @@
                                     for (var k in results) {
                                         if (results[k].length) {
                                             search.active = results[k][0];
-                                            this.document.scrollTo(results[k][0].offset - this.wrapper.offsetHeight/2);
+                                            scroll !== false && this.document.scrollTo(results[k][0].offset - this.wrapper.offsetHeight/2);
                                             break;
                                         }
                                     }
@@ -1294,6 +1314,7 @@
                             }
                             search.length = j;
                             search.overlay.reveal();
+                            this.wrapper.scrollLeft = sl;
                             this.emit('search:completed', find, j);
                         }
                     });
@@ -1332,7 +1353,9 @@
                     }
                 }
                 if (newActive) {
-                    this.document.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
+                    if (newActive.offset < this.wrapper.scrollHeight || newActive.offset > this.wrapper.scrollHeight + this.wrapper.offsetHeight) {
+                        this.document.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
+                    }
                     (search.active = newActive).node.addClass('active');
                 } else {
                     search.active = undefined;
@@ -1977,7 +2000,7 @@
         EventEmitter.call(this);
         doc.screen = screen;
         doc.overlays = [];
-        history = new History(cp, cp.options.historyStackSize, cp.options.historyDelay);
+        history = new History(cp, doc, cp.options.historyStackSize, cp.options.historyDelay);
         selection = new Selection(doc);
         
         firstNumber = cp.options.firstLineNumber;
@@ -1986,7 +2009,7 @@
         }
         
         function desiredHeight(half) {
-            return (cp.wrapper.clientHeight || cp.options.height) + cp.options.viewportMargin * (half ? 1 : 2);
+            return (cp.body.offsetHeight || cp.options.height) + cp.options.viewportMargin * (half ? 1 : 2);
         }
         function isFilled(half) {
             return (code.scrollHeight || heightOfLines()) > desiredHeight(half);
@@ -2057,6 +2080,13 @@
             cp.sizes.scrollTop = Math.max(0, cp.sizes.scrollTop + delta);
             code.style.top = ol.style.top = cp.sizes.scrollTop + 'px';
         }
+        function scrollTo(st) {
+            cp.counter.scrollTop = cp.wrapper.scrollTop = st;
+        }
+        function scrollBy(delta, s) {
+            cp.counter.scrollTop = cp.wrapper.scrollTop += delta;
+            s !== false && scroll(delta);
+        }
         function updateCounters(dl, index) {
             var tmp = dl.counter;
             while (tmp) {
@@ -2077,7 +2107,6 @@
                 clear();
                 this.clearSelection();
             }
-            history.init(source);
             source = source.split('\n');
             
             for (var i = 0; i < source.length; i++) {
@@ -2195,29 +2224,24 @@
             this.updateHeight();
             return rm;
         }
-        this.scrollTo = function(st, arg) {
-            st = Math.max(0, Math.min(st, cp.wrapper.scrollHeight - cp.wrapper.offsetHeight));
-            if (st !== lastST && arg !== false) {
-                cp.wrapper.scrollTop = st;
-                cp.counter.scrollTop = st;
-            }
-            this.scroll(st - lastST);
-        }
-        this.scroll = function(delta) {
-            if (delta) {
-                lastST += delta;
-                
-                var x = lastST - cp.sizes.scrollTop
+        this.scrollTo = function(st) {
+            var wh = cp.wrapper.scrollHeight - cp.wrapper.offsetHeight;
+            st = Math.max(0, Math.min(st, wh));
+            cp.wrapper._lockedScrolling = true;
+            
+            raf(function() {
+                var x = st - cp.sizes.scrollTop
                 , limit = cp.options.viewportMargin
                 , d = Math.round(x - limit)
+                , abs = Math.abs(d)
                 , tmpd = d
                 , h, dl;
                 
                 if (d) {
-                    if (Math.abs(delta) > code.offsetHeight) {
-                        dl = data.getLineWithOffset(Math.max(0, lastST - limit));
-                        if (this.rewind(dl) !== false) {
-                            lastST = cp.counter.scrollTop = cp.wrapper.scrollTop;
+                    if (abs > 300 && abs > 3 * code.offsetHeight) {
+                        dl = data.getLineWithOffset(Math.max(0, st - limit));
+                        if (doc.rewind(dl) !== false) {
+                            scrollTo(lastST = st);
                             return;
                         }
                     }
@@ -2228,10 +2252,8 @@
                             insert(dl);
                             x -= dl.height;
                         }
-                        return;
-                    }
-                    if (d > 3) {
-                        while (lines.length && (h = lines[0].height) < d && (dl = lines[lines.length-1].next())) {
+                    } else if (d > 0) {
+                        while (lines.length && (h = lines[0].height) <= d && (dl = lines[lines.length-1].next())) {
                             var first = lines.shift();
                             dl.captureNode(first);
                             if (dl.active) cp.select(dl);
@@ -2240,8 +2262,8 @@
                             ++from; ++to;
                             d -= h;
                         }
-                    } else if (d < -3) {
-                        while (lines.length && -(h = lines[lines.length-1].height) > d && (dl = lines[0].prev())) {
+                    } else if (d < 0) {
+                        while (lines.length && (h = lines[lines.length-1].height) <= -d && (dl = lines[0].prev())) {
                             var last = lines.pop();
                             dl.captureNode(last);
                             if (dl.active) cp.select(dl);
@@ -2250,11 +2272,12 @@
                             d += h;
                         }
                     }
-                    if (tmpd !== d) {
+                    if (tmpd != d) {
                         scroll(tmpd - d);
                     }
                 }
-            }
+                scrollTo(lastST = st);
+            });
         }
         this.isLineVisible = function(dl) {
             return lines.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
@@ -2566,49 +2589,16 @@
             }
         }
         this.undo = function() {
-            if (history.index >= 0 && history.index <= history.states.length && history.states.length) {
-                history.timeout = clearTimeout(history.timeout);
-                (!history.states[history.index] || !history.states[history.index].length) && --history.index;
-                history.mute();
-                var state = history.states[history.index];
-                selection.clear();
-                for (var i = state.length - 1; i >= 0; i--) {
-                    var a = state[i], dl = data.get(a.line)
-                    , t = dl.text.substring(0, a.column);
-                    
-                    cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true);
-                    if (a.added) {
-                        cp.removeAfterCursor(a.text);
-                    } else {
-                        cp.insertText(a.text);
-                    }
-                }
-                history.emit('undo', history.states[history.index--]).unmute();
-                history.performed = true;
-            }
+            history.undo();
         }
         this.redo = function() {
-            history.index < 0 && (history.index = 0);
-            if (history.index < history.states.length) {
-                history.timeout = clearTimeout(history.timeout);
-                history.mute();
-                var state = history.states[history.index];
-                selection.clear();
-                for (var i = 0; i < state.length; i++) {
-                    var a = state[i], dl = data.get(a.line)
-                    , t = dl.text.substring(0, a.column);
-                    
-                    cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true).savePosition();
-                    if (a.added) {
-                        cp.insertText(a.text);
-                    } else {
-                        cp.removeAfterCursor(a.text);
-                    }
-                }
-                cp.caret.restorePosition();
-                history.emit('redo', history.states[history.index++]).unmute();
-                history.performed = true;
-            }
+            history.redo();
+        }
+        this.getHistory = function(stringify) {
+            return history.getStates(stringify);
+        }
+        this.clearHistory = function() {
+            history.clear();
         }
         this.each = function() {
             return data.foreach.apply(data, arguments);
@@ -2915,7 +2905,7 @@
         reveal: function() {
             if (!this.node.parentNode) {
                 this.doc.overlays.push(this);
-                this.doc.screen.append(this.node);
+                this.doc.screen.appendChild(this.node);
                 this.emit('revealed');
             }
         },
@@ -3023,7 +3013,7 @@
                             }
                         }
                     }
-                    indexFrom > 0 && this.cut(indexFrom - this.pos);
+                    indexFrom > 0 && this.cut(indexFrom);
                     eaten = this.cut(indexTo - indexFrom);
                     this.found = null;
                     return eaten;
@@ -3447,10 +3437,13 @@
         'Alt+Tab': CodePrinter.prototype.indent,
         'Shift+Tab': CodePrinter.prototype.unindent,
         'Enter': function() {
+            var bf = this.caret.textBefore()
+            , af = this.caret.textAfter();
+            
             if (this.options.autoIndent) {
                 var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line)
                 , dl = this.caret.dl(), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
-                , af = this.caret.textAfter(), spacesAfter = 0;
+                , spacesAfter = 0;
                 
                 if (parser && parser.indentation) {
                     var i = parser.indentation.call(this, this.caret.textBefore().trim(), af.trim(), line, indent, parser);
@@ -3470,6 +3463,9 @@
                 this.insertText('\n' + this.tabString(indent).slice(spacesAfter) + rest, -rest.length + spacesAfter);
             } else {
                 this.insertText('\n');
+            }
+            if (this.parser && this.parser.afterEnterKey) {
+                this.parser.afterEnterKey.call(this, bf, af);
             }
             return false;
         },
@@ -3539,7 +3535,11 @@
         '(': function(e, k, ch) {
             this.insertText(ch);
             if (this.options.insertClosingBrackets) {
-                this.insertText(complementBracket(ch), -1);
+                var af = this.caret.textAfter()[0]
+                , cb = complementBracket(ch);
+                if (!af || af === cb || /\s/.test(af)) {
+                    this.insertText(cb, -cb.length);
+                }
             }
             return false;
         },
@@ -3644,24 +3644,75 @@
         }
     }
     
-    History = function(cp, stackSize, delay) {
-        this.pushChanges = function(line, column, text, added) {
-            if (!this.muted && arguments.length == 4) {
-                var self = this
-                , changes = { line: line, column: column, text: text, added: added };
-                
-                if (this.index < this.states.length - 1) {
-                    ++this.index;
-                    this.states.splice(this.index, this.states.length - this.index);
-                }
-                if (this.performed) {
-                    this.states = [];
-                    this.performed = false;
-                }
-                if (!this.states[this.index]) {
-                    this.states[this.index] = [changes];
+    History = function(cp, doc, stackSize, delay) {
+        var states, initialState
+        , index, timeout, muted, performed;
+        
+        this.undo = function() {
+            if (0 <= index && index <= states.length && states.length) {
+                var state;
+                muted = true;
+                if (timeout == null) {
+                    state = states[--index];
                 } else {
-                    var last = this.states[this.index].last(), b = false;
+                    timeout = clearTimeout(timeout);
+                    state = states[index];
+                }
+                doc.clearSelection();
+                if (state) {
+                    for (var i = state.length - 1; i >= 0; i--) {
+                        var a = state[i], dl = doc.get(a.line)
+                        , t = dl.text.substring(0, a.column);
+                        
+                        cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true);
+                        if (a.added) {
+                            cp.removeAfterCursor(a.text);
+                        } else {
+                            cp.insertText(a.text);
+                        }
+                    }
+                    this.emit('undo', state);
+                    muted = false;
+                    performed = true;
+                }
+            }
+        }
+        this.redo = function() {
+            if (index < 0) index = 0;
+            if (index < states.length) {
+                timeout = clearTimeout(timeout);
+                muted = true;
+                var state = states[index];
+                doc.clearSelection();
+                if (state) {
+                    for (var i = 0; i < state.length; i++) {
+                        var a = state[i], dl = doc.get(a.line)
+                        , t = dl.text.substring(0, a.column);
+                        
+                        cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true);
+                        if (a.added) {
+                            cp.insertText(a.text);
+                        } else {
+                            cp.removeAfterCursor(a.text);
+                        }
+                    }
+                    this.emit('redo', state);
+                    ++index;
+                    muted = false;
+                    performed = true;
+                }
+            }
+        }
+        this.pushChanges = function(line, column, text, added) {
+            if (!muted && arguments.length == 4) {
+                if (performed && index < states.length) {
+                    states.splice(index, states.length - index);
+                }
+                performed = false;
+                if (!states[index]) {
+                    states[index] = [{ line: line, column: column, text: text, added: added }];
+                } else {
+                    var last = states[index].last(), b = false;
                     if (last.line == line && added == last.added) {
                         if (b = (last.column + (added ? last.text.length : '') == column)) {
                             last.text += text;
@@ -3670,47 +3721,38 @@
                             last.column = column;
                         }
                     }
-                    !b && this.states[this.index].push(changes);
+                    !b && states[index].push({ line: line, column: column, text: text, added: added });
                 }
-                this.timeout = clearTimeout(this.timeout) || setTimeout(function() {
-                    self.save();
-                }, delay);
+                timeout = clearTimeout(timeout) || setTimeout(this.save, delay);
             }
             return this;
         }
         this.save = function() {
-            ++this.index;
-            while (this.states.length >= stackSize) {
-                this.shift();
+            timeout = null;
+            ++index;
+            while (states.length >= stackSize) {
+                shift();
             }
-            return this;
         }
-    }
-    History.prototype = {
-        init: function(content) {
-            this.states = [];
-            this.initialState = [{ line: 0, column: 0, text: content, added: true }];
-            this.index = 0;
-            this.muted = false;
-        },
-        getState: function(index) {
-            return this.states[index];
-        },
-        shift: function() {
-            if (this.states[0]) {
-                this.initialState.push.apply(this.initialState, this.states[0]);
-                this.states.shift();
-                --this.index;
+        this.clear = function() {
+            states = [];
+            initialState = [];
+            index = 0;
+            timeout = null;
+            muted = performed = false;
+        }
+        this.getStates = function(stringify) {
+            var str  = JSON.stringify(states);
+            return stringify ? str : JSON.parse(str);
+        }
+        function shift() {
+            var state = states.shift();
+            if (state) {
+                initialState.push.apply(initialState, state);
+                --index;
             }
-        },
-        mute: function() {
-            this.muted = true;
-            return this;
-        },
-        unmute: function() {
-            this.muted = false;
-            return this;
         }
+        this.clear();
     }
     
     Selection = function(doc) {
@@ -3845,7 +3887,9 @@
         'sh': 'bash',
         'adb': 'ada',
         'coffee': 'coffeescript',
-        'md': 'markdown'
+        'md': 'markdown',
+        'svg': 'xml',
+        'plist': 'xml'
     }
     
     CodePrinter.requireMode = function(req, cb, del) {
@@ -3869,6 +3913,12 @@
     }
     CodePrinter.hasMode = function(name) {
         return $.scripts.has('CodePrinter/'+name.toLowerCase());
+    }
+    CodePrinter.requireAddon = function(name, cb, del) {
+        $.scripts.require('CodePrinter/addons/'+name, cb, del);
+    }
+    CodePrinter.defineAddon = function(name, obj) {
+        $.scripts.define('CodePrinter/addons/'+name, obj);
     }
     CodePrinter.registerExtension = function(ext, parserName) {
         aliases[ext.toLowerCase()] = parserName.toLowerCase();
@@ -3909,7 +3959,8 @@
         return function(cp) {
             cp.caret = new Caret(cp);
             cp.mainElement = m.cloneNode(true);
-            cp.container = cp.mainElement.firstChild.lastChild;
+            cp.body = cp.mainElement.firstChild;
+            cp.container = cp.body.lastChild;
             cp.input = cp.container.firstChild;
             cp.input.tabIndex = cp.options.tabIndex;
             cp.input.autofocus = cp.options.autofocus;
@@ -4007,6 +4058,15 @@
         }
         return l;
     }
+    function nextLineIndent(cp, indent, line, dl) {
+        var parser = cp.parser;
+        if (arguments.length < 4) dl = cp.document.get(line);
+        if (parser && parser.indentation) {
+            var i = parser.indentation.call(cp, cp.textOf(dl).trim(), '', line, indent, parser);
+            return indent + (i instanceof Array ? i.shift() : parseInt(i) || 0);
+        }
+        return indent;
+    }
     function searchOverLine(find, dl, line, offset) {
         var results = this.searches.results
         , text = this.convertToSpaces(dl.text), ln = 0, i, j = 0
@@ -4047,6 +4107,22 @@
             this.wrapper.scrollLeft = rect.offset - this.wrapper.clientWidth / 2;
         }
     }
+    function setImmediate(fn) {
+        timeouts.push(fn);
+        window.postMessage(imsg, '*');
+    }
+    window.addEventListener('message', function(e) {
+        if (e.source == window && e.data === imsg) {
+            e.stopPropagation();
+            if (timeouts.length > 0) {
+                var fn = timeouts.shift();
+                fn();
+            }
+        }
+    });
+    raf = window.requestAnimationFrame || window.webkitRequestAnimationFrame 
+    || window.mozRequestAnimationFrame || window.msRequestAnimationFrame 
+    || window.oRequestAnimationFrame || function(callback) { setTimeout(callback, 16); };
     
     return window.CodePrinter = CodePrinter;
 });

@@ -1,9 +1,10 @@
 /* CodePrinter - Markdown Mode */
 
 CodePrinter.defineMode('Markdown', function() {
+    var listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/;
     
     return new CodePrinter.Mode({
-        regexp: /([\~\*\_]){1,2}|\`+|!?\[(.*)\]\((.*)\)/,
+        regexp: /([\~\*\_]){1,2}|\`+|!?\[([^\]]*)\]\(([^\)]*)\)/,
         
         parse: function(stream, memory) {
             var sb = stream.stateBefore
@@ -22,19 +23,24 @@ CodePrinter.defineMode('Markdown', function() {
                 stream.wrap('string', 'blockquote');
             } else if (/^(\-+\s+){2,}\-+$/.test(trim) || /^(\*+\s+){2,}\*+$/.test(trim)) {
                 stream.wrap('escaped', 'horizontal-rule');
-            } else if (/^\s*\d+\.\s/.test(line)) {
-                stream.wrap('numeric', 'ordered-list');
-            } else if (/^[\*\+\-]\s/.test(trim)) {
-                stream.wrap('numeric', 'hex', 'unordered-list');
             } else if (/^(\#+)/.test(trim)) {
-                var c = Math.max(4, 16 - RegExp.$1.length);
-                stream.wrap('namespace', 'header', 'font-'+c+'0');
+                var c = Math.max(0.4, 1.6 - RegExp.$1.length/10);
+                stream.wrap('namespace', 'header').font(c);
             } else if (/^(\=+|\-+)$/.test(trim)) {
                 stream.wrap('operator', 'header-rule');
             } else if (stream.testNextLine(/^\s*(\=|\-){2,}\s*$/)) {
                 stream.wrap('namespace', 'header');
             } else {
                 stream.reset();
+                
+                if (found = stream.match(listsRegexp)) {
+                    var sign = RegExp.$1, eaten = stream.eat(sign);
+                    if (isNaN(sign)) {
+                        eaten.wrap('numeric', 'hex', 'unordered-list');
+                    } else {
+                        eaten.wrap('numeric', 'ordered-list');
+                    }
+                }
                 
                 while (found = stream.match(this.regexp)) {
                     if (found[0] === '!' || found[0] === '[') {
@@ -59,6 +65,16 @@ CodePrinter.defineMode('Markdown', function() {
                 }
             }
             return stream;
+        },
+        afterEnterKey: function(bf, af) {
+            if (listsRegexp.test(bf)) {
+                var sign = RegExp.$1;
+                if (isNaN(sign)) {
+                    this.insertText(sign+' ');
+                } else {
+                    this.insertText(parseInt(sign)+1 + '. ');
+                }
+            }
         }
     });
 });

@@ -88,11 +88,14 @@ CodePrinter.defineMode('Java', function() {
                     } else if (found == 'import') {
                         stream.wrap('keyword');
                         if (found = stream.capture(/^.*[\s\.]([a-zA-Z0-9]+);$/, 1)) {
+                            stream.eat(found).wrap('special');
                             memory.classes.put(found);
                         }
                     } else if (stream.isAfter('(')) {
                         if (stream.isBefore(/\bp(ublic|rotected|rivate)\b/)) stream.isDefinition = true;
                         stream.wrap('function');
+                    } else if (stream.isBefore('.')) {
+                        stream.wrap('property');
                     }
                 } else if (found.length == 1) {
                     if (this.operators[found]) {
