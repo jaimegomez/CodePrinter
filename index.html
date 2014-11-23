@@ -1,124 +1,127 @@
 <!doctype html>
 <html>
-<head>
-    <meta charset="utf-8" />
-    <title>CodePrinter</title>
-    <link rel="stylesheet" type="text/css" href="CodePrinter.css" />
-    <link rel="stylesheet" type="text/css" href="demo/style.css" />
-    <script type="text/javascript" src="https://raw.githubusercontent.com/tsapeta/Selector.js/0.6.x/Selector.js"></script>
-    <script type="text/javascript" src="CodePrinter.js"></script>
-    <script type="text/javascript" src="mode/JavaScript.js"></script>
-</head>
-
-<body>
-    <a href="https://github.com/tsapeta/CodePrinter"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/652c5b9acfaddf3a9c326fa6bde407b87f7be0f4/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6f72616e67655f6666373630302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png"></a>
-    <main>
-        <header>
-            <h1>CodePrinter</h1>
-        </header>
-        <article>
-            <p><strong>CodePrinter</strong> is a lightweight code editor written in JavaScript. At this moment it supports 14 programming languages and has 13 themes. It's a free and open-source project released under the MIT license.</p>
-        </article>
-        <section></section>
-        <div id="options">
-            <fieldset>
-                <div>
-                    <label>Demo</label>
-                    <select name="demo">
-                        <option>Ada</option>
-                        <option>Bash</option>
-                        <option>C++</option>
-                        <option>CoffeeScript</option>
-                        <option>CSS</option>
-                        <option>HTML</option>
-                        <option>Java</option>
-                        <option selected>JavaScript</option>
-                        <option>Markdown</option>
-                        <option>Perl</option>
-                        <option>PHP</option>
-                        <option>Ruby</option>
-                        <option>SQL</option>
-                        <option>XML</option>
-                    </select>
+    <head>
+        <meta charset="utf-8" />
+        <title>CodePrinter</title>
+        <link rel="stylesheet" type="text/css" href="https://cdn.rawgit.com/tsapeta/Pastels/0.6.x/css/Pastels.css" />
+        <link rel="stylesheet" type="text/css" href="CodePrinter.css" />
+        <link rel="stylesheet" type="text/css" href="demo/style.css" />
+        <script type="text/javascript" src="https://raw.githubusercontent.com/tsapeta/Selector.js/0.6.x/Selector.js"></script>
+        <script type="text/javascript" src="CodePrinter.js"></script>
+        <script type="text/javascript" src="mode/JavaScript.js"></script>
+    </head>
+    <body class="ps-body">
+        <a href="https://github.com/tsapeta/CodePrinter"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://camo.githubusercontent.com/652c5b9acfaddf3a9c326fa6bde407b87f7be0f4/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f72696768745f6f72616e67655f6666373630302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_right_orange_ff7600.png"></a>
+        <main>
+            <header>
+                <h1>CodePrinter</h1>
+            </header>
+            <article>
+                <p><strong>CodePrinter</strong> is a lightweight code editor written in JavaScript. At this moment it supports 14 programming languages and has 13 themes. It's a free and open-source project released under the MIT license.</p>
+            </article>
+            <section></section>
+            <div id="options">
+                <fieldset>
+                    <div>
+                        <label>Demo</label>
+                        <select class="ps-button" name="demo">
+                            <option>Ada</option>
+                            <option>Bash</option>
+                            <option>C++</option>
+                            <option>CoffeeScript</option>
+                            <option>CSS</option>
+                            <option>HTML</option>
+                            <option>Java</option>
+                            <option selected>JavaScript</option>
+                            <option>Markdown</option>
+                            <option>Perl</option>
+                            <option>PHP</option>
+                            <option>Ruby</option>
+                            <option>SQL</option>
+                            <option>XML</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Theme</label>
+                        <select class="ps-button" name="theme">
+                            <option selected>default</option>
+                            <option>Abstraction</option>
+                            <option>Eclipse</option>
+                            <option>Homebrew</option>
+                            <option>Monokai</option>
+                            <option>Oblivion</option>
+                            <option>Obsidian</option>
+                            <option>Roboticket</option>
+                            <option>Solarized Dark</option>
+                            <option>Solarized Light</option>
+                            <option>Tango</option>
+                            <option>Vibrant Ink</option>
+                            <option>Xcode</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Caret style</label>
+                        <select class="ps-button" name="caretStyle">
+                            <option selected>vertical</option>
+                            <option>underline</option>
+                            <option>block</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Tab width</label>
+                        <input type="number" class="ps-input" min="0" max="20" name="tabWidth" value="4" />
+                    </div>
+                    <div>
+                        <label>Font Size</label>
+                        <input type="number" class="ps-input" min="6" max="60" name="fontSize" value="11" />
+                    </div>
+                    <div>
+                        <label>Fullscreen Mode</label>
+                        <button class="ps-button" name="fullscreen">Enter (Esc to exit)</button>
+                    </div>
+                </fieldset>
+                <fieldset>
+                    <div>
+                        <label>Read Only</label>
+                        <input type="checkbox" class="ps-checkbox" name="readonly" />
+                    </div>
+                    <div>
+                        <label>Show line numbers</label>
+                        <input type="checkbox" class="ps-checkbox" name="counter" checked />
+                    </div>
+                    <div>
+                        <label>Insert closing brackets</label>
+                        <input type="checkbox" class="ps-checkbox" name="insertclosing" checked />
+                    </div>
+                    <div>
+                        <label>Draw indent guides</label>
+                        <input type="checkbox" class="ps-checkbox" name="indentation" checked />
+                    </div>
+                    <div>
+                        <label>Indent new lines</label>
+                        <input type="checkbox" class="ps-checkbox" name="indentNewLines" checked />
+                    </div>
+                    <div>
+                        <label>Highlight Brackets</label>
+                        <input type="checkbox" class="ps-checkbox" name="highlightBrackets" checked />
+                    </div>
+                    <div>
+                        <label>Allow shortcuts</label>
+                        <input type="checkbox" class="ps-checkbox" name="shortcuts" checked />
+                    </div>
+                    <div>
+                        <label>Blink caret</label>
+                        <input type="checkbox" class="ps-checkbox" name="blinkCaret" checked />
+                    </div>
+                </fieldset>
+                <div id="downloads">
+                    <button class="ps-button psb-orange large" name="download">Download</button>
                 </div>
-                <div>
-                    <label>Theme</label>
-                    <select name="theme">
-                        <option selected>default</option>
-                        <option>Abstraction</option>
-                        <option>Eclipse</option>
-                        <option>Homebrew</option>
-                        <option>Monokai</option>
-                        <option>Oblivion</option>
-                        <option>Obsidian</option>
-                        <option>Roboticket</option>
-                        <option>Solarized Dark</option>
-                        <option>Solarized Light</option>
-                        <option>Tango</option>
-                        <option>Vibrant Ink</option>
-                        <option>Xcode</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Caret style</label>
-                    <select name="caretStyle">
-                        <option selected>vertical</option>
-                        <option>underline</option>
-                        <option>block</option>
-                    </select>
-                </div>
-                <div>
-                    <label>Tab width</label>
-                    <input type="number" min="0" max="20" name="tabWidth" value="4" />
-                </div>
-                <div>
-                    <label>Font Size</label>
-                    <input type="number" min="6" max="60" name="fontSize" value="11" />
-                </div>
-                <div>
-                    <label>Fullscreen Mode</label>
-                    <button name="fullscreen">Enter (Esc to exit)</button>
-                </div>
-            </fieldset>
-            <fieldset>
-                <div>
-                    <label>Read Only</label>
-                    <input type="checkbox" name="readonly" />
-                </div>
-                <div>
-                    <label>Show line numbers</label>
-                    <input type="checkbox" name="counter" checked />
-                </div>
-                <div>
-                    <label>Insert closing brackets</label>
-                    <input type="checkbox" name="insertclosing" checked />
-                </div>
-                <div>
-                    <label>Draw indent guides</label>
-                    <input type="checkbox" name="indentation" checked />
-                </div>
-                <div>
-                    <label>Indent new lines</label>
-                    <input type="checkbox" name="indentNewLines" checked />
-                </div>
-                <div>
-                    <label>Highlight Brackets</label>
-                    <input type="checkbox" name="highlightBrackets" checked />
-                </div>
-                <div>
-                    <label>Allow shortcuts</label>
-                    <input type="checkbox" name="shortcuts" checked />
-                </div>
-                <div>
-                    <label>Blink caret</label>
-                    <input type="checkbox" name="blinkCaret" checked />
-                </div>
-            </fieldset>
-        </div>
-    </main>
-    
-    <div style="display:none;">
-        <code id="JavaScript">/* This is demo of JavaScript syntax
+            </div>
+        </main>
+        
+        <div style="display:none;">
+            <code id="JavaScript">/* This is demo of JavaScript syntax
  * Below you can change some editor options
 */
 
@@ -131,8 +134,7 @@ function hello(arg) {
 
 var result = hello(['H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!']);
 console.log(result);</code>
-
-        <code id="PHP">&lt;?php
+            <code id="PHP">&lt;?php
     namespace Vehicles;
     
     class car {
@@ -153,8 +155,7 @@ console.log(result);</code>
         }
     }
 ?&gt;</code>
-
-        <code id="CSS">/* CSS example */
+            <code id="CSS">/* CSS example */
 
 body {
     background-color:white;
@@ -167,8 +168,7 @@ div#container > p {
     font-family:"Helvetica Neue", Helvetica;
     font-style:italic;
 }</code>
-
-        <code id="HTML">&lt;!DOCTYPE html&gt;
+            <code id="HTML">&lt;!DOCTYPE html&gt;
 &lt;html&gt;
     &lt;head&gt;
         &lt;meta charset="utf-8" /&gt;
@@ -187,8 +187,7 @@ div#container > p {
         &lt;/div&gt;
     &lt;/body&gt;
 &lt;/html&gt;</code>
-
-        <code id="Cpp">/* C++ Hello World */
+            <code id="Cpp">/* C++ Hello World */
 #include &lt;iostream&gt;
 
 using namespace std;
@@ -197,8 +196,7 @@ int main(int argc, const char * argv[])
     cout &lt;&lt; "Hello World!" &lt;&lt; endl;
     return 0;
 }</code>
-
-        <code id="Ruby"># Ruby Demo
+            <code id="Ruby"># Ruby Demo
 
 def bubble_sort(list)
     return list if list.size &lt;= 1 # already sorted
@@ -216,8 +214,7 @@ def bubble_sort(list)
     
     list
 end</code>
-
-        <code id="Java">import java.util.Scanner;
+            <code id="Java">import java.util.Scanner;
 import java.io.File;
 import java.io.IOException;
 
@@ -236,8 +233,7 @@ public class ReadAndPrintScores
         }
     }
 }</code>
-
-        <code id="Perl">#!/usr/bin/perl
+            <code id="Perl">#!/usr/bin/perl
 use strict;
 use warnings;
 
@@ -254,8 +250,7 @@ while (my $file = $dir->next) {
     # Print out the file name and path
     print $file->stringify . "\n";
 }</code>
-
-        <code id="Bash">#!/bin/sh
+            <code id="Bash">#!/bin/sh
 # This is a comment
 echo "List of files:"
 
@@ -274,8 +269,7 @@ done
 echo ${RESULT} | cat >FILE_HEADS
 
 echo "'$RESULT' written Script done. "</code>
-
-        <code id="CoffeeScript"># Assignment:
+            <code id="CoffeeScript"># Assignment:
 number   = 42
 opposite = true
 
@@ -303,7 +297,7 @@ alert "I knew it!" if elvis?
 
 # Array comprehensions:
 cubes = (math.cube num for num in list)</code>
-        <code id="Ada">--
+            <code id="Ada">--
 -- Simple array example.
 --
 with Gnat.Io; use Gnat.Io;
@@ -327,7 +321,7 @@ begin
     end loop;
     Put_Line("]");
 end Arr1;</code>
-        <code id="Markdown">Heading
+            <code id="Markdown">Heading
 =======
 
 Sub-heading
@@ -355,7 +349,7 @@ Numbered list:
 
 The rain---not the reign---in
 Spain.</code>
-        <code id="SQL">-- SQL example
+            <code id="SQL">-- SQL example
 
 SELECT Book.title AS Title, COUNT(*) AS Authors FROM  Book JOIN  Book_author ON  Book.isbn = Book_author.isbn GROUP BY Book.title;
 
@@ -378,7 +372,7 @@ CASE
     ELSE 'zero'
 END
 </code>
-        <code id="XML">&lt;?xml version="1.0"?&gt;
+            <code id="XML">&lt;?xml version="1.0"?&gt;
 &lt;!-- XML Example --&gt;
 &lt;svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" fill-opacity="0.2"&gt;
     &lt;rect x="0" y="0" width="10" height="10" fill="white" /&gt;

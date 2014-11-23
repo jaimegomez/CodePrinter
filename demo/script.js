@@ -14,8 +14,13 @@ var cp = new CodePrinter({
 , indentNewLines = $.get('[name=indentNewLines]')
 , highlightBrackets = $.get('[name=highlightBrackets]')
 , shortcuts = $.get('[name=shortcuts]')
-, blinkCaret = $.get('[name=blinkCaret]');
+, blinkCaret = $.get('[name=blinkCaret]')
+, download = $.get('[name=download]');
 
+download.innerHTML += ' v'+CodePrinter.version;
+download.onclick = function() {
+    window.location.href = 'http://github.com/tsapeta/CodePrinter/archive/v'+CodePrinter.version+'.zip';
+}
 $.get('section').append(cp.mainElement);
 cp.print('JavaScript', $.get('code#JavaScript').innerHTML.decode());
 
