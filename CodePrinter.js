@@ -3537,7 +3537,7 @@
             if (this.options.insertClosingBrackets) {
                 var af = this.caret.textAfter()[0]
                 , cb = complementBracket(ch);
-                if (!af || af === cb || /\s/.test(af)) {
+                if (!af || af === cb || !/\w/.test(af)) {
                     this.insertText(cb, -cb.length);
                 }
             }
