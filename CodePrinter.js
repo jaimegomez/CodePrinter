@@ -2229,55 +2229,53 @@
             st = Math.max(0, Math.min(st, wh));
             cp.wrapper._lockedScrolling = true;
             
-            raf(function() {
-                var x = st - cp.sizes.scrollTop
-                , limit = cp.options.viewportMargin
-                , d = Math.round(x - limit)
-                , abs = Math.abs(d)
-                , tmpd = d
-                , h, dl;
-                
-                if (d) {
-                    if (abs > 300 && abs > 3 * code.offsetHeight) {
-                        dl = data.getLineWithOffset(Math.max(0, st - limit));
-                        if (doc.rewind(dl) !== false) {
-                            scrollTo(lastST = st);
-                            return;
-                        }
-                    }
-                    if (from === 0 && d < 0) {
-                        h = lines[0].height;
-                        dl = lines[lines.length-1];
-                        while (h < x && !isFilled() && (dl = dl.next())) {
-                            insert(dl);
-                            x -= dl.height;
-                        }
-                    } else if (d > 0) {
-                        while (lines.length && (h = lines[0].height) <= d && (dl = lines[lines.length-1].next())) {
-                            var first = lines.shift();
-                            dl.captureNode(first);
-                            if (dl.active) cp.select(dl);
-                            cp.emit('unlink', first, from);
-                            link(dl, to + 1);
-                            ++from; ++to;
-                            d -= h;
-                        }
-                    } else if (d < 0) {
-                        while (lines.length && (h = lines[lines.length-1].height) <= -d && (dl = lines[0].prev())) {
-                            var last = lines.pop();
-                            dl.captureNode(last);
-                            if (dl.active) cp.select(dl);
-                            cp.emit('unlink', last, to);
-                            link(dl, --from); --to;
-                            d += h;
-                        }
-                    }
-                    if (tmpd != d) {
-                        scroll(tmpd - d);
+            var x = st - cp.sizes.scrollTop
+            , limit = cp.options.viewportMargin
+            , d = Math.round(x - limit)
+            , abs = Math.abs(d)
+            , tmpd = d
+            , h, dl;
+            
+            if (d) {
+                if (abs > 300 && abs > 3 * code.offsetHeight) {
+                    dl = data.getLineWithOffset(Math.max(0, st - limit));
+                    if (doc.rewind(dl) !== false) {
+                        scrollTo(lastST = st);
+                        return;
                     }
                 }
-                scrollTo(lastST = st);
-            });
+                if (from === 0 && d < 0) {
+                    h = lines[0].height;
+                    dl = lines[lines.length-1];
+                    while (h < x && !isFilled() && (dl = dl.next())) {
+                        insert(dl);
+                        x -= dl.height;
+                    }
+                } else if (d > 0) {
+                    while (lines.length && (h = lines[0].height) <= d && (dl = lines[lines.length-1].next())) {
+                        var first = lines.shift();
+                        dl.captureNode(first);
+                        if (dl.active) cp.select(dl);
+                        cp.emit('unlink', first, from);
+                        link(dl, to + 1);
+                        ++from; ++to;
+                        d -= h;
+                    }
+                } else if (d < 0) {
+                    while (lines.length && (h = lines[lines.length-1].height) <= -d && (dl = lines[0].prev())) {
+                        var last = lines.pop();
+                        dl.captureNode(last);
+                        if (dl.active) cp.select(dl);
+                        cp.emit('unlink', last, to);
+                        link(dl, --from); --to;
+                        d += h;
+                    }
+                }
+                if (tmpd != d) {
+                    scroll(tmpd - d);
+                }
+            }
+            scrollTo(lastST = st);
         }
         this.isLineVisible = function(dl) {
             return lines.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
@@ -4120,9 +4118,6 @@
             }
         }
     });
-    raf = window.requestAnimationFrame || window.webkitRequestAnimationFrame 
-    || window.mozRequestAnimationFrame || window.msRequestAnimationFrame 
-    || window.oRequestAnimationFrame || function(callback) { setTimeout(callback, 16); };
     
     return window.CodePrinter = CodePrinter;
 });
