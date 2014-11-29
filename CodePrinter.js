@@ -3275,7 +3275,7 @@
                     stream.end();
                 });
             }
-            return this;
+            return stream;
         }
     }
     
