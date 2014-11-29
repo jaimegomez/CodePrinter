@@ -2159,6 +2159,14 @@
                 insert(dl);
                 dl = dl.next();
             }
+            if (!dl) {
+                dl = lines[0].prev();
+                while (dl && !(b = isFilled(half))) {
+                    prepend(dl);
+                    scroll(-dl.height);
+                    dl = dl.prev();
+                }
+            }
             return b;
         }
         this.rewind = function(dl) {
