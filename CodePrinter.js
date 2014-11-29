@@ -153,7 +153,8 @@
                 , o = sizes.bounds = sizes.bounds || self.wrapper.bounds()
                 , x = Math.max(0, sl + e.pageX - o.x)
                 , y = e.pageY < o.y ? 0 : e.pageY <= o.y + self.wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : self.wrapper.scrollHeight
-                , ry = Math.max(0, Math.min(y, doc.height()));
+                , ry = Math.max(0, Math.min(y, doc.height()))
+                , isinactive = document.activeElement !== self.input;
                 
                 self.input.focus();
                 self.caret.target(doc.lineWithOffset(ry), x);
@@ -161,7 +162,7 @@
                 
                 if (e.type === 'mousedown') {
                     isMouseDown = true;
-                    if (doc.inSelection(l, c) && ry === y) {
+                    if (doc.inSelection(l, c) && ry === y && (x - 3 <= self.caret.offsetX() || doc.inSelection(l, c+1))) {
                         moveselection = true;
                         window.on('mousemove', mouseController);
                         window.once('mouseup', function() {
@@ -185,6 +186,7 @@
                                     mouseController(arguments[0]);
                                 }
                             } else {
+                                isinactive || doc.clearSelection();
                                 self.input.focus();
                             }
                             return isMouseDown = moveselection = e.cancel();
@@ -2695,13 +2697,13 @@
                 this.emit('columnChange', dl, dli.index, c);
                 column = c;
             }
+            det.offsetY = dli.offset;
             lastdet = det;
             before = cp.convertToTabs(t.substring(0, c));
             after = cp.convertToTabs(t.substr(c));
             setPixelPosition.call(this, det.offset, dli.offset);
             cp.select(dl);
         }
-        
         this.setTextBefore = function(str) {
             var col = str.length;
             str = cp.convertToTabs(str);
@@ -2807,6 +2809,12 @@
                 mv = l-1;
             }
             return this.position(mv, column);
+        }
+        this.offsetX = function() {
+            return lastdet ? lastdet.offset : 0;
+        }
+        this.offsetY = function() {
+            return lastdet ? lastdet.offsetY : 0;
         }
         this.refresh = function() {
             cp.document.removeOverlays(null);
