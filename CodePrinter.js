@@ -525,8 +525,12 @@
             
             if (options) {
                 if (options.queue) queue = options.queue;
+                if (options.index) index = options.index;
                 if ('number' === typeof options.start) dl = this.document.get(index = options.start);
-                else if (options.start instanceof Line) dl = options.start;
+                else if (options.start instanceof Line) {
+                    dl = options.start;
+                    if (!options.index) index = dl.info().index;
+                }
             }
             
             setImmediate(fn = function() {
@@ -755,9 +759,9 @@
         textOf: function(dl) {
             return dl ? this.convertToSpaces(dl.text) : '';
         },
-        getIndentAtLine: function(line, dl) {
+        getIndentAtLine: function(dl) {
             var i = -1;
-            dl = dl || this.document.get(line);
+            dl = dl instanceof Line ? dl : this.document.get(dl);
             if (dl) {
                 while (dl.text[++i] === '\t');
                 return i;
@@ -770,15 +774,18 @@
             if (line instanceof Line) {
                 dl = line;
                 line = dl.info().index;
-            } else if ('number' === typeof line) {
-                dl = dl || this.document.get(line);
+            } else if ('number' === typeof line && !dl) {
+                dl = this.document.get(line);
             }
             if (dl) {
-                old = this.getIndentAtLine(old, dl);
+                old = this.getIndentAtLine(dl);
                 diff = indent - old;
-                dl.setText('\t'.repeat(indent) + dl.text.replace(/^\t*/g, ''));
-                this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
-                this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
+                if (diff) {
+                    dl.setText('\t'.repeat(indent) + dl.text.replace(/^\t*/g, ''));
+                    this.parse(dl);
+                    this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
+                    this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
+                }
             }
             return indent;
         },
@@ -3455,8 +3462,8 @@
             , af = this.caret.textAfter();
             
             if (this.options.autoIndent) {
-                var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line)
-                , dl = this.caret.dl(), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
+                var rest = '', line = this.caret.line(), dl = this.caret.dl()
+                , indent = this.getIndentAtLine(dl), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
                 , spacesAfter = 0;
                 
                 if (parser && parser.indentation) {
@@ -3792,8 +3799,10 @@
             this.emit('started', { line: line, column: column });
         }
         this.setEnd = function(line, column) {
-            coords[1] = [line, column];
-            make.call(this);
+            if (coords[0]) {
+                coords[1] = [line, column];
+                make.call(this);
+            }
         }
         this.isset = function() {
             return coords && coords.length == 2;
