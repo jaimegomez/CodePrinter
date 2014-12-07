@@ -840,6 +840,33 @@
             var indent = this.getIndentAtLine(line);
             return nextLineIndent(this, indent, line);
         },
+        fixIndents: function() {
+            var range = this.document.getSelectionRange()
+            , opt = {}, i = 0, e, c;
+            
+            if (range) {
+                var sl = Math.max(0, range.start.line-1)
+                , dl = this.document.get(sl);
+                
+                if (range.start.line === 0) {
+                    this.setIndentAtLine(0, 0, dl);
+                }
+                e = range.end.line;
+                i = nextLineIndent(this, this.getIndentAtLine(dl), sl);
+                opt.start = dl.next();
+                opt.index = sl+1;
+                this.document.clearSelection();
+            }
+            this.intervalIterate(function(dl, index) {
+                c = this.getIndentAtLine(dl);
+                i = this.parser.fixIndent.call(this, dl, i);
+                if (c != i) {
+                    this.setIndentAtLine(index, i, dl);
+                }
+                i = nextLineIndent(this, i, index, dl);
+                if (index == e) return false;
+            }, opt);
+        },
         toggleComment: function() {
             if (this.parser && this.parser.lineComment) {
                 var start, end, line, sm, insert
@@ -3396,6 +3423,18 @@
             }
             return 0;
         },
+        fixIndent: function(dl, expectedIndent) {
+            var id = this.parser.indentDecrements;
+            if (id) {
+                var txt = dl.text.trim();
+                for (var i = 0; i < id.length; i++) {
+                    if (txt.startsWith(id[i])) {
+                        return expectedIndent - 1;
+                    }
+                }
+            }
+            return expectedIndent;
+        },
         codeCompletion: function(memory) {
             return [];
         },
@@ -3593,6 +3632,7 @@
         'Shift+Ctrl+F': function() {
             this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
         },
+        'Ctrl+I': CodePrinter.prototype.fixIndents,
         'Ctrl+J': function() {
             this.setCursorPosition(parseInt(prompt("Jump to line..."), 10) - 1, 0);
         },
