@@ -11,8 +11,8 @@
 
 "use strict";
 
-(window.define || function() { arguments[2]($ || Selector); })('CodePrinter', ['Selector'], function($) {
-    var CodePrinter, EventEmitter, Data, Branch, Line
+(window.define || function() { arguments[2]($ || env); })('CodePrinter', ['env'], function($) {
+    var CodePrinter, Data, Branch, Line
     , Caret, Document, StreamArray, Stream
     , ReadStream, History, Selection, keyMap
     , commands, tracking, lineendings, aliases
@@ -24,8 +24,8 @@
     , markClassName = 'cp-marked'
     , zws = '&#8203;';
     
-    $.scripts.registerNamespace('CodePrinter', 'mode/');
-    $.scripts.registerNamespace('CodePrinter/addons', 'addons/');
+    $.require.registerNamespace('CodePrinter', 'mode/');
+    $.require.registerNamespace('CodePrinter/addons', 'addons/');
     
     CodePrinter = function(source, options) {
         if (arguments.length === 1 && source == '[object Object]') {
@@ -33,7 +33,6 @@
             source = null;
         }
         options = this.options = $.extend({}, CodePrinter.defaults, options);
-        EventEmitter.call(this);
         buildDOM(this);
         this.prepare();
         
@@ -455,7 +454,7 @@
                 isMouseDown = false;
             }
             
-            this.counter.delegate('mousedown', 'li', function() {
+            this.counter.delegate('li', 'mousedown', function() {
                 var dli = this._dl && this._dl.info();
                 if (dli) {
                     counterSelection[0] = this._dl.info().index;
@@ -667,8 +666,7 @@
             return this;
         },
         setMode: function(mode) {
-            var mlc = mode.toLowerCase();
-            mode = aliases[mlc] || mlc || 'plaintext';
+            mode = aliases[mode] || mode || 'plaintext';
             this.mainElement.removeClass('cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase()).addClass('cp-'+mode.replace(/\+/g, 'p').toLowerCase());
             this.options.mode = mode;
             return this;
@@ -1299,7 +1297,7 @@
                                 cp.searches.length = 0;
                             }
                         });
-                        search.overlay.node.delegate('mousedown', 'span', function(e) {
+                        search.overlay.node.delegate('span', 'mousedown', function(e) {
                             var res = this._searchResult;
                             if (res) {
                                 search.mute = true;
@@ -1603,58 +1601,6 @@
         appendTo: function(node) { node.append(this.mainElement); return this; },
         insertBefore: function(node) { node.before(this.mainElement); return this; },
         insertAfter: function(node) { node.after(this.mainElement); return this; }
-    }
-    
-    EventEmitter = function() {
-        var listeners = {};
-        this.emit = function(eventName) {
-            var lst = listeners[eventName];
-            if (lst && lst.length) {
-                var args = Array.apply(null, arguments);
-                args.shift();
-                for (var i = 0; i < lst.length; i++) {
-                    lst[i].apply(this, args);
-                }
-            }
-            return this;
-        }
-        this.on = function(arg) {
-            if (arguments.length === 2) {
-                arg = {}
-                arg[arguments[0]] = arguments[1];
-            }
-            for (var k in arg) {
-                if (!listeners[k]) listeners[k] = [];
-                listeners[k].push(arg[k]);
-            }
-            return this;
-        }
-        this.once = function(eventName, listener) {
-            if ('string' === typeof eventName && listener instanceof Function) {
-                var listenerWrapper = function() {
-                    listener.apply(this, arguments);
-                    this.off(eventName, listenerWrapper);
-                }
-                if (!listeners[eventName]) listeners[eventName] = [];
-                listeners[eventName].push(listenerWrapper);
-            }
-            return this;
-        }
-        this.off = function(eventName, listener) {
-            if (eventName) {
-                var lst = listeners[eventName], i;
-                if (lst) {
-                    if (listener && (i = lst.indexOf(listener)) >= 0) {
-                        lst.splice(i, 1);
-                    } else {
-                        lst.length = 0;
-                    }
-                }
-            } else {
-                listeners = {}
-            }
-            return this;
-        }
     }
     
     Branch = function(leaf) {
@@ -2033,7 +1979,6 @@
         , defHeight = 13, firstNumber
         , data, history, selection;
         
-        EventEmitter.call(this);
         doc.screen = screen;
         doc.overlays = [];
         history = new History(cp, doc, cp.options.historyStackSize, cp.options.historyDelay);
@@ -2671,7 +2616,6 @@
     }
     
     Caret = function(cp) {
-        EventEmitter.call(this);
         var line, column, currentDL, lastdet
         , before = '', after = '', tmp
         , styles = {
@@ -2944,7 +2888,7 @@
     }
     
     CodePrinter.Overlay = function(doc, classes, removable) {
-        this.node = div.cloneNode().addClass('cp-overlay '+classes);
+        this.node = div.cloneNode().addClass('cp-overlay', classes);
         this.isRemovable = !!removable;
         this.doc = doc;
         return this;
@@ -3294,7 +3238,6 @@
         , dl = cp.document.get(0)
         , le = cp.getLineEnding(), fn;
         
-        EventEmitter.call(this);
         setImmediate(fn = function() {
             var r = 25 + 50 * Math.random(), i = -1;
             
@@ -3956,7 +3899,7 @@
     }
     
     CodePrinter.requireMode = function(req, cb, del) {
-        return $.scripts.require('CodePrinter/'+req.toLowerCase(), cb, del);
+        return $.require('CodePrinter/'+req, cb, del);
     }
     CodePrinter.defineMode = function(name, obj, req) {
         if (obj instanceof Array) {
@@ -3965,23 +3908,22 @@
         }
         if (req) {
             for (var i = 0; i < req.length; i++) {
-                req[i] = 'CodePrinter/'+(aliases[req[i]] || req[i].toLowerCase());
+                req[i] = 'CodePrinter/'+(aliases[req[i]] || req[i]);
             }
         }
-        var lc = name.toLowerCase();
-        $.scripts.define('CodePrinter/'+lc, obj, req);
-        $.scripts.require('CodePrinter/'+lc, function(mode) {
+        $.define('CodePrinter/'+name, obj, req);
+        $.require('CodePrinter/'+name, function(mode) {
             mode.name = name;
         });
     }
     CodePrinter.hasMode = function(name) {
-        return $.scripts.has('CodePrinter/'+name.toLowerCase());
+        return $.require.has('CodePrinter/'+name.toLowerCase());
     }
     CodePrinter.requireAddon = function(name, cb, del) {
-        $.scripts.require('CodePrinter/addons/'+name, cb, del);
+        $.require('CodePrinter/addons/'+name, cb, del);
     }
     CodePrinter.defineAddon = function(name, obj) {
-        $.scripts.define('CodePrinter/addons/'+name, obj);
+        $.define('CodePrinter/addons/'+name, obj);
     }
     CodePrinter.registerExtension = function(ext, parserName) {
         aliases[ext.toLowerCase()] = parserName.toLowerCase();
