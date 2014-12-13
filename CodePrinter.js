@@ -486,7 +486,7 @@
             
             if (mode === 'plaintext') {
                 callback.call(this, new CodePrinter.Mode('plaintext'));
-            } else if (this.parser && this.parser.name.toLowerCase() === mode) {
+            } else if (this.parser && this.parser.name === mode) {
                 callback.call(this, this.parser);
             } else {
                 if (!CodePrinter.hasMode(mode)) {
@@ -3900,23 +3900,23 @@
     CodePrinter.requireMode = function(req, cb, del) {
         return $.require('CodePrinter/'+req, cb, del);
     }
-    CodePrinter.defineMode = function(name, obj, req) {
-        if (obj instanceof Array) {
-            req = arguments[1];
-            obj = arguments[2];
+    CodePrinter.defineMode = function(name, req, obj) {
+        if (arguments.length === 2) {
+            obj = req;
+            req = null;
         }
         if (req) {
             for (var i = 0; i < req.length; i++) {
                 req[i] = 'CodePrinter/'+(aliases[req[i]] || req[i]);
             }
         }
-        $.define('CodePrinter/'+name, obj, req);
+        $.define('CodePrinter/'+name, req, obj);
         $.require('CodePrinter/'+name, function(mode) {
             mode.name = name;
         });
     }
     CodePrinter.hasMode = function(name) {
-        return $.require.has('CodePrinter/'+name.toLowerCase());
+        return $.require.has('CodePrinter/'+name);
     }
     CodePrinter.requireAddon = function(name, cb, del) {
         $.require('CodePrinter/addons/'+name, cb, del);
