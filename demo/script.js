@@ -24,16 +24,6 @@ download.onclick = function() {
 $('section').append(cp.mainElement);
 cp.print('JavaScript', $('code#JavaScript').innerHTML.decode());
 
-$('header').animate({ opacity: 1 }, { duration: 1000, delay: 200 }, function() {
-    $('article').animate({ opacity: 1 }, 1000, function() {
-        cp.mainElement.animate({ translateX: 0, opacity: 1 }, 1000, function() {
-            $('#options').animate({ opacity: 1 }, 1000, function() {
-                $('img').effectIn('slideDown');
-            });
-        });
-    });
-});
-
 demo.onchange = function() {
     cp.print(this.value, $('code#'+this.value.replace(/\+/g, 'p')).innerHTML.decode());
 }

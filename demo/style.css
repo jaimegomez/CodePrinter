@@ -10,9 +10,6 @@
 body {
     background: url("background.png") repeat;
 }
-img {
-    opacity:0;
-}
 main {
     width: 50%;
     min-width: 700px;
@@ -35,13 +32,6 @@ article {
 article p {
     color: #444;
 }
-section .codeprinter {
-    -webkit-transform: translateX(50px);
-    -moz-transform: translateX(50px);
-    -ms-transform: translateX(50px);
-    -o-transform: translateX(50px);
-    transform: translateX(50px);
-}
 #options {
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -50,9 +40,6 @@ section .codeprinter {
     user-select: none;
     padding: 20px 0;
     color: #444;
-}
-header, article, #options, .codeprinter {
-    opacity: 0;
 }
 fieldset {
     display: inline-block;
