@@ -3,6 +3,22 @@
 CodePrinter.defineMode('Markdown', function() {
     var listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/;
     
+    function typeOfList(txt) {
+        if (listsRegexp.test(txt)) {
+            var gr = RegExp.$1;
+            return gr.length === 1 ? gr : 'd';
+        }
+        return false;
+    }
+    function levelOfParentalItem(type, parent) {
+        var p = 0;
+        while (parent && type !== typeOfList(parent.text)) {
+            ++p;
+            parent = parent.parentalListItem;
+        }
+        return parent ? p : -1;
+    }
+    
     return new CodePrinter.Mode({
         regexp: /([\~\*\_]){1,2}|\`+|!?\[([^\]]*)\]\(([^\)]*)\)/,
         
@@ -75,6 +91,34 @@ CodePrinter.defineMode('Markdown', function() {
                     this.insertText(parseInt(sign)+1 + '. ');
                 }
             }
+        },
+        fixIndent: function(dl, expectedIndent) {
+            var txt = dl.text, listType = typeOfList(txt);
+            
+            if (listType) {
+                var prev = dl.prev()
+                , bftype = prev && typeOfList(prev.text);
+                
+                if (bftype) {
+                    if (prev.parentalListItem) {
+                        if (listType !== bftype) {
+                            var p = levelOfParentalItem(listType, prev.parentalListItem);
+                            if (p >= 0) {
+                                return expectedIndent - p - 1;
+                            }
+                            dl.parentalListItem = prev;
+                            return expectedIndent + 1;
+                        }
+                        dl.parentalListItem = prev.parentalListItem;
+                        return expectedIndent;
+                    } else if (listType !== bftype) {
+                        dl.parentalListItem = prev;
+                        return expectedIndent + 1;
+                    }
+                }
+            }
+            if (dl.parentalListItem) delete dl.parentalListItem;
+            return 0;
         }
     });
 });
