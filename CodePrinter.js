@@ -1610,7 +1610,14 @@
     }
     
     Branch.prototype = {
-        indexOf: Array.prototype.indexOf,
+        indexOf: function(node, offset) {
+            for (var i = offset || 0, l = this.length; i < l; i++) {
+                if (this[i] == node) {
+                    return i;
+                }
+            }
+            return -1;
+        },
         splice: function(index, howmany) {
             var size = 0, height = 0, l = Math.min(index + howmany, this.length || 0);
             for (var i = index; i < l; i++) {
