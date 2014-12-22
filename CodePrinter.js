@@ -206,6 +206,7 @@
                             return isMouseDown = e.cancel();
                         });
                     }
+                    doc.removeOverlays('click');
                 } else if (!moveselection) {
                     moveevent = e;
                     doc.endSelection();
@@ -315,7 +316,9 @@
                     if (code < 48 && code != 9 && !self.keyMap[kc]) {
                         kc = e.getKeyCombination(options.keyCombinationFlag | 4);
                     }
-                    if (kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
+                    self.emit('@'+kc, e);
+                    if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
+                        self.document.removeOverlays('keydown');
                         allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                     if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
@@ -425,7 +428,6 @@
                             self.highlightOverlay.remove();
                         }
                     }
-                    doc.removeOverlays('caret');
                 }
             });
             
@@ -515,7 +517,7 @@
         initAddon: function(addon, options) {
             var cp = this;
             CodePrinter.requireAddon(addon, function(construct) {
-                construct.call(null, cp, options);
+                new construct(cp, options);
             });
         },
         intervalIterate: function(callback, onend, options) {
@@ -627,7 +629,7 @@
             $.async(this.input.focus.bind(this.input));
         },
         requireStyle: function(style, callback) {
-            $.require($.glue(this.options.path, 'theme', style+'.css'), callback);
+            $.include($.pathJoin(this.options.path, 'theme', style+'.css'), callback);
         },
         tabString: function(m) {
             m == null && (m = 1);
@@ -1227,6 +1229,28 @@
                 this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
             }
         },
+        removeWordBefore: function(pattern) {
+            pattern = pattern || /[\w$]+/;
+            var bf = this.caret.textBefore(), m
+            , rgx = new RegExp(pattern.source + '$');
+            
+            if (m = rgx.exec(bf)) {
+                this.removeBeforeCursor(m[0]);
+                return m[0];
+            }
+            return '';
+        },
+        removeWordAfter: function(pattern) {
+            pattern = pattern || /[\w$]+/;
+            var af = this.caret.textAfter(), m
+            , rgx = new RegExp('^' + pattern.source);
+            
+            if (m = rgx.exec(af)) {
+                this.removeAfterCursor(m[0]);
+                return m[0];
+            }
+            return '';
+        },
         isEmpty: function() {
             return this.document.lines() === 1 && !this.document.get(0).text;
         },
@@ -1267,13 +1291,22 @@
                 var search = this.searches = this.searches || {};
                 
                 if (!search.value || find.toString() != search.value.toString() || !search.results || !search.length) {
-                    var cp = this, j = 0, results = search.results = {}, cur, linkCallback, escape;
+                    var cp = this, j = 0, results = search.results = {}, cur, linkCallback, clearSelected, escape;
                     search.value = find;
                     
                     linkCallback = function(dl, line) {
                         if (cp.searches.results && (cur = cp.searches.results[line])) {
                             searchAppendResult.call(cp, dl, cur);
                         }
+                    }
+                    clearSelected = function() {
+                        var children = search.overlay.node.children, k = 0;
+                        for (var i = 0; i < children.length; i++) {
+                            if (children[i].style.opacity == '0' && ++k) {
+                                children[i].style.opacity = '1';
+                            }
+                        }
+                        k && cp.document.clearSelection();
                     }
                     
                     if (!(search.overlay instanceof CodePrinter.Overlay)) {
@@ -1282,12 +1315,8 @@
                         
                         search.overlay.on({
                             refresh: function(a) {
-                                if (a === 'caret' || a === 'blur') {
-                                    var children = search.overlay.node.children, k = 0;
-                                    for (var i = 0; i < children.length; i++) {
-                                        children[i].style.opacity == "0" && ++k && children[i].fadeIn();
-                                    }
-                                    k && cp.document.clearSelection();
+                                if (a === 'click' || a === 'blur') {
+                                    clearSelected();
                                 } else if (!search.mute) {
                                     search.length = 0;
                                     cp.search(search.value, false);
@@ -1301,11 +1330,12 @@
                         search.overlay.node.delegate('span', 'mousedown', function(e) {
                             var res = this._searchResult;
                             if (res) {
+                                clearSelected();
                                 search.mute = true;
                                 cp.input.focus();
                                 cp.document.setSelectionRange(res.line, res.startColumn, res.line, res.startColumn + res.length);
                                 cp.caret.position(res.line, res.startColumn + res.length);
-                                this.fadeOut();
+                                this.style.opacity = '0';
                                 search.mute = false;
                             }
                             return e.cancel();
@@ -2573,13 +2603,20 @@
             selection.clear();
             cp.select(cp.caret.dl());
         }
+        this.createOverlay = function(classes, removable) {
+            return new CodePrinter.Overlay(this, classes, removable);
+        }
         this.removeOverlays = function() {
-            var ov = this.overlays;
+            var ov = this.overlays, args;
             for (var i = 0; i < ov.length; i++) {
                 if (ov[i].isRemovable) {
                     ov[i].remove();
                 } else {
-                    ov[i].emit('refresh', Array.apply(null, arguments));
+                    if (!args) {
+                        args = ['refresh'];
+                        args.push.apply(args, arguments);
+                    }
+                    ov[i].emit.apply(ov[i], args);
                 }
             }
         }
@@ -2617,8 +2654,7 @@
             if (cp.options.history) {
                 history.pushChanges(e.line, e.column, cp.convertToTabs(e.text), e.added);
             }
-            Array.prototype.unshift.call(arguments, 'changed');
-            doc.removeOverlays.apply(doc, arguments);
+            doc.removeOverlays('changed', e);
         });
         return this;
     }
@@ -2799,8 +2835,8 @@
         this.offsetX = function() {
             return lastdet ? lastdet.offset : 0;
         }
-        this.offsetY = function() {
-            return lastdet ? lastdet.offsetY : 0;
+        this.offsetY = function(withDL) {
+            return lastdet ? lastdet.offsetY + (withDL ? currentDL.height : 0) : 0;
         }
         this.refresh = function() {
             cp.document.removeOverlays(null);
@@ -3336,8 +3372,8 @@
                 this.caret.setTextBefore(this.tabString(indent-1) + this.caret.textBefore().trim());
             }
         }
-        $.extend(this, extend instanceof Function ? extend.call(this) : extend);
-        this.extension && this.extend(this.extension);
+        this.extend(extend instanceof Function ? extend.call(this) : extend);
+        this.extension && this.expand(this.extension);
         this.init();
     }
     CodePrinter.Mode.prototype = {
