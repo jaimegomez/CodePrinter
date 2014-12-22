@@ -226,13 +226,15 @@
                 }
             }
             function mousewheel(e) {
-                var x = e.wheelDeltaX, y = e.wheelDeltaY;
-                
-                if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
-                if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
-                if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
-                if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
-                return e.cancel();
+                if (e.target === this) {
+                    var x = e.wheelDeltaX, y = e.wheelDeltaY;
+                    
+                    if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
+                    if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
+                    if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
+                    if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
+                    return e.cancel();
+                }
             }
             
             this.wrapper.listen({
