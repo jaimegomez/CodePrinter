@@ -320,7 +320,7 @@
                     }
                     self.emit('@'+kc, e);
                     if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
-                        self.document.removeOverlays('keydown');
+                        self.document.removeOverlays('keydown', e);
                         allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                     if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
@@ -3562,6 +3562,7 @@
         'Left': function(e, c) {
             c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
             this.document.clearSelection();
+            this.document.removeOverlays('caretMove');
             return false;
         },
         'Del': function() {
