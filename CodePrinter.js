@@ -2577,7 +2577,7 @@
         }
         this.removeOverlays = function() {
             var ov = this.overlays, args;
-            for (var i = 0; i < ov.length; i++) {
+            for (var i = ov.length; i--; ) {
                 if (ov[i].isRemovable) {
                     ov[i].remove();
                 } else {
