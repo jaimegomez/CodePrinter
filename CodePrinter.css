@@ -230,7 +230,7 @@
 .codeprinter .cp-scrollbar.visible {
   opacity: 1;
 }
-.codeprinter .cp-scrollbar .cp-scrollbar-slider {
+.codeprinter .cp-scrollbar-slider {
   display: inline-block;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 50px;

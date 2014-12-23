@@ -1,15 +1,19 @@
 /* CodePrinter - Monokai theme */
 
 .cps-monokai .cp-wrapper,
-.cps-monokai .cp-source { background:#272822; color:#F9FAF4; }
+.cps-monokai .cp-source { background:#272822; color:#eaeaea; }
 .cps-monokai .cp-counter { background:#272822; border-color:#555; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.7); }
 .cps-monokai .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-monokai .cp-selection { background:rgba(255,255,255,0.15); }
 .cps-monokai.inactive .cp-selection { background:rgba(255,255,255,0.1); }
 .cps-monokai .cp-highlight { border-bottom:1px solid white; }
+.cps-monokai .cp-marked { background:rgb(52,53,49); }
 .cps-monokai .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-monokai .cp-search-occurrence { border:1px solid #999; margin:0; }
 .cps-monokai .cp-search-occurrence.active { background:#fdd017; border-color:#fdd017; color:#333; }
+.cps-monokai .cp-hint-container { background:#272822; border-color:#555; box-shadow:0 0 10px rgba(0,0,0,0.7); }
+.cps-monokai .cp-hint-container li.active { background:#e6e6e6; color:#000; }
+.cps-monokai .cp-scrollbar-slider { background:#e6e6e6; }
 
 .cps-monokai .cpx-tab { border-color:#6A6A6A; }
 .cps-monokai .cpx-bracket { color:#F9FAF4; }

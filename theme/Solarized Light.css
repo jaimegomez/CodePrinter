@@ -8,6 +8,9 @@
 .cps-solarized-light .cp-active-line { background:#fef8a8; }
 .cps-solarized-light .cp-search-occurrence {}
 .cps-solarized-light .cp-search-occurrence.active { background:#586e75; border-color:#586e75; color:#fdf6e3; }
+.cps-solarized-light .cp-hint-container { background:#fdf6e3; border-color:#bbb5a2; box-shadow:0 0 10px rgba(187, 181, 162, 0.6); color:#657A81; }
+.cps-solarized-light .cp-hint-container li.active { background:#88826F; color:#ffffff; }
+.cps-solarized-light .cp-scrollbar-slider { background:#BBB5A2; }
 
 .cps-solarized-light .cpx-tab { border-color:#586e75; }
 .cps-solarized-light .cpx-bracket { color:#657b83; }
