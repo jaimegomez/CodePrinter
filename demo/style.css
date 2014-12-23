@@ -12,7 +12,7 @@ body {
 }
 main {
     width: 50%;
-    min-width: 700px;
+    min-width: 800px;
     margin: 40px auto 0;
 }
 header {
@@ -38,13 +38,14 @@ article p {
     -ms-user-select: none;
     -o-user-select: none;
     user-select: none;
+    margin: 0 -22px;
     padding: 20px 0;
     color: #444;
 }
 fieldset {
     display: inline-block;
     vertical-align: top;
-    min-width: 300px;
+    min-width: 260px;
     padding: 10px 0;
     border: none;
     text-align: center;

@@ -1,5 +1,5 @@
 var cp = new CodePrinter({
-    addons: ['scrollbars']
+    addons: ['scrollbars', 'hints']
 })
 , demo = $('[name=demo]')
 , theme = $('[name=theme]')
@@ -15,6 +15,7 @@ var cp = new CodePrinter({
 , highlightBrackets = $('[name=highlightBrackets]')
 , shortcuts = $('[name=shortcuts]')
 , blinkCaret = $('[name=blinkCaret]')
+, autoComplete = $('[name=autoComplete]')
 , download = $('[name=download]');
 
 download.innerHTML += ' v'+CodePrinter.version;
@@ -67,4 +68,7 @@ shortcuts.onchange = function() {
 }
 blinkCaret.onchange = function() {
     cp.options.blinkCaret = this.checked;
+}
+autoComplete.onchange = function() {
+    cp.options.autoComplete = this.checked;
 }
