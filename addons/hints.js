@@ -1,15 +1,16 @@
 CodePrinter.defineAddon('hints', function() {
     
     var defaults = {
-        word: /[\w$]+/,
+        word: /[\w\-$]+/,
         range: 500,
+        limit: 100,
         maxWidth: 300,
         maxHeight: 100
     }
     , li_clone = document.createElement('li');
     
     var Hints = function(cp, options) {
-        var that = this, active, container, visible;
+        var that = this, active, container, visible, curWord;
         
         this.options = options = {}.extend(defaults, options); 
         cp.hints = this;
@@ -19,11 +20,18 @@ CodePrinter.defineAddon('hints', function() {
         container.className = 'cp-hint-container';
         this.overlay.node.appendChild(container);
         
-        this.overlay.on('refresh', function(a) {
-            if (a !== 'changed') {
+        this.overlay.on('refresh', function(a, e) {
+            if (a === 'caretMove' && curWord) {
+                var word = cp.wordBefore(options.word)+cp.wordAfter(options.word);
+                if (word === curWord) {
+                    that.show(false, word);
+                } else {
+                    that.hide();
+                }
+            } else if (a === 'changed') {
+                !e.added || that.strictMatch(e.text) ? that.show(false) : that.hide();
+            } else if (a === 'blur' || a === 'click') {
                 that.hide();
-            } else {
-                that.show(false);
             }
         });
         
@@ -32,60 +40,77 @@ CodePrinter.defineAddon('hints', function() {
         
         this.search = function() {
             var list = [], seen = {}
-            , word = options.word, range = options.range
-            , rgx = new RegExp(word.source, 'g')
+            , range = options.range, limit = options.limit
+            , rgx = new RegExp(options.word.source, 'g')
+            , wordBf = cp.wordBefore(options.word)
+            , wordAf = cp.wordAfter(options.word)
             , caret = cp.caret
-            , line = caret.line()
-            , col = caret.column(true)
             , curDL = caret.dl()
+            , bf = caret.textBefore()
+            , af = caret.textAfter()
             , text = curDL.text
-            , lines = cp.document.lines()
-            , end = col, dl, text, m, curWord
-            , nextFn, hasOwnProperty, fn;
+            , dl, text, m
+            , next, hOP, fn;
             
-            while (col && word.test(text.charAt(col - 1))) --col;
-            curWord = col != end && text.slice(col, end); 
+            curWord = (wordBf + wordAf).toLowerCase();
+            hOP = Object.prototype.hasOwnProperty;
             
-            hasOwnProperty = Object.prototype.hasOwnProperty;
-            fn = curWord
-            ? function(match) {
-                if (!hasOwnProperty.call(seen, match)) {
-                    var det = determinant(curWord, match);
-                    if (det) {
-                        seen[match] = det;
-                        list.push(match);
+            fn = curWord ? function(match) {
+                var o = 0, m = 0, max = 0
+                , l = curWord.length
+                , lc = match.toLowerCase();
+                
+                for (var i = 0, l = curWord.length; i < l; i++) {
+                    var j = lc.indexOf(curWord[i], o);
+                    if (j == o) {
+                        ++o;
+                        max = Math.max(++m, max);
                     } else {
-                        seen[match] = null;
+                        m = 0;
                     }
+                }
+                if (max >= Math.sqrt(l)) {
+                    seen[match] = max;
+                    list.push(match);
+                } else {
+                    seen[match] = null;
                 }
             }
             : function(match) {
-                if (hasOwnProperty.call(seen, match)) {
-                    ++seen[match];
-                } else {
-                    seen[match] = 1;
-                    list.push(match);
+                seen[match] = true;
+                list.push(match);
+            }
+            
+            function loop() {
+                while (m = rgx.exec(text)) {
+                    if (!hOP.call(seen, m[0])) {
+                        fn(m[0]);
+                    }
                 }
             }
             
-            for (var dir = -1; dir <= 1; dir += 2) {
-                end = Math.min(Math.max(0, line + dir * range), lines);
-                nextFn = dir < 0 ? curDL.prev : curDL.next;
-                dl = curDL;
+            text = curWord ? bf.substr(0, bf.length - wordBf.length) + ' ' + af.substr(wordAf.length) : bf + af;
+            loop();
+            
+            for (var dir = 0; dir <= 1; dir++) {
+                next = dir ? curDL.next : curDL.prev;
+                dl = next.call(curDL);
                 
-                for (var i = line; i != end; i += dir) {
+                for (var i = 1; i < range && dl && list.length < limit; i++) {
                     text = dl.text;
-                    while (m = rgx.exec(text)) {
-                        if (i == line && m[0] === curWord) continue;
-                        fn(m[0]);
-                    }
-                    dl = nextFn.call(dl);
+                    loop();
+                    dl = next.call(dl);
                 }
+                limit = limit * 2;
             }
-            return list.sort(function(a, b) { return seen[b] - seen[a]; });
+            return curWord ? list.sort(function(a, b) { return seen[b] - seen[a]; }) : list;
         }
-        this.show = function(autocomplete) {
-            var list = this.search(), ul;
+        this.show = function(autocomplete, byWord, except) {
+            var list = this.search(byWord), ul;
+            
+            if (except instanceof Array) {
+                list.diff(except);
+            }
             
             container.innerHTML = '<ul></ul>';
             ul = container.firstChild;
@@ -103,17 +128,21 @@ CodePrinter.defineAddon('hints', function() {
                 refreshPosition();
                 setActive(ul.children[0]);
                 visible = true;
+            } else {
+                this.hide();
             }
             return this;
         }
         this.hide = function() {
             this.overlay.remove();
             visible = active = undefined;
+            return this;
         }
         this.choose = function(value) {
             var word = this.options.word;
             cp.removeWordBefore(word);
             cp.insertText(value);
+            cp.emit('autocomplete', value);
             return this;
         }
         
@@ -121,14 +150,14 @@ CodePrinter.defineAddon('hints', function() {
             '@Up': function(e) {
                 if (visible) {
                     var last = container.children[0].lastChild;
-                    setActive(active && active.prev() || last);
+                    setActive(active && active.prev() || last, true);
                     return e.cancel();
                 }
             },
             '@Down': function(e) {
                 if (visible) {
                     var first = container.children[0].firstChild;
-                    setActive(active && active.next() || first);
+                    setActive(active && active.next() || first, true);
                     return e.cancel();
                 }
             },
@@ -167,16 +196,6 @@ CodePrinter.defineAddon('hints', function() {
             }
         });
         
-        function determinant(current, match) {
-            var j, k = 0, det = 0;
-            for (var i = 0, l = current.length; i < l; i++) {
-                if ((j = match.indexOf(current[i], k)) >= k) {
-                    det += (i + 1) / (j - k + 1);
-                    k = j + 1;
-                }
-            }
-            return det;
-        }
         function refreshPosition() {
             var x = cp.caret.offsetX() - 4
             , y = cp.caret.offsetY(true) + cp.sizes.paddingTop;
@@ -191,11 +210,11 @@ CodePrinter.defineAddon('hints', function() {
             container.style.top = y+'px';
             container.style.left = x+'px';
         }
-        function setActive(li) {
+        function setActive(li, scroll) {
             if (active) active.removeClass('active');
             if (li) {
                 active = li.addClass('active');
-                container.scrollTop = scrollTop(li);
+                if (scroll) container.scrollTop = scrollTop(li);
             } else {
                 active = null;
             }
@@ -213,6 +232,12 @@ CodePrinter.defineAddon('hints', function() {
         },
         setWordPattern: function(word) {
             this.options.word = word;
+        },
+        match: function(word) {
+            return this.options.word.test(word);
+        },
+        strictMatch: function(word) {
+            return new RegExp('^'+this.options.word.source+'$').test(word);
         }
     }
     

@@ -306,6 +306,7 @@
   pointer-events: all;
   position: absolute;
   overflow: scroll;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
 }
 .codeprinter .cp-hint-container ul {
   display: block;
