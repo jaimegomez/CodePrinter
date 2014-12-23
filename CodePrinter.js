@@ -1229,27 +1229,33 @@
                 this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
             }
         },
-        removeWordBefore: function(pattern) {
+        wordBefore: function(pattern) {
             pattern = pattern || /[\w$]+/;
             var bf = this.caret.textBefore(), m
             , rgx = new RegExp(pattern.source + '$');
-            
             if (m = rgx.exec(bf)) {
-                this.removeBeforeCursor(m[0]);
                 return m[0];
             }
             return '';
         },
-        removeWordAfter: function(pattern) {
+        wordAfter: function(pattern) {
             pattern = pattern || /[\w$]+/;
             var af = this.caret.textAfter(), m
             , rgx = new RegExp('^' + pattern.source);
-            
             if (m = rgx.exec(af)) {
-                this.removeAfterCursor(m[0]);
                 return m[0];
             }
             return '';
+        },
+        removeWordBefore: function(pattern) {
+            var word = this.wordBefore(pattern);
+            word && this.removeBeforeCursor(word);
+            return word;
+        },
+        removeWordAfter: function(pattern) {
+            var word = this.wordAfter(pattern);
+            word && this.removeAfterCursor(word);
+            return word;
         },
         isEmpty: function() {
             return this.document.lines() === 1 && !this.document.get(0).text;
