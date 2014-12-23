@@ -138,6 +138,9 @@ CodePrinter.defineAddon('hints', function() {
             visible = active = undefined;
             return this;
         }
+        this.isVisible = function() {
+            return visible;
+        }
         this.choose = function(value) {
             var word = this.options.word;
             cp.removeWordBefore(word);
