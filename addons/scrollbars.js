@@ -41,18 +41,17 @@ CodePrinter.defineAddon('scrollbars', function() {
         
         this.update = function(show) {
             var m = div['offset'+dim] - 4
-            , c = cp.wrapper['client'+dim]
+            , c = cp.wrapper['offset'+dim]
             , sm = cp.wrapper['scroll'+dim]
             , sr = cp.wrapper['scroll'+dir]
-            , lv = sr / (sm - c)
-            , s = c / sm * m;
+            , s = parseInt(m * Math.sqrt(sm / c) * c / sm, 10);
             
-            if (s >= m) {
-                this.hide();
-            } else {
+            if (sm > c) {
                 show !== false && this.show();
-                slider.style[dim.toLowerCase()] = parseInt(s, 10) + 'px';
-                slider.style[dir.toLowerCase()] = parseInt(lv * (m - s), 10) + 'px';
+                slider.style[dim.toLowerCase()] = s + 'px';
+                slider.style[dir.toLowerCase()] = parseInt((m - s) * sr / (sm - c), 10) + 'px';
+            } else {
+                this.hide();
             }
         }
         this.show = function() {
