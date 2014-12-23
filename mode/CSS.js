@@ -19,6 +19,7 @@ CodePrinter.defineMode('CSS', function() {
         units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
         blockCommentStart: '/*',
         blockCommentEnd: '*/',
+        autoCompleteTriggers: /:/,
         
         parse: function(stream, memory, isHTMLHelper) {
             var sb = stream.stateBefore, found;

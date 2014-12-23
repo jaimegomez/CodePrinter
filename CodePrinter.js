@@ -69,6 +69,7 @@
         firstLineNumber: 1,
         lineNumbers: true,
         lineNumberFormatter: false,
+        autoComplete: false,
         autofocus: true,
         abortSelectionOnBlur: false,
         legacyScrollbars: false,
@@ -142,6 +143,7 @@
                     }
                 }
             }
+            options.autoCompletion && this.initAddon('hints');
             
             function mouseController(e) {
                 if (e.button > 0 || e.which > 1 || e.defaultPrevented) return false;
@@ -341,6 +343,9 @@
                         if (allowKeyup !== false) {
                             (self.keyMap[ch] ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                             this.value = '';
+                            if (options.autoComplete && self.hints && (self.hints.match(ch) || self.parser.isAutoCompleteTrigger(ch))) {
+                                self.hints.show(false);
+                            }
                             return e.cancel();
                         }
                     }
@@ -3426,6 +3431,9 @@
             }
             return expectedIndent;
         },
+        isAutoCompleteTrigger: function(char) {
+            return this.autoCompleteTriggers && this.autoCompleteTriggers.test(char);
+        },
         codeCompletion: function(memory) {
             return [];
         },
@@ -3456,7 +3464,10 @@
                         r = chbf + x;
                     }
                 }
-                this.removeBeforeCursor(r);
+                r = this.removeBeforeCursor(r);
+                if (r && this.options.autoComplete && this.hints && !this.hints.match(r)) {
+                    this.hints.hide();
+                }
             }
             return false;
         },
