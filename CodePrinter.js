@@ -3451,7 +3451,7 @@
                         return false;
                     }
                 }
-                this.insertText(' '.repeat(this.options.tabWidth - this.caret.column(true) % this.options.tabWidth));
+                this.insertText(' '.repeat(this.options.tabWidth - this.caret.column() % this.options.tabWidth));
             }
             return false;
         },
