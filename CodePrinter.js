@@ -116,7 +116,6 @@
             this.mainElement.CodePrinter = this;
             sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
             this.definitions = {};
-            this.snippets = [];
             doc = this.document = new Document(this);
             this.keyMap = new keyMap;
             this.setTheme(options.theme);
@@ -126,7 +125,6 @@
             options.drawIndentGuides || this.mainElement.addClass('without-indentation');
             options.legacyScrollbars && this.wrapper.addClass('legacy-scrollbars');
             options.readOnly && this.caret.disable();
-            options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
             options.width !== 'auto' && this.setWidth(options.width);
             options.height !== 300 && this.setHeight(options.height);
@@ -1517,61 +1515,23 @@
             , prev = objNearProperty(this.definitions, l, -1);
             this.setCursorPosition(+prev, -1);
         },
-        findSnippet: function(trigger) {
-            if (trigger) {
-                var f = function(snippets) {
-                    for (var k in snippets) {
-                        if (k.startsWith(trigger)) {
-                            return 'string' === typeof snippets[k] ? { content: snippets[k] } : snippets[k];
-                        }
-                    }
-                }
-                , result = f(this.snippets);
-                if (result) return result;
-                
-                if (this.parser) {
-                    if (this.parser.snippets) {
-                        result = f(this.parser.snippets);
-                        if (result) return result;
-                    }
-                    var cc = this.parser.codeCompletion.call(this, this.memory, this.parser)
-                    , cs = this.parser.caseSensitive, islowercase, parseResult;
-                    
-                    if (!cs) {
-                        var ltrig = trigger.toLowerCase();
-                        islowercase = trigger === ltrig;
-                        trigger = ltrig;
-                    }
-                    
-                    parseResult = function(v) {
-                        if (!cs) v = v[islowercase ? 'toLowerCase' : 'toUpperCase']();
-                        return v;
-                    }
-                    
-                    if (cc && cc instanceof Array) {
-                        for (var i = 0; i < cc.length; i++) {
-                            if (cc[i] instanceof Array) {
-                                for (var j = 0; j < cc[i].length; j++) {
-                                    if (cc[i][j].startsWith(trigger)) {
-                                        return { trigger: arguments[0], content: parseResult(cc[i][j]), cursorMove: 0 }
-                                    }
-                                }
-                            } else {
-                                if (cc[i].startsWith(trigger)) {
-                                    return { trigger: arguments[0], content: parseResult(cc[i]), cursorMove: 0 }
-                                }
-                            }
-                        }
-                    }
-                }
+        getSnippets: function() {
+            return {}.extend(this.options.snippets, this.parser && this.parser.snippets);
+        },
+        findSnippet: function(snippetName) {
+            var s = this.options.snippets, b;
+            if (!(b = s && s.hasOwnProperty(snippetName))) {
+                s = this.parser && this.parser.snippets;
+                b = s && s.hasOwnProperty(snippetName);
             }
-            return null;
+            return b && s[snippetName];
         },
         registerSnippet: function() {
+            if (!this.options.snippets) this.options.snippets = [];
             for (var i = 0; i < arguments.length; i++) {
                 var snippet = arguments[i];
                 if (snippet.content && snippet.trigger) {
-                    this.snippets.push(snippet);
+                    this.options.snippets.push(snippet);
                 }
             }
         },
@@ -3483,16 +3443,15 @@
             if (this.document.issetSelection()) {
                 this.indent();
             } else {
-                var bf = this.caret.textBefore();
                 if (this.options.tabTriggers) {
-                    var match = bf.match(/(?:^|[^\w])(\w+)$/), snippet = match && this.findSnippet(match[1]);
-                    if (snippet) {
-                        this.removeBeforeCursor(match[1]);
+                    var wbf = this.wordBefore(), snippet;
+                    if (snippet = this.findSnippet(wbf)) {
+                        this.removeBeforeCursor(wbf);
                         this.insertText(snippet.content, snippet.cursorMove);
                         return false;
                     }
                 }
-                this.insertText(' '.repeat(this.options.tabWidth - bf.length % this.options.tabWidth));
+                this.insertText(' '.repeat(this.options.tabWidth - this.caret.column(true) % this.options.tabWidth));
             }
             return false;
         },
