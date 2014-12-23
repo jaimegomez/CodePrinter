@@ -1176,9 +1176,8 @@
                 }
                 r = bf.substr(bf.length - arg) + r;
             }
-            if (r) {
-                this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
-            }
+            r && this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
+            return r;
         },
         removeAfterCursor: function(arg) {
             var r = '', type = typeof arg
@@ -1225,9 +1224,8 @@
                 }
                 r = r + af.substring(0, arg);
             }
-            if (r) {
-                this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
-            }
+            r && this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
+            return r;
         },
         wordBefore: function(pattern) {
             pattern = pattern || /[\w$]+/;
