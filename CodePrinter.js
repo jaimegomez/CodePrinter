@@ -1031,8 +1031,8 @@
         isState: function(state, line, col, all) {
             if (state && state.length) {
                 state = 'string' === typeof state ? [state] : state;
-                var gs = getStates.call(this, this.document.get(line).parsed, col);
-                return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== gs.length : false;
+                var gs = getStates.call(this, this.document.get(line).parsed, col), l = gs.length;
+                return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== l : false;
             }
             return false;
         },
