@@ -314,7 +314,7 @@
                         }
                     }
                     if (options.readOnly && (code < 37 || code > 40)) return;
-                    if (code < 48 && code != 9 && !self.keyMap[kc]) {
+                    if (!self.keyMap[kc] && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
                         kc = e.getKeyCombination(options.keyCombinationFlag | 4, ' ');
                     }
                     self.emit('@'+kc, e);
