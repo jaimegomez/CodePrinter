@@ -180,7 +180,7 @@ CodePrinter.defineAddon('hints', function() {
         });
         
         cp.registerKey({
-            'Ctrl+Space': function() {
+            'Ctrl Space': function() {
                 this.hints.show();
             }
         });

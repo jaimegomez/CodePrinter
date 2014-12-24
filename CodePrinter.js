@@ -141,6 +141,7 @@
                     }
                 }
             }
+            options.shortcuts && this.initAddon('shortcuts');
             options.autoCompletion && this.initAddon('hints');
             
             function mouseController(e) {
@@ -295,13 +296,13 @@
                     var kc, code = e.getCharCode()
                     , ch = String.fromCharCode(code)
                     , iscmd = $.browser.macosx ? e.metaKey : e.ctrlKey
-                    , kc = e.getKeyCombination(options.keyCombinationFlag);
+                    , kc = e.getKeyCombination(options.keyCombinationFlag, ' ');
                     
                     self.caret.deactivate().show();
                     allowKeyup = true;
                     
                     if (iscmd) {
-                        if (doc.issetSelection() && kc.indexOf('+') === -1) {
+                        if (doc.issetSelection() && kc.indexOf(' ') === -1) {
                             this.value = doc.getSelection();
                             this.setSelectionRange(0, this.value.length);
                         } else if (commands[ch]) {
@@ -314,7 +315,7 @@
                     }
                     if (options.readOnly && (code < 37 || code > 40)) return;
                     if (code < 48 && code != 9 && !self.keyMap[kc]) {
-                        kc = e.getKeyCombination(options.keyCombinationFlag | 4);
+                        kc = e.getKeyCombination(options.keyCombinationFlag | 4, ' ');
                     }
                     self.emit('@'+kc, e);
                     if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
@@ -3431,14 +3432,6 @@
             }
             return false;
         },
-        'Ctrl+Backspace': function() {
-            this.caret.setTextBefore('');
-            return false;
-        },
-        'Alt+Backspace': function() {
-            this.caret.setTextAtCurrentLine('', '');
-            return false;
-        },
         'Tab': function() {
             if (this.document.issetSelection()) {
                 this.indent();
@@ -3455,8 +3448,8 @@
             }
             return false;
         },
-        'Alt+Tab': CodePrinter.prototype.indent,
-        'Shift+Tab': CodePrinter.prototype.unindent,
+        'Alt Tab': CodePrinter.prototype.indent,
+        'Shift Tab': CodePrinter.prototype.unindent,
         'Enter': function() {
             var bf = this.caret.textBefore()
             , af = this.caret.textAfter();
@@ -3490,7 +3483,7 @@
             }
             return false;
         },
-        'Shift+Enter': function() {
+        'Shift Enter': function() {
             this.caret.position(this.caret.line(), -1);
             return this.call('Enter');
         },
@@ -3573,52 +3566,7 @@
             }
             return false;
         },
-        'Ctrl+Left': function() {
-            this.caret.position(this.caret.line(), 0);
-            return false;
-        },
-        'Ctrl+Right': function() {
-            this.caret.position(this.caret.line(), -1);
-            return false;
-        },
-        'Alt+Up': CodePrinter.prototype.searchPrev,
-        'Alt+Down': CodePrinter.prototype.searchNext,
-        'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
-        'Alt+Ctrl+Down': CodePrinter.prototype.swapLineDown,
-        'Ctrl+D': CodePrinter.prototype.nextDefinition,
-        'Alt+Ctrl+D': CodePrinter.prototype.previousDefinition,
-        'Ctrl+F': function(e) {
-            var p = prompt('Find...');
-            p ? this.search(p) : this.searchEnd();
-        },
-        'Shift+Ctrl+F': function() {
-            this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
-        },
-        'Ctrl+I': CodePrinter.prototype.fixIndents,
-        'Ctrl+J': function() {
-            this.setCursorPosition(parseInt(prompt("Jump to line..."), 10) - 1, 0);
-        },
-        'Ctrl+M': function() {
-            var dl = this.caret.dl();
-            if (dl) dl.classes && dl.classes.indexOf(markClassName) >= 0 ? dl.unmark() : dl.mark();
-        },
-        'Ctrl+N': function() {
-            this.counter.hasClass('hidden') ? this.openCounter() : this.closeCounter();
-        },
-        'Ctrl+R': function() {
-            this.forcePrint();
-        },
-        'Ctrl+Z': function() {
-            this.document.undo();
-        },
-        'Shift+Ctrl+Z': function(e) {
-            this.document.redo();
-        },
-        'Ctrl++': CodePrinter.prototype.increaseFontSize,
-        'Ctrl+-': CodePrinter.prototype.decreaseFontSize,
-        'Ctrl+/': CodePrinter.prototype.toggleComment,
-        'Shift+Ctrl+/': CodePrinter.prototype.toggleBlockComment,
-        'Shift+Left': function(e, c) {
+        'Shift Left': function(e, c) {
             if (!this.document.issetSelection()) {
                 this.document.beginSelection();
             }
@@ -3627,12 +3575,10 @@
         }
     }
     keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
-    keyMap.prototype['Shift+Down'] = keyMap.prototype['Shift+Right'] = keyMap.prototype['Shift+Up'] = keyMap.prototype['Shift+Left'];
+    keyMap.prototype['Shift Down'] = keyMap.prototype['Shift Right'] = keyMap.prototype['Shift Up'] = keyMap.prototype['Shift Left'];
     keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
     keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
     keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
-    keyMap.prototype['Ctrl+Up'] = keyMap.prototype['Home'];
-    keyMap.prototype['Ctrl+Down'] = keyMap.prototype['End'];
     
     commands = {
         'A': function(e) {
