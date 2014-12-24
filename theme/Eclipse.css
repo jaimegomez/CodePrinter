@@ -1,12 +1,15 @@
 /* CodePrinter - Eclipse theme */
 
-.cps-eclipse .cp-wrapper { background:#FFFFFF; color:#333; }
-.cps-eclipse .cp-counter { background:#FFFFFF; border-color:#AAAAAA; color:#000000; box-shadow:0 0 5px rgba(0,0,0,0.1); }
-.cps-eclipse .cp-caret { background:#000000; box-shadow:0 0 2px rgba(0,0,0,0.5); }
+.cps-eclipse .cp-wrapper { background:#FFF; color:#333; }
+.cps-eclipse .cp-counter { background:#FFF; border-color:#AAA; color:#000; box-shadow:0 0 5px rgba(0,0,0,0.1); }
+.cps-eclipse .cp-caret { background:#000; box-shadow:0 0 2px rgba(0,0,0,0.5); }
 .cps-eclipse .cp-selection { background:#C8D2DE; }
 .cps-eclipse .cp-highlight { border-bottom:1px solid black; }
-.cps-eclipse .cp-search-occurrence { border-color:#AAAAAA; }
+.cps-eclipse .cp-search-occurrence { border-color:#AAA; }
 .cps-eclipse .cp-search-occurrence.active { background:white; border-color:black; color:black; box-shadow:0 0 5px rgba(0,0,0,0.1); }
+.cps-eclipse .cp-hint-container { background:#FFF; border-color:#aaa; box-shadow:0 0 10px rgba(0,0,0,0.2); color:#333; }
+.cps-eclipse .cp-hint-container .active { background:#ccc; color:#000; }
+.cps-eclipse .cp-scrollbar-slider { background:rgba(0,0,0,0.3); }
 
 .cps-eclipse .cpx-tab { border-color:#D8D8D8; }
 .cps-eclipse .cpx-bracket { color:#000000; }
