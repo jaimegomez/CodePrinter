@@ -1259,6 +1259,14 @@
             word && this.removeAfterCursor(word);
             return word;
         },
+        deleteToBeginning: function() {
+            this.removeBeforeCursor(this.caret.textBefore());
+            return this;
+        },
+        deleteToEnd: function() {
+            this.removeAfterCursor(this.caret.textAfter());
+            return this;
+        },
         isEmpty: function() {
             return this.document.lines() === 1 && !this.document.get(0).text;
         },
