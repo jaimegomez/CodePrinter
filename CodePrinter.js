@@ -2634,6 +2634,7 @@
         , before = '', after = '', tmp
         , styles = {
             vertical: function(css) {
+                css.width = 1;
                 css.height = currentDL.height;
                 css.left -= 1;
                 return css;
