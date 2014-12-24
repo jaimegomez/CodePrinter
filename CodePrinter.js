@@ -3232,7 +3232,7 @@
             var v = this.value, tree = this.tree, node
             , tmp = 0, r = [], hasStyle = !!this.styles;
             
-            hasStyle && r.push('<span class="cpx-', this.styles.join(' cpx-'), '">');
+            hasStyle && r.push('<span class="cpx-'+this.styles.join(' cpx-')+'">');
             
             for (var i = 0; i < tree.length; i++) {
                 node = tree[i];
