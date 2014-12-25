@@ -65,6 +65,9 @@ CodePrinter.defineAddon('hints', function() {
                     if (j == o) {
                         ++o;
                         max = Math.max(++m, max);
+                    } else if (j > 0) {
+                        m = 1;
+                        o = j+1;
                     } else {
                         m = 0;
                     }
