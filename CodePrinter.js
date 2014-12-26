@@ -357,6 +357,12 @@
                         T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, options.keyupInactivityTimeout);
                     }
                     this.value = '';
+                },
+                input: function(e) {
+                    if (this.value.length) {
+                        self.insertText(this.value);
+                        this.value = '';
+                    }
                 }
             });
             
@@ -3606,7 +3612,6 @@
         'V': function(e) {
             this.document.removeSelection();
             this.emit('cmd.paste');
-            $.async(this.input.emit.bind(this.input, 'keyup'));
             return true;
         },
         'X': function() {
