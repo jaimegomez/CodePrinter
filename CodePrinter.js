@@ -64,6 +64,7 @@
         keyupInactivityTimeout: 1500,
         scrollSpeed: 1,
         autoScrollSpeed: 20,
+        autoCompleteDelay: 100,
         historyStackSize: 100,
         historyDelay: 1000,
         firstLineNumber: 1,
@@ -107,7 +108,7 @@
             , lastScrollTop = 0, lock, counterSelection = []
             , doc, sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
-            , T, T2, fn;
+            , T, T2, T3, fn;
             
             if (options.fontFamily !== CodePrinter.defaults.fontFamily) {
                 this.container.style.fontFamily = options.fontFamily;
@@ -343,7 +344,7 @@
                             (self.keyMap[ch] ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                             this.value = '';
                             if (options.autoComplete && self.hints && (self.hints.match(ch) || self.parser.isAutoCompleteTrigger(ch))) {
-                                self.hints.show(false);
+                                T3 = clearTimeout(T3) || setTimeout(function() { self.hints.show(false); }, options.autoCompleteDelay);
                             }
                             return e.cancel();
                         }
