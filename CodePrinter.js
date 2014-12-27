@@ -165,7 +165,7 @@
                     if (doc.inSelection(l, c) && ry === y && (x - 3 <= self.caret.offsetX() || doc.inSelection(l, c+1))) {
                         moveselection = true;
                         window.on('mousemove', mouseController);
-                        window.once('mouseup', function() {
+                        window.once('mouseup', function(e) {
                             window.off('mousemove', mouseController);
                             if (moveselection > 1) {
                                 var savedpos = self.caret.savePosition();
@@ -178,7 +178,7 @@
                                     if (!isbf) {
                                         savedpos[0] -= sel.end.line - sel.start.line;
                                     }
-                                    doc.removeSelection();
+                                    !e.altKey && doc.removeSelection();
                                     self.caret.restorePosition(savedpos);
                                     self.insertSelectedText(selection);
                                 } else {
