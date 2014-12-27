@@ -346,6 +346,8 @@
                                 T3 = clearTimeout(T3) || setTimeout(function() { self.hints.show(false); }, options.autoCompleteDelay);
                             }
                             return e.cancel();
+                        } else {
+                            return e.cancel();
                         }
                     }
                 },
