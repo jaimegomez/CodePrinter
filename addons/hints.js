@@ -145,9 +145,17 @@ CodePrinter.defineAddon('hints', function() {
             return visible;
         }
         this.choose = function(value) {
-            var word = this.options.word;
-            cp.removeWordBefore(word);
-            cp.insertText(value);
+            var word = this.options.word
+            , wbf = cp.wordBefore(word)
+            , waf = cp.wordAfter(word);
+            
+            if (wbf + waf !== value) {
+                cp.removeBeforeCursor(wbf);
+                cp.removeAfterCursor(waf);
+                cp.insertText(value);
+            } else {
+                cp.caret.moveX(waf.length);
+            }
             cp.emit('autocomplete', value);
             return this;
         }
