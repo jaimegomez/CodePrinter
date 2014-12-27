@@ -208,7 +208,7 @@
                             return isMouseDown = e.cancel();
                         });
                     }
-                    doc.removeOverlays('click');
+                    self.emit('click');
                 } else if (!moveselection) {
                     moveevent = e;
                     doc.endSelection();
@@ -288,7 +288,6 @@
                     } else {
                         self.caret.blur();
                         self.mainElement.addClass('inactive');
-                        doc.removeOverlays('blur');
                         if (options.abortSelectionOnBlur) doc.clearSelection();
                         self.emit('blur');
                     }
@@ -320,7 +319,7 @@
                     }
                     self.emit('@'+kc, e);
                     if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
-                        self.document.removeOverlays('keydown', e);
+                        self.emit('keydown', e);
                         allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                     if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
@@ -1292,8 +1291,7 @@
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
             var self = this, args = arguments
-            , overlay = this.highlightOverlay = new CodePrinter.Overlay(this.document, 'cp-highlight-overlay', false);
-            overlay.on('refresh', function(a) { /^(blur|changed)$/.test(a) && overlay.remove(); });
+            , overlay = this.highlightOverlay = this.doc.createOverlay('cp-highlight-overlay', ['blur', 'changed']);
             for (var i = 0; i < arguments.length; i++) {
                 var dl = this.document.get(arguments[i][0]), pos;
                 if (dl) {
@@ -1333,19 +1331,19 @@
                     }
                     
                     if (!(search.overlay instanceof CodePrinter.Overlay)) {
-                        search.overlay = new CodePrinter.Overlay(this.document, 'cp-search-overlay', false);
+                        search.overlay = new CodePrinter.Overlay(this.doc, 'cp-search-overlay');
                         search.mute = false;
                         
                         search.overlay.on({
-                            refresh: function(a) {
-                                if (a === 'click' || a === 'blur') {
-                                    clearSelected();
-                                } else if (!search.mute) {
+                            'click': clearSelected,
+                            'blur': clearSelected,
+                            'changed': function() {
+                                if (!search.mute) {
                                     search.length = 0;
                                     cp.search(search.value, false);
                                 }
                             },
-                            removed: function() {
+                            '$removed': function() {
                                 cp.searches.results = cp.searches.active = undefined;
                                 cp.searches.length = 0;
                             }
@@ -1572,6 +1570,11 @@
                 }
             }
         },
+        emit: function(eventName) {
+            this.doc && this.doc.emitToOverlays.apply(this.doc, arguments);
+            Object.prototype.emit.apply(this, arguments);
+            return this;
+        },
         enterFullscreen: function() {
             if (! this.isFullscreen) {
                 var main = this.mainElement,
@@ -1660,7 +1663,6 @@
             this.resize(this.isLeaf ? arguments.length : size, height);
             return Array.prototype.push.apply(this, arguments);
         },
-        
         get: function(line) {
             if (this.isLeaf) {
                 return this[line];
@@ -2591,6 +2593,12 @@
         this.createOverlay = function(classes, removable) {
             return new CodePrinter.Overlay(this, classes, removable);
         }
+        this.emitToOverlays = function(event) {
+            var ov = this.overlays;
+            for (var i = ov.length; i--; ) {
+                ov[i].emit.apply(ov[i], arguments);
+            }
+        }
         this.removeOverlays = function() {
             var ov = this.overlays, args;
             for (var i = ov.length; i--; ) {
@@ -2639,7 +2647,6 @@
             if (cp.options.history) {
                 history.pushChanges(e.line, e.column, cp.convertToTabs(e.text), e.added);
             }
-            doc.removeOverlays('changed', e);
         });
         return this;
     }
@@ -2825,7 +2832,7 @@
             return lastdet ? lastdet.offsetY + (withDL ? currentDL.height : 0) : 0;
         }
         this.refresh = function() {
-            cp.document.removeOverlays(null);
+            cp.emit('caretRefresh');
             return this.position(line || 0, column || 0);
         }
         this.dl = function() {
@@ -2917,10 +2924,17 @@
         }
     }
     
-    CodePrinter.Overlay = function(doc, classes, removable) {
-        this.node = div.cloneNode().addClass('cp-overlay', classes);
-        this.isRemovable = !!removable;
+    CodePrinter.Overlay = function(doc, className, removeOn) {
+        this.node = div.cloneNode().addClass('cp-overlay', className);
         this.doc = doc;
+        if (removeOn instanceof Array) {
+            this.emit = function(event) {
+                Object.prototype.emit.apply(this, arguments);
+                if (removeOn.indexOf(event) >= 0) {
+                    this.remove();
+                }
+            }
+        }
         return this;
     }
     CodePrinter.Overlay.prototype = {
@@ -2928,14 +2942,14 @@
             if (!this.node.parentNode) {
                 this.doc.overlays.push(this);
                 this.doc.screen.appendChild(this.node);
-                this.emit('revealed');
+                this.emit('$revealed');
             }
         },
         remove: function() {
             var i = this.doc.overlays.indexOf(this);
             i != -1 && this.doc.overlays.splice(i, 1);
             this.node.remove();
-            this.emit('removed');
+            this.emit('$removed');
         },
         removable: function(is) {
             this.isRemovable = !!is;
@@ -3750,7 +3764,7 @@
             }
             this.emit('done', this.start, this.end);
         }
-        this.overlay = new CodePrinter.Overlay(doc, 'cp-selection-overlay', false);
+        this.overlay = new CodePrinter.Overlay(doc, 'cp-selection-overlay');
         
         this.clear = function() {
             this.overlay.remove();
