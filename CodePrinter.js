@@ -3910,6 +3910,7 @@
         $.define('CodePrinter/'+name, req, obj);
         $.require('CodePrinter/'+name, function(mode) {
             mode.name = name;
+            CodePrinter.emit(name+':loaded', mode);
         });
     }
     CodePrinter.hasMode = function(name) {
