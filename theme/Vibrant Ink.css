@@ -1,7 +1,7 @@
 /* CodePrinter - Vibrant Ink theme */
 
 .cps-vibrant-ink .cp-wrapper,
-.cps-vibrant-ink .cp-source { background:#191919; color:#FFFFFF; }
+.cps-vibrant-ink .cp-source { background:#191919; color:#fff; }
 .cps-vibrant-ink .cp-counter { background:#191919; border-color:#555; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.7); }
 .cps-vibrant-ink .cp-caret { background:white; box-shadow:0 0 2px rgba(255,255,255,0.5); }
 .cps-vibrant-ink .cp-selection { background:rgba(255,255,255,0.1); }
@@ -9,6 +9,9 @@
 .cps-vibrant-ink .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
 .cps-vibrant-ink .cp-search-occurrence { background:#616161; color:#fff; }
 .cps-vibrant-ink .cp-search-occurrence.active { background:#F1C438; border-color:#F1C438; color:#191919; }
+.cps-vibrant-ink .cp-hint-container { background:#191919; border-color:#555; box-shadow:0 0 10px rgba(0,0,0,0.7); color:#fff; }
+.cps-vibrant-ink .cp-hint-container .active { background:#555; }
+.cps-vibrant-ink .cp-scrollbar-slider { background:rgba(255,255,255,0.2); }
 
 .cps-vibrant-ink .cpx-tab { border-color:#6A6A6A; }
 .cps-vibrant-ink .cpx-bracket { color:#FFFFFF; }

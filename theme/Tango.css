@@ -1,11 +1,14 @@
 /* CodePrinter - Tango theme */
 
-.cps-tango .cp-wrapper { background:#FFFFFF; color:#000000; }
-.cps-tango .cp-selection { background:#EEEEEE; }
+.cps-tango .cp-wrapper { background:#fff; color:#000; }
+.cps-tango .cp-selection { background:#eee; }
 .cps-tango .cp-highlight { border-bottom:1px solid black; }
-.cps-tango .cp-counter { background:#fff; border-color:#c0c0c0; color:#999; box-shadow:0 0 10px rgba(0,0,0,0.1); }
+.cps-tango .cp-counter,
+.cps-tango .cp-hint-container { background:#fff; border-color:#c0c0c0; color:#777; box-shadow:0 0 10px rgba(0,0,0,0.1); }
 .cps-tango .cp-search-occurrence {}
 .cps-tango .cp-search-occurrence.active { background:#e0e0e0; border-color:#c0c0c0; color:#222; }
+.cps-tango .cp-hint-container .active { background:#e0e0e0; color:#222; }
+.cps-tango .cp-scrollbar-slider { background:rgba(0,0,0,0.3); }
 
 .cps-tango .cpx-tab { border-color:#999999; }
 .cps-tango .cpx-bracket { color:#444444; }
