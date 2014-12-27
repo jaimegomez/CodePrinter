@@ -9,6 +9,9 @@
 .cps-abstraction .cp-active-line { background:#2e2e2b; }
 .cps-abstraction .cp-search-occurrence { border-color:#888981; }
 .cps-abstraction .cp-search-occurrence.active { background:#6bcea5; color:#2e2e2b; border-color:transparent; }
+.cps-abstraction .cp-hint-container { background:#131312; border-color:#454642; box-shadow:0 0 5px rgba(0,0,0,0.7); color:#d8d9da; }
+.cps-abstraction .cp-hint-container li.active { background:#c7c7c7; color:#000; }
+.cps-abstraction .cp-scrollbar-slider { background:#c7c7c7; }
 
 .cps-abstraction .cpx-tab { border-color:#454642; }
 .cps-abstraction .cpx-bracket { color:#888981; }

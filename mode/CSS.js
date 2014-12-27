@@ -14,11 +14,12 @@ CodePrinter.defineMode('CSS', function() {
     return new CodePrinter.Mode({
         name: 'CSS',
         tags: new RegExp('^('+ tags.join('|') +')$', 'i'),
-        regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@\w+|<\s*\/\s*style\s*>|[^\w\s]/,
+        regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@[\w\-]+|<\s*\/\s*style\s*>|[^\w\s]/,
     	values: /\/\*|\;|,|#[0-9a-f]+|\-?\d+[a-z%]*|\-?\d*\.\d+[a-z%]*|[@!]?[a-z\-]+\b|'|"/i,
         units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
         blockCommentStart: '/*',
         blockCommentEnd: '*/',
+        autoCompleteTriggers: /:/,
         
         parse: function(stream, memory, isHTMLHelper) {
             var sb = stream.stateBefore, found;
@@ -104,7 +105,13 @@ CodePrinter.defineMode('CSS', function() {
             '#': function(stream) { stream.wrap('property', 'css-id'); },
             '.': function(stream) { stream.wrap('property', 'css-class'); },
             '*': function(stream) { stream.wrap('keyword', 'css-tag'); },
-            '@': function(stream, found) { found === '@media' ? stream.wrap('control', 'control-media') : stream.wrap('variable', 'variable-'+found.substr(1)); }
+            '@': function(stream, found) {
+                if (found === '@media' || found === '@font-face') {
+                    stream.wrap('control');
+                } else {
+                    stream.wrap('variable');
+                }
+            }
         },
         keyMap: {
             ':': function() {

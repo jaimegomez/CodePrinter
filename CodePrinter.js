@@ -5,27 +5,26 @@
  * Released under the MIT License.
  *
  * author:  Tomasz Sapeta
- * version: 0.7.1
+ * version: 0.7.2
  * source:  https://github.com/tsapeta/CodePrinter
  */
 
 "use strict";
 
-(window.define || function() { arguments[2]($ || Selector); })('CodePrinter', ['Selector'], function($) {
-    var CodePrinter, EventEmitter, Data, Branch, Line
+(window.define || function() { arguments[2]($ || env); })('CodePrinter', ['env'], function($) {
+    var CodePrinter, Data, Branch, Line
     , Caret, Document, StreamArray, Stream
     , ReadStream, History, Selection, keyMap
     , commands, tracking, lineendings, aliases
     , div, li, pre, span, raf
     , BRANCH_OPTIMAL_SIZE = 40
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
-    , imsg = 'immediateMessage', timeouts = []
     , activeClassName = 'cp-active-line'
     , markClassName = 'cp-marked'
     , zws = '&#8203;';
     
-    $.scripts.registerNamespace('CodePrinter', 'mode/');
-    $.scripts.registerNamespace('CodePrinter/addons', 'addons/');
+    $.require.registerNamespace('CodePrinter', 'mode/');
+    $.require.registerNamespace('CodePrinter/addons', 'addons/');
     
     CodePrinter = function(source, options) {
         if (arguments.length === 1 && source == '[object Object]') {
@@ -33,7 +32,6 @@
             source = null;
         }
         options = this.options = $.extend({}, CodePrinter.defaults, options);
-        EventEmitter.call(this);
         buildDOM(this);
         this.prepare();
         
@@ -46,7 +44,7 @@
         return this.print();
     }
     
-    CodePrinter.version = '0.7.1';
+    CodePrinter.version = '0.7.2';
     
     CodePrinter.defaults = {
         path: '',
@@ -66,11 +64,13 @@
         keyupInactivityTimeout: 1500,
         scrollSpeed: 1,
         autoScrollSpeed: 20,
+        autoCompleteDelay: 100,
         historyStackSize: 100,
         historyDelay: 1000,
         firstLineNumber: 1,
         lineNumbers: true,
         lineNumberFormatter: false,
+        autoComplete: false,
         autofocus: true,
         abortSelectionOnBlur: false,
         legacyScrollbars: false,
@@ -108,7 +108,7 @@
             , lastScrollTop = 0, lock, counterSelection = []
             , doc, sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
-            , T, T2, fn;
+            , T, T2, T3, fn;
             
             if (options.fontFamily !== CodePrinter.defaults.fontFamily) {
                 this.container.style.fontFamily = options.fontFamily;
@@ -117,7 +117,6 @@
             this.mainElement.CodePrinter = this;
             sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
             this.definitions = {};
-            this.snippets = [];
             doc = this.document = new Document(this);
             this.keyMap = new keyMap;
             this.setTheme(options.theme);
@@ -127,7 +126,6 @@
             options.drawIndentGuides || this.mainElement.addClass('without-indentation');
             options.legacyScrollbars && this.wrapper.addClass('legacy-scrollbars');
             options.readOnly && this.caret.disable();
-            options.snippets && this.snippets.push.apply(this.snippets, options.snippets);
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
             options.width !== 'auto' && this.setWidth(options.width);
             options.height !== 300 && this.setHeight(options.height);
@@ -144,6 +142,8 @@
                     }
                 }
             }
+            options.shortcuts && this.initAddon('shortcuts');
+            options.autoCompletion && this.initAddon('hints');
             
             function mouseController(e) {
                 if (e.button > 0 || e.which > 1 || e.defaultPrevented) return false;
@@ -153,7 +153,8 @@
                 , o = sizes.bounds = sizes.bounds || self.wrapper.bounds()
                 , x = Math.max(0, sl + e.pageX - o.x)
                 , y = e.pageY < o.y ? 0 : e.pageY <= o.y + self.wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : self.wrapper.scrollHeight
-                , ry = Math.max(0, Math.min(y, doc.height()));
+                , ry = Math.max(0, Math.min(y, doc.height()))
+                , isinactive = document.activeElement !== self.input;
                 
                 self.input.focus();
                 self.caret.target(doc.lineWithOffset(ry), x);
@@ -161,7 +162,7 @@
                 
                 if (e.type === 'mousedown') {
                     isMouseDown = true;
-                    if (doc.inSelection(l, c) && ry === y) {
+                    if (doc.inSelection(l, c) && ry === y && (x - 3 <= self.caret.offsetX() || doc.inSelection(l, c+1))) {
                         moveselection = true;
                         window.on('mousemove', mouseController);
                         window.once('mouseup', function() {
@@ -185,6 +186,7 @@
                                     mouseController(arguments[0]);
                                 }
                             } else {
+                                isinactive || doc.clearSelection();
                                 self.input.focus();
                             }
                             return isMouseDown = moveselection = e.cancel();
@@ -202,10 +204,11 @@
                             window.off('mousemove', mouseController);
                             self.caret.activate();
                             self.sizes.bounds = moveevent = null;
-                            document.activeElement != self.input && ($.browser.firefox ? setImmediate(function() { self.input.focus() }) : self.input.focus());
+                            document.activeElement != self.input && ($.browser.firefox ? $.async(function() { self.input.focus() }) : self.input.focus());
                             return isMouseDown = e.cancel();
                         });
                     }
+                    doc.removeOverlays('click');
                 } else if (!moveselection) {
                     moveevent = e;
                     doc.endSelection();
@@ -226,13 +229,15 @@
                 }
             }
             function mousewheel(e) {
-                var x = e.wheelDeltaX, y = e.wheelDeltaY;
-                
-                if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
-                if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
-                if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
-                if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
-                return e.cancel();
+                if (e.target === this) {
+                    var x = e.wheelDeltaX, y = e.wheelDeltaY;
+                    
+                    if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
+                    if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
+                    if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
+                    if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
+                    return e.cancel();
+                }
             }
             
             this.wrapper.listen({
@@ -292,13 +297,13 @@
                     var kc, code = e.getCharCode()
                     , ch = String.fromCharCode(code)
                     , iscmd = $.browser.macosx ? e.metaKey : e.ctrlKey
-                    , kc = e.getKeyCombination(options.keyCombinationFlag);
+                    , kc = e.getKeyCombination(options.keyCombinationFlag, ' ');
                     
                     self.caret.deactivate().show();
                     allowKeyup = true;
                     
                     if (iscmd) {
-                        if (doc.issetSelection() && kc.indexOf('+') === -1) {
+                        if (doc.issetSelection() && kc.indexOf(' ') === -1) {
                             this.value = doc.getSelection();
                             this.setSelectionRange(0, this.value.length);
                         } else if (commands[ch]) {
@@ -310,10 +315,12 @@
                         }
                     }
                     if (options.readOnly && (code < 37 || code > 40)) return;
-                    if (code < 48 && code != 9 && !self.keyMap[kc]) {
-                        kc = e.getKeyCombination(options.keyCombinationFlag | 4);
+                    if (!self.keyMap[kc] && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                        kc = e.getKeyCombination(options.keyCombinationFlag | 4, ' ');
                     }
-                    if (kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
+                    self.emit('@'+kc, e);
+                    if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
+                        self.document.removeOverlays('keydown', e);
                         allowKeyup = self.keyMap[kc].call(self, e, code, kc);
                     }
                     if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
@@ -336,6 +343,9 @@
                         if (allowKeyup !== false) {
                             (self.keyMap[ch] ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                             this.value = '';
+                            if (options.autoComplete && self.hints && (self.hints.match(ch) || self.parser.isAutoCompleteTrigger(ch))) {
+                                T3 = clearTimeout(T3) || setTimeout(function() { self.hints.show(false); }, options.autoCompleteDelay);
+                            }
                             return e.cancel();
                         }
                     }
@@ -348,6 +358,12 @@
                         T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, options.keyupInactivityTimeout);
                     }
                     this.value = '';
+                },
+                input: function(e) {
+                    if (this.value.length) {
+                        self.insertText(this.value);
+                        this.value = '';
+                    }
                 }
             });
             
@@ -423,7 +439,6 @@
                             self.highlightOverlay.remove();
                         }
                     }
-                    doc.removeOverlays('caret');
                 }
             });
             
@@ -453,7 +468,7 @@
                 isMouseDown = false;
             }
             
-            this.counter.delegate('mousedown', 'li', function() {
+            this.counter.delegate('li', 'mousedown', function() {
                 var dli = this._dl && this._dl.info();
                 if (dli) {
                     counterSelection[0] = this._dl.info().index;
@@ -480,13 +495,13 @@
                 }
                 if (b) {
                     this.sizes.paddingTop = parseInt(this.wrapper.querySelector('.cp-codelines').getStyle('padding-top'), 10) || 5;
-                    setImmediate(this.emit.bind(this, 'ready'));
+                    $.async(this.emit.bind(this, 'ready'));
                 }
             }
             
             if (mode === 'plaintext') {
                 callback.call(this, new CodePrinter.Mode('plaintext'));
-            } else if (this.parser && this.parser.name.toLowerCase() === mode) {
+            } else if (this.parser && this.parser.name === mode) {
                 callback.call(this, this.parser);
             } else {
                 if (!CodePrinter.hasMode(mode)) {
@@ -513,7 +528,7 @@
         initAddon: function(addon, options) {
             var cp = this;
             CodePrinter.requireAddon(addon, function(construct) {
-                construct.call(null, cp, options);
+                new construct(cp, options);
             });
         },
         intervalIterate: function(callback, onend, options) {
@@ -523,11 +538,15 @@
             
             if (options) {
                 if (options.queue) queue = options.queue;
+                if (options.index) index = options.index;
                 if ('number' === typeof options.start) dl = this.document.get(index = options.start);
-                else if (options.start instanceof Line) dl = options.start;
+                else if (options.start instanceof Line) {
+                    dl = options.start;
+                    if (!options.index) index = dl.info().index;
+                }
             }
             
-            setImmediate(fn = function() {
+            $.async(fn = function() {
                 var j = 0, r;
                 while (dl && j++ < queue) {
                     r = callback.call(that, dl, index++, offset);
@@ -538,7 +557,7 @@
                     onend instanceof Function && onend.call(that, index, dl);
                     return false;
                 }
-                setImmediate(fn);
+                $.async(fn);
             });
         },
         defineParser: function(parser) {
@@ -618,10 +637,10 @@
             return dl;
         },
         focus: function() {
-            setImmediate(this.input.focus.bind(this.input));
+            $.async(this.input.focus.bind(this.input));
         },
         requireStyle: function(style, callback) {
-            $.require($.glue(this.options.path, 'theme', style+'.css'), callback);
+            $.include($.pathJoin(this.options.path, 'theme', style+'.css'), callback);
         },
         tabString: function(m) {
             m == null && (m = 1);
@@ -661,8 +680,7 @@
             return this;
         },
         setMode: function(mode) {
-            var mlc = mode.toLowerCase();
-            mode = aliases[mlc] || mlc || 'plaintext';
+            mode = aliases[mode] || mode || 'plaintext';
             this.mainElement.removeClass('cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase()).addClass('cp-'+mode.replace(/\+/g, 'p').toLowerCase());
             this.options.mode = mode;
             return this;
@@ -753,9 +771,9 @@
         textOf: function(dl) {
             return dl ? this.convertToSpaces(dl.text) : '';
         },
-        getIndentAtLine: function(line, dl) {
+        getIndentAtLine: function(dl) {
             var i = -1;
-            dl = dl || this.document.get(line);
+            dl = dl instanceof Line ? dl : this.document.get(dl);
             if (dl) {
                 while (dl.text[++i] === '\t');
                 return i;
@@ -768,15 +786,18 @@
             if (line instanceof Line) {
                 dl = line;
                 line = dl.info().index;
-            } else if ('number' === typeof line) {
-                dl = dl || this.document.get(line);
+            } else if ('number' === typeof line && !dl) {
+                dl = this.document.get(line);
             }
             if (dl) {
-                old = this.getIndentAtLine(old, dl);
+                old = this.getIndentAtLine(dl);
                 diff = indent - old;
-                dl.setText('\t'.repeat(indent) + dl.text.replace(/^\t*/g, ''));
-                this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
-                this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
+                if (diff) {
+                    dl.setText('\t'.repeat(indent) + dl.text.replace(/^\t*/g, ''));
+                    this.parse(dl);
+                    this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
+                    this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
+                }
             }
             return indent;
         },
@@ -830,6 +851,33 @@
         getNextLineIndent: function(line) {
             var indent = this.getIndentAtLine(line);
             return nextLineIndent(this, indent, line);
+        },
+        fixIndents: function() {
+            var range = this.document.getSelectionRange()
+            , opt = {}, i = 0, e, c;
+            
+            if (range) {
+                var sl = Math.max(0, range.start.line-1)
+                , dl = this.document.get(sl);
+                
+                if (range.start.line === 0) {
+                    this.setIndentAtLine(0, 0, dl);
+                }
+                e = range.end.line;
+                i = nextLineIndent(this, this.getIndentAtLine(dl), sl);
+                opt.start = dl.next();
+                opt.index = sl+1;
+                this.document.clearSelection();
+            }
+            this.intervalIterate(function(dl, index) {
+                c = this.getIndentAtLine(dl);
+                i = this.parser.fixIndent.call(this, dl, i);
+                if (c != i) {
+                    this.setIndentAtLine(index, i, dl);
+                }
+                i = nextLineIndent(this, i, index, dl);
+                if (index == e) return false;
+            }, opt);
         },
         toggleComment: function() {
             if (this.parser && this.parser.lineComment) {
@@ -991,8 +1039,8 @@
         isState: function(state, line, col, all) {
             if (state && state.length) {
                 state = 'string' === typeof state ? [state] : state;
-                var gs = getStates.call(this, this.document.get(line).parsed, col);
-                return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== gs.length : false;
+                var gs = getStates.call(this, this.document.get(line).parsed, col), l = gs.length;
+                return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== l : false;
             }
             return false;
         },
@@ -1139,9 +1187,8 @@
                 }
                 r = bf.substr(bf.length - arg) + r;
             }
-            if (r) {
-                this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
-            }
+            r && this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
+            return r;
         },
         removeAfterCursor: function(arg) {
             var r = '', type = typeof arg
@@ -1188,9 +1235,44 @@
                 }
                 r = r + af.substring(0, arg);
             }
-            if (r) {
-                this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
+            r && this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
+            return r;
+        },
+        wordBefore: function(pattern) {
+            pattern = pattern || /[\w$]+/;
+            var bf = this.caret.textBefore(), m
+            , rgx = new RegExp(pattern.source + '$');
+            if (m = rgx.exec(bf)) {
+                return m[0];
             }
+            return '';
+        },
+        wordAfter: function(pattern) {
+            pattern = pattern || /[\w$]+/;
+            var af = this.caret.textAfter(), m
+            , rgx = new RegExp('^' + pattern.source);
+            if (m = rgx.exec(af)) {
+                return m[0];
+            }
+            return '';
+        },
+        removeWordBefore: function(pattern) {
+            var word = this.wordBefore(pattern);
+            word && this.removeBeforeCursor(word);
+            return word;
+        },
+        removeWordAfter: function(pattern) {
+            var word = this.wordAfter(pattern);
+            word && this.removeAfterCursor(word);
+            return word;
+        },
+        deleteToBeginning: function() {
+            this.removeBeforeCursor(this.caret.textBefore());
+            return this;
+        },
+        deleteToEnd: function() {
+            this.removeAfterCursor(this.caret.textAfter());
+            return this;
         },
         isEmpty: function() {
             return this.document.lines() === 1 && !this.document.get(0).text;
@@ -1232,13 +1314,22 @@
                 var search = this.searches = this.searches || {};
                 
                 if (!search.value || find.toString() != search.value.toString() || !search.results || !search.length) {
-                    var cp = this, j = 0, results = search.results = {}, cur, linkCallback, escape;
+                    var cp = this, j = 0, results = search.results = {}, cur, linkCallback, clearSelected, escape;
                     search.value = find;
                     
                     linkCallback = function(dl, line) {
                         if (cp.searches.results && (cur = cp.searches.results[line])) {
                             searchAppendResult.call(cp, dl, cur);
                         }
+                    }
+                    clearSelected = function() {
+                        var children = search.overlay.node.children, k = 0;
+                        for (var i = 0; i < children.length; i++) {
+                            if (children[i].style.opacity == '0' && ++k) {
+                                children[i].style.opacity = '1';
+                            }
+                        }
+                        k && cp.document.clearSelection();
                     }
                     
                     if (!(search.overlay instanceof CodePrinter.Overlay)) {
@@ -1247,12 +1338,8 @@
                         
                         search.overlay.on({
                             refresh: function(a) {
-                                if (a === 'caret' || a === 'blur') {
-                                    var children = search.overlay.node.children, k = 0;
-                                    for (var i = 0; i < children.length; i++) {
-                                        children[i].style.opacity == "0" && ++k && children[i].fadeIn();
-                                    }
-                                    k && cp.document.clearSelection();
+                                if (a === 'click' || a === 'blur') {
+                                    clearSelected();
                                 } else if (!search.mute) {
                                     search.length = 0;
                                     cp.search(search.value, false);
@@ -1263,14 +1350,15 @@
                                 cp.searches.length = 0;
                             }
                         });
-                        search.overlay.node.delegate('mousedown', 'span', function(e) {
+                        search.overlay.node.delegate('span', 'mousedown', function(e) {
                             var res = this._searchResult;
                             if (res) {
+                                clearSelected();
                                 search.mute = true;
                                 cp.input.focus();
                                 cp.document.setSelectionRange(res.line, res.startColumn, res.line, res.startColumn + res.length);
                                 cp.caret.position(res.line, res.startColumn + res.length);
-                                this.fadeOut();
+                                this.style.opacity = '0';
                                 search.mute = false;
                             }
                             return e.cancel();
@@ -1443,61 +1531,23 @@
             , prev = objNearProperty(this.definitions, l, -1);
             this.setCursorPosition(+prev, -1);
         },
-        findSnippet: function(trigger) {
-            if (trigger) {
-                var f = function(snippets) {
-                    for (var k in snippets) {
-                        if (k.startsWith(trigger)) {
-                            return 'string' === typeof snippets[k] ? { content: snippets[k] } : snippets[k];
-                        }
-                    }
-                }
-                , result = f(this.snippets);
-                if (result) return result;
-                
-                if (this.parser) {
-                    if (this.parser.snippets) {
-                        result = f(this.parser.snippets);
-                        if (result) return result;
-                    }
-                    var cc = this.parser.codeCompletion.call(this, this.memory, this.parser)
-                    , cs = this.parser.caseSensitive, islowercase, parseResult;
-                    
-                    if (!cs) {
-                        var ltrig = trigger.toLowerCase();
-                        islowercase = trigger === ltrig;
-                        trigger = ltrig;
-                    }
-                    
-                    parseResult = function(v) {
-                        if (!cs) v = v[islowercase ? 'toLowerCase' : 'toUpperCase']();
-                        return v;
-                    }
-                    
-                    if (cc && cc instanceof Array) {
-                        for (var i = 0; i < cc.length; i++) {
-                            if (cc[i] instanceof Array) {
-                                for (var j = 0; j < cc[i].length; j++) {
-                                    if (cc[i][j].startsWith(trigger)) {
-                                        return { trigger: arguments[0], content: parseResult(cc[i][j]), cursorMove: 0 }
-                                    }
-                                }
-                            } else {
-                                if (cc[i].startsWith(trigger)) {
-                                    return { trigger: arguments[0], content: parseResult(cc[i]), cursorMove: 0 }
-                                }
-                            }
-                        }
-                    }
-                }
+        getSnippets: function() {
+            return {}.extend(this.options.snippets, this.parser && this.parser.snippets);
+        },
+        findSnippet: function(snippetName) {
+            var s = this.options.snippets, b;
+            if (!(b = s && s.hasOwnProperty(snippetName))) {
+                s = this.parser && this.parser.snippets;
+                b = s && s.hasOwnProperty(snippetName);
             }
-            return null;
+            return b && s[snippetName];
         },
         registerSnippet: function() {
+            if (!this.options.snippets) this.options.snippets = [];
             for (var i = 0; i < arguments.length; i++) {
                 var snippet = arguments[i];
                 if (snippet.content && snippet.trigger) {
-                    this.snippets.push(snippet);
+                    this.options.snippets.push(snippet);
                 }
             }
         },
@@ -1569,58 +1619,6 @@
         insertAfter: function(node) { node.after(this.mainElement); return this; }
     }
     
-    EventEmitter = function() {
-        var listeners = {};
-        this.emit = function(eventName) {
-            var lst = listeners[eventName];
-            if (lst && lst.length) {
-                var args = Array.apply(null, arguments);
-                args.shift();
-                for (var i = 0; i < lst.length; i++) {
-                    lst[i].apply(this, args);
-                }
-            }
-            return this;
-        }
-        this.on = function(arg) {
-            if (arguments.length === 2) {
-                arg = {}
-                arg[arguments[0]] = arguments[1];
-            }
-            for (var k in arg) {
-                if (!listeners[k]) listeners[k] = [];
-                listeners[k].push(arg[k]);
-            }
-            return this;
-        }
-        this.once = function(eventName, listener) {
-            if ('string' === typeof eventName && listener instanceof Function) {
-                var listenerWrapper = function() {
-                    listener.apply(this, arguments);
-                    this.off(eventName, listenerWrapper);
-                }
-                if (!listeners[eventName]) listeners[eventName] = [];
-                listeners[eventName].push(listenerWrapper);
-            }
-            return this;
-        }
-        this.off = function(eventName, listener) {
-            if (eventName) {
-                var lst = listeners[eventName], i;
-                if (lst) {
-                    if (listener && (i = lst.indexOf(listener)) >= 0) {
-                        lst.splice(i, 1);
-                    } else {
-                        lst.length = 0;
-                    }
-                }
-            } else {
-                listeners = {}
-            }
-            return this;
-        }
-    }
-    
     Branch = function(leaf) {
         this.parent = null;
         this.isLeaf = leaf == null ? true : leaf;
@@ -1629,7 +1627,14 @@
     }
     
     Branch.prototype = {
-        indexOf: Array.prototype.indexOf,
+        indexOf: function(node, offset) {
+            for (var i = offset || 0, l = this.length; i < l; i++) {
+                if (this[i] == node) {
+                    return i;
+                }
+            }
+            return -1;
+        },
         splice: function(index, howmany) {
             var size = 0, height = 0, l = Math.min(index + howmany, this.length || 0);
             for (var i = index; i < l; i++) {
@@ -1997,7 +2002,6 @@
         , defHeight = 13, firstNumber
         , data, history, selection;
         
-        EventEmitter.call(this);
         doc.screen = screen;
         doc.overlays = [];
         history = new History(cp, doc, cp.options.historyStackSize, cp.options.historyDelay);
@@ -2159,6 +2163,14 @@
                 insert(dl);
                 dl = dl.next();
             }
+            if (!dl) {
+                dl = lines[0].prev();
+                while (dl && !(b = isFilled(half))) {
+                    prepend(dl);
+                    scroll(-dl.height);
+                    dl = dl.prev();
+                }
+            }
             return b;
         }
         this.rewind = function(dl) {
@@ -2229,55 +2241,53 @@
             st = Math.max(0, Math.min(st, wh));
             cp.wrapper._lockedScrolling = true;
             
-            raf(function() {
-                var x = st - cp.sizes.scrollTop
-                , limit = cp.options.viewportMargin
-                , d = Math.round(x - limit)
-                , abs = Math.abs(d)
-                , tmpd = d
-                , h, dl;
-                
-                if (d) {
-                    if (abs > 300 && abs > 3 * code.offsetHeight) {
-                        dl = data.getLineWithOffset(Math.max(0, st - limit));
-                        if (doc.rewind(dl) !== false) {
-                            scrollTo(lastST = st);
-                            return;
-                        }
-                    }
-                    if (from === 0 && d < 0) {
-                        h = lines[0].height;
-                        dl = lines[lines.length-1];
-                        while (h < x && !isFilled() && (dl = dl.next())) {
-                            insert(dl);
-                            x -= dl.height;
-                        }
-                    } else if (d > 0) {
-                        while (lines.length && (h = lines[0].height) <= d && (dl = lines[lines.length-1].next())) {
-                            var first = lines.shift();
-                            dl.captureNode(first);
-                            if (dl.active) cp.select(dl);
-                            cp.emit('unlink', first, from);
-                            link(dl, to + 1);
-                            ++from; ++to;
-                            d -= h;
-                        }
-                    } else if (d < 0) {
-                        while (lines.length && (h = lines[lines.length-1].height) <= -d && (dl = lines[0].prev())) {
-                            var last = lines.pop();
-                            dl.captureNode(last);
-                            if (dl.active) cp.select(dl);
-                            cp.emit('unlink', last, to);
-                            link(dl, --from); --to;
-                            d += h;
-                        }
-                    }
-                    if (tmpd != d) {
-                        scroll(tmpd - d);
+            var x = st - cp.sizes.scrollTop
+            , limit = cp.options.viewportMargin
+            , d = Math.round(x - limit)
+            , abs = Math.abs(d)
+            , tmpd = d
+            , h, dl;
+            
+            if (d) {
+                if (abs > 300 && abs > 3 * code.offsetHeight) {
+                    dl = data.getLineWithOffset(Math.max(0, st - limit));
+                    if (doc.rewind(dl) !== false) {
+                        scrollTo(lastST = st);
+                        return;
                     }
                 }
-                scrollTo(lastST = st);
-            });
+                if (from === 0 && d < 0) {
+                    h = lines[0].height;
+                    dl = lines[lines.length-1];
+                    while (h < x && !isFilled() && (dl = dl.next())) {
+                        insert(dl);
+                        x -= dl.height;
+                    }
+                } else if (d > 0) {
+                    while (lines.length && (h = lines[0].height) <= d && (dl = lines[lines.length-1].next())) {
+                        var first = lines.shift();
+                        dl.captureNode(first);
+                        if (dl.active) cp.select(dl);
+                        cp.emit('unlink', first, from);
+                        link(dl, to + 1);
+                        ++from; ++to;
+                        d -= h;
+                    }
+                } else if (d < 0) {
+                    while (lines.length && (h = lines[lines.length-1].height) <= -d && (dl = lines[0].prev())) {
+                        var last = lines.pop();
+                        dl.captureNode(last);
+                        if (dl.active) cp.select(dl);
+                        cp.emit('unlink', last, to);
+                        link(dl, --from); --to;
+                        d += h;
+                    }
+                }
+                if (tmpd != d) {
+                    scroll(tmpd - d);
+                }
+            }
+            scrollTo(lastST = st);
         }
         this.isLineVisible = function(dl) {
             return lines.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
@@ -2578,13 +2588,20 @@
             selection.clear();
             cp.select(cp.caret.dl());
         }
+        this.createOverlay = function(classes, removable) {
+            return new CodePrinter.Overlay(this, classes, removable);
+        }
         this.removeOverlays = function() {
-            var ov = this.overlays;
-            for (var i = 0; i < ov.length; i++) {
+            var ov = this.overlays, args;
+            for (var i = ov.length; i--; ) {
                 if (ov[i].isRemovable) {
                     ov[i].remove();
                 } else {
-                    ov[i].emit('refresh', Array.apply(null, arguments));
+                    if (!args) {
+                        args = ['refresh'];
+                        args.push.apply(args, arguments);
+                    }
+                    ov[i].emit.apply(ov[i], args);
                 }
             }
         }
@@ -2622,18 +2639,17 @@
             if (cp.options.history) {
                 history.pushChanges(e.line, e.column, cp.convertToTabs(e.text), e.added);
             }
-            Array.prototype.unshift.call(arguments, 'changed');
-            doc.removeOverlays.apply(doc, arguments);
+            doc.removeOverlays('changed', e);
         });
         return this;
     }
     
     Caret = function(cp) {
-        EventEmitter.call(this);
         var line, column, currentDL, lastdet
         , before = '', after = '', tmp
         , styles = {
             vertical: function(css) {
+                css.width = 1;
                 css.height = currentDL.height;
                 css.left -= 1;
                 return css;
@@ -2689,13 +2705,13 @@
                 this.emit('columnChange', dl, dli.index, c);
                 column = c;
             }
+            det.offsetY = dli.offset;
             lastdet = det;
             before = cp.convertToTabs(t.substring(0, c));
             after = cp.convertToTabs(t.substr(c));
             setPixelPosition.call(this, det.offset, dli.offset);
             cp.select(dl);
         }
-        
         this.setTextBefore = function(str) {
             var col = str.length;
             str = cp.convertToTabs(str);
@@ -2802,6 +2818,12 @@
             }
             return this.position(mv, column);
         }
+        this.offsetX = function() {
+            return lastdet ? lastdet.offset : 0;
+        }
+        this.offsetY = function(withDL) {
+            return lastdet ? lastdet.offsetY + (withDL ? currentDL.height : 0) : 0;
+        }
         this.refresh = function() {
             cp.document.removeOverlays(null);
             return this.position(line || 0, column || 0);
@@ -2896,7 +2918,7 @@
     }
     
     CodePrinter.Overlay = function(doc, classes, removable) {
-        this.node = div.cloneNode().addClass('cp-overlay '+classes);
+        this.node = div.cloneNode().addClass('cp-overlay', classes);
         this.isRemovable = !!removable;
         this.doc = doc;
         return this;
@@ -3225,7 +3247,7 @@
             var v = this.value, tree = this.tree, node
             , tmp = 0, r = [], hasStyle = !!this.styles;
             
-            hasStyle && r.push('<span class="cpx-', this.styles.join(' cpx-'), '">');
+            hasStyle && r.push('<span class="cpx-'+this.styles.join(' cpx-')+'">');
             
             for (var i = 0; i < tree.length; i++) {
                 node = tree[i];
@@ -3246,8 +3268,7 @@
         , dl = cp.document.get(0)
         , le = cp.getLineEnding(), fn;
         
-        EventEmitter.call(this);
-        setImmediate(fn = function() {
+        $.async(fn = function() {
             var r = 25 + 50 * Math.random(), i = -1;
             
             while (dl && ++i < r) {
@@ -3257,7 +3278,7 @@
             if (i >= 0) {
                 rs.emit('data', stack.join(le));
                 stack = [''];
-                setImmediate(fn);
+                $.async(fn);
             } else {
                 rs.emit('end');
             }
@@ -3275,7 +3296,7 @@
                     stream.end();
                 });
             }
-            return this;
+            return stream;
         }
     }
     
@@ -3337,8 +3358,8 @@
                 this.caret.setTextBefore(this.tabString(indent-1) + this.caret.textBefore().trim());
             }
         }
-        $.extend(this, extend instanceof Function ? extend.call(this) : extend);
-        this.extension && this.extend(this.extension);
+        this.extend(extend instanceof Function ? extend.call(this) : extend);
+        this.extension && this.expand(this.extension);
         this.init();
     }
     CodePrinter.Mode.prototype = {
@@ -3375,6 +3396,21 @@
             }
             return 0;
         },
+        fixIndent: function(dl, expectedIndent) {
+            var id = this.parser.indentDecrements;
+            if (id) {
+                var txt = dl.text.trim();
+                for (var i = 0; i < id.length; i++) {
+                    if (txt.startsWith(id[i])) {
+                        return expectedIndent - 1;
+                    }
+                }
+            }
+            return expectedIndent;
+        },
+        isAutoCompleteTrigger: function(char) {
+            return this.autoCompleteTriggers && this.autoCompleteTriggers.test(char);
+        },
         codeCompletion: function(memory) {
             return [];
         },
@@ -3405,44 +3441,38 @@
                         r = chbf + x;
                     }
                 }
-                this.removeBeforeCursor(r);
+                r = this.removeBeforeCursor(r);
+                if (r && this.options.autoComplete && this.hints && !this.hints.match(r)) {
+                    this.hints.hide();
+                }
             }
-            return false;
-        },
-        'Ctrl+Backspace': function() {
-            this.caret.setTextBefore('');
-            return false;
-        },
-        'Alt+Backspace': function() {
-            this.caret.setTextAtCurrentLine('', '');
             return false;
         },
         'Tab': function() {
             if (this.document.issetSelection()) {
                 this.indent();
             } else {
-                var bf = this.caret.textBefore();
                 if (this.options.tabTriggers) {
-                    var match = bf.match(/(?:^|[^\w])(\w+)$/), snippet = match && this.findSnippet(match[1]);
-                    if (snippet) {
-                        this.removeBeforeCursor(match[1]);
+                    var wbf = this.wordBefore(), snippet;
+                    if (snippet = this.findSnippet(wbf)) {
+                        this.removeBeforeCursor(wbf);
                         this.insertText(snippet.content, snippet.cursorMove);
                         return false;
                     }
                 }
-                this.insertText(' '.repeat(this.options.tabWidth - bf.length % this.options.tabWidth));
+                this.insertText(' '.repeat(this.options.tabWidth - this.caret.column() % this.options.tabWidth));
             }
             return false;
         },
-        'Alt+Tab': CodePrinter.prototype.indent,
-        'Shift+Tab': CodePrinter.prototype.unindent,
+        'Alt Tab': CodePrinter.prototype.indent,
+        'Shift Tab': CodePrinter.prototype.unindent,
         'Enter': function() {
             var bf = this.caret.textBefore()
             , af = this.caret.textAfter();
             
             if (this.options.autoIndent) {
-                var rest = '', line = this.caret.line(), indent = this.getIndentAtLine(line)
-                , dl = this.caret.dl(), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
+                var rest = '', line = this.caret.line(), dl = this.caret.dl()
+                , indent = this.getIndentAtLine(dl), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
                 , spacesAfter = 0;
                 
                 if (parser && parser.indentation) {
@@ -3469,7 +3499,7 @@
             }
             return false;
         },
-        'Shift+Enter': function() {
+        'Shift Enter': function() {
             this.caret.position(this.caret.line(), -1);
             return this.call('Enter');
         },
@@ -3500,6 +3530,7 @@
         'Left': function(e, c) {
             c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
             this.document.clearSelection();
+            this.document.removeOverlays('caretMove');
             return false;
         },
         'Del': function() {
@@ -3537,7 +3568,7 @@
             if (this.options.insertClosingBrackets) {
                 var af = this.caret.textAfter()[0]
                 , cb = complementBracket(ch);
-                if (!af || af === cb || /\s/.test(af)) {
+                if (!af || af === cb || !/\w/.test(af)) {
                     this.insertText(cb, -cb.length);
                 }
             }
@@ -3551,51 +3582,7 @@
             }
             return false;
         },
-        'Ctrl+Left': function() {
-            this.caret.position(this.caret.line(), 0);
-            return false;
-        },
-        'Ctrl+Right': function() {
-            this.caret.position(this.caret.line(), -1);
-            return false;
-        },
-        'Alt+Up': CodePrinter.prototype.searchPrev,
-        'Alt+Down': CodePrinter.prototype.searchNext,
-        'Alt+Ctrl+Up': CodePrinter.prototype.swapLineUp,
-        'Alt+Ctrl+Down': CodePrinter.prototype.swapLineDown,
-        'Ctrl+D': CodePrinter.prototype.nextDefinition,
-        'Alt+Ctrl+D': CodePrinter.prototype.previousDefinition,
-        'Ctrl+F': function(e) {
-            var p = prompt('Find...');
-            p ? this.search(p) : this.searchEnd();
-        },
-        'Shift+Ctrl+F': function() {
-            this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
-        },
-        'Ctrl+J': function() {
-            this.setCursorPosition(parseInt(prompt("Jump to line..."), 10) - 1, 0);
-        },
-        'Ctrl+M': function() {
-            var dl = this.caret.dl();
-            if (dl) dl.classes && dl.classes.indexOf(markClassName) >= 0 ? dl.unmark() : dl.mark();
-        },
-        'Ctrl+N': function() {
-            this.counter.hasClass('hidden') ? this.openCounter() : this.closeCounter();
-        },
-        'Ctrl+R': function() {
-            this.forcePrint();
-        },
-        'Ctrl+Z': function() {
-            this.document.undo();
-        },
-        'Shift+Ctrl+Z': function(e) {
-            this.document.redo();
-        },
-        'Ctrl++': CodePrinter.prototype.increaseFontSize,
-        'Ctrl+-': CodePrinter.prototype.decreaseFontSize,
-        'Ctrl+/': CodePrinter.prototype.toggleComment,
-        'Shift+Ctrl+/': CodePrinter.prototype.toggleBlockComment,
-        'Shift+Left': function(e, c) {
+        'Shift Left': function(e, c) {
             if (!this.document.issetSelection()) {
                 this.document.beginSelection();
             }
@@ -3604,12 +3591,10 @@
         }
     }
     keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
-    keyMap.prototype['Shift+Down'] = keyMap.prototype['Shift+Right'] = keyMap.prototype['Shift+Up'] = keyMap.prototype['Shift+Left'];
+    keyMap.prototype['Shift Down'] = keyMap.prototype['Shift Right'] = keyMap.prototype['Shift Up'] = keyMap.prototype['Shift Left'];
     keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
     keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
     keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
-    keyMap.prototype['Ctrl+Up'] = keyMap.prototype['Home'];
-    keyMap.prototype['Ctrl+Down'] = keyMap.prototype['End'];
     
     commands = {
         'A': function(e) {
@@ -3628,7 +3613,6 @@
         'V': function(e) {
             this.document.removeSelection();
             this.emit('cmd.paste');
-            setImmediate(this.input.emit.bind(this.input, 'keyup'));
             return true;
         },
         'X': function() {
@@ -3778,8 +3762,10 @@
             this.emit('started', { line: line, column: column });
         }
         this.setEnd = function(line, column) {
-            coords[1] = [line, column];
-            make.call(this);
+            if (coords[0]) {
+                coords[1] = [line, column];
+                make.call(this);
+            }
         }
         this.isset = function() {
             return coords && coords.length == 2;
@@ -3893,32 +3879,31 @@
     }
     
     CodePrinter.requireMode = function(req, cb, del) {
-        return $.scripts.require('CodePrinter/'+req.toLowerCase(), cb, del);
+        return $.require('CodePrinter/'+req, cb, del);
     }
-    CodePrinter.defineMode = function(name, obj, req) {
-        if (obj instanceof Array) {
-            req = arguments[1];
-            obj = arguments[2];
+    CodePrinter.defineMode = function(name, req, obj) {
+        if (arguments.length === 2) {
+            obj = req;
+            req = null;
         }
         if (req) {
             for (var i = 0; i < req.length; i++) {
-                req[i] = 'CodePrinter/'+(aliases[req[i]] || req[i].toLowerCase());
+                req[i] = 'CodePrinter/'+(aliases[req[i]] || req[i]);
             }
         }
-        var lc = name.toLowerCase();
-        $.scripts.define('CodePrinter/'+lc, obj, req);
-        $.scripts.require('CodePrinter/'+lc, function(mode) {
+        $.define('CodePrinter/'+name, req, obj);
+        $.require('CodePrinter/'+name, function(mode) {
             mode.name = name;
         });
     }
     CodePrinter.hasMode = function(name) {
-        return $.scripts.has('CodePrinter/'+name.toLowerCase());
+        return $.require.has('CodePrinter/'+name);
     }
     CodePrinter.requireAddon = function(name, cb, del) {
-        $.scripts.require('CodePrinter/addons/'+name, cb, del);
+        $.require('CodePrinter/addons/'+name, cb, del);
     }
     CodePrinter.defineAddon = function(name, obj) {
-        $.scripts.define('CodePrinter/addons/'+name, obj);
+        $.define('CodePrinter/addons/'+name, obj);
     }
     CodePrinter.registerExtension = function(ext, parserName) {
         aliases[ext.toLowerCase()] = parserName.toLowerCase();
@@ -4107,22 +4092,6 @@
             this.wrapper.scrollLeft = rect.offset - this.wrapper.clientWidth / 2;
         }
     }
-    function setImmediate(fn) {
-        timeouts.push(fn);
-        window.postMessage(imsg, '*');
-    }
-    window.addEventListener('message', function(e) {
-        if (e.source == window && e.data === imsg) {
-            e.stopPropagation();
-            if (timeouts.length > 0) {
-                var fn = timeouts.shift();
-                fn();
-            }
-        }
-    });
-    raf = window.requestAnimationFrame || window.webkitRequestAnimationFrame 
-    || window.mozRequestAnimationFrame || window.msRequestAnimationFrame 
-    || window.oRequestAnimationFrame || function(callback) { setTimeout(callback, 16); };
     
     return window.CodePrinter = CodePrinter;
 });

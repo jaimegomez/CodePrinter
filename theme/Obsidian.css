@@ -8,6 +8,9 @@
 .cps-obsidian .cp-active-line { background:rgba(0,0,0,0.3); box-shadow:0 0 0 1px black; }
 .cps-obsidian .cp-search-occurrence { border-color:#ddd; }
 .cps-obsidian .cp-search-occurrence.active { background:#434B4E; color:#fff; }
+.cps-obsidian .cp-hint-container { background:#293134; border-color:#81969a; box-shadow:0 0 10px rgba(0,0,0,0.3); color:#e0e2e4; }
+.cps-obsidian .cp-hint-container .active { background:#81969a; color:#fff; }
+.cps-obsidian .cp-scrollbar-slider { background:#81969a; }
 
 .cps-obsidian .cpx-tab { border-color:#445544; }
 .cps-obsidian .cpx-bracket { color:#E8E2B7; }

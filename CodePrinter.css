@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   CSS document
 *   
-*   version     0.7.1
+*   version     0.7.2
 */
 .codeprinter-source {
   display: block;
@@ -230,25 +230,28 @@
 .codeprinter .cp-scrollbar.visible {
   opacity: 1;
 }
-.codeprinter .cp-scrollbar .cp-scrollbar-slider {
+.codeprinter .cp-scrollbar-slider {
   display: inline-block;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 50px;
   position: relative;
+  vertical-align: top;
 }
 .codeprinter .cp-scrollbar-horizontal {
-  right: 0;
+  right: 7px;
   bottom: 0;
   left: 0;
 }
+.codeprinter .cp-scrollbar-horizontal,
 .codeprinter .cp-scrollbar-horizontal .cp-scrollbar-slider {
   height: 7px;
 }
 .codeprinter .cp-scrollbar-vertical {
   top: 0;
   right: 0;
-  bottom: 0;
+  bottom: 7px;
 }
+.codeprinter .cp-scrollbar-vertical,
 .codeprinter .cp-scrollbar-vertical .cp-scrollbar-slider {
   width: 7px;
 }
@@ -261,6 +264,7 @@
   bottom: 0;
   left: 0;
   pointer-events: none;
+  overflow: hidden;
 }
 .codeprinter .cp-selection-overlay {
   z-index: 3;
@@ -294,6 +298,33 @@
 .codeprinter .cp-search-occurrence.active {
   z-index: 5;
 }
+.codeprinter .cp-hint-overlay {
+  z-index: 20;
+}
+.codeprinter .cp-hint-container {
+  max-width: 300px;
+  max-height: 100px;
+  background: #fcfcfc;
+  border: 1px solid #d4d4d4;
+  pointer-events: all;
+  position: absolute;
+  overflow: scroll;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+.codeprinter .cp-hint-container ul {
+  display: block;
+  list-style-type: none;
+  pointer-events: all;
+}
+.codeprinter .cp-hint-container li {
+  display: block;
+  padding: 2px 6px 2px 3px;
+  pointer-events: all;
+}
+.codeprinter .cp-hint-container .active {
+  background-color: #454545;
+  color: #fafafa;
+}
 .codeprinter .cp-caret {
   width: 1px;
   height: 13px;
@@ -301,7 +332,7 @@
   position: absolute;
   top: -50px;
   left: -50px;
-  z-index: 100;
+  z-index: 11;
   -webkit-transform: translate3d(0, 0, 0);
   -webkit-transform-style: preserve-3d;
 }

@@ -6,6 +6,11 @@
 .cps-roboticket .cp-active-line { background:#E0E0FF; box-shadow:0 0 0 1px rgba(69,69,255,0.3); color:#405060 !important; }
 .cps-roboticket .cp-search-occurrence {}
 .cps-roboticket .cp-search-occurrence.active { background:#FFCFBB; border-color:#FFCFBB; color:#585858; }
+.cps-roboticket .cp-hint-container { background:#F5F5F5; border-color:#AFBFCF; box-shadow:0 0 10px rgba(0,0,0,0.1); color:#585858; }
+.cps-roboticket .cp-hint-container .active { background:#E5E5E5; color:#484848; }
+.cps-roboticket .cp-scrollbar-slider { background:rgba(0,0,0,0.4); border-radius:0; }
+.cps-roboticket .cp-scrollbar-vertical .cp-scrollbar-slider { width:3px; }
+.cps-roboticket .cp-scrollbar-horizontal .cp-scrollbar-slider { height:3px; }
 
 .cps-roboticket .cpx-tab { border-color:#445544; }
 .cps-roboticket .cpx-bracket { color:#585858; }

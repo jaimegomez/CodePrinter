@@ -1,11 +1,13 @@
 /* CodePrinter - Xcode theme */
 
-.cps-xcode .cp-wrapper { background:#ffffff; color:#000000; }
-.cps-xcode .cp-counter { background:#ffffff; color:#555555; border-color:#CACACA; }
+.cps-xcode .cp-wrapper { background:#fff; color:#000; }
+.cps-xcode .cp-counter { background:#fff; color:#555; border-color:#cacaca; }
 .cps-xcode .cp-selection { background:#BDD8F2; }
 .cps-xcode .cp-highlight { border-bottom:1px solid black; }
 .cps-xcode .cp-search-occurrence {}
 .cps-xcode .cp-search-occurrence.active { background:#BDD8F2; color:black; }
+.cps-xcode .cp-hint-container { background:#fff; border-color:#cacaca; box-shadow:0 0 10px rgba(0,0,0,0.2); color:#555; } 
+.cps-xcode .cp-hint-container .active { background:#1a7dff; color:#fff; }
 
 .cps-xcode .cpx-tab { border-color:#CACACA; }
 .cps-xcode .cpx-bracket { color:#000000; }

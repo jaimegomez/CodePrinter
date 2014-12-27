@@ -6,7 +6,7 @@
         <link rel="stylesheet" type="text/css" href="https://cdn.rawgit.com/tsapeta/Pastels/0.6.x/css/Pastels.css" />
         <link rel="stylesheet" type="text/css" href="CodePrinter.css" />
         <link rel="stylesheet" type="text/css" href="demo/style.css" />
-        <script type="text/javascript" src="https://raw.githubusercontent.com/tsapeta/Selector.js/0.6.x/Selector.js"></script>
+        <script type="text/javascript" src="http://tsapeta.github.io/env.js/env.js"></script>
         <script type="text/javascript" src="CodePrinter.js"></script>
         <script type="text/javascript" src="mode/JavaScript.js"></script>
     </head>
@@ -17,7 +17,7 @@
                 <h1>CodePrinter</h1>
             </header>
             <article>
-                <p><strong>CodePrinter</strong> is a lightweight code editor written in JavaScript. At this moment it supports 14 programming languages and has 13 themes. It's a free and open-source project released under the MIT license.</p>
+                <p><strong>CodePrinter</strong> is a lightweight code editor written in JavaScript. At this moment it supports 14 programming languages and has 12 themes. It's a free and open-source project released under the MIT license.</p>
             </article>
             <section></section>
             <div id="options">
@@ -47,7 +47,6 @@
                             <option selected>default</option>
                             <option>Abstraction</option>
                             <option>Eclipse</option>
-                            <option>Homebrew</option>
                             <option>Monokai</option>
                             <option>Oblivion</option>
                             <option>Obsidian</option>
@@ -101,6 +100,8 @@
                         <label>Indent new lines</label>
                         <input type="checkbox" class="ps-checkbox" name="indentNewLines" checked />
                     </div>
+                </fieldset>
+                <fieldset>
                     <div>
                         <label>Highlight Brackets</label>
                         <input type="checkbox" class="ps-checkbox" name="highlightBrackets" checked />
@@ -112,6 +113,10 @@
                     <div>
                         <label>Blink caret</label>
                         <input type="checkbox" class="ps-checkbox" name="blinkCaret" checked />
+                    </div>
+                    <div>
+                        <label>Auto Complete</label>
+                        <input type="checkbox" class="ps-checkbox" name="autoComplete" />
                     </div>
                 </fieldset>
                 <div id="downloads">

@@ -1,41 +1,32 @@
 var cp = new CodePrinter({
-    addons: ['scrollbars']
+    addons: ['scrollbars', 'hints']
 })
-, demo = $.get('[name=demo]')
-, theme = $.get('[name=theme]')
-, caretStyle = $.get('[name=caretStyle]')
-, tabWidth = $.get('[name=tabWidth]')
-, fontSize = $.get('[name=fontSize]')
-, fullscreen = $.get('[name=fullscreen]')
-, readonly = $.get('[name=readonly]')
-, counter = $.get('[name=counter]')
-, insertclosing = $.get('[name=insertclosing]')
-, indentation = $.get('[name=indentation]')
-, indentNewLines = $.get('[name=indentNewLines]')
-, highlightBrackets = $.get('[name=highlightBrackets]')
-, shortcuts = $.get('[name=shortcuts]')
-, blinkCaret = $.get('[name=blinkCaret]')
-, download = $.get('[name=download]');
+, demo = $('[name=demo]')
+, theme = $('[name=theme]')
+, caretStyle = $('[name=caretStyle]')
+, tabWidth = $('[name=tabWidth]')
+, fontSize = $('[name=fontSize]')
+, fullscreen = $('[name=fullscreen]')
+, readonly = $('[name=readonly]')
+, counter = $('[name=counter]')
+, insertclosing = $('[name=insertclosing]')
+, indentation = $('[name=indentation]')
+, indentNewLines = $('[name=indentNewLines]')
+, highlightBrackets = $('[name=highlightBrackets]')
+, shortcuts = $('[name=shortcuts]')
+, blinkCaret = $('[name=blinkCaret]')
+, autoComplete = $('[name=autoComplete]')
+, download = $('[name=download]');
 
 download.innerHTML += ' v'+CodePrinter.version;
 download.onclick = function() {
     window.location.href = 'http://github.com/tsapeta/CodePrinter/archive/v'+CodePrinter.version+'.zip';
 }
-$.get('section').append(cp.mainElement);
-cp.print('JavaScript', $.get('code#JavaScript').innerHTML.decode());
-
-setTimeout(function() {
-    cp.mainElement.animate({ translateX: 0, opacity: 1 }, 700, function() {
-        setTimeout(function() {
-            $('#options, header, article').animate({ opacity: 1 }, 700, function() {
-                $.get('img').effectIn('slideDown', 700);
-            });
-        }, 150);
-    });
-}, 150);
+$('section').append(cp.mainElement);
+cp.print('JavaScript', $('code#JavaScript').innerHTML.decode());
 
 demo.onchange = function() {
-    cp.print(this.value, $.get('code#'+this.value.replace(/\+/g, 'p')).innerHTML.decode());
+    cp.print(this.value, $('code#'+this.value.replace(/\+/g, 'p')).innerHTML.decode());
 }
 theme.onchange = function() {
     cp.setTheme(this.value);
@@ -77,4 +68,7 @@ shortcuts.onchange = function() {
 }
 blinkCaret.onchange = function() {
     cp.options.blinkCaret = this.checked;
+}
+autoComplete.onchange = function() {
+    cp.options.autoComplete = this.checked;
 }
