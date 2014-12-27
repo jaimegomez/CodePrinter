@@ -235,20 +235,23 @@
   background: rgba(0, 0, 0, 0.5);
   border-radius: 50px;
   position: relative;
+  vertical-align: top;
 }
 .codeprinter .cp-scrollbar-horizontal {
-  right: 0;
+  right: 7px;
   bottom: 0;
   left: 0;
 }
+.codeprinter .cp-scrollbar-horizontal,
 .codeprinter .cp-scrollbar-horizontal .cp-scrollbar-slider {
   height: 7px;
 }
 .codeprinter .cp-scrollbar-vertical {
   top: 0;
   right: 0;
-  bottom: 0;
+  bottom: 7px;
 }
+.codeprinter .cp-scrollbar-vertical,
 .codeprinter .cp-scrollbar-vertical .cp-scrollbar-slider {
   width: 7px;
 }
