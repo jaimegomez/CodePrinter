@@ -10,30 +10,15 @@ CodePrinter.defineAddon('hints', function() {
     , li_clone = document.createElement('li');
     
     var Hints = function(cp, options) {
-        var that = this, active, container, visible, curWord;
+        var that = this, ov, active, container, visible, curWord;
         
         this.options = options = {}.extend(defaults, options); 
         cp.hints = this;
         
-        this.overlay = cp.document.createOverlay('cp-hint-overlay', false);
+        this.overlay = ov = cp.document.createOverlay('cp-hint-overlay');
         container = document.createElement('div');
         container.className = 'cp-hint-container';
-        this.overlay.node.appendChild(container);
-        
-        this.overlay.on('refresh', function(a, e) {
-            if (a === 'caretMove' && curWord) {
-                var word = cp.wordBefore(options.word)+cp.wordAfter(options.word);
-                if (word === curWord) {
-                    that.show(false, word);
-                } else {
-                    that.hide();
-                }
-            } else if (a === 'changed') {
-                !e.added || that.strictMatch(e.text) ? that.show(false) : that.hide();
-            } else if (a === 'blur' || a === 'click') {
-                that.hide();
-            }
-        });
+        ov.node.appendChild(container);
         
         options.maxWidth != 300 && container.css('maxWidth', options.maxWidth);
         options.maxHeight != 100 && container.css('maxHeight', options.maxHeight);
@@ -137,9 +122,9 @@ CodePrinter.defineAddon('hints', function() {
             return this;
         }
         this.hide = function() {
-            this.overlay.remove();
+            ov.remove();
             visible = active = undefined;
-            return this;
+            return that;
         }
         this.isVisible = function() {
             return visible;
@@ -194,6 +179,24 @@ CodePrinter.defineAddon('hints', function() {
             'Ctrl Space': function() {
                 this.hints.show();
             }
+        });
+        
+        ov.on({
+            'caretMove': function() {
+                if (curWord) {
+                    var word = cp.wordBefore(options.word)+cp.wordAfter(options.word);
+                    if (word === curWord) {
+                        that.show(false, word);
+                    } else {
+                        that.hide();
+                    }
+                }
+            },
+            'changed': function(e) {
+                !e.added || that.strictMatch(e.text) ? that.show(false) : that.hide();
+            },
+            'blur': that.hide,
+            'click': that.hide
         });
         
         container.delegate('li', {
