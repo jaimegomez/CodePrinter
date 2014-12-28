@@ -3878,7 +3878,6 @@
     
     aliases = {
         'js': 'javascript',
-        'json': 'javascript',
         'htm': 'html',
         'less': 'css',
         'h': 'c++',
