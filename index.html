@@ -17,7 +17,7 @@
                 <h1>CodePrinter</h1>
             </header>
             <article>
-                <p><strong>CodePrinter</strong> is a lightweight code editor written in JavaScript. At this moment it supports 14 programming languages and has 12 themes. It's a free and open-source project released under the MIT license.</p>
+                <p><strong>CodePrinter</strong> is a lightweight code editor written in JavaScript. At this moment it supports 15 programming languages and has 12 themes. It's a free and open-source project released under the MIT license.</p>
             </article>
             <section></section>
             <div id="options">
@@ -33,6 +33,7 @@
                             <option>HTML</option>
                             <option>Java</option>
                             <option selected>JavaScript</option>
+                            <option>JSON</option>
                             <option>Markdown</option>
                             <option>Perl</option>
                             <option>PHP</option>
@@ -385,6 +386,32 @@ END
     &lt;rect x="0" y="10" width="10" height="10" fill="black" /&gt;
     &lt;rect x="10" y="10" width="10" height="10" fill="white" /&gt;
 &lt;/svg&gt;
+</code>
+            <code id="JSON">{
+    "firstName": "John",
+    "lastName": "Smith",
+    "isAlive": true,
+    "age": 25,
+    "height_cm": 167.6,
+    "address": {
+        "streetAddress": "21 2nd Street",
+        "city": "New York",
+        "state": "NY",
+        "postalCode": "10021-3100"
+    },
+    "phoneNumbers": [
+        {
+            "type": "home",
+            "number": "212 555-1234"
+        },
+        {
+            "type": "office",
+            "number": "646 555-4567"
+        }
+    ],
+    "children": [],
+    "spouse": null
+}
 </code>
         </div>
         <script type="text/javascript" src="demo/script.js"></script>
