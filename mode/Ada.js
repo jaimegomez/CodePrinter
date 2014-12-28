@@ -73,9 +73,6 @@ CodePrinter.defineMode('Ada', function() {
             }
             return stream;
         },
-        codeCompletion: function(memory) {
-            return [types, keywords, controls, memory.variables, memory.tasks];
-        },
         expressions: {
             '--': { ending: /$/, classes: ['comment', 'line-comment'] },
             '"': { ending: /(^"|[^\\]"|\\{2}")/, classes: ['string', 'double-quote'] }

@@ -12,7 +12,7 @@ CodePrinter.defineAddon('hints', function() {
     var Hints = function(cp, options) {
         var that = this, ov, active, container, visible, curWord;
         
-        this.options = options = {}.extend(defaults, options); 
+        this.options = options = {}.extend(defaults, options);
         cp.hints = this;
         
         this.overlay = ov = cp.document.createOverlay('cp-hint-overlay');
@@ -35,13 +35,13 @@ CodePrinter.defineAddon('hints', function() {
             , af = caret.textAfter()
             , text = curDL.text
             , dl, text, m
-            , next, hOP, fn;
+            , next, hOP, fn, ph;
             
             curWord = (wordBf + wordAf).toLowerCase();
             hOP = Object.prototype.hasOwnProperty;
             
             fn = curWord ? function(match) {
-                var o = 0, m = 0, max = 0
+                var o = 0, m = 0, max = 0, p = 0
                 , l = curWord.length
                 , lc = match.toLowerCase();
                 
@@ -51,12 +51,14 @@ CodePrinter.defineAddon('hints', function() {
                         ++o;
                         max = Math.max(++m, max);
                     } else if (j > 0) {
-                        m = 1;
+                        m = 1 - j/lc.length;
                         o = j+1;
                     } else {
+                        p += 1 - i/l;
                         m = 0;
                     }
                 }
+                max -= p;
                 if (max >= Math.sqrt(l)) {
                     seen[match] = max;
                     list.push(match);
@@ -77,19 +79,29 @@ CodePrinter.defineAddon('hints', function() {
                 }
             }
             
-            text = curWord ? bf.substr(0, bf.length - wordBf.length) + ' ' + af.substr(wordAf.length) : bf + af;
-            loop();
-            
-            for (var dir = 0; dir <= 1; dir++) {
-                next = dir ? curDL.next : curDL.prev;
-                dl = next.call(curDL);
-                
-                for (var i = 1; i < range && dl && list.length < limit; i++) {
-                    text = dl.text;
-                    loop();
-                    dl = next.call(dl);
+            if (cp.parser && (ph = cp.parser.codeCompletion(bf, af, cp))) {
+                var v = ph instanceof Array ? ph : ph.values;
+                for (var i = 0; i < v.length; i++) {
+                    if (!hOP.call(seen, v[i])) {
+                        fn(v[i]);
+                    }
                 }
-                limit = limit * 2;
+            }
+            if (!ph || ph.search) {
+                text = curWord ? bf.substr(0, bf.length - wordBf.length) + ' ' + af.substr(wordAf.length) : bf + af;
+                loop();
+                
+                for (var dir = 0; dir <= 1; dir++) {
+                    next = dir ? curDL.next : curDL.prev;
+                    dl = next.call(curDL);
+                    
+                    for (var i = 1; i < range && dl && list.length < limit; i++) {
+                        text = dl.text;
+                        loop();
+                        dl = next.call(dl);
+                    }
+                    limit = limit * 2;
+                }
             }
             return curWord ? list.sort(function(a, b) { return seen[b] - seen[a]; }) : list;
         }

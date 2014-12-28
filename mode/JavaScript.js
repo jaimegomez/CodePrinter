@@ -111,12 +111,6 @@ CodePrinter.defineMode('JavaScript', function() {
             }
             return stream;
         },
-        codeCompletion: function(memory) {
-            if (/\.\w*$/.test(this.caret.textBefore())) {
-                return memory.properties;
-            }
-            return [controls, keywords, specials, memory.variables, memory.constants];
-        },
         keyMap: {
             '/': function() {
                 if (this.textAfterCursor(1) === '/') {

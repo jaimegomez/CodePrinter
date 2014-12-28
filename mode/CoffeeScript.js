@@ -123,9 +123,6 @@ CodePrinter.defineMode('CoffeeScript', function() {
             }
             return -i;
         },
-        codeCompletion: function(memory) {
-            return [controls, keywords, specials, memory.classes];
-        },
         keyMap: keyMap,
         expressions: {
             '#': {

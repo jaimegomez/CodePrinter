@@ -46,6 +46,9 @@ CodePrinter.defineMode('JSON', function() {
                 }
             }
             return stream;
+        },
+        codeCompletion: function(bf, af, cp) {
+            return ['true', 'false', 'null'];
         }
     });
 });

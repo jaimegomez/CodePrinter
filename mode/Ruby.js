@@ -185,9 +185,6 @@ CodePrinter.defineMode('Ruby', function() {
             }
             return 0;
         },
-        codeCompletion: function(memory) {
-            return [specials, controls, keywords];
-        },
         keyMap: keyMap,
         tracking: tracking
     });

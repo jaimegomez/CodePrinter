@@ -116,9 +116,6 @@ CodePrinter.defineMode('Java', function() {
             }
             return stream;
         },
-        codeCompletion: function(memory) {
-            return [controls, keywords, specials, types, constants, memory.classes];
-        },
         snippets: {
             'in': {
                 content: 'System.in'

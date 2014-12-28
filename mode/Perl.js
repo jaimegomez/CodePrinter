@@ -78,9 +78,6 @@ CodePrinter.defineMode('Perl', function() {
             }
             return stream;
         },
-        codeCompletion: function(memory) {
-            return [specials, keywords, controls, memory.constants];
-        },
         extension: {
             operators: {
                 '~': 'match'

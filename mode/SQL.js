@@ -126,9 +126,6 @@ CodePrinter.defineMode('SQL', function() {
             }
             return 0;
         },
-        codeCompletion: function(memory) {
-            return [keywords, controls, builtins, atoms];
-        },
         keyMap: keyMap,
         extension: {
             selectionWrappers: {

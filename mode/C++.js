@@ -140,9 +140,6 @@ CodePrinter.defineMode('C++', function() {
             }
             return stream;
         },
-        codeCompletion: function(memory) {
-            return [controls, types, keywords, memory.types, memory.constants, memory.specials];
-        },
         snippets: {
             'out': 'cout << ',
             'in': 'cin >> ',

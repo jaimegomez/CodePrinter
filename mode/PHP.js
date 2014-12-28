@@ -66,7 +66,7 @@ CodePrinter.defineMode('PHP', function() {
                         stream.wrap('special');
                     } else {
                         stream.wrap('variable');
-                        memory.variables.put(found.slice(1));
+                        memory.variables.put(found.substr(1));
                     }
                 } else if (!isNaN(found)) {
                     if (found.substr(0, 2).toLowerCase() == '0x') {
@@ -154,15 +154,13 @@ CodePrinter.defineMode('PHP', function() {
             }
             return -i;
         },
-        codeCompletion: function(memory) {
-            var bf = this.caret.textBefore();
-            if (/\_\w*$/.test(this.caret.textBefore())) {
-                return [constants, memory.constants];
+        codeCompletion: function(bf, af, cp) {
+            if (/\_\w*$/.test(bf)) {
+                return [].concat(constants, cp.memory.constants);
             }
             if (/\$\w*$/.test(bf)) {
-                return ['this', memory.variables];
+                return ['this'].concat(cp.memory.variables);
             }
-            return [controls, keywords, specials, memory.classes, memory.constants];
         },
         keyMap: keyMap,
         extension: {

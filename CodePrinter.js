@@ -3427,9 +3427,6 @@
         isAutoCompleteTrigger: function(char) {
             return this.autoCompleteTriggers && this.autoCompleteTriggers.test(char);
         },
-        codeCompletion: function(memory) {
-            return [];
-        },
         parseBy: function(helper, stream) {
             return helper.parse(stream, helper.memoryAlloc(), true);
         }
