@@ -58,9 +58,8 @@ CodePrinter.defineAddon('hints', function() {
                         m = 0;
                     }
                 }
-                max -= p;
                 if (max >= Math.sqrt(l)) {
-                    seen[match] = max;
+                    seen[match] = max - p;
                     list.push(match);
                 } else {
                     seen[match] = null;
@@ -79,7 +78,7 @@ CodePrinter.defineAddon('hints', function() {
                 }
             }
             
-            if (cp.parser && (ph = cp.parser.codeCompletion(bf, af, cp))) {
+            if (cp.parser && (ph = cp.parser.codeCompletions.call(cp, bf, af))) {
                 var v = ph instanceof Array ? ph : ph.values;
                 for (var i = 0; i < v.length; i++) {
                     if (!hOP.call(seen, v[i])) {
@@ -139,7 +138,7 @@ CodePrinter.defineAddon('hints', function() {
             return that;
         }
         this.isVisible = function() {
-            return visible;
+            return !!visible;
         }
         this.choose = function(value) {
             var word = this.options.word
@@ -152,6 +151,13 @@ CodePrinter.defineAddon('hints', function() {
                 cp.insertText(value);
             } else {
                 cp.caret.moveX(waf.length);
+            }
+            if (cp.parser && cp.parser.onCompletionChosen) {
+                if (cp.parser.onCompletionChosen.call(cp, value)) {
+                    $.async(function() {
+                        that.show(false);
+                    });
+                }
             }
             cp.emit('autocomplete', value);
             return this;

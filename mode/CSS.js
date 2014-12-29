@@ -370,13 +370,13 @@ CodePrinter.defineMode('CSS', function() {
             onLeftRemoval: { ':': ';' }
         },
         hints: hints,
-        codeCompletion: function(bf, af) {
+        codeCompletions: function(bf, af) {
             if (/(\-\w+\-)?(\w[\w\-]*)\s*\:[^\;]*/.test(bf)) {
-                return this.hints[RegExp.$2] || [];
+                return hints[RegExp.$2] || [];
             }
             if (/\-(we|mo|ms|o)[\w\-]*$/.test(bf)) {
                 var prefix = RegExp.$1
-                , v = [], k = Object.keys(this.hints);
+                , v = [], k = Object.keys(hints);
                 
                 if (prefix == 'we') {
                     prefix = 'webkit';
@@ -388,7 +388,16 @@ CodePrinter.defineMode('CSS', function() {
                 }
                 return v;
             }
-            return Object.keys(this.hints);
+            return Object.keys(hints);
+        },
+        onCompletionChosen: function(choice) {
+            choice = choice.replace(/^\-(webkit|moz|ms|o)\-/, '');
+            if (hints.hasOwnProperty(choice)) {
+                cp.insertText(': ;', -1);
+                return true;
+            } else if (/\(\)$/.test(choice)) {
+                cp.caret.moveX(-1);
+            }
         }
     });
 });

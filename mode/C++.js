@@ -116,7 +116,7 @@ CodePrinter.defineMode('C++', function() {
                                 memory.specials.union(inc);
                             } else {
                                 inc.constants && memory.constants.union(inc.constants);
-                                inc.specials && memory.specials.union(inc.objects);
+                                inc.specials && memory.specials.union(inc.specials);
                                 inc.types && memory.types.union(inc.types);
                             }
                         }
@@ -139,6 +139,12 @@ CodePrinter.defineMode('C++', function() {
                 }
             }
             return stream;
+        },
+        codeCompletions: function(bf, af) {
+            return {
+                values: [].concat(types, this.memory.types, keywords, this.memory.specials, this.memory.constants),
+                search: true
+            }
         },
         snippets: {
             'out': 'cout << ',

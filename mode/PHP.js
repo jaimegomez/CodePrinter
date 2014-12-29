@@ -154,12 +154,12 @@ CodePrinter.defineMode('PHP', function() {
             }
             return -i;
         },
-        codeCompletion: function(bf, af, cp) {
+        codeCompletions: function(bf, af) {
             if (/\_\w*$/.test(bf)) {
-                return [].concat(constants, cp.memory.constants);
+                return [].concat(constants, this.memory.constants);
             }
             if (/\$\w*$/.test(bf)) {
-                return ['this'].concat(cp.memory.variables);
+                return ['this'].concat(this.memory.variables);
             }
         },
         keyMap: keyMap,

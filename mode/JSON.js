@@ -47,7 +47,7 @@ CodePrinter.defineMode('JSON', function() {
             }
             return stream;
         },
-        codeCompletion: function(bf, af, cp) {
+        codeCompletions: function(bf, af) {
             return ['true', 'false', 'null'];
         }
     });

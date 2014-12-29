@@ -3425,11 +3425,12 @@
             return expectedIndent;
         },
         isAutoCompleteTrigger: function(char) {
-            return this.autoCompleteTriggers && this.autoCompleteTriggers.test(char);
+            return this.autoCompleteTriggers instanceof RegExp && this.autoCompleteTriggers.test(char);
         },
         parseBy: function(helper, stream) {
             return helper.parse(stream, helper.memoryAlloc(), true);
-        }
+        },
+        codeCompletions: function() {}
     }
     
     keyMap = function() {}
