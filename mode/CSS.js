@@ -393,10 +393,10 @@ CodePrinter.defineMode('CSS', function() {
         onCompletionChosen: function(choice) {
             choice = choice.replace(/^\-(webkit|moz|ms|o)\-/, '');
             if (hints.hasOwnProperty(choice)) {
-                cp.insertText(': ;', -1);
+                this.insertText(': ;', -1);
                 return true;
             } else if (/\(\)$/.test(choice)) {
-                cp.caret.moveX(-1);
+                this.caret.moveX(-1);
             }
         }
     });
