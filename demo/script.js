@@ -1,4 +1,5 @@
 var cp = new CodePrinter({
+    autoComplete: true,
     addons: ['scrollbars', 'hints']
 })
 , demo = $('[name=demo]')
