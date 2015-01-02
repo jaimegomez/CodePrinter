@@ -229,6 +229,7 @@
   background: none;
   position: absolute;
   opacity: 0;
+  pointer-events: none;
   z-index: 10;
 }
 .codeprinter .cp-scrollbar.visible {
@@ -509,6 +510,7 @@
   -ms-flex-flow: column;
   -o-flex-flow: column;
   flex-flow: column;
+  height: auto;
   border: none;
   position: absolute;
   top: 0;
