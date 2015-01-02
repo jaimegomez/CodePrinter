@@ -37,10 +37,10 @@ CodePrinter.defineAddon('shortcuts', function() {
             this.forcePrint();
         },
         'Ctrl Z': function() {
-            this.document.undo();
+            this.doc.undo();
         },
         'Ctrl Shift Z': function(e) {
-            this.document.redo();
+            this.doc.redo();
         },
         'Ctrl =': CodePrinter.prototype.increaseFontSize,
         'Ctrl -': CodePrinter.prototype.decreaseFontSize,
@@ -58,7 +58,7 @@ CodePrinter.defineAddon('shortcuts', function() {
             this.caret.position(0, 0);
         },
         'Ctrl Down': function() {
-            this.caret.position(this.document.lines() - 1, -1);
+            this.caret.position(this.doc.size() - 1, -1);
         }
     }
     
