@@ -22,7 +22,7 @@ CodePrinter.defineMode('JavaScript', function() {
         keywords: new RegExp('^('+keywords.join('|')+')$'),
         specials: new RegExp('^('+specials.join('|')+')$'),
         constants: new RegExp('^('+constants.join('|')+')$'),
-        regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|<\s*\/\s*script\s*>|[^\w\s]|\$(?!\w)|\b[\w\d\-\_]+|\b\w+\b/,
+        regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|<\s*\/\s*script\s*>|[^\w\s]|\b[\w\$]+/,
         blockCommentStart: '/*',
         blockCommentEnd: '*/',
         lineComment: '//',
@@ -54,14 +54,14 @@ CodePrinter.defineMode('JavaScript', function() {
                             stream.wrap('numeric', 'float');
                         }
                     }
-                } else if (/^[\w\$]+$/i.test(found)) {
+                } else if (/^[\w\$]+$/.test(found)) {
                     if (/^(true|false)$/.test(found)) {
                         stream.wrap('builtin', 'boolean');
                     } else if (this.constants.test(found)) {
                         stream.wrap('builtin');
                     } else if (this.controls.test(found)) {
                         stream.wrap('control');
-                    } else if (found == '$' || this.specials.test(found)) {
+                    } else if (found == '$' || found == '_' || this.specials.test(found)) {
                         stream.wrap('special');
                     } else if (this.keywords.test(found)) {
                         stream.wrap('keyword');
@@ -71,7 +71,7 @@ CodePrinter.defineMode('JavaScript', function() {
                     } else if (stream.isBefore(/function\s*\w*\s*\([^\(]*$/)) {
                         stream.wrap('parameter');
                     } else if ((tmp = stream.isAfter(':')) || stream.isBefore('.')) {
-                        if (tmp && stream.isAfter(/^:\s*function\b/)) stream.isDefinition = true;
+                        if (tmp && stream.isAfter(/^\s*:\s*function\b/)) stream.isDefinition = true;
                         memory.properties.put(found);
                         stream.wrap('property');
                     } else if (stream.isBefore(/const\s*$/) || memory.constants.indexOf(found) >= 0) {

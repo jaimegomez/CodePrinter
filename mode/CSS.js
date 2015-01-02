@@ -253,6 +253,13 @@ CodePrinter.defineMode('CSS', function() {
         'word-wrap':                   ['break-word', 'normal'],
         'z-index':                     ['auto', 'inherit']
     }
+    , properties = Object.keys(hints)
+    , symbols = {
+        '#': 'property',
+        '.': 'property',
+        '*': 'keyword',
+        '@': 'control'
+    }
     
     return new CodePrinter.Mode({
         name: 'CSS',
@@ -274,13 +281,51 @@ CodePrinter.defineMode('CSS', function() {
             }
             
             while (found = stream.match(this.regexp)) {
-                if (this.symbols[found[0]]) {
-                    this.symbols[found[0]].call(this, stream, found);
+                var ch = found[0];
+                if (symbols[ch]) {
+                    stream.wrap(symbols[ch]);
+                } else if (ch === ':') {
+                    var aft = stream.after()
+                    , i1 = aft.indexOf('{')
+                    , i2 = aft.indexOf(';');
+                    if (i1 === -1 || (i2 !== -1 && i2 < i1)) {
+                        stream.eat(ch).wrap('punctuation', this.punctuations[ch]);
+                        
+                        while (found = stream.match(this.values)) {
+                            ch = found[0];
+                            if (ch == ';') {
+                                stream.eat(ch).wrap('punctuation', this.punctuations[found]);
+                                break;
+                            } else if (ch == '#') {
+                                if (found.length === 4 || found.length === 7) {
+                                    stream.wrap('numeric', 'hex');
+                                } else {
+                                    stream.wrap('invalid');
+                                }
+                            } else if (ch == '@') {
+                                stream.wrap('variable');
+                            } else if (ch == '!') {
+                                stream.wrap('value');
+                            } else if (/\d/.test(found)) {
+                                stream.wrap('numeric');
+                            } else if (this.punctuations[found]) {
+                                stream.wrap('punctuation', this.punctuations[found]);
+                            } else if (this.expressions[found]) {
+                                stream.eat(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
+                            } else if (stream.isAfter('(')) {
+                                stream.wrap('function');
+                            } else {
+                                stream.wrap('escaped');
+                            }
+                        }
+                    } else if (/^\:\:?[\w\-\(\)]+$/.test(found)) {
+                        stream.wrap('string');
+                    }
                 } else if (/^[\w\-]+$/i.test(found)) {
                     if (this.tags.test(found)) {
-                        stream.wrap('keyword', 'css-tag');
+                        stream.wrap('keyword');
                     } else {
-                        stream.wrap('special', 'special-'+found);
+                        stream.wrap('special');
                     }
                 } else if (this.punctuations[found]) {
                     stream.wrap('punctuation', this.punctuations[found]);
@@ -293,63 +338,6 @@ CodePrinter.defineMode('CSS', function() {
                     stream.isStillHungry() && stream.setStateAfter('comment');
                 } else if (isHTMLHelper && found[0] === '<' && found[found.length-1] === '>') {
                     return stream.abort();
-                }
-            }  
-            return stream;
-        },
-        symbols: {
-            ':': function(stream, found) {
-                var aft = stream.after()
-                , i1 = aft.indexOf('{')
-                , i2 = aft.indexOf(';');
-                if (i1 === -1 || (i2 !== -1 && i2 < i1)) {
-                    stream.eat(found[0]).wrap('punctuation', this.punctuations[found[0]]);
-                    
-                    while (found = stream.match(this.values)) {
-                        if (found == ';') {
-                            stream.wrap('punctuation', this.punctuations[found]);
-                            break;
-                        } else if (found[0] === '#') {
-                            if (found.length === 4 || found.length === 7) {
-                                stream.wrap('numeric', 'hex');
-                            } else {
-                                stream.wrap('invalid');
-                            }
-                        } else if (found[0] === '@') {
-                            stream.wrap('variable', 'variable-'+found.substr(1));
-                        } else if (found[0] === '!') {
-                            stream.wrap('value', 'css-important');
-                        } else if (/\d/.test(found)) {
-                            if (!isNaN(found)) {
-                                stream.wrap('numeric');
-                            } else if (this.units.test(found)) {
-                                var f2 = found.match(this.units)[0];
-                                stream.wrap('numeric', 'unit-'+f2);
-                            } else {
-                                stream.wrap('numeric');
-                            }
-                        } else if (this.punctuations[found]) {
-                            stream.wrap('punctuation', this.punctuations[found]);
-                        } else if (this.expressions[found]) {
-                            stream.eat(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-                        } else if (stream.isAfter('(')) {
-                            stream.wrap('function');
-                        } else {
-                            stream.wrap('escaped', 'value');
-                        }
-                    }
-                } else if (/^\:\:?[\w\-\(\)]+$/.test(found)) {
-                    stream.wrap('string', 'css-pseudo');
-                }
-            },
-            '#': function(stream) { stream.wrap('property', 'css-id'); },
-            '.': function(stream) { stream.wrap('property', 'css-class'); },
-            '*': function(stream) { stream.wrap('keyword', 'css-tag'); },
-            '@': function(stream, found) {
-                if (found === '@media' || found === '@font-face') {
-                    stream.wrap('control');
-                } else {
-                    stream.wrap('variable');
                 }
             }
         },
@@ -374,25 +362,24 @@ CodePrinter.defineMode('CSS', function() {
             if (/(\-\w+\-)?(\w[\w\-]*)\s*\:[^\;]*/.test(bf)) {
                 return hints[RegExp.$2] || [];
             }
-            if (/\-(we|mo|ms|o)[\w\-]*$/.test(bf)) {
-                var prefix = RegExp.$1
-                , v = [], k = Object.keys(hints);
+            if (/(^|\W)\-(we|mo|ms|o)[\w\-]*$/.test(bf)) {
+                var prefix = RegExp.$2, v = [];
                 
                 if (prefix == 'we') {
                     prefix = 'webkit';
                 } else if (prefix == 'mo') {
                     prefix = 'moz';
                 }
-                for (var i = 0; i < k.length; i++) {
-                    v.push('-'+prefix+'-'+k[i]);
+                for (var i = 0; i < properties.length; i++) {
+                    v.push('-'+prefix+'-'+properties[i]);
                 }
                 return v;
             }
-            return Object.keys(hints);
+            return properties;
         },
         onCompletionChosen: function(choice) {
             choice = choice.replace(/^\-(webkit|moz|ms|o)\-/, '');
-            if (hints.hasOwnProperty(choice)) {
+            if (hints.hasOwnProperty(choice) && !/\:[^\:]*$/.test(this.caret.textBefore())) {
                 this.insertText(': ;', -1);
                 return true;
             } else if (/\(\)$/.test(choice)) {

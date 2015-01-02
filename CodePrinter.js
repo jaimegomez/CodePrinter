@@ -17,11 +17,13 @@
     , ReadStream, History, Selection, keyMap
     , commands, tracking, lineendings, aliases
     , div, li, pre, span, raf
-    , BRANCH_OPTIMAL_SIZE = 40
+    , BRANCH_OPTIMAL_SIZE = 50
+    , BRANCH_HALF_SIZE = 25
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
     , activeClassName = 'cp-active-line'
     , markClassName = 'cp-marked'
-    , zws = '&#8203;';
+    , zws = '&#8203;'
+    , eol = /\r\n?|\n/;
     
     $.require.registerNamespace('CodePrinter', 'mode/');
     $.require.registerNamespace('CodePrinter/addons', 'addons/');
@@ -64,7 +66,7 @@
         keyupInactivityTimeout: 1500,
         scrollSpeed: 1,
         autoScrollSpeed: 20,
-        autoCompleteDelay: 100,
+        autoCompleteDelay: 200,
         historyStackSize: 100,
         historyDelay: 1000,
         firstLineNumber: 1,
@@ -105,7 +107,7 @@
             var self = this
             , options = this.options
             , addons = options.addons
-            , lastScrollTop = 0, lock, counterSelection = []
+            , lastScrollTop = 0, counterSelection = []
             , doc, sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
             , T, T2, T3, fn;
@@ -228,25 +230,40 @@
                     ++moveselection;
                 }
             }
-            function mousewheel(e) {
-                if (e.target === this) {
-                    var x = e.wheelDeltaX, y = e.wheelDeltaY;
-                    
-                    if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
-                    if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
-                    if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
-                    if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
-                    return e.cancel();
+            
+            if (this.wrapper.onwheel !== undefined) {
+                this.wrapper.listen({
+                    wheel: function(e) {
+                        if (e.target == this) {
+                            var x = e.deltaX, y = e.deltaY;
+                            
+                            if (x) this.scrollLeft += options.scrollSpeed * x;
+                            if (y) doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
+                            return e.cancel();
+                        }
+                    }
+                });
+            } else {
+                var mousewheel = function(e) {
+                    if (e.target === this) {
+                        var x = e.wheelDeltaX, y = e.wheelDeltaY;
+                        
+                        if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
+                        if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
+                        if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
+                        if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
+                        return e.cancel();
+                    }
                 }
+                this.wrapper.listen({ mousewheel: mousewheel, DOMMouseScroll: mousewheel });
             }
             
             this.wrapper.listen({
-                mousewheel: mousewheel,
-                DOMMouseScroll: mousewheel,
                 scroll: function(e) {
                     if (!this._lockedScrolling) doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
                     this._lockedScrolling = true;
                     self.emit('scroll');
+                    return e.cancel(true);
                 },
                 dblclick: function() {
                     var bf = self.caret.textBefore()
@@ -262,7 +279,7 @@
                         timeout = clearTimeout(timeout);
                     }
                     this.listen({ 'click': tripleclick });
-                    timeout = setTimeout(function() { self.wrapper.unlisten('click', tripleclick); }, 1000);
+                    timeout = setTimeout(function() { self.wrapper.unlisten('click', tripleclick); }, 350);
                     
                     rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
                     
@@ -361,7 +378,7 @@
                     this.value = '';
                 },
                 input: function(e) {
-                    if (this.value.length) {
+                    if (!options.readOnly && this.value.length) {
                         self.insertText(this.value);
                         this.value = '';
                     }
@@ -414,9 +431,8 @@
                                 st = y + 2 * h + pt - ch;
                             }
                         }
-                        lock = true;
                         doc.scrollTo(st);
-                        self.counter.scrollTop = st;
+                        self.counter.firstChild.scrollTop = st;
                     }
                     if (options.tracking) {
                         T2 = clearTimeout(T2);
@@ -519,12 +535,15 @@
             this.definitions = {};
             this.memory = this.parser.memoryAlloc();
             this.doc.isFilled = undefined;
+            var sb = null;
             
             this.intervalIterate(function(dl, line, offset) {
-                return this.parse(dl, true);
+                dl = this.parse(dl, true, sb);
+                sb = dl.stateAfter;
+                return dl;
             }, function() {
                 this.emit('printed');
-            }, 10);
+            }, { queue: 25 });
         },
         initAddon: function(addon, options) {
             var cp = this;
@@ -568,31 +587,41 @@
                 this.tracking = (new tracking(this)).extend(parser.tracking);
             }
         },
-        parse: function(dl, force, state) {
+        parse: function(dl, force, stateBefore) {
             if (dl != null) {
-                dl = 'number' === typeof dl ? this.doc.get(dl) : dl;
+                var text = dl.text, p = '', i = -1
+                , tw = this.options.tabWidth
+                , tab = ' '.repeat(tw)
+                , spaces = 0, ind = 0;
+                
+                while (++i < text.length) {
+                    if (text[i] == ' ') {
+                        ++spaces;
+                        if (spaces == tw) {
+                            p += '<span class="cpx-tab">'+tab+'</span>';
+                            spaces = 0;
+                            ++ind;
+                        }
+                    } else if (text[i] == '\t') {
+                        spaces = 0;
+                        p += '<span class="cpx-tab">\t</span>';
+                        ++ind;
+                    } else {
+                        break;
+                    }
+                }
+                if (spaces) p += ' '.repeat(spaces);
+                if (i) text = text.substr(i);
                 
                 if (!this.parser || this.parser.name === 'plaintext') {
-                    var p = '', i = 0, l = dl.text.length;
-                    while (i < l && dl.text[i] === '\t') {
-                        p += '<span class="cpx-tab">'+(Array(this.options.tabWidth+1).join(' '))+'</span>';
-                        ++i;
-                    }
-                    if (i < l) p += '<span>'+this.convertToSpaces(dl.text.substr(i)).encode()+'</span>';
-                    if (!p) p = zws;
-                    dl.setParsed(p);
-                } else if (!dl.parsed || dl.changed & 1 || force) {
+                    if (text) p += '<span>'+text+'</span>';
+                    dl.setParsed(p || zws);
+                } else if (force || dl.changed & 1) {
+                    var state = stateBefore;
                     if (arguments.length < 3) {
                         state = dl.prev()
                         state = state && state.stateAfter;
                     }
-                    var text = dl.text, i = -1, p = '', tab = this.tabString(), stream, b;
-                    
-                    while (++i < dl.text.length && dl.text[i] === '\t') {
-                        p += '<span class="cpx-tab">'+tab+'</span>';
-                    }
-                    if (i) text = text.substr(i);
-                    
                     if (!text) {
                         dl.setParsed(p || zws);
                         if (b = state) {
@@ -601,8 +630,10 @@
                             dl.stateAfter = undefined;
                         }
                     } else {
-                        stream = new Stream(text, {
+                        var b, stream = new Stream(text, {
                             stateBefore: state,
+                            indentation: ind,
+                            isDefinition: false,
                             testNextLine: function(rgx) {
                                 if (rgx instanceof RegExp) {
                                     var next = dl.next();
@@ -613,18 +644,15 @@
                         });
                         
                         this.parser.parse(stream, this.memory);
-                        dl.setParsed(p + this.convertToSpaces(stream.toString()));
-                        this.doc.updateLineHeight(dl);
+                        dl.setParsed(p + stream.toString());
                         
                         if (stream.isDefinition) {
                             var dli = dl.info();
                             if (dli) this.definitions[dli.index] = dl;
                         }
-                        
-                        var keys = dl.stateAfter && Object.keys(dl.stateAfter);
                         if (stream.stateAfter) {
+                            b = state == stream.stateAfter || dl.stateAfter != stream.stateAfter || !state;
                             dl.stateAfter = stream.stateAfter;
-                            b = keys ? keys.toString() !== Object.keys(dl.stateAfter).toString() : true;
                         } else if (b = dl.stateAfter) {
                             dl.stateAfter = undefined;
                         }
@@ -658,12 +686,8 @@
         },
         setTabWidth: function(tw) {
             if (typeof tw === 'number' && tw >= 0) {
-                var self = this;
-                self.options.tabWidth = tw;
-                
-                this.intervalIterate(function(dl) {
-                    return this.parse(dl, true);
-                });
+                this.options.tabWidth = tw;
+                this.forcePrint();
             }
             return this;
         },
@@ -752,13 +776,13 @@
         setCursorPosition: function(line, column) {
             var dl, l, o, t;
             if (line < 0) {
-                l = this.doc.lines();
+                l = this.doc.size();
                 line = l + line % l;
             }
             if (dl = this.doc.get(line)) {
                 if (column == null) column = 0;
                 if (column < 0) {
-                    t = this.convertToSpaces(dl.text);
+                    t = dl.text;
                     column = t.length + column % t.length + 1;
                 }
                 this.caret.target(dl, column, true);
@@ -766,18 +790,31 @@
             }
         },
         getTextAtLine: function(line) {
-            var dl = this.doc.get(line < 0 ? this.doc.lines() + line : line);
-            return this.textOf(dl);
-        },
-        textOf: function(dl) {
-            return dl ? this.convertToSpaces(dl.text) : '';
+            var dl = this.doc.get(line < 0 ? this.doc.size() + line : line);
+            return dl ? dl.text : '';
         },
         getIndentAtLine: function(dl) {
-            var i = -1;
             dl = dl instanceof Line ? dl : this.doc.get(dl);
             if (dl) {
-                while (dl.text[++i] === '\t');
-                return i;
+                var i = -1, text = dl.text
+                , tw = this.options.tabWidth
+                , sp = 0, ind = 0;
+                
+                while (++i < text.length) {
+                    if (text[i] == ' ') {
+                        ++sp;
+                        if (sp == tw) {
+                            ++ind;
+                            sp = 0;
+                        }
+                    } else if (text[i] == '\t') {
+                        ++ind;
+                        sp = 0;
+                    } else {
+                        break;
+                    }
+                }
+                return ind;
             }
             return 0;
         },
@@ -794,10 +831,11 @@
                 old = this.getIndentAtLine(dl);
                 diff = indent - old;
                 if (diff) {
-                    dl.setText('\t'.repeat(indent) + dl.text.replace(/^\t*/g, ''));
+                    var tab = this.options.indentByTabs ? '\t' : ' '.repeat(this.options.tabWidth);
+                    dl.setText(tab.repeat(indent) + dl.text.replace(/^\s*/g, ''));
                     this.parse(dl);
-                    this.caret.line() == line && this.caret.moveX(diff * this.options.tabWidth);
-                    this.emit('changed', { line: line, column: 0, text: '\t'.repeat(Math.abs(diff)), added: diff > 0 });
+                    this.caret.line() == line && this.caret.moveX(tab.length * indent);
+                    this.emit('changed', { line: line, column: 0, text: tab.repeat(Math.abs(diff)), added: diff > 0 });
                 }
             }
             return indent;
@@ -993,9 +1031,9 @@
         searchLeft: function(pattern, line, column, states) {
             var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b(?!\\b'+pattern+'\\b).*$' : pattern.escape()+'(?!.*'+pattern.escape()+').*$');
-            line = Math.max(0, Math.min(line, this.doc.lines() - 1));
+            line = Math.max(0, Math.min(line, this.doc.size() - 1));
             while (dl = this.doc.get(line)) {
-                i = this.convertToSpaces(dl.text).substring(0, column).search(pattern);
+                i = dl.text.substring(0, column).search(pattern);
                 if (i === -1) {
                     column = Infinity;
                     --line;
@@ -1011,9 +1049,9 @@
         searchRight: function(pattern, line, column, states) {
             var i = -1, dl;
             pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b' : pattern.escape());
-            line = Math.max(0, Math.min(line, this.doc.lines() - 1));
+            line = Math.max(0, Math.min(line, this.doc.size() - 1));
             while (dl = this.doc.get(line)) {
-                i = this.convertToSpaces(dl.text).substr(column).search(pattern);
+                i = dl.text.substr(column).search(pattern);
                 if (i === -1) {
                     column = 0;
                     ++line;
@@ -1029,40 +1067,37 @@
         substring: function(from, to) {
             var str = '';
             while (from[0] < to[0]) {
-                str += this.convertToSpaces(this.doc.get(from[0]++).text).substr(from[1]) + '\n';
+                str += this.doc.get(from[0]++).text.substr(from[1]) + '\n';
                 from[1] = 0;
             }
-            return str += this.convertToSpaces(this.doc.get(to[0]).text).substring(from[1], to[1]);
+            return str += this.doc.get(to[0]).text.substring(from[1], to[1]);
         },
         charAt: function(line, column) {
-            return line < this.doc.lines() ? this.getTextAtLine(line).charAt(column) : '';
+            return line < this.doc.size() ? this.getTextAtLine(line).charAt(column) : '';
         },
         isState: function(state, line, col, all) {
             if (state && state.length) {
                 state = 'string' === typeof state ? [state] : state;
-                var gs = getStates.call(this, this.doc.get(line).parsed, col), l = gs.length;
+                var gs = getStates.call(this, this.doc.get(line).parsed, col), l = gs ? gs.length : 0;
                 return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== l : false;
             }
             return false;
         },
         insertText: function(text, mx) {
             this.doc.removeSelection();
-            var pos, s = this.convertToSpaces(text).split('\n')
+            var pos, s = text.split(eol)
             , bf = this.caret.textBefore()
             , line = this.caret.line()
             , col = this.caret.column(true);
             
             if (s.length > 1) {
                 var af = this.caret.textAfter()
-                , dl = this.caret.dl();
+                , dl = this.caret.dl(), sbf;
                 
                 this._inserting = true;
-                this.caret.setTextBefore(bf + s[0]);
-                for (var i = 1; i < s.length; i++) {
-                    this.caret.setTextAfter('');
-                    dl = this.doc.insert(line + i, s[i]);
-                }
-                this.caret.position(line + s.length - 1, -1);
+                this.caret.setTextAtCurrentLine(bf + s.shift(), '');
+                this.doc.insert(line+1, s);
+                this.caret.position(line + s.length, -1);
                 delete this._inserting;
                 this.caret.setTextAfter(af);
             } else {
@@ -1079,11 +1114,10 @@
             return this;
         },
         put: function(text, line, column, mx) {
-            text = this.convertToSpaces(text);
-            if (text.length && line < this.doc.lines()) {
-                var s = text.split('\n')
+            if (text.length && line < this.doc.size()) {
+                var s = text.split(eol)
                 , dl = this.doc.get(line)
-                , dlt = this.convertToSpaces(dl.text)
+                , dlt = dl.text
                 , bf = dlt.substring(0, column), af = dlt.substr(column)
                 , isa = this.cursorIsAfterPosition(line, bf.length, true);
                 
@@ -1099,7 +1133,7 @@
                 this.caret.refresh();
                 isa && this.caret.moveX(text.length);
                 mx && this.caret.moveX(mx);
-                this.emit('changed', { line: line, column: this.convertToTabs(bf).length, text: text, added: true });
+                this.emit('changed', { line: line, column: bf.length, text: text, added: true });
             }
             return this;
         },
@@ -1114,59 +1148,61 @@
             return this;
         },
         dispatch: function(dl, text) {
-            dl.setText(this.convertToTabs(text));
+            dl.setText(text);
             return this.parse(dl);
         },
         appendText: function(text) {
-            text = text.split(/\n/);
-            if (text[0]) {
-                var last = this.doc.get(this.doc.lines()-1);
-                last && this.dispatch(last, last.text + text[0]);
+            text = text.split(eol);
+            var size = this.doc.size(), fi = text.shift();
+            if (fi) {
+                var last = this.doc.get(size - 1);
+                last && this.dispatch(last, last.text + fi);
             }
-            for (var i = 1; i < text.length; i++) {
-                this.parse(this.doc.append(this.convertToTabs(text[i])));
-            }
+            this.doc.insert(size, text);
             if (!this.doc.isFilled) this.doc.isFilled = this.doc.fill();
             return this.doc.isFilled;
         },
         appendLine: function(text) {
-            var dl, text = this.convertToTabs(text);
-            (this.doc.lines() == 1 && (dl = this.doc.get(0)).text.length == 0) ? dl.setText(text) : this.doc.append(text);
+            var dl, size = this.doc.size();
+            (size == 1 && (dl = this.doc.get(0)).text.length == 0) ? dl.setText(text) : this.doc.insert(size, text);
             if (!this.doc.isFilled) this.doc.isFilled = this.doc.fill();
             return this;
         },
         swapLineUp: function() {
             var cur, up, l = this.caret.line();
             if (l) {
-                swapLines(this, l-1);
+                this.replaceLines(l - 1, l);
                 this.caret.moveY(-1);
             }
         },
         swapLineDown: function() {
             var cur, down, l = this.caret.line();
-            if (l < this.doc.lines() - 1) {
-                swapLines(this, l);
+            if (l < this.doc.size() - 1) {
+                this.replaceLines(l, l + 1);
+                this.caret.moveY(1);
             }
         },
         removeBeforeCursor: function(arg) {
             var r = '', type = typeof arg, bf = this.caret.textBefore();
             if ('string' === type) {
-                arg = this.convertToSpaces(arg).split('\n');
-                var i = arg.length - 1, x
+                arg = arg.split(eol);
+                var l = this.caret.line(), x
                 , af = this.caret.textAfter()
-                , l = this.caret.line();
-                while ((x = bf.length - arg[i].length) >= 0 && i && (bf.lastIndexOf(arg[i--]) === x || !arg.length)) {
-                    r = '\n' + bf.substr(x) + r;
-                    this.caret.setTextBefore(bf.substring(0, x));
-                    this.doc.remove(this.caret.dl(), l);
-                    bf = this.caret.position(--l, -1).textBefore();
+                , last = arg[arg.length-1];
+                
+                if ((x = bf.length - last.length) == bf.lastIndexOf(last)) {
+                    bf = bf.substring(0, x);
                 }
-                if (bf.lastIndexOf(arg[i]) === x) {
-                    this.caret.setTextBefore(bf.substring(0, x));
-                    r = arg[i] + r;
-                } else {
-                    this.caret.setTextBefore(bf);
+                if (arg.length > 1) {
+                    var rm = this.doc.remove(l - arg.length + 1, arg.length - 1)
+                    , first = rm && rm[0].text;
+                    
+                    if (first && (x = first.length - arg[0].length) == first.lastIndexOf(arg[0])) {
+                        bf = first.substring(0, x) + bf;
+                    }
                 }
+                this.caret.setTextBefore(bf);
+                r = arg;
             } else if ('number' === type) {
                 if (arg <= bf.length) {
                     this.caret.setTextBefore(bf.substring(0, bf.length - arg));
@@ -1176,7 +1212,7 @@
                     
                     while (arg > bf.length && l-1 >= 0) {
                         r = '\n' + bf + r;
-                        this.doc.remove(this.caret.dl(), l);
+                        this.doc.remove(l, 1);
                         arg = arg - bf.length - 1;
                         bf = this.caret.position(--l, -1).textBefore();
                     }
@@ -1199,26 +1235,27 @@
                 var i = 0, l = this.caret.line()
                 , dl = this.caret.dl(), nextdl
                 , bf = this.caret.textBefore();
-                arg = this.convertToSpaces(arg).split('\n');
+                arg = arg.split(eol);
                 
-                while (i < arg.length - 1 && (af.indexOf(arg[i]) === 0 || !arg[i].length)) {
-                    r = r + arg[i] + '\n';
-                    this.caret.setTextAfter(af.substr(arg[i++].length));
-                    nextdl = dl.next();
-                    af = nextdl ? this.convertToSpaces(nextdl.text) : '';
-                    this.doc.remove(nextdl, l+1);
+                if (af.indexOf(arg[0]) == 0) {
+                    af = af.substr(arg[0].length);
                 }
-                if (af.indexOf(arg[i]) === 0) {
-                    this.caret.setTextAfter(af.substr(arg[i].length));
-                    r = r + af.substring(0, arg[i].length);
-                } else {
-                    this.caret.setTextAfter(af);
+                if (arg.length > 1) {
+                    var rm = this.doc.remove(l + 1, arg.length - 1)
+                    , lastline = rm && rm[rm.length-1].text
+                    , lastarg = arg[arg.length-1];
+                    
+                    if (lastline && lastline.indexOf(lastarg) == 0) {
+                        af += lastline.substr(lastarg.length);
+                    }
                 }
+                this.caret.setTextAfter(af);
+                r = arg;
             } else if ('number' === type) {
                 if (arg <= af.length) {
                     this.caret.setTextAfter(af.substr(arg));
                 } else {
-                    var size = this.doc.lines()
+                    var size = this.doc.size()
                     , dl = this.caret.dl(), nextdl
                     , bf = this.caret.textBefore()
                     , l = this.caret.line();
@@ -1228,8 +1265,8 @@
                         this.caret.setTextAfter('');
                         arg = arg - af.length - 1;
                         nextdl = dl.next();
-                        af = this.convertToSpaces(nextdl.text);
-                        this.doc.remove(nextdl, l+1);
+                        af = nextdl.text;
+                        this.doc.remove(l+1, 1);
                     }
                     this.caret.setTextAfter(af.substr(arg));
                     this.caret.refresh();
@@ -1238,6 +1275,23 @@
             }
             r && this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
             return r;
+        },
+        replaceLines: function(a, b) {
+            if ('number' === typeof a && 'number' === typeof b) {
+                var first = cp.doc.get(a), second = cp.doc.get(b);
+                if (first && second) {
+                    var tmp = first.text;
+                    
+                    this.emit('changed', { line: a, column: 0, text: first.text, added: false });
+                    first.setText(second.text);
+                    this.emit('changed', { line: a, column: 0, text: first.text, added: true });
+                    this.emit('changed', { line: b, column: 0, text: second.text, added: false });
+                    second.setText(tmp);
+                    this.emit('changed', { line: b, column: 0, text: second.text, added: true });
+                    this.parse(first);
+                    this.parse(second);
+                }
+            }
         },
         wordBefore: function(pattern) {
             pattern = pattern || /[\w$]+/;
@@ -1276,19 +1330,17 @@
             return this;
         },
         isEmpty: function() {
-            return this.doc.lines() === 1 && !this.doc.get(0).text;
+            return this.doc.size() === 1 && !this.doc.get(0).text;
         },
         getValue: function() {
-            var cp = this, r = []
-            , fn = this.options.indentByTabs ? returnTabbedText : returnSpacedText;
-            
+            var cp = this, r = [];
             this.doc.each(function() {
-                r.push(fn(cp, this));
+                r.push(this.text);
             });
             return r.join(this.getLineEnding());
         },
         createReadStream: function() {
-            return new ReadStream(this, this.options.indentByTabs ? returnTabbedText : returnSpacedText);
+            return new ReadStream(this);
         },
         createHighlightOverlay: function(/* arrays, ... */) {
             if (this.highlightOverlay) this.highlightOverlay.remove();
@@ -1624,14 +1676,33 @@
         insertAfter: function(node) { node.after(this.mainElement); return this; }
     }
     
-    Branch = function(leaf) {
+    Branch = function(leaf, children) {
         this.parent = null;
-        this.isLeaf = leaf == null ? true : leaf;
+        this.isLeaf = leaf = leaf == null ? true : leaf;
         this.size = this.height = 0;
+        if (children) {
+            for (var i = 0; i < children.length; i++) {
+                var ch = children[i];
+                this.height += ch.height;
+                this.size += ch.size;
+                ch.parent = this;
+                this.push(ch);
+            }
+            if (leaf) {
+                this.size = children.length;
+            }
+        }
         return this;
     }
     
+    var splice = Array.prototype.splice
+    , push = Array.prototype.push
+    , pop = Array.prototype.pop;
+    
     Branch.prototype = {
+        splice: splice,
+        push: push,
+        pop: pop,
         indexOf: function(node, offset) {
             for (var i = offset || 0, l = this.length; i < l; i++) {
                 if (this[i] == node) {
@@ -1640,155 +1711,78 @@
             }
             return -1;
         },
-        splice: function(index, howmany) {
-            var size = 0, height = 0, l = Math.min(index + howmany, this.length || 0);
-            for (var i = index; i < l; i++) {
-                size -= this[i].size;
-                height -= this[i].height;
-                this[i].parent = null;
-            }
-            for (var i = 2; i < arguments.length; i++) {
-                size += arguments[i].size;
-                height += arguments[i].height;
-                arguments[i].parent = this;
-            }
-            this.resize(this.isLeaf ? arguments.length - 2 - l + index : size, height);
-            return Array.prototype.splice.apply(this, arguments);
-        },
-        push: function() {
-            var size = 0, height = 0;
-            for (var i = 0; i < arguments.length; i++) {
-                size += arguments[i].size;
-                height += arguments[i].height;
-                arguments[i].parent = this;
-            }
-            this.resize(this.isLeaf ? arguments.length : size, height);
-            return Array.prototype.push.apply(this, arguments);
-        },
         get: function(line) {
-            if (this.isLeaf) {
-                return this[line];
-            } else {
-                var i = -1;
-                while (++i < this.length && line >= this[i].size) {
-                    line -= this[i].size;
-                }
-                return this[i] ? this[i].get(line) : null;
-            }
+            if (this.isLeaf) return this[line];
+            var i = -1, s;
+            while (++i < this.length && line >= (s = this[i].size)) line -= s;
+            return this[i] ? this[i].get(line) : null;
         },
-        insert: function(line, height) {
+        insert: function(at, lines, height) {
+            this.size += lines.length;
+            this.height += height;
             if (this.isLeaf) {
-                var dl = new Line();
-                if (height >= 0) dl.height = height;
-                this.splice(line, 0, dl);
-                return dl;
-            } else {
-                var b, i = -1;
-                while ((b = ++i < this.length) && line > this[i].size) {
-                    line -= this[i].size;
+                for (var i = 0; i < lines.length; i++) {
+                    lines[i].parent = this;
                 }
-                if (b) {
-                    if (this[i].length >= BRANCH_OPTIMAL_SIZE) {
-                        if (line == this[i].size) {
-                            return this[i].fork().insert(0, height);
-                        }
-                        var next = this[i].split();
-                        if (line >= this[i].size) {
-                            return next.insert(line - this[i].size, height);
+                splice.apply(this, [at, 0].concat(lines));
+                return;
+            }
+            for (var i = 0; i < this.length; i++) {
+                var ch = this[i], s = ch.size;
+                if (at <= s) {
+                    ch.insert(at, lines, height);
+                    if (ch.isLeaf && ch.size > BRANCH_OPTIMAL_SIZE) {
+                        do {
+                            var rm = ch.splice(ch.size - BRANCH_HALF_SIZE, BRANCH_HALF_SIZE)
+                            , leaf = new Branch(true, rm);
+                            ch.size -= leaf.size;
+                            ch.height -= leaf.height;
+                            leaf.parent = this;
+                            this.splice(i + 1, 0, leaf);
+                        } while (ch.size > BRANCH_OPTIMAL_SIZE);
+                        
+                        if (this.length > BRANCH_OPTIMAL_SIZE) {
+                            this.wrapAll();
                         }
                     }
-                    return this[i].insert(line, height);
+                    break;
                 }
-                var child = new Branch(true);
-                this.push(child);
-                return child.insert(0, height);
+                at -= s;
             }
         },
-        append: function(dl) {
+        remove: function(at, n) {
+            this.size -= n;
             if (this.isLeaf) {
-                this.push(dl);
-                return dl;
-            } else {
-                var leaf = this[this.length-1];
-                while (leaf && !leaf.isLeaf) {
-                    leaf = leaf[leaf.length-1];
+                for (var i = at, j = at + n; i < j; i++) {
+                    this.height -= this[i].height;
+                    this[i].parent = null;
                 }
-                if (leaf) {
-                    if (leaf.length >= BRANCH_OPTIMAL_SIZE) {
-                        return leaf.fork().append(dl);
-                    }
-                    return leaf.append(dl);
-                }
+                return this.splice(at, n);
             }
-        },
-        remove: function(line, howmany) {
-            if (howmany == null) howmany = 1;
-            var dl = line instanceof Line ? line : this.get(line), i, r = [];
-            if (dl && (i = dl.parent.indexOf(dl)) >= 0) {
-                var tmp = dl.parent
-                , l = Math.min(howmany, tmp.length - i)
-                , next = howmany > l ? tmp.next() : null;
-                
-                r = tmp.splice(i, l);
-                while (tmp.parent && tmp.length === 0) {
-                    i = tmp.parent.indexOf(tmp);
-                    (tmp = tmp.parent).splice(i, 1);
+            var r = [];
+            for (var i = 0; i < this.length; i++) {
+                var ch = this[i], s = ch.size;
+                if (at < s) {
+                    var min = Math.min(n, s - at), oh = ch.height;
+                    push.apply(r, ch.remove(at, min));
+                    this.height -= oh - ch.height;
+                    if (s == min) { this.splice(i--, 1); ch.parent = null; }
+                    if ((n -= min) == 0) break;
+                    at = 0;
+                } else {
+                    at -= s;
                 }
-                if (next) r.push.apply(r, next.remove(0, howmany - r.length));
             }
             return r;
         },
-        fall: function(i) {
-            if (0 <= i && i < this.length) {
-                var tmp = this, dl = this.splice(i, 1)[0];
-                while (tmp.parent && tmp.length === 0) {
-                    i = tmp.parent.indexOf(tmp);
-                    (tmp = tmp.parent).splice(i, 1);
-                }
-                return dl;
-            }
-        },
-        insertAfter: function(branch) {
-            var index = this.parent.indexOf(this);
-            this.parent.splice(index + 1, 0, branch);
-        },
-        split: function() {
-            var pivot = Math.floor(this.length / 2)
-            , branch = new Branch(this.isLeaf)
-            , rmArray = this.splice(pivot, this.length - pivot);
-            
-            this.insertAfter(branch);
-            branch.push.apply(branch, rmArray);
-            
-            if (this.parent.length > BRANCH_OPTIMAL_SIZE) {
-                this.parent.wrapAll();
-            }
-            return branch;
-        },
-        fork: function(leaf) {
-            var sibling = new Branch(leaf == null ? this.isLeaf : leaf);
-            this.insertAfter(sibling);
-            
-            if (this.parent.length > BRANCH_OPTIMAL_SIZE) {
-                this.parent.wrapAll();
-            }
-            return sibling;
-        },
         wrapAll: function() {
-            var l = Math.ceil(this.length / 4);
-            for (var i = 0; i < 4; i++) {
-                var branch = new Branch(false);
-                branch.push.apply(branch, this.splice(i, l, branch));
-            }
-        },
-        resize: function(size, height) {
-            if (!size) size = 0;
-            if (!height) height = 0;
-            var tmp = this;
-            while (tmp != null) {
-                tmp.size += size;
-                tmp.height += height;
-                tmp = tmp.parent;
+            var parts = Math.ceil(this.length / BRANCH_OPTIMAL_SIZE) * 2;
+            if (parts > 2) {
+                var l = Math.ceil(this.length / parts), branches = Array(parts);
+                for (var i = 0; i < parts; i++) {
+                    (branches[i] = new Branch(false, this.splice(0, l))).parent = this;
+                }
+                this.push.apply(this, branches);
             }
         },
         getOffset: function() {
@@ -1865,19 +1859,20 @@
         }
     }
     
-    Data = function(cp) {
+    Data = function() {
         Branch.call(this, false);
-        this.push(new Branch(true));
-        this.cp = cp;
-        
+        var branch = new Branch(true);
+        branch.parent = this;
+        push.call(this, branch);
         return this;
     }
     Data.prototype = Branch.prototype;
     
-    Line = function() {
-        this.parent = null;
-        this.changed = 0;
-        this.height = 0;
+    Line = function(text, height) {
+        this.text = text;
+        this.height = height;
+        this.parent = this.parsed = this.node = this.counter = null;
+        this.changed = 1;
         return this;
     }
     
@@ -1988,26 +1983,23 @@
                 }
             }
             return null;
-        },
-        remove: function() {
-            if (this.parent) {
-                this.parent.fall(this.parent.indexOf(this));
-            }
         }
     }
     
     Document = function(cp) {
         var doc = this
-        , ol = cp.counter.firstChild
+        , counter = cp.counter.firstChild
+        , ol = counter.firstChild
         , screen = cp.wrapper.lastChild
         , code = screen.firstChild
         , temp = screen.lastChild.firstChild
         , from = 0, to = -1, lastST = 0, lines = []
         , defHeight = 13, firstNumber
-        , data, history, selection;
+        , data, view, history, selection;
         
         doc.screen = screen;
         doc.overlays = [];
+        doc.view = view = lines;
         history = new History(cp, doc, cp.options.historyStackSize, cp.options.historyDelay);
         selection = new Selection(doc);
         
@@ -2029,10 +2021,10 @@
             }
             return h;
         }
-        function link(dl, index) {
+        function link(dl, index, withoutParsing) {
             if (dl.node && dl.counter) {
                 dl.counter.innerHTML = formatter(firstNumber + (dl.counter._index = index));
-                if (index <= to) {
+                if (index < to) {
                     var q = index - from, bef = lines[q];
                     code.insertBefore(dl.node, bef.node);
                     ol.insertBefore(dl.counter, bef.counter);
@@ -2045,9 +2037,9 @@
                 } else {
                     code.appendChild(dl.node);
                     ol.appendChild(dl.counter);
-                    index = lines.push(dl) + from;
+                    index = lines.push(dl) + from - 1;
                 }
-                cp.parse(dl);
+                withoutParsing || cp.parse(dl);
                 dl.touch();
                 doc.updateLineHeight(dl);
                 cp.emit('link', dl, index);
@@ -2062,17 +2054,11 @@
             dl.bind(pre.cloneNode(), li.cloneNode());
             link(dl, --from);
         }
-        function remove(dl) {
-            var tmp = dl.counter.nextSibling;
-            while (tmp) {
-                tmp.innerHTML = formatter(firstNumber + --tmp._index);
-                tmp = tmp.nextSibling;
-            }
+        function remove(dl, index) {
             code.removeChild(dl.deleteNode());
             ol.removeChild(dl.deleteCounter());
-            lines.remove(dl);
-            --to;
-            cp.emit('unlink', dl);
+            lines.remove(dl); --to;
+            cp.emit('unlink', dl, index);
         }
         function clear() {
             for (var i = 0; i < lines.length; i++) {
@@ -2092,7 +2078,8 @@
             cp.counter.scrollTop = cp.wrapper.scrollTop = st;
         }
         function scrollBy(delta, s) {
-            cp.counter.scrollTop = cp.wrapper.scrollTop += delta;
+            cp.counter.scrollTop += delta;
+            cp.wrapper.scrollTop += delta;
             s !== false && scroll(delta);
         }
         function updateCounters(dl, index) {
@@ -2107,59 +2094,117 @@
         }
         
         this.init = function(source) {
-            source = cp.convertToTabs(source || '');
+            source = source || '';
             this.initialized = true;
-            data = new Data(cp);
+            data = this.data = new Data();
             
             if (to !== -1) {
                 clear();
                 this.clearSelection();
             }
-            source = source.split('\n');
-            
-            for (var i = 0; i < source.length; i++) {
-                this.append(source[i]);
-            }
+            this.insert(data.size, source.split(eol));
             this.updateHeight();
             this.fill();
             return this;
         }
-        this.debug = function() {
-            console.log(JSON.stringify({ from: from, to: to, scrollTop: lastST, offsetTop: cp.sizes.scrollTop, defHeight: defHeight }));
-        }
-        this.append = function(text) {
-            var dl = new Line();
-            dl.setText(text);
-            dl.height = defHeight;
-            data.append(dl);
-            return dl;
-        }
-        this.insert = function(l, text) {
-            var dl = data.insert(l, defHeight), dlr;
-            dl.setText(text ? cp.convertToTabs(text) : '');
-            if (l < from) {
-                ++from;
-                updateCounters(lines[0], from);
-            } else if (l <= to + 1) {
+        this.insert = function(at, text) {
+            var lines = [];
+            if ('string' === typeof text) {
+                lines[0] = new Line(text, defHeight);
+            } else {
+                for (var i = 0; i < text.length; i++) {
+                    lines[i] = new Line(text[i], defHeight);
+                }
+                data.insert(at, lines, defHeight * lines.length);
+            }
+            if (at < from) {
+                from += lines.length;
+                updateCounters(view[0], from);
+            } else if (at <= to + 1) {
                 if (isFilled()) {
-                    if (lastST - cp.sizes.scrollTop < cp.options.viewportMargin * 1.3) {
-                        dlr = lines.pop();
-                        dl.captureNode(dlr);
-                        link(dl, l);
-                    } else {
-                        dlr = lines.shift();
-                        dl.captureNode(dlr);
-                        ++from; link(dl, l); ++to;
-                        scroll(dlr.height);
+                    var m = Math.min(lines.length, to - at), rmdl;
+                    for (var i = 0; i < m; i++) {
+                        rmdl = view.pop();
+                        lines[i].captureNode(rmdl);
+                        cp.emit('unlink', rmdl, to + m - i);
+                        link(lines[i], at + i);
                     }
-                    cp.emit('unlink', dlr);
                 } else {
-                    dl.bind(pre.cloneNode(), li.cloneNode());
-                    link(dl, l);
-                    ++to;
+                    var i = -1;
+                    while (++i < lines.length && !isFilled()) {
+                        lines[i].bind(pre.cloneNode(), li.cloneNode());
+                        ++to;
+                        link(lines[i], at + i);
+                    }
                 }
             }
+            var dl = lines[0].prev(), sb = dl && dl.stateAfter;
+            for (var i = 0, l = lines.length; i < l; i++) {
+                sb = cp.parse(lines[i], true, sb).stateAfter;
+            }
             this.updateHeight();
+        }
+        this.remove = function(at, n) {
+            if ('number' === typeof n && n > 0 && at >= 0 && at + n <= data.size) {
+                var h = data.height, rm = data.remove(at, n), sd = 0;
+                
+                if (at + n < from) {
+                    sd = data.height - h;
+                    from -= n; to -= n;
+                    updateCounters(view[0], from);
+                } else if (at <= to) {
+                    var m, e, out, inv, next, prev, k = 0;
+                    
+                    if (at > from) {
+                        m = at;
+                        prev = view[0].prev();
+                    } else {
+                        m = from;
+                        prev = data.get(at - 1);
+                    }
+                    if (at + n < to + 1) {
+                        e = at + n;
+                        next = view[view.length-1].next();
+                    } else {
+                        e = to + 1;
+                        next = data.get(at);
+                    }
+                    inv = e - m;
+                    out = m - at;
+                    k = m - from;
+                    
+                    for (var i = 0; i < out; i++) {
+                        sd -= rm[i].height;
+                    }
+                    while (inv--) {
+                        var dl = view[k];
+                        remove(dl, from + k);
+                        if (next) {
+                            insert(next);
+                            next = next.next();
+                        } else if (prev) {
+                            prepend(prev);
+                            prev = prev.prev();
+                            sd -= dl.height;
+                            ++k;
+                        }
+                    }
+                    from -= out; to = from + view.length - 1;
+                    updateCounters(view[0], from);
+                }
+                if (sd) scrollBy(sd);
+                
+                var last = rm[rm.length-1];
+                if (last.stateAfter) {
+                    cp.parse(data.get(at), true);
+                }
+                this.updateHeight();
+                cp.wrapper.scrollTop = cp.counter.scrollTop;
+                return rm;
+            }
+        }
+        this.updateCounters = function() {
+            updateCounters(lines[0], from);
         }
         this.fill = function() {
             var half, b, dl = (half = lines.length === 0) ? data.get(0) : lines[lines.length-1].next();
@@ -2214,35 +2259,7 @@
             }
             code.style.top = ol.style.top = (cp.sizes.scrollTop = Math.max(0, offset)) + 'px';
         }
-        this.remove = function(dl, line, howmany) {
-            if (howmany == null) howmany = 1;
-            var rm, tmp = dl, prev = lines[0].prev(), scrolldelta = 0
-            , next = line + howmany <= to ? lines[lines.length-1].next() : data.get(line + howmany), i = -1;
-            
-            while (tmp && ++i < howmany) {
-                if (tmp.node) {
-                    remove(tmp);
-                    if (next) {
-                        insert(next);
-                        next = next.next();
-                    } else if (prev) {
-                        prepend(prev);
-                        scrolldelta -= prev.height;
-                        prev = prev.prev();
-                    }
-                } else if (line < from) {
-                    --from;
-                }
-                tmp = tmp.next();
-            }
-            if (scrolldelta) scroll(scrolldelta);
-            rm = data.remove(dl, howmany);
-            this.updateHeight();
-            return rm;
-        }
         this.scrollTo = function(st) {
-            var wh = cp.wrapper.scrollHeight - cp.wrapper.offsetHeight;
-            st = Math.max(0, Math.min(st, wh));
             cp.wrapper._lockedScrolling = true;
             
             var x = st - cp.sizes.scrollTop
@@ -2253,7 +2270,7 @@
             , h, dl;
             
             if (d) {
-                if (abs > 300 && abs > 3 * code.offsetHeight) {
+                if (abs > 400 && abs > 3 * code.offsetHeight) {
                     dl = data.getLineWithOffset(Math.max(0, st - limit));
                     if (doc.rewind(dl) !== false) {
                         scrollTo(lastST = st);
@@ -2273,7 +2290,7 @@
                         dl.captureNode(first);
                         if (dl.active) cp.select(dl);
                         cp.emit('unlink', first, from);
-                        link(dl, to + 1);
+                        link(dl, to + 1, true);
                         ++from; ++to;
                         d -= h;
                     }
@@ -2283,7 +2300,7 @@
                         dl.captureNode(last);
                         if (dl.active) cp.select(dl);
                         cp.emit('unlink', last, to);
-                        link(dl, --from); --to;
+                        --to; link(dl, --from, true);
                         d += h;
                     }
                 }
@@ -2398,24 +2415,23 @@
             document.documentElement.removeChild(pr);
         }
         this.updateHeight = function() {
-            screen.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
+            screen.style.minHeight = counter.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
         }
         this.updateLineHeight = function(dl, force) {
             if (force || dl.changed & 4) {
-                var oh, node = dl.node;
+                var height, node = dl.node;
                 if (!node) {
                     node = temp;
                     node.innerHTML = dl.parsed || zws;
                 }
-                if (oh = node.offsetHeight) {
-                    var d = oh - dl.height;
-                    if (d) {
-                        if (dl.counter) dl.counter.style.lineHeight = oh + 'px';
-                        dl.height += d;
-                        dl.parent && dl.parent.resize(0, d);
+                if (height = node.offsetHeight) {
+                    var diff = height - dl.height;
+                    if (diff) {
+                        if (dl.counter) dl.counter.style.lineHeight = height + 'px';
+                        for (; dl; dl = dl.parent) dl.height += diff;
                     }
                     dl.changed ^= 4;
-                    return oh;
+                    return height;
                 }
             }
             return 0;
@@ -2438,7 +2454,7 @@
             }
             if (el >= data.size) {
                 el = data.size - 1;
-                ec = cp.convertToSpaces(data.get(el).text).length;
+                ec = data.get(el).text.length;
             }
             if (sl != null && sc != null) selection.setStart(sl, sc);
             if (el != null && ec != null) selection.setEnd(el, ec);
@@ -2466,14 +2482,14 @@
                 , dl = data.get(s.line);
                 
                 if (s.line == e.line) {
-                    return cp.convertToSpaces(dl.text).substring(s.column, e.column);
+                    return dl.text.substring(s.column, e.column);
                 } else {
                     var t = [], i = s.line;
-                    t.push(cp.convertToSpaces(dl.text).substr(s.column));
+                    t.push(dl.text.substr(s.column));
                     while ((dl = dl.next()) && ++i < e.line) {
-                        t.push(cp.convertToSpaces(dl.text));
+                        t.push(dl.text);
                     }
-                    if (dl) t.push(cp.convertToSpaces(dl.text).substring(0, e.column));
+                    if (dl) t.push(dl.text.substring(0, e.column));
                     return t.join(cp.getLineEnding());
                 }
             }
@@ -2529,42 +2545,36 @@
         this.removeSelection = function() {
             var range = this.getSelectionRange();
             if (range) {
-                if (this.isAllSelected(range)) {
-                    cp.emit('changed', { line: 0, column: 0, text: cp.getValue(true), added: false });
-                    this.init('').fill();
-                    cp.caret.position(0, 0);
-                } else {
-                    var s = range.start
-                    , e = range.end
-                    , delta = e.line - s.line
-                    , dl = data.get(s.line)
-                    , next = dl.next()
-                    , t = [], x, y = '';
-                    x = cp.convertToSpaces(dl.text);
+                var s = range.start
+                , e = range.end
+                , delta = e.line - s.line
+                , dl = data.get(s.line)
+                , next = dl.next()
+                , t = [], x, y = '';
+                x = dl.text;
+                
+                if (delta && next) {
+                    t.push(x.substr(s.column));
                     
-                    if (delta && next) {
-                        t.push(cp.convertToTabs(x.substr(s.column)));
-                        
-                        if (delta > 1) {
-                            var r = this.remove(next, s.line + 1, delta - 1);
-                            for (var i = 0; i < r.length; i++) {
-                                t.push(r[i].text);
-                            }
-                            next = dl.next();
+                    if (delta > 1) {
+                        var r = this.remove(s.line + 1, delta - 1);
+                        for (var i = 0; i < r.length; i++) {
+                            t.push(r[i].text);
                         }
-                        if (next) {
-                            y = cp.convertToSpaces(next.text);
-                            t.push(cp.convertToTabs(y.substring(0, e.column)));
-                            this.remove(next, s.line + 1, 1);
-                        }
-                    } else {
-                        t.push(cp.convertToTabs(x.slice(s.column, e.column)));
-                        y = x;
+                        next = dl.next();
                     }
-                    cp.dispatch(dl, x.substring(0, s.column) + y.substr(e.column));
-                    cp.caret.target(dl, s.column, s.column);
-                    cp.emit('changed', { line: cp.caret.line(), column: cp.caret.column(true), text: t.join('\n'), added: false });
+                    if (next) {
+                        y = next.text;
+                        t.push(y.substring(0, e.column));
+                        this.remove(s.line + 1, 1);
+                    }
+                } else {
+                    t.push(x.slice(s.column, e.column));
+                    y = x;
                 }
+                cp.dispatch(dl, x.substring(0, s.column) + y.substr(e.column));
+                cp.caret.target(dl, s.column, s.column);
+                cp.emit('changed', { line: cp.caret.line(), column: cp.caret.column(true), text: t.join('\n'), added: false });
                 this.clearSelection();
             }
         }
@@ -2636,7 +2646,7 @@
         this.lineWithOffset = function(offset) {
             return data.getLineWithOffset(offset);
         }
-        this.lines = function() {
+        this.size = function() {
             return data.size;
         }
         this.height = function() {
@@ -2647,7 +2657,7 @@
         selection.on({ done: this.showSelection.bind(this, false) });
         cp.on('changed', function(e) {
             if (cp.options.history) {
-                history.pushChanges(e.line, e.column, cp.convertToTabs(e.text), e.added);
+                history.pushChanges(e.line, e.column, e.text, e.added);
             }
         });
         return this;
@@ -2699,7 +2709,7 @@
         }
         
         this.dispatch = function(dl, det, c) {
-            var t = cp.convertToSpaces(dl.text), dli = dl.info(), b;
+            var t = dl.text, dli = dl.info(), b;
             
             if (b = currentDL !== dl) {
                 if (currentDL) currentDL.active = undefined;
@@ -2716,14 +2726,13 @@
             }
             det.offsetY = dli.offset;
             lastdet = det;
-            before = cp.convertToTabs(t.substring(0, c));
-            after = cp.convertToTabs(t.substr(c));
+            before = t.substring(0, c);
+            after = t.substr(c);
             setPixelPosition.call(this, det.offset, dli.offset);
             cp.select(dl);
         }
         this.setTextBefore = function(str) {
             var col = str.length;
-            str = cp.convertToTabs(str);
             if (before !== str) {
                 before = str;
                 updateDL();
@@ -2732,7 +2741,6 @@
             return this;
         }
         this.setTextAfter = function(str) {
-            str = cp.convertToTabs(str);
             if (after !== str) {
                 after = str;
                 updateDL();
@@ -2742,8 +2750,6 @@
         }
         this.setTextAtCurrentLine = function(bf, af) {
             var col = bf.length;
-            bf = cp.convertToTabs(bf);
-            af = cp.convertToTabs(af);
             if (before !== bf || after !== af) {
                 before = bf;
                 after = af;
@@ -2753,10 +2759,10 @@
             return this;
         }
         this.textBefore = function() {
-            return cp.convertToSpaces(before);
+            return before;
         }
         this.textAfter = function() {
-            return cp.convertToSpaces(after);
+            return after;
         }
         this.textAtCurrentLine = function(b) {
             return b ? before + after : this.textBefore() + this.textAfter();
@@ -2768,7 +2774,7 @@
             var dl = cp.doc.get(l);
             if (dl) {
                 if (c < 0) {
-                    var t = cp.convertToSpaces(dl.text);
+                    var t = dl.text;
                     c = t.length + c % t.length + 1;
                 }
                 this.dispatch(dl, cp.doc.measureRect(dl, c, true), c);
@@ -2784,7 +2790,7 @@
         }
         this.moveX = function(mv) {
             var abs, t = '', cl = line
-            , size = cp.doc.lines()
+            , size = cp.doc.size()
             , bf = this.textBefore()
             , af = this.textAfter();
             
@@ -2821,7 +2827,7 @@
             mv = line + mv;
             if (mv < 0) {
                 mv = column = 0;
-            } else if (mv >= (l = cp.doc.lines())) {
+            } else if (mv >= (l = cp.doc.size())) {
                 column = -1;
                 mv = l-1;
             }
@@ -2846,8 +2852,8 @@
         this.line = function() {
             return line;
         }
-        this.column = function(withTabs) {
-            return withTabs ? before.length : this.textBefore().length;
+        this.column = function() {
+            return before.length;
         }
         this.savePosition = function(onlycolumn) {
             return tmp = [onlycolumn ? null : line, column];
@@ -2973,6 +2979,7 @@
             this.pos = this.start = 0;
             this.value = value;
             this.tree = [];
+            this.styles = null;
             if (extend) {
                 for (var k in extend) {
                     this[k] = extend[k];
@@ -2987,8 +2994,8 @@
             var f = false, i, v = (this.value || '').substr(this.pos);
             
             if (v) {
-                i = v.search(rgx);
-                if (i >= 0) {
+                if (rgx.test(v)) {
+                    i = RegExp.leftContext.length;
                     f = RegExp.lastMatch;
                     this.indexOfFound = i;
                     i > 0 && this.cut(i);
@@ -3012,35 +3019,33 @@
             return Math.max(-1, this.value.indexOf(value, this.pos) - this.pos);
         },
         eat: function(from, to, whenNotFound) {
-            if (!arguments.length) from = this.found;
-            
             if (from) {
                 var v = this.value.substr(this.pos)
                 , indexFrom = 0, indexTo = 0, eaten;
                 
                 if (from !== this.found) {
-                    if (from instanceof RegExp) {
+                    if ('string' === typeof from) {
+                        indexFrom = v.indexOf(from);
+                    } else {
                         indexFrom = v.search(from);
                         from = RegExp.lastMatch;
-                    } else {
-                        indexFrom = v.indexOf(from);
                     }
                 }
                 if (indexFrom >= 0) {
                     if (to) {
                         this.unfinished = undefined;
                         v = this.value.substr(this.pos + indexFrom + from.length);
-                        if (to instanceof RegExp) {
+                        if ('string' === typeof to) {
+                            indexTo = v.indexOf(to);
+                        } else {
                             indexTo = v.search(to);
                             to = RegExp.lastMatch;
-                        } else {
-                            indexTo = v.indexOf(to);
                         }
                     }
                     if (indexTo >= 0) {
                         indexTo += indexFrom + from.length + (to ? to.length : 0);
                     } else {
-                        if (whenNotFound instanceof Function) {
+                        if ('function' === typeof whenNotFound) {
                             whenNotFound.call(this);
                             return new Stream();
                         } else {
@@ -3059,6 +3064,13 @@
             }
             return new Stream();
         },
+        _eat: function() {
+            if (this.found) {
+                var eaten = this.cut(this.found.length);
+                this.found = null;
+                return eaten;
+            }
+        },
         eatGreedily: function(from, to) {
             return this.eat(from, to, true);
         },
@@ -3066,11 +3078,11 @@
             var eaten, v, i;
             if (to) {
                 v = this.value.substr(this.pos);
-                if (to instanceof RegExp) {
+                if ('string' === typeof to) {
+                    i = v.indexOf(to);
+                } else {
                     i = v.search(to);
                     to = RegExp.lastMatch;
-                } else {
-                    i = v.indexOf(to);
                 }
                 if (i >= 0) {
                     eaten = this.cut(i + (until ? 0 : to.length));
@@ -3095,17 +3107,19 @@
         eatAll: function(from) {
             var i = 0;
             if (from !== this.found) {
-                i = from instanceof RegExp ? v.search(from) : v.indexOf(from);
+                i = 'string' === typeof from ? v.indexOf(from) : v.search(from);
             }
             i > 0 && this.cut(i);
             return i >= 0 ? this.tear() : new Stream();
         },
         wrap: function(/*, .. styles */) {
             if (this.found) {
-                var e = this.eat(this.found);
-                return e.wrap.apply(e, arguments);
+                var e = this._eat(this.found);
+                return e && e.wrap.apply(e, arguments);
             } else if (!this.styles) {
-                this.styles = Array.apply(null, arguments);
+                var l = arguments.length, a = Array(l);
+                for (var i = 0; i < l; i++) a[i] = arguments[i];
+                this.styles = a;
             }
             return this;
         },
@@ -3114,7 +3128,13 @@
             return this;
         },
         applyWrap: function(array) {
-            return this.wrap.apply(this, array);
+            if (this.found) {
+                var e = this._eat(this.found);
+                return e && e.applyWrap(array);
+            } else if (!this.styles) {
+                this.styles = array;
+            }
+            return this;
         },
         isWrapped: function() {
             return !!(this.styles && this.styles.length);
@@ -3204,14 +3224,14 @@
         },
         isAfter: function(s) {
             var af = this.after();
-            return s instanceof RegExp ? af.search(s) === 0 : af.trim().indexOf(s) === 0;
+            return 'string' === typeof s ? af.replace(/^\s+/, '').indexOf(s) === 0 : s.test(af);
         },
         isBefore: function(s) {
-            var bf = this.before(), t, i;
-            return s instanceof RegExp ? s.test(bf) : (t = bf.trim()) && t.endsWith(s);
+            var bf = this.before(), t;
+            return 'string' === typeof s ? (t = bf.replace(/\s+$/, '')).indexOf(s, t.length - s.length) >= 0 : s.test(bf);
         },
         has: function(s) {
-            return s instanceof RegExp ? s.test(this.value) : this.value.indexOf(s) >= 0;
+            return 'string' === typeof s ? this.value.indexOf(s) >= 0 : s.test(this.value);
         },
         isEmpty: function() {
             return this.value == null;
@@ -3242,44 +3262,32 @@
                 }
             }
         },
-        continueState: function(/*, .. keys */) {
+        continueState: function() {
             if (this.stateBefore) {
-                if (!this.stateAfter) this.stateAfter = {};
-                if (arguments.length) {
-                    for (var i = 0; i < arguments.length; i++) {
-                        var k = arguments[i];
-                        if (this.stateBefore[k]) {
-                            this.stateAfter[k] = this.stateBefore[k];
-                        }
-                    }
-                } else {
-                    for (var k in this.stateBefore) {
-                        this.stateAfter[k] = this.stateBefore[k];
-                    }
-                }
+                this.stateAfter = this.stateBefore;
             }
         },
         toString: function() {
             var v = this.value, tree = this.tree, node
-            , tmp = 0, r = [], hasStyle = !!this.styles;
+            , tmp = 0, r = '', hasStyle = !!this.styles;
             
-            hasStyle && r.push('<span class="cpx-'+this.styles.join(' cpx-')+'">');
+            if (hasStyle) r += '<span class="cpx-'+this.styles.join(' cpx-')+'">';
             
             for (var i = 0; i < tree.length; i++) {
                 node = tree[i];
                 if (tmp < node.start) {
-                    r.push(hasStyle ? v.substring(tmp, node.start).encode() : '<span>'+v.substring(tmp, node.start).encode()+'</span>');
+                    r += hasStyle ? v.substring(tmp, node.start).encode() : '<span>'+v.substring(tmp, node.start).encode()+'</span>';
                 }
-                r.push(node.toString());
+                r += node.toString();
                 tmp = node.start + node.value.length;
             }
-            tmp < v.length && r.push(hasStyle ? v.substr(tmp).encode() : '<span>'+v.substr(tmp).encode()+'</span>');
-            hasStyle && r.push('</span>');
-            return r.join('');
+            if (tmp < v.length) r += hasStyle ? v.substr(tmp).encode() : '<span>'+v.substr(tmp).encode()+'</span>';
+            if (hasStyle) r += '</span>';
+            return r;
         }
     }
     
-    ReadStream = function(cp, textWrapper) {
+    ReadStream = function(cp) {
         var rs = this, stack = []
         , dl = cp.doc.get(0)
         , le = cp.getLineEnding(), fn;
@@ -3288,7 +3296,7 @@
             var r = 25 + 50 * Math.random(), i = -1;
             
             while (dl && ++i < r) {
-                stack.push(textWrapper(cp, dl));
+                stack.push(dl.text);
                 dl = dl.next();
             }
             if (i >= 0) {
@@ -3442,7 +3450,8 @@
                 var bf = this.caret.textBefore()
                 , af = this.caret.textAfter()
                 , chbf = bf.slice(-1), m = bf.match(/ +$/)
-                , r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
+                , tw = this.options.tabWidth
+                , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
                 
                 if (this.parser.onLeftRemoval && this.parser.onLeftRemoval[chbf]) {
                     var x = this.parser.onLeftRemoval[chbf];
@@ -3474,7 +3483,7 @@
                         return false;
                     }
                 }
-                this.insertText(' '.repeat(this.options.tabWidth - this.caret.column() % this.options.tabWidth));
+                this.insertText(this.options.indentByTabs ? '\t' : ' '.repeat(this.options.tabWidth - this.caret.column() % this.options.tabWidth));
             }
             return false;
         },
@@ -3536,7 +3545,7 @@
             }
         },
         'End': function() {
-            this.caret.position(this.doc.lines() - 1, -1);
+            this.caret.position(this.doc.size() - 1, -1);
         },
         'Home': function() {
             this.caret.position(0, 0);
@@ -3553,7 +3562,8 @@
                 var bf = this.caret.textBefore()
                 , af = this.caret.textAfter()
                 , chaf = af.charAt(0), m = af.match(/^ +/)
-                , r = m && m[0] && m[0].length % this.options.tabWidth === 0 ? '\t' : 1;
+                , tw = this.options.tabWidth
+                , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
                 
                 if (this.parser.onRightRemoval && this.parser.onRightRemoval[chaf]) {
                     var x = this.parser.onRightRemoval[chaf];
@@ -3940,14 +3950,16 @@
         , l = div.cloneNode().addClass('cp-codelines')
         , t = div.cloneNode().addClass('cp-templine')
         , u = div.cloneNode().addClass('cp-caret')
-        , n = div.cloneNode().addClass('cp-counter');
+        , n = div.cloneNode().addClass('cp-counter')
+        , r = div.cloneNode();
         
         w.appendChild(u);
         s.appendChild(l);
         t.appendChild(pre.cloneNode());
         s.appendChild(t);
         w.appendChild(s);
-        n.appendChild(document.createElement('ol'));
+        r.appendChild(document.createElement('ol'));
+        n.appendChild(r);
         c.appendChild(document.createElement('textarea').addClass('cp-input'));
         c.appendChild(n);
         c.appendChild(w);
@@ -4026,22 +4038,6 @@
         var obj = { '(':')', '{':'}', '[':']', '<':'>' }
         return obj[ch];
     }
-    function swapLines(cp, line) {
-        var spaces = cp.tabString()
-        , x = cp.convertToSpaces(cp.doc.get(line).text)
-        , y = cp.convertToSpaces(cp.doc.get(line+1).text);
-        cp.caret.savePosition(true);
-        cp.caret.position(line+1, -1);
-        cp.removeBeforeCursor(x + '\n' + y);
-        cp.insertText(y + '\n' + x);
-        cp.caret.restorePosition();
-    }
-    function returnTabbedText(cp, obj) {
-        return obj.text;
-    }
-    function returnSpacedText(cp, obj) {
-        return cp.convertToSpaces(obj.text);
-    }
     function objNearProperty(obj, property, delta) {
         var keys = Object.keys(obj)
         , i = keys.indexOf(''+property);
@@ -4059,15 +4055,15 @@
     function nextLineIndent(cp, indent, line, dl) {
         var parser = cp.parser;
         if (arguments.length < 4) dl = cp.doc.get(line);
-        if (parser && parser.indentation) {
-            var i = parser.indentation.call(cp, cp.textOf(dl).trim(), '', line, indent, parser);
+        if (parser && parser.indentation && dl) {
+            var i = parser.indentation.call(cp, dl.text.trim(), '', line, indent, parser);
             return indent + (i instanceof Array ? i.shift() : parseInt(i) || 0);
         }
         return indent;
     }
     function searchOverLine(find, dl, line, offset) {
         var results = this.searches.results
-        , text = this.convertToSpaces(dl.text), ln = 0, i, j = 0
+        , text = dl.text, ln = 0, i, j = 0
         , match, startflag = find.source.search(/(^|[^\\])\^/) >= 0;
         
         while (text && (i = text.search(find)) !== -1) {
