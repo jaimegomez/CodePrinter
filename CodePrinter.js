@@ -5,7 +5,7 @@
  * Released under the MIT License.
  *
  * author:  Tomasz Sapeta
- * version: 0.7.2
+ * version: 0.7.3
  * source:  https://github.com/tsapeta/CodePrinter
  */
 
