@@ -1,124 +1,208 @@
 /* CodePrinter - Markdown Mode */
 
 CodePrinter.defineMode('Markdown', function() {
-    var listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/;
     
-    function typeOfList(txt) {
-        if (listsRegexp.test(txt)) {
-            var gr = RegExp.$1;
-            return gr.length === 1 ? gr : 'd';
+    var brackets = /^[\[\]\(\)]/
+    , listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/;
+    
+    function comment(stream, state) {
+        if (stream.skip('```', true)) {
+            state.next = undefined;
+        } else {
+            state.next = comment;
         }
-        return false;
+        return 'comment';
     }
-    function levelOfParentalItem(type, parent) {
-        var p = 0;
-        while (parent && type !== typeOfList(parent.text)) {
-            ++p;
-            parent = parent.parentalListItem;
+    function link(stream, state) {
+        stream.eatWhile(/[^\]]/);
+        state.next = undefined;
+        return 'string';
+    }
+    function linkSrc(stream, state) {
+        stream.eatWhile(/[^\)]/);
+        state.next = undefined;
+        return 'special';
+    }
+    function emphasis(stream, state) {
+        var ch, emp = state.emphasis, st = emp.style;
+        while (ch = stream.next()) {
+            if (ch == '*' || ch == '_' || ch == '~') {
+                if (emp.inner && ch == emp.start[0] && (emp.start.length == 1 || stream.isAfter(ch))) {
+                    state.next = emphasisInnerEnd;
+                } else if (emp.start.length == 1 && stream.isAfter(ch)) {
+                    if (ch != emp.start[0] || emp.prev) {
+                        state.emphasis = {
+                            style: st + ' bold',
+                            start: ch + ch,
+                            inner: true,
+                            prev: emp
+                        }
+                        state.next = emphasisInner;
+                    } else {
+                        state.next = undefined;
+                    }
+                } else if (emp.start.length == 2 && !stream.isAfter(ch)) {
+                    state.emphasis = {
+                        style: st + ' italic',
+                        start: ch,
+                        inner: true,
+                        prev: emp
+                    }
+                    state.next = emphasisInner;
+                } else if (ch == '~' && ch != emp.start[0]) {
+                    state.emphasis = {
+                        style: st + ' strike',
+                        start: ch + ch,
+                        inner: true,
+                        prev: emp
+                    }
+                    state.next = emphasisInner;
+                } else {
+                    state.next = undefined;
+                }
+                stream.undo(1);
+                break;
+            }
         }
-        return parent ? p : -1;
+        return 'string '+st;
+    }
+    function emphasisInner(stream, state) {
+        var ch = stream.next();
+        state.next = emphasis;
+        if (ch == '*' || ch == '_' || ch == '~') {
+            if (state.emphasis.start.length == 2) stream.eat(ch);
+            return 'parameter';
+        }
+    }
+    function emphasisInnerEnd(stream, state) {
+        var ch = stream.next();
+        state.next = emphasis;
+        if (ch == state.emphasis.start[0]) {
+            if (state.emphasis.start.length == 2) stream.eat(ch);
+            state.emphasis = state.emphasis.prev;
+            return 'parameter';
+        }
     }
     
     return new CodePrinter.Mode({
-        regexp: /([\~\*\_]){1,2}|\`+|!?\[([^\]]*)\]\(([^\)]*)\)/,
+        name: 'Markdown',
+        matching: 'brackets',
         
-        parse: function(stream, memory) {
-            var sb = stream.stateBefore
-            , line, trim, found;
-            
-            if (sb && sb.code) {
-                var c = sb.code;
-                stream.eatWhile(c).wrap('comment', 'code');
-                stream.isStillHungry() && stream.continueState();
+        initialState: function() {
+            return {
+                indent: 0
             }
-            
-            line = stream.readline();
-            trim = line.trim();
-            
-            if (trim[0] === '>') {
-                stream.wrap('string', 'blockquote');
-            } else if (/^(\-+\s+){2,}\-+$/.test(trim) || /^(\*+\s+){2,}\*+$/.test(trim)) {
-                stream.wrap('escaped', 'horizontal-rule');
-            } else if (/^(\#+)/.test(trim)) {
-                var c = Math.max(0.4, 1.6 - RegExp.$1.length/10);
-                stream.wrap('namespace', 'header').font(c);
-            } else if (/^(\=+|\-+)$/.test(trim)) {
-                stream.wrap('operator', 'header-rule');
-            } else if (stream.testNextLine(/^\s*(\=|\-){2,}\s*$/)) {
-                stream.wrap('namespace', 'header');
-            } else {
-                stream.reset();
-                
-                if (found = stream.match(listsRegexp)) {
-                    var sign = RegExp.$1, eaten = stream.eat(sign);
-                    if (isNaN(sign)) {
-                        eaten.wrap('numeric', 'hex', 'unordered-list');
-                    } else {
-                        eaten.wrap('numeric', 'ordered-list');
-                    }
-                }
-                
-                while (found = stream.match(this.regexp)) {
-                    if (found[0] === '!' || found[0] === '[') {
-                        stream.eat('!').wrap('directive');
-                        stream.eat('[').wrap('bracket');
-                        stream.eat(RegExp.$2).wrap('string');
-                        stream.eat('](').wrap('bracket');
-                        stream.eat(RegExp.$3).wrap('keyword');
-                        stream.eat(')').wrap('bracket');
-                    } else if (found[0] === '*' || found[0] === '_' || found[0] === '~') {
-                        stream.eat(found, found).wrap('parameter');
-                    } else if (found[0] === '`') {
-                        var ss;
-                        if (found.length > 1) {
-                            ss = stream.eatGreedily(found, found);
-                            stream.isStillHungry() && stream.setStateAfter({ code: found });
-                        } else {
-                            ss = stream.eat(found, found);
-                        }
-                        ss.wrap('comment', 'code');
-                    }
-                }
-            }
-            return stream;
         },
-        afterEnterKey: function(bf, af) {
-            if (listsRegexp.test(bf)) {
-                var sign = RegExp.$1;
-                if (isNaN(sign)) {
-                    this.insertText(sign+' ');
+        iterator: function(stream, state) {
+            var ch = stream.next();
+            if (ch == '`') {
+                if (stream.match(/^``/, true)) {
+                    return comment(stream, state);
+                }
+                if (stream.skip('`', true)) {
+                    return 'comment';
+                }
+                return;
+            }
+            if (stream.pos == 1) {
+                if (state.emphasis) state.emphasis = undefined;
+                
+                if (ch == '#') {
+                    stream.skip();
+                    return 'namespace';
+                }
+                if (ch == '>') {
+                    stream.skip();
+                    return 'string';
+                }
+                if (ch == '+' || ch == '-' && !stream.isAfter('-')) {
+                    return 'numeric hex';
+                }
+                if (ch == '-' || ch == '=') {
+                    stream.eatWhile(/[\-\=]/);
+                    return 'operator';
+                }
+                if (/\d/.test(ch)) {
+                    stream.match(/^\d*\.?/, true);
+                    return 'numeric';
+                }
+            }
+            if (ch == '*' || ch == '_' || ch == '~') {
+                var sem = ch;
+                if (state.emphasis == null) {
+                    if (stream.eat(ch)) sem = ch + ch;
+                    if (ch == '~' && sem.length == 1) {
+                        return;
+                    }
+                    if (stream.rest().indexOf(sem) >= 0) {
+                        state.emphasis = {
+                            style: sem.length == 1 ? 'italic' : ch == '~' ? 'strike' : 'bold',
+                            start: sem
+                        }
+                        state.next = emphasis;
+                    } else if (ch == '*' && stream.pos == 1) {
+                        return 'numeric hex';
+                    }
                 } else {
-                    this.insertText(parseInt(sign)+1 + '. ');
+                    if (state.emphasis.start.length == 2) stream.eat(ch);
+                    state.emphasis = undefined;
                 }
+                return 'parameter';
+            }
+            if (brackets.test(ch)) {
+                if (ch == '[') state.link = true;
+                if (ch == ']') state.link = false;
+                if (ch == '(') state.next = linkSrc;
+                return 'bracket';
+            }
+            if (ch == '!') {
+                return 'directive';
+            }
+            if (state.link) {
+                stream.eatWhile(/[\w\s]/);
+                return 'string';
             }
         },
-        fixIndent: function(dl, expectedIndent) {
-            var txt = dl.text, listType = typeOfList(txt);
-            
-            if (listType) {
-                var prev = dl.prev()
-                , bftype = prev && typeOfList(prev.text);
-                
-                if (bftype) {
-                    if (prev.parentalListItem) {
-                        if (listType !== bftype) {
-                            var p = levelOfParentalItem(listType, prev.parentalListItem);
-                            if (p >= 0) {
-                                return expectedIndent - p - 1;
-                            }
-                            dl.parentalListItem = prev;
-                            return expectedIndent + 1;
-                        }
-                        dl.parentalListItem = prev.parentalListItem;
-                        return expectedIndent;
-                    } else if (listType !== bftype) {
-                        dl.parentalListItem = prev;
-                        return expectedIndent + 1;
-                    }
-                }
-            }
-            if (dl.parentalListItem) delete dl.parentalListItem;
-            return 0;
+        indent: function(stream, state) {
+            return state.indent;
         }
     });
+    // afterEnterKey: function(bf, af) {
+    //     if (listsRegexp.test(bf)) {
+    //         var sign = RegExp.$1;
+    //         if (isNaN(sign)) {
+    //             this.insertText(sign+' ');
+    //         } else {
+    //             this.insertText(parseInt(sign)+1 + '. ');
+    //         }
+    //     }
+    // },
+    // fixIndent: function(dl, expectedIndent) {
+    //     var txt = dl.text, listType = typeOfList(txt);
+        
+    //     if (listType) {
+    //         var prev = dl.prev()
+    //         , bftype = prev && typeOfList(prev.text);
+            
+    //         if (bftype) {
+    //             if (prev.parentalListItem) {
+    //                 if (listType !== bftype) {
+    //                     var p = levelOfParentalItem(listType, prev.parentalListItem);
+    //                     if (p >= 0) {
+    //                         return expectedIndent - p - 1;
+    //                     }
+    //                     dl.parentalListItem = prev;
+    //                     return expectedIndent + 1;
+    //                 }
+    //                 dl.parentalListItem = prev.parentalListItem;
+    //                 return expectedIndent;
+    //             } else if (listType !== bftype) {
+    //                 dl.parentalListItem = prev;
+    //                 return expectedIndent + 1;
+    //             }
+    //         }
+    //     }
+    //     if (dl.parentalListItem) delete dl.parentalListItem;
+    //     return 0;
+    // }
 });

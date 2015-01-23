@@ -1,128 +1,293 @@
 /* CodePrinter - JavaScript Mode */
 
 CodePrinter.defineMode('JavaScript', function() {
-    var commentRgxHelper = /\*\/|(^|.)(?=\<\s*\/\s*script\s*>)/i
+    
+    var wordRgx = /[\w$\xa1-\uffff]/
+    , operatorRgx = /[+\-*&%=<>!?|~^]/
+    , closeBrackets = /^[}\]\)]/
     , controls = ['if','else','elseif','for','switch','while','do','try','catch','finally']
     , constants = ['null','undefined','NaN','Infinity']
     , keywords = [
-        'var','return','new','continue','break','instanceof','typeof','case','let','debugger',
-        'default','delete','in','throw','void','with','const','of','import','export','module'
+        'var','return','new','continue','break','instanceof','typeof','case','let','class',
+        'extends','yield','debugger','default','delete','in','throw','public','private',
+        'void','with','const','of'
     ]
     , specials = [
-        'this','window','document','console','arguments','function',
+        'this','window','document','console','arguments','function','import','export','module',
         'Object','Array','String','Number','Function','RegExp','Date','Boolean','Math','JSON',
         'Proxy','Map','WeakMap','Set','WeakSet','Symbol',
         'Error','EvalError','InternalError','RangeError','ReferenceError',
         'StopIteration','SyntaxError','TypeError','URIError'
     ]
     
+    function string(stream, state, escaped) {
+        var esc = !!escaped, ch;
+        while (ch = stream.next()) {
+            if (ch == state.quote && !esc) break;
+            if (esc = !esc && ch == '\\') {
+                stream.undo(1);
+                state.next = escapedString;
+                return 'string';
+            }
+        }
+        if (!ch && esc) state.next = string;
+        state.next = null;
+        if (!ch) return 'invalid';
+        state.quote = undefined;
+        return 'string';
+    }
+    function escapedString(stream, state) {
+        if (stream.eat('\\')) {
+            var ch = stream.next();
+            if (ch) {
+                state.next = string;
+                return 'escaped';
+            }
+            stream.undo(1);
+        }
+        return string(stream, state, true);
+    }
+    function comment(stream, state) {
+        var star, ch;
+        while (ch = stream.next()) {
+            if (star && ch == '/') {
+                break;
+            }
+            star = ch == '*';
+        }
+        state.next = ch && star ? null : comment;
+        return 'comment';
+    }
+    function regexp(stream, state, escaped) {
+        var esc = !!escaped, ch;
+        while (ch = stream.next()) {
+            if (ch == '\\' && !stream.eol()) {
+                stream.undo(1);
+                state.next = escapedRegexp;
+                return 'regexp';
+            }
+            if (ch == '/') {
+                stream.eatWhile(/[gimy]/);
+                state.next = null;
+                return 'regexp';
+            }
+        }
+        state.next = null;
+        return 'regexp';
+    }
+    function escapedRegexp(stream, state) {
+        if (stream.eat('\\')) {
+            var ch = stream.next();
+            if (ch) {
+                state.next = regexp;
+                return 'escaped';
+            }
+            stream.undo(1);
+        }
+        return regexp(stream, state, true);
+    }
+    function parameters(stream, state) {
+        var ch = stream.next();
+        if (ch) {
+            if (ch == ')') {
+                state.next = null;
+                return 'bracket';
+            }
+            if (ch == '.' && stream.eat('.') && stream.eat('.')) {
+                state.next = parameters;
+                return 'operator';
+            }
+            if (ch == ',' || ch == ' ') {
+                state.next = parameters;
+                return;
+            }
+            if (wordRgx.test(ch)) {
+                var word = ch + stream.eatWhile(wordRgx);
+                if (stream.eol()) state.next = null;
+                state.context.params[word] = true;
+                return 'parameter';
+            }
+            stream.undo(1);
+            return state.next = null;
+        }
+        return state.next = null;
+    }
+    
+    function pushcontext(state) {
+        state.context = { vars: {}, params: {}, indent: state.indent + 1, prev: state.context };
+    }
+    function popcontext(state) {
+        if (state.context.prev) {
+            state.context = state.context.prev;
+        }
+    }
+    function isVariable(varname, state) {
+        for (var ctx = state.context; ctx; ctx = ctx.prev) if (ctx.vars[varname]) return ctx.vars[varname];
+    }
+    
     return new CodePrinter.Mode({
         name: 'JavaScript',
-        controls: new RegExp('^('+controls.join('|')+')$'),
-        keywords: new RegExp('^('+keywords.join('|')+')$'),
-        specials: new RegExp('^('+specials.join('|')+')$'),
-        constants: new RegExp('^('+constants.join('|')+')$'),
-        regexp: /\/\*|\/\/|\/.*\/[gimy]{0,4}|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|<\s*\/\s*script\s*>|[^\w\s]|\b[\w\$]+/,
         blockCommentStart: '/*',
         blockCommentEnd: '*/',
         lineComment: '//',
+        indentTriggers: /[\}\]\)]/,
+        matching: 'brackets',
         
-        memoryAlloc: function() {
+        initialState: function() {
             return {
-                properties: [],
-                variables: [],
-                constants: []
+                indent: 0,
+                context: { vars: {}, params: {}, indent: 0 }
             }
         },
-        parse: function(stream, memory, isHTMLHelper) {
-            var sb = stream.stateBefore, found, tmp;
-            
-            if (sb && sb.comment) {
-                var e = this.expressions['/*'];
-                stream.eatWhile(isHTMLHelper ? commentRgxHelper : e.ending).applyWrap(e.classes);
-                stream.isStillHungry() && stream.continueState();
+        iterator: function(stream, state) {
+            var ch = stream.next();
+            if (ch == '"' || ch == "'") {
+                state.quote = ch;
+                return string(stream, state);
             }
-            
-            while (found = stream.match(this.regexp)) {
-                if (!isNaN(found) && found != 'Infinity') {
-                    if (found.substr(0, 2).toLowerCase() == '0x') {
-                        stream.wrap('numeric', 'hex');
-                    } else {
-                        if ((found+'').indexOf('.') === -1) {
-                            stream.wrap('numeric', 'int');
-                        } else {
-                            stream.wrap('numeric', 'float');
-                        }
-                    }
-                } else if (/^[\w\$]+$/.test(found)) {
-                    if (/^(true|false)$/.test(found)) {
-                        stream.wrap('builtin', 'boolean');
-                    } else if (this.constants.test(found)) {
-                        stream.wrap('builtin');
-                    } else if (this.controls.test(found)) {
-                        stream.wrap('control');
-                    } else if (found == '$' || found == '_' || this.specials.test(found)) {
-                        stream.wrap('special');
-                    } else if (this.keywords.test(found)) {
-                        stream.wrap('keyword');
-                    } else if (stream.isAfter('(')) {
-                        if (stream.isBefore(/\bfunction\s+$/)) stream.isDefinition = true;
-                        stream.wrap('function');
-                    } else if (stream.isBefore(/function\s*\w*\s*\([^\(]*$/)) {
-                        stream.wrap('parameter');
-                    } else if ((tmp = stream.isAfter(':')) || stream.isBefore('.')) {
-                        if (tmp && stream.isAfter(/^\s*:\s*function\b/)) stream.isDefinition = true;
-                        memory.properties.put(found);
-                        stream.wrap('property');
-                    } else if (stream.isBefore(/const\s*$/) || memory.constants.indexOf(found) >= 0) {
-                        memory.constants.put(found);
-                        stream.wrap('constant');
-                    } else if (stream.isAfter(/^\s*=\s*/) || memory.variables.indexOf(found) >= 0) {
-                        memory.variables.put(found);
-                        stream.wrap('variable');
-                    }
-                } else if (found.length == 1) {
-                    if (this.operators[found]) {
-                        stream.wrap('operator', this.operators[found]);
-                    } else if (this.punctuations[found]) {
-                        stream.wrap('punctuation', this.punctuations[found]);
-                    } else if (this.brackets[found]) {
-                        stream.applyWrap(this.brackets[found]);
-                    } else if (found === '"' || found === "'") {
-                        stream.eat(found, this.expressions[found].ending, function() {
-                            this.tear().wrap('invalid');
-                        }).applyWrap(this.expressions[found].classes);
-                    } else if (found === '#' && stream.peek(1) === '!' && stream.isBefore(/^\s*$/)) {
-                        stream.eatAll(found).wrap('directive');
-                    }
-                } else if (this.expressions[found]) {
-                    var until = this.expressions[found].ending;
-                    if (isHTMLHelper && found === '/*') {
-                        until = commentRgxHelper;
-                    }
-                    stream.eatGreedily(found, until).applyWrap(this.expressions[found].classes);
-                    stream.isStillHungry() && stream.setStateAfter('comment');
-                } else if (found[0] == '/') {
-                    found = found.substring(0, found.search(/(((\\\\)+|[^\\])\/[gimy]{0,4})/g) + RegExp.$1.length);
-                    stream.eatGreedily(found).wrap('regexp').eatEach(/\\./).wrapAll('escaped');
-                } else if (isHTMLHelper && found[0] === '<' && found[found.length-1] === '>') {
-                    return stream.abort();
+            if (ch == '/') {
+                if (stream.eat('/')) {
+                    stream.skip();
+                    return 'comment';
                 }
+                if (stream.eat('*')) {
+                    return comment(stream, state);
+                }
+                if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'numeric'
+                    || stream.lastStyle == 'constant' || stream.lastValue == ')') {
+                    return 'operator';
+                }
+                return regexp(stream, state);
             }
-            return stream;
+            if (ch == '.') {
+                if (stream.match(/^\d+(?:[eE][+\-]?\d+)?/, true)) {
+                    return 'numeric';
+                } else if (stream.eat('.') && stream.eat('.')) {
+                    return 'operator';
+                }
+                return;
+            }
+            if (ch == ';') {
+                if (state.vardef) state.vardef = undefined;
+                if (state.constdef) state.constdef = undefined;
+                if (state.control) state.control = undefined;
+                return 'punctuation';
+            }
+            if (ch == '0' && stream.eat(/x/i)) {
+                stream.eatWhile(/[\da-f]/i);
+                return 'numeric hex';
+            }
+            if (/[\[\]{}\(\)]/.test(ch)) {
+                if (ch == '(' && state.hasFunction && (stream.lastValue == 'function' || stream.lastStyle == 'function') && !stream.eol()) {
+                    state.next = parameters;
+                    pushcontext(state);
+                    if ('string' == typeof state.hasFunction) {
+                        stream.markDefinition({
+                            name: state.hasFunction,
+                            params: state.context.params
+                        });
+                    }
+                    state.hasFunction = undefined;
+                }
+                if (ch == '{') {
+                    ++state.indent;
+                } else if (ch == '}') {
+                    if (state.control) state.control = undefined;
+                    if (state.indent == state.context.indent) {
+                        popcontext(state);
+                    }
+                    --state.indent;
+                }
+                return 'bracket';
+            }
+            if (/\d/.test(ch)) {
+                stream.match(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/, true);
+                return 'numeric';
+            }
+            if (ch == '<' && state.parser && stream.isAfter(/^\s*\/\s*script/i)) {
+                state.parser = undefined;
+                stream.undo(1);
+                return;
+            }
+            if (operatorRgx.test(ch)) {
+                stream.eatWhile(operatorRgx);
+                return 'operator';
+            }
+            if (wordRgx.test(ch)) {
+                var word = ch + stream.eatWhile(wordRgx);
+                if (word == 'function') {
+                    state.hasFunction = true;
+                    return 'special';
+                }
+                if (word == 'var') {
+                    state.vardef = true;
+                    return 'keyword';
+                }
+                if (word == 'const') {
+                    state.constdef = true;
+                    return 'keyword';
+                }
+                if (stream.lastValue == 'function') {
+                    state.hasFunction = word;
+                    return state.context.vars[word] = 'function';
+                }
+                if (word == 'true' || word == 'false') return 'builtin boolean';
+                if (constants.indexOf(word) >= 0) return 'constant';
+                if (controls.indexOf(word) >= 0) {
+                    state.control = word;
+                    return 'control';
+                }
+                if (specials.indexOf(word) >= 0) return 'special';
+                if (keywords.indexOf(word) >= 0) return 'keyword';
+                
+                if (state.context) {
+                    if (state.context.params[word] && !stream.isBefore(/\.\s*$/, -word.length)) {
+                        return 'variable';
+                    }
+                    var isVar = isVariable(word, state);
+                    if (isVar && 'string' === typeof isVar) return isVar;
+                }
+                if (!stream.lastValue || stream.lastStyle == 'keyword' || stream.lastValue == ',') {
+                    if (state.vardef) return state.context.vars[word] = 'variable';
+                    if (state.constdef) return state.context.vars[word] = 'constant';
+                }
+                if (stream.isAfter(/^\s*:/)) {
+                    return 'property';
+                }
+                if (stream.isBefore(/\.\s*$/, -word.length)) {
+                    if (stream.isAfter(/^\s*\(/)) return 'function';
+                    return 'property';
+                }
+                return 'word';
+            }
+            if (ch == '#') {
+                if (stream.peek() == '!' && stream.pos == 1) {
+                    stream.skip();
+                    return 'directive';
+                }
+                return 'invalid';
+            }
         },
-        keyMap: {
-            '/': function() {
-                if (this.textAfterCursor(1) === '/') {
-                    this.caret.moveX(1);
-                } else if (/(^|=|\,|\(|\&|\||return)\s*$/i.test(this.caret.textBefore())) {
-                    this.insertText('/', -1);
+        indent: function(stream, state) {
+            var i = state.indent;
+            if (stream.lastStyle == 'bracket') {
+                if (stream.isAfter(closeBrackets)) return [i, -1];
+            }
+            if (state.control) return state.indent + 1;
+            if (stream.isAfter(closeBrackets) || state.parser && stream.isAfter(/^\s*<\s*\/\s*script/i)) return i - 1;
+            return i;
+        },
+        completions: function(stream, state) {
+            var vars = [];
+            if (state.context) {
+                for (var ctx = state.context; ctx; ctx = ctx.prev) {
+                    vars.push.apply(vars, Object.keys(ctx.vars));
+                    vars.push.apply(vars, Object.keys(ctx.params));
                 }
-            },
-            '*': function() {
-                if (this.textBeforeCursor(1) === '/' && this.textAfterCursor(1) === '/') {
-                    this.removeAfterCursor('/');
-                }
+            }
+            return {
+                values: vars,
+                search: 200
             }
         },
         snippets: {

@@ -1,7 +1,17 @@
 /* CodePrinter - CSS Mode */
 
 CodePrinter.defineMode('CSS', function() {
-    var commentRgxHelper = /\*\/|(^|.)(?=\<\s*\/\s*style\s*>)/i
+    
+    function keyset(arr) {
+        var obj = {};
+        for (var i = 0; i < arr.length; i++) obj[arr[i]] = true;
+        return obj;
+    }
+    
+    var wordRgx = /[\w\-\\]/
+    , operators = /[+>~^$|\*=]/
+    , controls = /^(charset|document|font-face|import|(-(moz|ms|o|webkit|khtml)-)?keyframes|media|namespace|page|supports)\b/
+    , unitsRgx = /^(%|p(x|t|c)|e(m|x)|m(s|m)|v(w|h|min|max|m)|rem|ch|s|in|cm)/
     , tags = [
         'html','body','div','a','ol','ul','li','span','p',
         'h1','h2','h3','h4','h5','h6','img','input','textarea',
@@ -38,6 +48,7 @@ CodePrinter.defineMode('CSS', function() {
         'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white',
         'whitesmoke', 'yellow', 'yellowgreen', 'initial'
     ]
+    , _colors = keyset(colors)
     , borderStyles = ['dashed', 'dotted', 'double', 'groove', 'hidden', 'inset', 'none', 'outset', 'ridge', 'solid', 'inherit']
     , borderWidths = ['medium', 'thin', 'thick', 'inherit']
     , overflows = ['auto', 'hidden', 'scroll', 'visible', 'inherit']
@@ -243,126 +254,235 @@ CodePrinter.defineMode('CSS', function() {
         'transition-timing-function':  ['ease', 'ease-in', 'ease-in-out', 'ease-out', 'linear', 'step-end', 'step-start', 'steps()'],
         'unicode-bidi':                ['bidi-override', 'embed', 'normal', 'inherit'],
         'unicode-range':               null,
+        'user-select':                 ['none', 'text', 'all', 'element'],
         'vertical-align':              ['baseline', 'bottom', 'middle', 'sub', 'super', 'text-bottom', 'text-top', 'top', 'inherit'],
         'visibility':                  ['collapse', 'hidden', 'visible', 'inherit'],
         'white-space':                 ['normal', 'nowrap', 'pre', 'pre-line', 'pre-wrap', 'inherit'],
         'widows':                      inherit,
         'width':                       ['auto', 'inherit'],
-        'word-break':                  ['normal', 'break-all', 'keep-all'],
+        'word-break':                  ['normal', 'break-all', 'keep-all', 'inherit'],
         'word-spacing':                ['normal', 'inherit'],
-        'word-wrap':                   ['break-word', 'normal'],
+        'word-wrap':                   ['break-word', 'normal', 'inherit'],
         'z-index':                     ['auto', 'inherit']
     }
     , properties = Object.keys(hints)
     , symbols = {
-        '#': 'property',
-        '.': 'property',
-        '*': 'keyword',
-        '@': 'control'
+        '#': 'special',
+        '.': 'property'
+    }
+    
+    function string(stream, state, escaped) {
+        var esc = !!escaped, ch;
+        while (ch = stream.next()) {
+            if (ch == state.quote && !esc) break;
+            if (esc = !esc && ch == '\\') {
+                stream.undo(1);
+                state.next = escapedString;
+                return 'string';
+            }
+        }
+        if (!ch && esc) state.next = string;
+        state.next = null;
+        if (!ch) return 'invalid';
+        state.quote = undefined;
+        return 'string';
+    }
+    function escapedString(stream, state) {
+        if (stream.eat('\\')) {
+            var ch = stream.next();
+            if (ch) {
+                state.next = string;
+                return 'escaped';
+            }
+            stream.undo(1);
+        }
+        return string(stream, state, true);
+    }
+    function comment(stream, state) {
+        if (stream.skip('*/', true)) {
+            state.next = undefined;
+            return 'comment';
+        }
+        stream.skip();
+        state.next = comment;
+        return 'comment';
+    }
+    function attribute(stream, state) {
+        state.next = undefined;
+        var ch = stream.next();
+        if (/[a-z]/i.test(ch)) {
+            stream.eatWhile(/[\w\-]/);
+            return 'parameter';
+        }
+        stream.undo(1);
+        return;
+    }
+    function vardef(stream, state) {
+        stream.match(/^\s*/, true);
+        stream.eat(':');
+        state.next = undefined;
+        if (stream.eol()) state.vardef = undefined;
+        return;
+    }
+    function getUnprefixedProperty(prop) {
+        var m = /^(\-(webkit|moz|ms|o|khtml)\-)?([\w\-]+)$/.exec(prop);
+        return m && m[3];
     }
     
     return new CodePrinter.Mode({
         name: 'CSS',
-        tags: new RegExp('^('+ tags.join('|') +')$', 'i'),
-        regexp: /\/?\*|[#\.\:]\:?[\w\-]+|[\w\-]+|@[\w\-]+|<\s*\/\s*style\s*>|[^\w\s]/,
-    	values: /\/\*|\;|,|#[0-9a-f]+|\-?\d+[a-z%]*|\-?\d*\.\d+[a-z%]*|[@!]?[a-z\-]+\b|'|"/i,
-        units: /px|%|em|rem|s|ms|in|pt|cm|mm|pc/,
         blockCommentStart: '/*',
         blockCommentEnd: '*/',
-        autoCompleteTriggers: /:/,
+        indentTriggers: /\}/,
+        autoCompleteWord: /@?[\w\-\\]+/,
+        autoCompleteTriggers: /[:@]/,
+        matching: 'brackets',
         
-        parse: function(stream, memory, isHTMLHelper) {
-            var sb = stream.stateBefore, found;
-            
-            if (sb && sb.comment) {
-                var e = this.expressions['/*'];
-                stream.eatWhile(isHTMLHelper ? commentRgxHelper : e.ending).applyWrap(e.classes);
-                stream.isStillHungry() && stream.continueState();
-            }
-            
-            while (found = stream.match(this.regexp)) {
-                var ch = found[0];
+        initialState: function() {
+            return { vars: {}, indent: 0 }
+        },
+        iterator: function(stream, state) {
+            if (stream.pos == 0 && state.vardef) state.vardef = undefined;
+            var ch = stream.next();
+            if (state.property || state.vardef) {
+                if (ch == '-' || /\d/.test(ch)) {
+                    if (stream.match(/^\d*\.?\d+/, true) || /\d/.test(ch)) {
+                        stream.match(unitsRgx, true);
+                        return 'numeric';
+                    }
+                    return;
+                }
+                if (ch == '.') {
+                    stream.match(/^\d+/, true);
+                    stream.match(unitsRgx, true);
+                    return 'numeric';
+                }
+                if (ch == '#') {
+                    var hex = ch + stream.eatWhile(/[0-9a-f]/i);
+                    return hex.length == 4 || hex.length == 7 ? 'numeric hex' : 'invalid';
+                }
+                if (ch == '@') {
+                    var word = ch + stream.eatWhile(wordRgx);
+                    if (state.vars[word] === true) {
+                        return 'variable';
+                    }
+                    return 'invalid';
+                }
+            } else {
                 if (symbols[ch]) {
-                    stream.wrap(symbols[ch]);
-                } else if (ch === ':') {
-                    var aft = stream.after()
-                    , i1 = aft.indexOf('{')
-                    , i2 = aft.indexOf(';');
-                    if (i1 === -1 || (i2 !== -1 && i2 < i1)) {
-                        stream.eat(ch).wrap('punctuation', this.punctuations[ch]);
-                        
-                        while (found = stream.match(this.values)) {
-                            ch = found[0];
-                            if (ch == ';') {
-                                stream.eat(ch).wrap('punctuation', this.punctuations[found]);
-                                break;
-                            } else if (ch == '#') {
-                                if (found.length === 4 || found.length === 7) {
-                                    stream.wrap('numeric', 'hex');
-                                } else {
-                                    stream.wrap('invalid');
-                                }
-                            } else if (ch == '@') {
-                                stream.wrap('variable');
-                            } else if (ch == '!') {
-                                stream.wrap('value');
-                            } else if (/\d/.test(found)) {
-                                stream.wrap('numeric');
-                            } else if (this.punctuations[found]) {
-                                stream.wrap('punctuation', this.punctuations[found]);
-                            } else if (this.expressions[found]) {
-                                stream.eat(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-                            } else if (stream.isAfter('(')) {
-                                stream.wrap('function');
-                            } else {
-                                stream.wrap('escaped');
-                            }
-                        }
-                    } else if (/^\:\:?[\w\-\(\)]+$/.test(found)) {
-                        stream.wrap('string');
-                    }
-                } else if (/^[\w\-]+$/i.test(found)) {
-                    if (this.tags.test(found)) {
-                        stream.wrap('keyword');
+                    stream.eatWhile(wordRgx);
+                    return symbols[ch];
+                }
+                if (ch == '@') {
+                    if (stream.match(controls, true)) {
+                        return 'control';
                     } else {
-                        stream.wrap('special');
+                        var word = ch + stream.eatWhile(wordRgx);
+                        if (stream.isAfter(/^\s*:/)) {
+                            state.vars[word] = true;
+                            state.next = vardef;
+                            state.vardef = word;
+                        }
+                        return 'variable';
                     }
-                } else if (this.punctuations[found]) {
-                    stream.wrap('punctuation', this.punctuations[found]);
-                } else if (this.brackets[found]) {
-                    stream.applyWrap(this.brackets[found]);
-                } else if (this.operators[found]) {
-                    stream.wrap(this.operators[found]);
-                } else if (found === '/*') {
-                    stream.eatGreedily(found, isHTMLHelper ? commentRgxHelper : this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-                    stream.isStillHungry() && stream.setStateAfter('comment');
-                } else if (isHTMLHelper && found[0] === '<' && found[found.length-1] === '>') {
-                    return stream.abort();
+                }
+                if (ch == '*') {
+                    return 'keyword';
+                }
+                if (ch == '[') {
+                    state.next = attribute;
+                    return;
                 }
             }
-        },
-        keyMap: {
-            ':': function() {
-                if (this.textBeforeCursor(1) !== ':' && this.textAfterCursor(1) !== ';' && this.statesBefore()[0] == 'special') {
-                    this.insertText(';', -1);
-                }
-            },
-            ';': function() {
-                if (this.textAfterCursor(1) === ';') {
-                    this.caret.moveX(1);
-                    return false;
-                }
+            if (ch == '{') {
+                ++state.indent;
+                return 'bracket';
             }
+            if (ch == '}') {
+                if (state.property) state.property = undefined;
+                if (state.vardef) state.vardef = undefined;
+                --state.indent;
+                return 'bracket';
+            }
+            if (ch == '(' || ch == ')') {
+                return 'bracket';
+            }
+            if (ch == ';') {
+                if (state.property) state.property = undefined;
+                if (state.vardef) state.vardef = undefined;
+                return;
+            }
+            if (ch == ':' && !state.property) {
+                stream.eatWhile(wordRgx);
+                return 'namespace';
+            }
+            if (ch == '/' && stream.eat('*')) {
+                return comment(stream, state);
+            }
+            if (ch == '"' || ch == "'") {
+                state.quote = ch;
+                return string(stream, state);
+            }
+            if (/\d/.test(ch)) {
+                stream.eatWhile(/\d/);
+                return 'numeric';
+            }
+            if (ch == '<' && state.parser && stream.isAfter(/^\s*\/\s*style/i)) {
+                state.parser = undefined;
+                stream.undo(1);
+                return;
+            }
+            if (operators.test(ch)) {
+                stream.eatWhile(operators);
+                return 'operator';
+            }
+            if (wordRgx.test(ch)) {
+                var word = ch + stream.eatWhile(wordRgx);
+                if (tags.indexOf(word) >= 0) {
+                    return 'keyword';
+                }
+                if ((state.property || state.vardef) && _colors[word] === true) {
+                    return 'keyword css-color';
+                }
+                if (stream.isAfter(/^\s*\(/)) {
+                    return 'function';
+                }
+                if (state.property) {
+                    var prop = getUnprefixedProperty(state.property);
+                    if (hints[prop] && hints[prop].indexOf(word) >= 0) {
+                        return 'keyword';
+                    }
+                }
+                if (state.indent > 0) {
+                    var prop = word;
+                    if (ch == '-') {
+                        prop = getUnprefixedProperty(word);
+                    }
+                    if (stream.isAfter(/^\s*:/)) state.property = word;
+                    if (prop && hints.hasOwnProperty(prop)) {
+                        return 'special';
+                    }
+                    return 'word';
+                }
+                return 'property';
+            }
+            return;
         },
-        extension: {
-            onLeftRemoval: { ':': ';' }
+        indent: function(stream, state) {
+            if (stream.lastValue == '{' && stream.isAfter(/^\s*\}/)) {
+                return [state.indent, -1];
+            }
+            if (stream.isAfter(/^\s*\}/) || state.parser && stream.isAfter(/^\s*<\s*\/\s*style/i)) return state.indent - 1;
+            return state.indent;
         },
-        hints: hints,
-        codeCompletions: function(bf, af) {
-            if (/(\-\w+\-)?(\w[\w\-]*)\s*\:[^\;]*/.test(bf)) {
+        completions: function(stream, state) {
+            if (stream.isBefore(/@[\w\-\\]*$/)) {
+                return Object.keys(state.vars);
+            }
+            if (state.property && /(\-\w+\-)?(\w[\w\-]*)/.test(state.property)) {
                 return hints[RegExp.$2] || [];
             }
-            if (/(^|\W)\-(we|mo|ms|o)[\w\-]*$/.test(bf)) {
+            if (stream.isBefore(/(^|\W)\-(we|mo|ms|o)[\w\-]*$/)) {
                 var prefix = RegExp.$2, v = [];
                 
                 if (prefix == 'we') {
@@ -375,15 +495,32 @@ CodePrinter.defineMode('CSS', function() {
                 }
                 return v;
             }
-            return properties;
+            if (state.vardef) {
+                return colors;
+            }
+            return state.indent ? properties : tags;
         },
         onCompletionChosen: function(choice) {
-            choice = choice.replace(/^\-(webkit|moz|ms|o)\-/, '');
+            var choice = choice.replace(/^\-(webkit|moz|ms|o)\-/, '');
             if (hints.hasOwnProperty(choice) && !/\:[^\:]*$/.test(this.caret.textBefore())) {
                 this.insertText(': ;', -1);
                 return true;
             } else if (/\(\)$/.test(choice)) {
                 this.caret.moveX(-1);
+            }
+        },
+        keyMap: {
+            ':': function(stream, state) {
+                if (!stream.isBefore(':') && !stream.isAfter(';') && stream.lastStyle == 'special') {
+                    this.insertText(': ;', -1);
+                    return false;
+                }
+            },
+            ';': function(stream, state) {
+                if (stream.isAfter(';')) {
+                    this.caret.moveX(1);
+                    return false;
+                }
             }
         }
     });

@@ -2,52 +2,89 @@
 
 CodePrinter.defineMode('JSON', function() {
     
-    var rgx = /\b(0|\d+)(\.\d+)?([eE][\-\+]\d+)?\b|[^\w\s]|true|false|null/
-    , invalidCharacters = /'|\(|\)|\//
-    , brackets = /\{|\}|\[|\]/;
+    var invalidCharacters = /['()\/\?!\-+=]/
+    , allowedEscapes = /^(["\\\/bfnrt]|u[0-9a-fA-F]{4})/
+    
+    function string(stream, state, escaped) {
+        var esc = !!escaped, ch;
+        while (ch = stream.next()) {
+            if (ch == '"' && !esc) break;
+            if (esc = !esc && ch == '\\') {
+                stream.undo(1);
+                state.next = escapedString;
+                return 'string';
+            }
+        }
+        if (!ch && esc) state.next = string;
+        state.next = null;
+        if (!ch) return 'invalid';
+        return 'string';
+    }
+    function escapedString(stream, state) {
+        if (stream.eat('\\')) {
+            if (stream.match(allowedEscapes, true)) {
+                state.next = string;
+                return 'escaped';
+            }
+        }
+        state.next = string;
+        return 'invalid';
+    }
     
     return new CodePrinter.Mode({
-        regexp: rgx,
         blockCommentStart: null,
         blockCommentEnd: null,
         lineComment: null,
         
-        parse: function(stream) {
-            var found;
-            
-            while (found = stream.match(rgx)) {
-                if (found.length === 1) {
-                    if (invalidCharacters.test(found)) {
-                        stream.wrap('invalid');
-                    } else if (found === '"') {
-                        var str = stream.eat(found, this.expressions[found].ending, function() {
-                            this.tear().wrap('invalid');
-                        });
-                        str.applyWrap(this.expressions[found].classes);
-                        str.eatEach(/\\(["\\\/bfnrt]|u[0-9a-fA-F]{4})/).wrapAll('escaped');
-                        str.eatEach(/\\(?!(["\\\/bfnrt]|u[0-9a-fA-F]{4}))/).wrapAll('invalid');
-                    } else if (brackets.test(found)) {
-                        stream.applyWrap(this.brackets[found]);
-                    } else if (found === ',' || found === ':') {
-                        stream.wrap('punctuation');
-                    } else if (/\d/.test(found)) {
-                        stream.wrap('numeric', 'int');
-                    }
-                } else if (found === 'true' || found === 'false') {
-                    stream.wrap('builtin', 'boolean');
-                } else if (found === 'null') {
-                    stream.wrap('builtin');
-                } else if (!isNaN(found)) {
-                    if (found.indexOf('.') === -1) {
-                        stream.wrap('numeric', 'int');
-                    } else {
-                        stream.wrap('numeric', 'float');
-                    }
-                }
+        initialState: function() {
+            return {
+                indent: 0
             }
-            return stream;
         },
-        codeCompletions: function(bf, af) {
+        iterator: function(stream, state) {
+            var ch = stream.next();
+            
+            if (ch == '"') {
+                return string(stream, state);
+            }
+            if (ch == '0' && stream.eat('x')) {
+                stream.eatWhile(/[0-9a-f]/i);
+                return 'numeric hex';
+            }
+            if (ch == '{' || ch == '[') {
+                ++state.indent;
+                return 'bracket bracket-open';
+            }
+            if (ch == '}' || ch == ']') {
+                --state.indent;
+                return 'bracket bracket-close';
+            }
+            if (/\d/.test(ch)) {
+                stream.eatUntil(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/);
+                return 'numeric';
+            }
+            if (/\w/.test(ch)) {
+                var word = ch + stream.eatWhile(/\w/);
+                if (word == 'true' || word == 'false') {
+                    return 'builtin boolean';
+                }
+                if (word == 'null') {
+                    return 'builtin';
+                }
+                return 'invalid';
+            }
+            if (invalidCharacters.test(ch)) {
+                stream.eatWhile(invalidCharacters);
+                return 'invalid';
+            }
+        },
+        indent: function(stream, state) {
+            var caf = stream.isAfter(/^\s*[}\]]/);
+            if (stream.lastStyle == 'bracket bracket-open' && caf) return [state.indent, -1];
+            if (caf) return state.indent - 1;
+            return state.indent;
+        },
+        completions: function(stream, state) {
             return ['true', 'false', 'null'];
         }
     });

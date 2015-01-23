@@ -3,7 +3,7 @@
 CodePrinter.defineMode('SQL', function() {
     
     var keyMap = {}
-    , indentIncrements = ['begin', 'case', 'else']
+    , operatorsRgx = /[\-+=<>%]/
     , atoms = ['false','true','null','unknown']
     , builtins = [
         'bool','boolean','bit','blob','enum','long','longblob','longtext',
@@ -14,7 +14,7 @@ CodePrinter.defineMode('SQL', function() {
         'date','datetime','year','unsigned','signed','decimal','numeric'
     ]
     , controls = [
-        'begin','case','else','end','then','when'
+        'else','end','if','then','when'
     ]
     , operators = [
         'all','and','any','between','exists','in','like','not','or','is','unique'
@@ -22,125 +22,125 @@ CodePrinter.defineMode('SQL', function() {
     , keywords = [
         'add','alter','as','asc','by','clustered','collate','collation','collations',
         'column','columns','commit','constraint','count','create','declare','delete',
-        'desc','distinct','drop','for','foreign','from','group','having','index',
-        'insert','into','join','key','nonclustered','on','order','primary',
-        'rollback','savepoint','select','set','table','to','trigger','union',
-        'update','use','values','view','where'
+        'desc','distinct','drop','for','foreign','from','group','having','inner','index',
+        'insert','into','join','key','nonclustered','left','on','order','outer','primary',
+        'procedure','right','rollback','savepoint','select','set','table','to','trigger',
+        'union','update','use','values','view','where'
     ];
     
-    keyMap['D'] = keyMap['d'] = function(e) {
-        if (this.options.autoIndent) {
-            var bf = this.caret.textBefore();
-            if (/^\s*en$/i.test(bf)) {
-                var line = this.caret.line()
-                , indent = this.getNextLineIndent(line-1);
-                this.caret.setTextBefore(this.tabString(indent-1) + bf.trim());
+    function string(stream, state) {
+        var ch;
+        while (ch = stream.next()) {
+            if (ch == state.quote) {
+                if (state.quote == "'") {
+                    if (stream.peek() == "'") {
+                        stream.undo(1);
+                        state.next = escapedString;
+                        return 'string';
+                    }
+                }
+                break;
             }
         }
+        if (ch) state.next = state.quote = undefined;
+        else state.next = string;
+        return 'string';
+    }
+    function escapedString(stream, state) {
+        if (stream.eat("'") && stream.eat("'")) {
+            state.next = string;
+            return 'escaped';
+        }
+    }
+    function comment(stream, state) {
+        var star, ch;
+        while (ch = stream.next()) {
+            if (star && ch == '/') {
+                break;
+            }
+            star = ch == '*';
+        }
+        state.next = ch && star ? null : comment;
+        return 'comment';
     }
     
     return new CodePrinter.Mode({
-        builtins: new RegExp('^('+builtins.join('|')+')$', 'i'),
-        controls: new RegExp('^('+controls.join('|')+')$', 'i'),
-        wordOperators: new RegExp('^('+operators.join('|')+')$', 'i'),
-        keywords: new RegExp('^('+keywords.join('|')+')$', 'i'),
-        regexp: /\/\*|\-\-|\b\d*\.?\d+\b|(\b|@)\w+\b|[^\w\s]/,
+        name: 'SQL',
         blockCommentStart: '/*',
         blockCommentEnd: '*/',
         lineComment: '--',
-        caseSensitive: false,
+        indentTriggers: /d/,
+        matching: 'brackets',
         
-        parse: function(stream, memory) {
-            var sb = stream.stateBefore, found, e;
-            
-            if (sb && sb.comment) {
-                var e = this.expressions['/*'];
-                stream.eatWhile(e.ending).applyWrap(e.classes);
-                stream.isStillHungry() && stream.continueState();
+        initialState: function() {
+            return {
+                indent: 0
             }
-            
-            while (found = stream.match(this.regexp)) {
-                if (!isNaN(found)) {
-                    if (found.substr(0, 2).toLowerCase() == '0x') {
-                        stream.wrap('numeric', 'hex');
-                    } else {
-                        if ((found+'').indexOf('.') === -1) {
-                            stream.wrap('numeric', 'int');
-                        } else {
-                            stream.wrap('numeric', 'float');
-                        }
-                    }
-                } else if (/^\w+$/.test(found)) {
-                    if (atoms.indexOf(found.toLowerCase()) >= 0) {
-                        stream.wrap('builtin', 'atom');
-                    } else if (this.builtins.test(found)) {
-                        stream.wrap('builtin');
-                    } else if (this.controls.test(found)) {
-                        stream.wrap('control');
-                    } else if (this.wordOperators.test(found)) {
-                        stream.wrap('operator');
-                    } else if (this.keywords.test(found)) {
-                        stream.wrap('keyword');
-                    } else if (stream.isAfter('(')) {
-                        stream.wrap('function');
-                    } else if (stream.isAfter('.') || stream.isBefore(/use\s+$/i)) {
-                        stream.wrap('namespace');
-                    } else if (!stream.sol() && (e = stream.last(2)) && !e.is('special')) {
-                        stream.wrap('special');
-                    }
-                } else if (found.length === 1) {
-                    if (found === '*') {
-                        stream.wrap('parameter');
-                    } else if (this.operators[found]) {
-                        stream.wrap('operator');
-                    } else if (this.punctuations[found]) {
-                        stream.wrap('punctuation');
-                    } else if (this.brackets[found]) {
-                        stream.wrap('bracket');
-                    } else if (e = this.expressions[found]) {
-                        stream.eat(found, e.ending, function() {
-                            this.tear().wrap('invalid');
-                        }).applyWrap(e.classes);
-                    }
-                } else if (found[0] === '@') {
-                    stream.wrap('variable');
-                } else if (e = this.expressions[found]) {
-                    stream.eatGreedily(found, e.ending).applyWrap(e.classes);
-                    stream.isStillHungry() && stream.setStateAfter('comment');
-                }
-            }
-            
-            return stream;
         },
-        indentation: function(textBefore, textAfter, line, indent, parser) {
-            /\b\w+$/.test(textBefore);
-            var word = RegExp.lastMatch.toLowerCase();
-            if (word && indentIncrements.indexOf(word) >= 0) {
-                return 1;
+        iterator: function(stream, state) {
+            var ch = stream.next();
+            if (state.then) {
+                state.then = undefined;
+                --state.indent;
             }
-            if (/^\s*then\s*.*$/i.test(textBefore)) {
-                return -1;
+            if (ch == "'" || ch == '"' || ch == '`') {
+                state.quote = ch;
+                return string(stream, state);
             }
-            if (/when\s*(.*)$/i.test(textBefore) && !/\bthen\b/.test(RegExp.$1) || /\,\s*$/.test(textBefore)) {
-                return 1;
+            if (ch == '/' && stream.eat('*')) {
+                return comment(stream, state);
             }
-            return 0;
-        },
-        keyMap: keyMap,
-        extension: {
-            selectionWrappers: {
-                '`': '`'
-            },
-            expressions: {
-                '--': {
-                    ending: /$/,
-                    classes: ['comment', 'line-comment']
-                },
-                '`': {
-                    ending: /(^\`|[^\\]\`)/,
-                    classes: ['string', 'backquote']
+            if (ch == '-' && stream.eat('-')) {
+                stream.skip();
+                return 'comment';
+            }
+            if (ch == '*') {
+                return 'parameter';
+            }
+            if (ch == '(' || ch == ')') {
+                return 'bracket';
+            }
+            if (ch == '@') {
+                stream.eatWhile(/\w/);
+                return 'variable';
+            }
+            if (/\d/.test(ch)) {
+                stream.match(/^\d*\.?\d+/, true);
+                return 'numeric';
+            }
+            if (operatorsRgx.test(ch)) {
+                stream.eatWhile(operatorsRgx);
+                return 'operator';
+            }
+            if (/[a-z]/i.test(ch)) {
+                var word = (ch + stream.eatWhile(/\w/)).toLowerCase();
+                if (word == 'end') {
+                    --state.indent;
+                    return 'control';
                 }
+                if (word == 'begin' || word == 'case' || (word == 'when' && !stream.isAfter(/\bthen\b/))) {
+                    ++state.indent;
+                    return 'control';
+                }
+                if (word == 'then') {
+                    if (stream.isAfter(/\w/)) {
+                        state.then = true;
+                    }
+                    return 'control';
+                }
+                if (atoms.indexOf(word) >= 0) return 'builtin boolean';
+                if (builtins.indexOf(word) >= 0) return 'builtin';
+                if (controls.indexOf(word) >= 0) return 'control';
+                if (operators.indexOf(word) >= 0) return 'operator';
+                if (keywords.indexOf(word) >= 0) return 'keyword';
+                if (stream.isAfter('.') || stream.isBefore(/use\s+$/i, -word.length)) return 'namespace';
+                if (stream.isAfter('(')) return 'function';
+                if (stream.pos != 0 && stream.lastStyle != 'special') return 'special';
             }
+        },
+        indent: function(stream, state) {
+            if (stream.isAfter(/^end/i)) return state.indent - 1;
+            return state.indent;
         }
     });
 });

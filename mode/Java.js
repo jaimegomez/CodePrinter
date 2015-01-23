@@ -1,7 +1,11 @@
 /* CodePrinter - Java Mode */
 
 CodePrinter.defineMode('Java', function() {
-    var controls = ['if','else','while','for','do','case','switch','try','catch','finally']
+    
+    var wordRgx = /[\w\$_\xa1-\uffff]/
+    , operatorRgx = /[+\-*&%=<>!?|\/]/
+    , openBrackets = /^[{\[\(]/, closeBrackets = /^[}\]\)]/
+    , controls = ['if','else','while','for','do','case','switch','try','catch','finally']
     , types = ['byte','short','int','long','float','double','boolean','char']
     , constants = ['null','undefined','NaN','Infinity']
     , keywords = [
@@ -30,91 +34,175 @@ CodePrinter.defineMode('Java', function() {
         'ClassLoader','Cloneable','Class','CharSequence','Comparable'
     ]
     
+    function string(stream, state, escaped) {
+        var esc = !!escaped, ch;
+        while (ch = stream.next()) {
+            if (ch == state.quote && !esc) break;
+            if (esc = !esc && ch == '\\') {
+                stream.undo(1);
+                state.next = escapedString;
+                return 'string';
+            }
+        }
+        if (!ch && esc) state.next = string;
+        state.next = null;
+        if (!ch) return 'invalid';
+        state.quote = undefined;
+        return 'string';
+    }
+    function escapedString(stream, state) {
+        if (stream.eat('\\')) {
+            var ch = stream.next();
+            if (ch) {
+                state.next = string;
+                return 'escaped';
+            }
+            stream.undo(1);
+        }
+        return string(stream, state, true);
+    }
+    function comment(stream, state) {
+        var star, ch;
+        while (ch = stream.next()) {
+            if (star && ch == '/') {
+                break;
+            }
+            star = ch == '*';
+        }
+        state.next = ch && star ? null : comment;
+        return 'comment';
+    }
+    
+    function pushcontext(state) {
+        state.context = { indent: state.indent + 1, prev: state.context };
+    }
+    function popcontext(state) {
+        if (state.context.prev) state.context = state.context.prev;
+    }
+    
     return new CodePrinter.Mode({
         name: 'Java',
-        controls: new RegExp('^('+ controls.join('|') +')$'),
-        keywords: new RegExp('^('+ keywords.join('|') +')$'),
-        specials: new RegExp('^('+ specials.join('|') +')$'),
-        constants: new RegExp('^('+ constants.join('|') +')$'),
-        types: new RegExp('^('+ types.join('|') +')$'),
-        regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
         blockCommentStart: '/*',
         blockCommentEnd: '*/',
         lineComment: '//',
+        indentTriggers: closeBrackets,
+        matching: 'brackets',
         
-        memoryAlloc: function() {
+        initialState: function() {
             return {
-                classes: []
-            }
-        },
-        parse: function(stream, memory) {
-            var sb = stream.stateBefore, found;
-            
-            if (sb && sb.comment) {
-                var e = this.expressions['/*'];
-                stream.eatWhile(e.ending).applyWrap(e.classes);
-                stream.isStillHungry() && stream.continueState();
-            }
-            
-            while (found = stream.match(this.regexp)) {
-                if (!isNaN(found) && found != 'Infinity') {
-                    if (found.substring(0, 2) === '0x') {
-                        stream.wrap('numeric', 'hex');
-                    } else {
-                        if ((found+'').indexOf('.') === -1) {
-                            stream.wrap('numeric', 'int');
-                        } else {
-                            stream.wrap('numeric', 'float');
-                        }
-                    }
-                } else if (/^[a-zA-Z0-9\_]+$/.test(found)) {
-                    if (found == 'true' || found == 'false') {
-                        stream.wrap('builtin', 'boolean');
-                    } else if (this.constants.test(found)) {
-                        stream.wrap('builtin');
-                    } else if (this.controls.test(found)) {
-                        stream.wrap('control');
-                    } else if (this.types.test(found)) {
-                        stream.wrap('keyword', 'type');
-                    } else if (this.keywords.test(found)) {
-                        stream.wrap('keyword');
-                    } else if (this.specials.test(found) || (!stream.isBefore('.') && !stream.isAfter(';') && memory.classes.indexOf(found) !== -1)) {
-                        stream.wrap('special');
-                    } else if (found == 'class') {
-                        stream.wrap('keyword');
-                        if (found = stream.capture(/^\s*(\w+)/, 1)) {
-                            memory.classes.put(found);
-                        }
-                    } else if (found == 'import') {
-                        stream.wrap('keyword');
-                        if (found = stream.capture(/^.*[\s\.]([a-zA-Z0-9]+);$/, 1)) {
-                            stream.eat(found).wrap('special');
-                            memory.classes.put(found);
-                        }
-                    } else if (stream.isAfter('(')) {
-                        if (stream.isBefore(/\bp(ublic|rotected|rivate)\b/)) stream.isDefinition = true;
-                        stream.wrap('function');
-                    } else if (stream.isBefore('.')) {
-                        stream.wrap('property');
-                    }
-                } else if (found.length == 1) {
-                    if (this.operators[found]) {
-                        stream.wrap('operator', this.operators[found]);
-                    } else if (this.punctuations[found]) {
-                        stream.wrap('punctuation', this.punctuations[found]);
-                    } else if (this.brackets[found]) {
-                        stream.applyWrap(this.brackets[found]);
-                    } else if (found === '"' || found === "'") {
-                        stream.eat(found, this.expressions[found].ending, function() {
-                            this.tear().wrap('invalid');
-                        }).applyWrap(this.expressions[found].classes);
-                    }
-                } else if (this.expressions[found]) {
-                    stream.eatGreedily(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-                    found === '/*' && stream.isStillHungry() && stream.setStateAfter('comment');
+                indent: 0,
+                classes: {},
+                context: {
+                    indent: 0
                 }
             }
-            return stream;
+        },
+        iterator: function(stream, state) {
+            var ch = stream.next();
+            if (ch == '"' || ch == "'") {
+                state.quote = ch;
+                return string(stream, state);
+            }
+            if (ch == '/') {
+                if (stream.eat('/')) {
+                    stream.skip();
+                    return 'comment';
+                }
+                if (stream.eat('*')) {
+                    return comment(stream, state);
+                }
+            }
+            if (ch == '0' && stream.eat(/x/i)) {
+                stream.eatWhile(/[0-9a-f]/i);
+                return 'numeric hex';
+            }
+            if (ch == '@') {
+                stream.eatWhile(wordRgx);
+                return 'directive';
+            }
+            if (openBrackets.test(ch)) {
+                if (ch == '{') {
+                    if (state.classdef) {
+                        state.classdef = undefined;
+                        pushcontext(state);
+                    }
+                    ++state.indent;
+                }
+                return 'bracket';
+            }
+            if (closeBrackets.test(ch)) {
+                if (ch == '}') {
+                    if (state.indent == state.context.indent) {
+                        popcontext(state);
+                    }
+                    --state.indent;
+                }
+                return 'bracket';
+            }
+            if (operatorRgx.test(ch)) {
+                stream.eatWhile(operatorRgx);
+                return 'operator';
+            }
+            if (/\d/.test(ch)) {
+                stream.match(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/, true);
+                return 'numeric';
+            }
+            if (/[a-z\$_\xa1-\uffff]/i.test(ch)) {
+                var word = ch + stream.eatWhile(wordRgx);
+                
+                if (word == 'true' || word == 'false') {
+                    return 'builtin boolean';
+                }
+                if (word == 'import') {
+                    return 'keyword';
+                }
+                if (word == 'class') {
+                    state.classdef = true;
+                    return 'keyword';
+                }
+                if (stream.lastValue == 'import') {
+                    if (stream.isAfter(/^\s*\;/)) {
+                        state.classes[word] = true;
+                        return 'special';
+                    }
+                }
+                if (stream.lastValue == 'class' || state.classes[word] === true) {
+                    state.classes[word] = true;
+                    return 'special';
+                }
+                if (constants.indexOf(word) >= 0) {
+                    return 'builtin';
+                }
+                if (controls.indexOf(word) >= 0) {
+                    return 'control';
+                }
+                if (types.indexOf(word) >= 0) {
+                    return 'keyword type';
+                }
+                if (keywords.indexOf(word) >= 0) {
+                    return 'keyword';
+                }
+                if (specials.indexOf(word) >= 0) {
+                    return 'special';
+                }
+                if (stream.isAfter(/^\s*\(/)) {
+                    return 'function';
+                }
+            }
+        },
+        indent: function(stream, state) {
+            var i = state.indent;
+            if (stream.lastStyle == 'bracket bracket-open') {
+                if (stream.isAfter(closeBrackets)) return [i, -1];
+            }
+            if (stream.isAfter(closeBrackets)) return i - 1;
+            return i;
+        },
+        completions: function(stream, state) {
+            return {
+                values: specials.concat(Object.keys(state.classes)),
+                search: 200
+            }
         },
         snippets: {
             'in': {
