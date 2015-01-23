@@ -7,8 +7,8 @@
 .cps-monokai .cp-selection { background:rgba(255,255,255,0.15); }
 .cps-monokai.inactive .cp-selection { background:rgba(255,255,255,0.1); }
 .cps-monokai .cp-highlight { border-bottom:1px solid white; }
-.cps-monokai .cp-marked { background:rgb(52,53,49); }
-.cps-monokai .cp-active-line { background:rgba(0,0,0,0.5); box-shadow:0 0 0 1px black; }
+.cps-monokai .cp-marked { background:rgba(255,255,255,0.1); }
+.cps-monokai .cp-active-line { background:#373832; }
 .cps-monokai .cp-search-occurrence { border:1px solid #999; margin:0; }
 .cps-monokai .cp-search-occurrence.active { background:#fdd017; border-color:#fdd017; color:#333; }
 .cps-monokai .cp-hint-container { background:#272822; border-color:#555; box-shadow:0 0 10px rgba(0,0,0,0.7); }
