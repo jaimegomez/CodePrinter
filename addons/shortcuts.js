@@ -28,7 +28,7 @@ CodePrinter.defineAddon('shortcuts', function() {
         },
         'Ctrl M': function() {
             var dl = this.caret.dl();
-            if (dl) dl.classes && dl.classes.indexOf(markClassName) >= 0 ? dl.unmark() : dl.mark();
+            if (dl) dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
         },
         'Ctrl N': function() {
             this.counter.hasClass('hidden') ? this.openCounter() : this.closeCounter();

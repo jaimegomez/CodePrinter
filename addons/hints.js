@@ -15,7 +15,7 @@ CodePrinter.defineAddon('hints', function() {
         this.options = options = {}.extend(defaults, options);
         cp.hints = this;
         
-        this.overlay = ov = cp.document.createOverlay('cp-hint-overlay');
+        this.overlay = ov = cp.doc.createOverlay('cp-hint-overlay');
         container = document.createElement('div');
         container.className = 'cp-hint-container';
         ov.node.appendChild(container);
@@ -23,17 +23,24 @@ CodePrinter.defineAddon('hints', function() {
         options.maxWidth != 300 && container.css('maxWidth', options.maxWidth);
         options.maxHeight != 100 && container.css('maxHeight', options.maxHeight);
         
+        function getWordRgx() {
+            return cp.parser.autoCompleteWord || options.word || defaults.word;
+        }
+        
         this.search = function() {
             var list = [], seen = {}
             , range = options.range, limit = options.limit
-            , rgx = new RegExp(options.word.source, 'g')
-            , wordBf = cp.wordBefore(options.word)
-            , wordAf = cp.wordAfter(options.word)
+            , wordRgx = getWordRgx()
+            , rgx = new RegExp(wordRgx.source, 'g')
+            , wordBf = cp.wordBefore(wordRgx)
+            , wordAf = cp.wordAfter(wordRgx)
             , caret = cp.caret
             , curDL = caret.dl()
             , bf = caret.textBefore()
             , af = caret.textAfter()
             , text = curDL.text
+            , s = cp.getStateAt(curDL, bf.length)
+            , parser = s && s.state && s.state.parser || cp.parser
             , dl, text, m
             , next, hOP, fn, ph;
             
@@ -78,12 +85,15 @@ CodePrinter.defineAddon('hints', function() {
                 }
             }
             
-            if (cp.parser && (ph = cp.parser.codeCompletions.call(cp, bf, af))) {
+            if (parser && parser.completions && (ph = parser.completions.call(cp, s.stream, s.state))) {
                 var v = ph instanceof Array ? ph : ph.values;
                 for (var i = 0; i < v.length; i++) {
                     if (!hOP.call(seen, v[i])) {
                         fn(v[i]);
                     }
+                }
+                if ('number' === typeof ph.search && ph.search > 1) {
+                    range = ph.search;
                 }
             }
             if (!ph || ph.search) {
@@ -125,7 +135,7 @@ CodePrinter.defineAddon('hints', function() {
                 }
                 this.overlay.reveal();
                 refreshPosition();
-                setActive(ul.children[0]);
+                setActive(ul.children[0], true);
                 visible = true;
             } else {
                 this.hide();
@@ -141,9 +151,10 @@ CodePrinter.defineAddon('hints', function() {
             return !!visible;
         }
         this.choose = function(value) {
-            var word = this.options.word
+            var word = getWordRgx()
             , wbf = cp.wordBefore(word)
-            , waf = cp.wordAfter(word);
+            , waf = cp.wordAfter(word)
+            , parser = cp.getCurrentParser();
             
             if (wbf + waf !== value) {
                 cp.removeBeforeCursor(wbf);
@@ -152,8 +163,8 @@ CodePrinter.defineAddon('hints', function() {
             } else {
                 cp.caret.moveX(waf.length);
             }
-            if (cp.parser && cp.parser.onCompletionChosen) {
-                if (cp.parser.onCompletionChosen.call(cp, value)) {
+            if (parser && parser.onCompletionChosen) {
+                if (parser.onCompletionChosen.call(cp, value)) {
                     $.async(function() {
                         that.show(false);
                     });
@@ -202,7 +213,9 @@ CodePrinter.defineAddon('hints', function() {
         ov.on({
             'caretMove': function() {
                 if (curWord) {
-                    var word = cp.wordBefore(options.word)+cp.wordAfter(options.word);
+                    var wordRgx = getWordRgx()
+                    , word = cp.wordBefore(wordRgx) + cp.wordAfter(wordRgx);
+                    
                     if (word === curWord) {
                         that.show(false, word);
                     } else {
@@ -213,9 +226,15 @@ CodePrinter.defineAddon('hints', function() {
             'changed': function(e) {
                 !e.added || that.strictMatch(e.text) ? that.show(false) : that.hide();
             },
+            'keydown': function() {
+                curWord = undefined;
+            },
             'blur': that.hide,
             'click': that.hide
         });
+        
+        var stopprop = function(e) { e.stopPropagation(); };
+        ov.node.on({ wheel: stopprop, mousewheel: stopprop, scroll: stopprop });
         
         container.delegate('li', {
             mousedown: function(e) {
