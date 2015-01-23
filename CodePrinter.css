@@ -1,7 +1,7 @@
 /*  CodePrinter
 *   CSS document
 *   
-*   version     0.7.2
+*   version     0.7.3
 */
 .codeprinter-source {
   display: block;
@@ -27,7 +27,7 @@
   padding: 0;
   border: 1px solid #d4d4d4;
   min-width: 50px;
-  min-height: 20px;
+  min-height: 13px;
   height: 300px;
   overflow: hidden;
   position: relative;
@@ -38,6 +38,17 @@
 .codeprinter * {
   -webkit-tap-highlight-color: transparent;
   -webkit-font-smoothing: subpixel-antialiased;
+}
+.codeprinter.cp-auto-height {
+  height: auto;
+}
+.codeprinter.cp-auto-height .cp-container {
+  -webkit-flex: none;
+  -moz-flex: none;
+  -ms-flex: none;
+  -o-flex: none;
+  flex: none;
+  min-height: initial;
 }
 .codeprinter div,
 .codeprinter .cp-input,
@@ -109,7 +120,6 @@
   flex-flow: column;
   border: none;
   min-width: 120px;
-  min-height: 60px;
   position: relative;
   z-index: 4;
   overflow: hidden;
@@ -123,6 +133,11 @@
   pointer-events: none;
 }
 .codeprinter .cp-input {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
   display: inline-block;
   vertical-align: top;
   width: 1px;
@@ -153,6 +168,7 @@
   color: inherit;
   overflow: visible;
   position: absolute;
+  text-align: left;
 }
 .codeprinter .cp-screen pre {
   margin: 0 -10px;
@@ -165,10 +181,8 @@
 }
 .codeprinter .cp-screen pre span {
   position: relative;
+  pointer-events: all;
   z-index: 7;
-}
-.codeprinter .cp-screen pre span span {
-  font-size: 100% !important;
 }
 .codeprinter .cp-codelines,
 .codeprinter .cp-templine {
@@ -194,7 +208,7 @@
   user-select: none;
   display: inline-block;
   vertical-align: top;
-  min-width: 32px;
+  min-width: 34px;
   background: #fcfcfc;
   border-right: 1px solid #d4d4d4;
   box-sizing: border-box;
@@ -212,9 +226,13 @@
   position: relative;
 }
 .codeprinter .cp-counter li {
-  padding: 0 6px 0 12px;
+  padding: 0 6px;
   text-align: right;
   line-height: 13px;
+  text-rendering: auto;
+}
+.codeprinter .cp-counter li::before {
+  font-family: FontAwesome;
 }
 .codeprinter .cp-counter.hidden {
   display: none;
@@ -229,6 +247,7 @@
   background: none;
   position: absolute;
   opacity: 0;
+  text-align: left;
   pointer-events: none;
   z-index: 10;
 }
@@ -237,28 +256,24 @@
 }
 .codeprinter .cp-scrollbar-slider {
   display: inline-block;
+  width: inherit;
+  height: inherit;
   background: rgba(0, 0, 0, 0.5);
   border-radius: 50px;
   position: relative;
   vertical-align: top;
 }
 .codeprinter .cp-scrollbar-horizontal {
+  height: 7px;
   right: 7px;
   bottom: 0;
   left: 0;
 }
-.codeprinter .cp-scrollbar-horizontal,
-.codeprinter .cp-scrollbar-horizontal .cp-scrollbar-slider {
-  height: 7px;
-}
 .codeprinter .cp-scrollbar-vertical {
+  width: 7px;
   top: 0;
   right: 0;
   bottom: 7px;
-}
-.codeprinter .cp-scrollbar-vertical,
-.codeprinter .cp-scrollbar-vertical .cp-scrollbar-slider {
-  width: 7px;
 }
 .codeprinter .cp-overlay {
   background: none !important;
@@ -271,7 +286,8 @@
   pointer-events: none;
   overflow: hidden;
 }
-.codeprinter .cp-selection-overlay {
+.codeprinter .cp-selection-overlay,
+.codeprinter .cp-highlight-overlay {
   z-index: 3;
 }
 .codeprinter .cp-selection {
@@ -378,8 +394,18 @@
 .codeprinter .cp-marked {
   background: #f0f0f0;
 }
+.codeprinter li.cp-mark-warning::before {
+  margin-right: 4px;
+  color: orange;
+  content: "\f071";
+}
+.codeprinter li.cp-mark-error::before {
+  margin-right: 4px;
+  color: red;
+  content: "\f06a";
+}
 .codeprinter .cp-active-line {
-  background: rgba(230, 239, 255, 0.6);
+  background: rgba(230, 239, 255, 0.5);
 }
 .codeprinter.without-indentation .cpx-tab {
   margin-left: 0;
@@ -389,13 +415,12 @@
   color: transparent;
   border: solid transparent;
   border-width: 0 0 1px 0;
-  margin-top: 1px;
+  box-sizing: border-box;
 }
 .codeprinter .cpx-tab {
   padding: 0;
-  margin-left: -1px;
   border-color: transparent;
-  border-left: 1px dotted #c8c8c8;
+  border-left: 1px dashed #c8c8c8;
 }
 .codeprinter .cpx-bracket {
   color: #000000;
@@ -404,15 +429,18 @@
   color: #0487FA;
 }
 .codeprinter .cpx-variable {
-  color: #1a19ff;
+  color: #028ec4;
 }
 .codeprinter .cpx-parameter {
-  color: #d07fcd;
+  color: #f66153;
 }
 .codeprinter .cpx-keyword,
 .codeprinter .cpx-control,
 .codeprinter .cpx-builtin {
-  color: #025BB9;
+  color: #004eac;
+}
+.codeprinter .cpx-constant {
+  color: #885d3b;
 }
 .codeprinter .cpx-special {
   color: #C93800;
@@ -433,7 +461,7 @@
   color: #003f83;
 }
 .codeprinter .cpx-property {
-  color: #028EC4;
+  color: #028ec4;
 }
 .codeprinter .cpx-regexp {
   color: #6F9D00;
@@ -441,14 +469,14 @@
 .codeprinter .cpx-escaped {
   color: #436300;
 }
-.codeprinter .cpx-phptag {
+.codeprinter .cpx-external {
   color: #FF0000;
 }
 .codeprinter .cpx-string {
   color: #6F9D00;
 }
 .codeprinter .cpx-comment {
-  color: #999999;
+  color: #999;
 }
 .codeprinter .cpx-invalid {
   background: #E63B00;
@@ -462,6 +490,9 @@
 }
 .codeprinter .cpx-underline {
   text-decoration: underline;
+}
+.codeprinter .cpx-strike {
+  text-decoration: line-through;
 }
 .codeprinter .cpx-font-40 {
   font-size: 40%;
@@ -536,13 +567,10 @@
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
 }
 .cps-default .cp-highlight {
-  border-bottom: 1px solid #000;
-}
-.cps-default .cp-marked {
-  box-shadow: 0 0 0 1px rgba(69, 69, 69, 0.2);
+  border-color: #000;
 }
 .cps-default .cp-active-line {
-  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.3);
+  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.2);
 }
 .cps-default .cpx-control,
 .cps-default .cpx-external {

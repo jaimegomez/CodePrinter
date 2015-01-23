@@ -13,15 +13,14 @@
 
 (window.define || function() { arguments[2]($ || env); })('CodePrinter', ['env'], function($) {
     var CodePrinter, Data, Branch, Line
-    , Caret, Document, StreamArray, Stream
-    , ReadStream, History, Selection, keyMap
-    , commands, tracking, lineendings, aliases
-    , div, li, pre, span, raf
+    , Caret, Document, Stream, ReadStream
+    , History, Selection, keyMap
+    , commands, lineendings
+    , div, li, pre, span
     , BRANCH_OPTIMAL_SIZE = 50
     , BRANCH_HALF_SIZE = 25
     , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
     , activeClassName = 'cp-active-line'
-    , markClassName = 'cp-marked'
     , zws = '&#8203;'
     , eol = /\r\n?|\n/;
     
@@ -36,10 +35,11 @@
         options = this.options = $.extend({}, CodePrinter.defaults, options);
         buildDOM(this);
         this.prepare();
+        this.parser = new CodePrinter.Mode();
         
         if (source && source.nodeType) {
             this.doc.init((source.tagName.toLowerCase() === 'textarea' ? source.value : source.innerHTML).decode());
-            source.before(this.mainElement);
+            source.before(this.mainNode);
         } else {
             this.doc.init(source);
         }
@@ -62,7 +62,7 @@
         fontFamily: 'Menlo, Monaco, Consolas, Courier, monospace',
         minFontSize: 6,
         maxFontSize: 60,
-        viewportMargin: 50,
+        viewportMargin: 150,
         keyupInactivityTimeout: 1500,
         scrollSpeed: 1,
         autoScrollSpeed: 20,
@@ -78,9 +78,8 @@
         legacyScrollbars: false,
         readOnly: false,
         drawIndentGuides: true,
-        tracking: true,
         history: true,
-        highlightBrackets: true,
+        matching: true,
         highlightCurrentLine: true,
         blinkCaret: true,
         autoScroll: true,
@@ -91,8 +90,7 @@
         useParserKeyMap: true,
         tabTriggers: true,
         shortcuts: true,
-        disableThemeClassName: false,
-        keyCombinationFlag: 1
+        disableThemeClassName: false
     }
     
     div = document.createElement('div');
@@ -104,7 +102,8 @@
         isFullscreen: false,
         prepare: function() {
             if (this.doc) return;
-            var self = this
+            var cp = this
+            , wrapper = this.wrapper
             , options = this.options
             , addons = options.addons
             , lastScrollTop = 0, counterSelection = []
@@ -116,16 +115,15 @@
                 this.container.style.fontFamily = options.fontFamily;
             }
             
-            this.mainElement.CodePrinter = this;
+            this.mainNode.CodePrinter = this;
             sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
-            this.definitions = {};
-            doc = this.doc = this.document = new Document(this);
+            doc = this.doc = new Document(this);
             this.keyMap = new keyMap;
             this.setTheme(options.theme);
             this.setMode(options.mode);
             
             options.lineNumbers ? this.openCounter() : this.closeCounter();
-            options.drawIndentGuides || this.mainElement.addClass('without-indentation');
+            options.drawIndentGuides || this.mainNode.addClass('without-indentation');
             options.legacyScrollbars && this.wrapper.addClass('legacy-scrollbars');
             options.readOnly && this.caret.disable();
             options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
@@ -148,81 +146,81 @@
             options.autoCompletion && this.initAddon('hints');
             
             function mouseController(e) {
-                if (e.button > 0 || e.which > 1 || e.defaultPrevented) return false;
+                if (e.defaultPrevented) return false;
                 
-                var sl = self.wrapper.scrollLeft
-                , st = self.wrapper.scrollTop
-                , o = sizes.bounds = sizes.bounds || self.wrapper.bounds()
+                var sl = cp.wrapper.scrollLeft
+                , st = cp.wrapper.scrollTop
+                , o = sizes.bounds = sizes.bounds || wrapper.bounds()
                 , x = Math.max(0, sl + e.pageX - o.x)
-                , y = e.pageY < o.y ? 0 : e.pageY <= o.y + self.wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : self.wrapper.scrollHeight
+                , y = e.pageY < o.y ? 0 : e.pageY <= o.y + wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : wrapper.scrollHeight
                 , ry = Math.max(0, Math.min(y, doc.height()))
-                , isinactive = document.activeElement !== self.input;
+                , isinactive = document.activeElement !== cp.input;
                 
-                self.input.focus();
-                self.caret.target(doc.lineWithOffset(ry), x);
-                var l = self.caret.line(), c = self.caret.column();
+                cp.input.focus();
+                cp.caret.target(doc.lineWithOffset(ry), x);
+                var l = cp.caret.line(), c = cp.caret.column();
                 
                 if (e.type === 'mousedown') {
                     isMouseDown = true;
-                    if (doc.inSelection(l, c) && ry === y && (x - 3 <= self.caret.offsetX() || doc.inSelection(l, c+1))) {
+                    if (doc.inSelection(l, c) && ry === y && (x - 3 <= cp.caret.offsetX() || doc.inSelection(l, c+1))) {
                         moveselection = true;
                         window.on('mousemove', mouseController);
                         window.once('mouseup', function(e) {
                             window.off('mousemove', mouseController);
                             if (moveselection > 1) {
-                                var savedpos = self.caret.savePosition();
+                                var savedpos = cp.caret.savePosition();
                                 if (moveselection && doc.issetSelection() && !doc.inSelection(savedpos[0], savedpos[1])) {
                                     var selection = doc.getSelection()
                                     , sel = doc.getSelectionRange()
-                                    , isbf = self.cursorIsBeforePosition(sel.start.line, sel.start.column);
+                                    , isbf = cp.cursorIsBeforePosition(sel.start.line, sel.start.column);
                                     
-                                    self.caret.position(sel.end.line, sel.end.column);
+                                    cp.caret.position(sel.end.line, sel.end.column);
                                     if (!isbf) {
                                         savedpos[0] -= sel.end.line - sel.start.line;
                                     }
                                     !e.altKey && doc.removeSelection();
-                                    self.caret.restorePosition(savedpos);
-                                    self.insertSelectedText(selection);
+                                    cp.caret.restorePosition(savedpos);
+                                    cp.insertSelectedText(selection);
                                 } else {
                                     doc.clearSelection();
                                     mouseController(arguments[0]);
                                 }
                             } else {
                                 isinactive || doc.clearSelection();
-                                self.input.focus();
+                                cp.input.focus();
                             }
                             return isMouseDown = moveselection = e.cancel();
                         });
                     } else {
-                        self.input.value = '';
-                        self.caret.deactivate().show();
-                        if (y > ry) self.caret.position(l, -1);
-                        else if (y < 0) self.caret.position(l, 0);
+                        cp.input.value = '';
+                        cp.caret.deactivate().show();
+                        if (y > ry) cp.caret.position(l, -1);
+                        else if (y < 0) cp.caret.position(l, 0);
                         
                         doc.beginSelection();
                         window.on('mousemove', mouseController);
                         window.once('mouseup', function(e) {
                             !doc.issetSelection() && doc.clearSelection();
                             window.off('mousemove', mouseController);
-                            self.caret.activate();
-                            self.sizes.bounds = moveevent = null;
-                            document.activeElement != self.input && ($.browser.firefox ? $.async(function() { self.input.focus() }) : self.input.focus());
+                            cp.caret.activate();
+                            sizes.bounds = moveevent = null;
+                            document.activeElement != cp.input && ($.browser.firefox ? $.async(function() { cp.input.focus() }) : cp.input.focus());
                             return isMouseDown = e.cancel();
                         });
                     }
-                    self.emit('click');
+                    cp.emit('click');
                 } else if (!moveselection) {
                     moveevent = e;
                     doc.endSelection();
                     
-                    if (e.pageY > o.y && e.pageY < o.y + self.wrapper.clientHeight) {
-                        var oH = self.wrapper.offsetHeight
+                    if (e.pageY > o.y && e.pageY < o.y + wrapper.clientHeight) {
+                        var oH = wrapper.offsetHeight
                         , i = (e.pageY <= o.y + 25 ? e.pageY - o.y - 25 : e.pageY >= o.y + oH - 25 ? e.pageY - o.y - oH + 25 : 0);
                         
                         i && setTimeout(function() {
                             if (i && !moveselection && isMouseDown && moveevent === e) {
-                                doc.scrollTo(self.wrapper.scrollTop + i);
-                                mouseController.call(self.wrapper, moveevent);
+                                doc.scrollTo(wrapper.scrollTop + i);
+                                mouseController.call(wrapper, moveevent);
                             }
                         }, 50);
                     }
@@ -234,52 +232,51 @@
             if (this.wrapper.onwheel !== undefined) {
                 this.wrapper.listen({
                     wheel: function(e) {
-                        if (e.target == this) {
-                            var x = e.deltaX, y = e.deltaY;
-                            
-                            if (x) this.scrollLeft += options.scrollSpeed * x;
-                            if (y) doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
-                            return e.cancel();
-                        }
+                        var x = e.deltaX, y = e.deltaY;
+                        
+                        if (x) this.scrollLeft += options.scrollSpeed * x;
+                        if (y) doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
+                        return e.cancel();
                     }
                 });
             } else {
                 var mousewheel = function(e) {
-                    if (e.target === this) {
-                        var x = e.wheelDeltaX, y = e.wheelDeltaY;
-                        
-                        if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
-                        if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
-                        if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
-                        if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
-                        return e.cancel();
-                    }
+                    var x = e.wheelDeltaX, y = e.wheelDeltaY;
+                    
+                    if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
+                    if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
+                    if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
+                    if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
+                    return e.cancel();
                 }
                 this.wrapper.listen({ mousewheel: mousewheel, DOMMouseScroll: mousewheel });
             }
             
-            this.wrapper.listen({
+            wrapper.listen({
                 scroll: function(e) {
-                    if (!this._lockedScrolling) doc.scrollTo(self.counter.scrollTop = this.scrollTop, false);
+                    if (!this._lockedScrolling) doc.scrollTo(cp.counter.scrollTop = this.scrollTop, false);
                     this._lockedScrolling = true;
-                    self.emit('scroll');
+                    cp.emit('scroll');
                     return e.cancel(true);
                 },
+                contextmenu: function(e) {
+                    return e.cancel();
+                },
                 dblclick: function() {
-                    var bf = self.caret.textBefore()
-                    , af = self.caret.textAfter()
-                    , line = self.caret.line()
-                    , c = self.caret.column()
+                    var bf = cp.caret.textBefore()
+                    , af = cp.caret.textAfter()
+                    , line = cp.caret.line()
+                    , c = cp.caret.column()
                     , l = 1, r = 0, rgx, timeout;
                     
                     var tripleclick = function() {
                         doc.setSelectionRange(line, 0, line+1, 0);
-                        self.caret.position(line+1, 0);
+                        cp.caret.position(line+1, 0);
                         this.unlisten('click', tripleclick);
                         timeout = clearTimeout(timeout);
                     }
                     this.listen({ 'click': tripleclick });
-                    timeout = setTimeout(function() { self.wrapper.unlisten('click', tripleclick); }, 350);
+                    timeout = setTimeout(function() { wrapper.unlisten('click', tripleclick); }, 350);
                     
                     rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
                     
@@ -295,18 +292,18 @@
             
             this.input.listen({
                 focus: function() {
-                    self.caret.focus();
-                    self.mainElement.removeClass('inactive');
-                    self.emit('focus');
+                    cp.caret.focus();
+                    cp.mainNode.removeClass('inactive');
+                    cp.emit('focus');
                 },
                 blur: function() {
                     if (isMouseDown) {
                         this.focus();
                     } else {
-                        self.caret.blur();
-                        self.mainElement.addClass('inactive');
+                        cp.caret.blur();
+                        cp.mainNode.addClass('inactive');
                         if (options.abortSelectionOnBlur) doc.clearSelection();
-                        self.emit('blur');
+                        cp.emit('blur');
                     }
                 },
                 keydown: function(e) {
@@ -315,7 +312,7 @@
                     , iscmd = $.browser.macosx ? e.metaKey : e.ctrlKey
                     , kc = e.getKeyCombination(options.keyCombinationFlag, ' ');
                     
-                    self.caret.deactivate().show();
+                    cp.caret.deactivate().show();
                     allowKeyup = true;
                     
                     if (iscmd) {
@@ -323,7 +320,7 @@
                             this.value = doc.getSelection();
                             this.setSelectionRange(0, this.value.length);
                         } else if (commands[ch]) {
-                            allowKeyup = commands[ch].call(self, e, code, ch);
+                            allowKeyup = commands[ch].call(cp, e, code, ch);
                             if (allowKeyup === false) e.cancel();
                             return allowKeyup;
                         } else {
@@ -331,13 +328,13 @@
                         }
                     }
                     if (options.readOnly && (code < 37 || code > 40)) return;
-                    if (!self.keyMap[kc] && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                    if (!cp.keyMap[kc] && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
                         kc = e.getKeyCombination(options.keyCombinationFlag | 4, ' ');
                     }
-                    self.emit('@'+kc, e);
-                    if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && self.keyMap[kc]) {
-                        self.emit('keydown', e);
-                        allowKeyup = self.keyMap[kc].call(self, e, code, kc);
+                    cp.emit('@'+kc, e);
+                    cp.emit('keydown', e);
+                    if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && cp.keyMap[kc]) {
+                        allowKeyup = cp.keyMap[kc].call(cp, e, code, kc);
                     }
                     if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
                         return allowKeyup = e.cancel();
@@ -347,39 +344,45 @@
                 keypress: function(e) {
                     if (options.readOnly) return;
                     var a, code = e.getCharCode()
+                    , s = cp.getStateAt(cp.caret.dl(), cp.caret.column())
+                    , parser = s && s.parser
                     , ch = String.fromCharCode(code);
                     
                     if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-                        if (doc.issetSelection() && (a = self.parser.selectionWrappers[ch])) {
+                        if (doc.issetSelection() && (a = parser.selectionWrappers[ch])) {
                             'string' === typeof a ? doc.wrapSelection(a, a) : doc.wrapSelection(a[0], a[1]);
                             allowKeyup = false;
-                        } else if (options.useParserKeyMap && self.parser.keyMap[ch]) {
-                            allowKeyup = self.parser.keyMap[ch].call(self, e, code, ch);
+                        } else if (options.useParserKeyMap && parser.keyMap[ch]) {
+                            allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
                         }
                         if (allowKeyup !== false) {
-                            (self.keyMap[ch] ? self.keyMap[ch].call(self, e, code, ch) !== false : true) && self.insertText(ch);
                             this.value = '';
-                            if (options.autoComplete && self.hints && (self.hints.match(ch) || self.parser.isAutoCompleteTrigger(ch))) {
-                                T3 = clearTimeout(T3) || setTimeout(function() { self.hints.show(false); }, options.autoCompleteDelay);
+                            if (cp.keyMap[ch] ? cp.keyMap[ch].call(cp, e, code, ch) !== false : true) cp.insertText(ch);
+                            if (T3) T3 = clearTimeout(T3);
+                            if (options.autoComplete && cp.hints) {
+                                var isdigit = /^\d+$/.test(ch);
+                                if ((!isdigit && cp.hints.match(ch)) || parser.isAutoCompleteTrigger(ch)) T3 = setTimeout(function() { cp.hints.show(false); }, options.autoCompleteDelay);
+                                else if (!isdigit) cp.hints.hide();
                             }
-                            return e.cancel();
-                        } else {
-                            return e.cancel();
                         }
+                        if (options.autoIndent && parser.isIndentTrigger(ch)) {
+                            fixIndent(cp, parser, -ch.length);
+                        }
+                        return e.cancel();
                     }
                 },
                 keyup: function(e) {
                     if (options.readOnly) return;
-                    if (self.caret.isVisible) self.caret.activate();
-                    if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-                        this.value.length && self.insertText(this.value);
-                        T = clearTimeout(T) || setTimeout(function() { self.forcePrint(); }, options.keyupInactivityTimeout);
+                    if (cp.caret.isVisible) cp.caret.activate();
+                    if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
+                        this.value.length && cp.insertText(this.value);
+                        T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.parser); }, options.keyupInactivityTimeout);
                     }
                     this.value = '';
                 },
                 input: function(e) {
                     if (!options.readOnly && this.value.length) {
-                        self.insertText(this.value);
+                        cp.insertText(this.value);
                         this.value = '';
                     }
                 }
@@ -387,7 +390,7 @@
             
             this.select = function(dl) {
                 this.unselect();
-                if (this.options.highlightCurrentLine && !moveselection && !doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
+                if (options.highlightCurrentLine && !moveselection && !doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
                     dl.node.addClass(activeClassName);
                     dl.counter.addClass(activeClassName);
                     dl.active = true;
@@ -406,8 +409,7 @@
             this.caret.on({
                 move: function(x, y, dl, line, column) {
                     if (options.autoScroll) {
-                        var wrapper = self.wrapper
-                        , pl = sizes.paddingLeft, pt = sizes.paddingTop
+                        var pl = sizes.paddingLeft, pt = sizes.paddingTop
                         , sl = wrapper.scrollLeft, st = wrapper.scrollTop
                         , cw = wrapper.clientWidth, ch = wrapper.clientHeight
                         , h = dl.height;
@@ -432,43 +434,42 @@
                             }
                         }
                         doc.scrollTo(st);
-                        self.counter.firstChild.scrollTop = st;
+                        cp.counter.firstChild.scrollTop = st;
                     }
-                    if (options.tracking) {
-                        T2 = clearTimeout(T2);
-                        var a, b, before = this.textBefore(), after = this.textAfter();
-                        for (var s in self.tracking) {
-                            var len = s.length, i = 0;
-                            do {
-                                a = len == i || before.endsWith(s.substring(0, len - i));
-                                b = after.startsWith(s.substring(len - i, len));
-                            } while ((!a || !b) && ++i <= len);
-                            
-                            if (a && b) {
-                                T2 = setTimeout(function() {
-                                    var r = self.tracking[s].call(self, s, before+after, { line: line, columnStart: column - len + i, columnEnd: column + i });
-                                    r === false && self.highlightOverlay && self.highlightOverlay.remove();
-                                }, 40);
-                                break;
+                    if (options.matching) {
+                        var m = getMatchingObject(cp.parser.matching);
+                        if (m) {
+                            var a, b, cur, bf = this.textBefore(), af = this.textAfter();
+                            for (var s in m) {
+                                var len = s.length, i = 0;
+                                do {
+                                    a = len == i || bf.endsWith(s.substring(0, len - i));
+                                    b = af.startsWith(s.substring(len - i, len));
+                                } while ((!a || !b) && ++i <= len);
+                                if (a && b) {
+                                    matchingHelper(cp, s, m[s], line, column - len + i, column + i);
+                                    break;
+                                }
                             }
-                        }
-                        if ((!a || !b) && self.highlightOverlay) {
-                            self.highlightOverlay.remove();
+                            if ((!a || !b) && cp.highlightOverlay) cp.highlightOverlay.remove();
                         }
                     }
+                    cp.emit('caretMove', line, column);
                 }
             });
             
             function counterMousemove(e) {
-                var dli, min, max, range;
-                if (dli = e.target._dl && e.target._dl.info()) {
-                    counterSelection[1] = dli.index;
+                var min, max, range
+                , b = sizes.bounds
+                , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
+                if (dl) {
+                    counterSelection[1] = dl.info().index;
                     min = Math.min.apply(Math, counterSelection);
                     max = Math.max.apply(Math, counterSelection);
                     doc.setSelectionRange(min, 0, max + 1, 0);
                     if (range = doc.getSelectionRange()) {
                         var tmp = min === counterSelection[0] ? range.end : range.start;
-                        self.caret.position(tmp.line, tmp.column);
+                        cp.caret.position(tmp.line, tmp.column);
                     }
                 }
             }
@@ -479,17 +480,18 @@
                 if (counterSelection.length === 1) {
                     var range, min = counterSelection[0];
                     doc.setSelectionRange(min, 0, min + 1, 0);
-                    if (range = doc.getSelectionRange()) self.caret.position(range.end.line, range.end.column);
+                    if (range = doc.getSelectionRange()) cp.caret.position(range.end.line, range.end.column);
                 }
                 counterSelection.length = 0;
                 isMouseDown = false;
             }
             
-            this.counter.delegate('li', 'mousedown', function() {
-                var dli = this._dl && this._dl.info();
-                if (dli) {
-                    counterSelection[0] = this._dl.info().index;
-                    self.input.focus();
+            this.counter.delegate('li', 'mousedown', function(e) {
+                var b = sizes.bounds = sizes.bounds || wrapper.bounds()
+                , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
+                if (dl) {
+                    counterSelection[0] = dl.info().index;
+                    cp.input.focus();
                     isMouseDown = true;
                     window.addEventListener('mousemove', counterMousemove, false);
                     window.addEventListener('mouseup', counterMouseup, false);
@@ -500,12 +502,13 @@
             mode && this.setMode(mode);
             mode = this.options.mode;
             source && this.doc.init(source);
+            var cp = this;
             
             function callback(ModeObject) {
                 var b = !this.parser;
                 this.defineParser(ModeObject);
                 this.doc.fill();
-                this.forcePrint();
+                runBackgroundParser(this, ModeObject);
                 if (this.options.autofocus) {
                     this.input.focus();
                     this.caret.position(0, 0);
@@ -522,28 +525,11 @@
                 callback.call(this, this.parser);
             } else {
                 if (!CodePrinter.hasMode(mode)) {
-                    var that = this;
-                    this.doc.eachVisibleLines(function(line) {
-                        that.parse(line);
-                    });
+                    runBackgroundParser(this, this.parser);
                 }
                 CodePrinter.requireMode(mode, callback, this);
             }
             return this;
-        },
-        forcePrint: function() {
-            this.definitions = {};
-            this.memory = this.parser.memoryAlloc();
-            this.doc.isFilled = undefined;
-            var sb = null;
-            
-            this.intervalIterate(function(dl, line, offset) {
-                dl = this.parse(dl, true, sb);
-                sb = dl.stateAfter;
-                return dl;
-            }, function() {
-                this.emit('printed');
-            }, { queue: 25 });
         },
         initAddon: function(addon, options) {
             var cp = this;
@@ -583,87 +569,72 @@
         defineParser: function(parser) {
             if (parser instanceof CodePrinter.Mode && this.parser !== parser) {
                 this.parser = parser;
-                this.memory = parser.memoryAlloc();
-                this.tracking = (new tracking(this)).extend(parser.tracking);
             }
         },
-        parse: function(dl, force, stateBefore) {
+        parse: function(dl, stateBefore) {
             if (dl != null) {
-                var text = dl.text, p = '', i = -1
+                var state = stateBefore, start = dl
                 , tw = this.options.tabWidth
-                , tab = ' '.repeat(tw)
-                , spaces = 0, ind = 0;
+                , tmpnext = dl.state && dl.state.next, newnext;
                 
-                while (++i < text.length) {
-                    if (text[i] == ' ') {
-                        ++spaces;
-                        if (spaces == tw) {
-                            p += '<span class="cpx-tab">'+tab+'</span>';
-                            spaces = 0;
-                            ++ind;
-                        }
-                    } else if (text[i] == '\t') {
-                        spaces = 0;
-                        p += '<span class="cpx-tab">\t</span>';
-                        ++ind;
-                    } else {
-                        break;
-                    }
+                if (state === undefined) {
+                    var s = searchLineWithState(this.parser, start, tw);
+                    state = s.state;
+                    start = s.line;
+                } else {
+                    state = state ? copyState(state) : this.parser.initialState();
                 }
-                if (spaces) p += ' '.repeat(spaces);
-                if (i) text = text.substr(i);
-                
-                if (!this.parser || this.parser.name === 'plaintext') {
-                    if (text) p += '<span>'+text+'</span>';
-                    dl.setParsed(p || zws);
-                } else if (force || dl.changed & 1) {
-                    var state = stateBefore;
-                    if (arguments.length < 3) {
-                        state = dl.prev()
-                        state = state && state.stateAfter;
-                    }
-                    if (!text) {
-                        dl.setParsed(p || zws);
-                        if (b = state) {
-                            dl.stateAfter = state;
-                        } else if (b = dl.stateAfter) {
-                            dl.stateAfter = undefined;
+                for (; start; start = start.next()) {
+                    var ind = parseIndentation(start.text, tw)
+                    , stream = new Stream(ind.rest, { indentation: ind.indentation });
+                    if (start.node) {
+                        if (ind.rest) {
+                            dl.node.innerHTML = ind.html;
+                            parse(this, this.parser, stream, state, start.node);
+                        } else {
+                            dl.node.innerHTML = ind.html || zws;
                         }
+                        this.doc.updateLineHeight(dl);
                     } else {
-                        var b, stream = new Stream(text, {
-                            stateBefore: state,
-                            indentation: ind,
-                            isDefinition: false,
-                            testNextLine: function(rgx) {
-                                if (rgx instanceof RegExp) {
-                                    var next = dl.next();
-                                    if (next) return rgx.test(next.text);
-                                }
-                                return false;
-                            }
-                        });
-                        
-                        this.parser.parse(stream, this.memory);
-                        dl.setParsed(p + stream.toString());
-                        
-                        if (stream.isDefinition) {
-                            var dli = dl.info();
-                            if (dli) this.definitions[dli.index] = dl;
-                        }
-                        if (stream.stateAfter) {
-                            b = state == stream.stateAfter || dl.stateAfter != stream.stateAfter || !state;
-                            dl.stateAfter = stream.stateAfter;
-                        } else if (b = dl.stateAfter) {
-                            dl.stateAfter = undefined;
-                        }
+                        fastParse(this, this.parser, stream, state);
                     }
-                    if (b && !this._inserting) {
-                        var next = dl.next();
-                        if (next) return this.parse(next, true, dl.stateAfter);
-                    }
+                    if (stream.definition) dl.definition = stream.definition;
+                    else if (dl.definition) dl.definition = undefined;
+                    state = copyState(start.state = state);
+                    if (start == dl) break;
+                }
+                newnext = dl.state && dl.state.next;
+                if ((!tmpnext && newnext || tmpnext && tmpnext != newnext) && (start = dl.next())) {
+                    return this.parse(start, dl.state);
                 }
             }
             return dl;
+        },
+        getStateAt: function(line, column) {
+            var dl = 'number' === typeof line ? this.doc.get(line) : line;
+            if (dl != null) {
+                var s = searchLineWithState(this.parser, dl, this.options.tabWidth)
+                , state = s.state, tmp = s.line, style;
+                for (; tmp; tmp = tmp.next()) {
+                    var ind = parseIndentation(tmp.text, this.options.tabWidth)
+                    , stream = new Stream(ind.rest, { indentation: ind.indentation });
+                    if (tmp == dl) {
+                        style = fastParse(this, this.parser, stream, state, Math.max(0, Math.min(column - (tmp.text.length - ind.rest.length), stream.length)));
+                        if (stream.eol()) tmp.state = state;
+                        return { stream: stream, state: state, style: style, parser: state.parser || this.parser };
+                    } else {
+                        state = copyState(tmp.state = state);
+                    }
+                }
+            }
+        },
+        getStyleAt: function(line, column, split) {
+            var s = this.getStateAt(line, column);
+            return s && (split ? s.style && s.style.split(' ') : s.style);
+        },
+        getCurrentParser: function(cp) {
+            var s = this.getStateAt(this.caret.dl(), this.caret.column());
+            return s && s.parser;
         },
         focus: function() {
             $.async(this.input.focus.bind(this.input));
@@ -671,23 +642,17 @@
         requireStyle: function(style, callback) {
             $.include($.pathJoin(this.options.path, 'theme', style+'.css'), callback);
         },
-        tabString: function(m) {
-            m == null && (m = 1);
-            return m <= 0 ? '' : Array(m*this.options.tabWidth+1).join(' ');
-        },
         setOptions: function(key, value) {
             if (this.options[key] !== value) {
                 this.options[key] = value;
-                if (key === 'tracking' && value) {
-                    this.caret.tracking = (new tracking(this)).extend(this.parser && this.parser.tracking);
-                }
+                this.emit('options:changed', key, value);
             }
             return this;
         },
         setTabWidth: function(tw) {
             if (typeof tw === 'number' && tw >= 0) {
                 this.options.tabWidth = tw;
-                this.forcePrint();
+                runBackgroundParser(this, this.parser);
             }
             return this;
         },
@@ -699,14 +664,14 @@
         setTheme: function(name, dontrequire) {
             typeof name === 'string' && name !== 'default' ? dontrequire != true && this.requireStyle(name) : name = 'default';
             if (!this.options.disableThemeClassName) {
-                this.mainElement.removeClass('cps-'+this.options.theme.replace(' ', '-').toLowerCase()).addClass('cps-'+name.replace(' ', '-').toLowerCase());
+                this.mainNode.removeClass('cps-'+this.options.theme.replace(' ', '-').toLowerCase()).addClass('cps-'+name.replace(' ', '-').toLowerCase());
             }
             this.options.theme = name;
             return this;
         },
         setMode: function(mode) {
-            mode = aliases[mode] || mode || 'plaintext';
-            this.mainElement.removeClass('cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase()).addClass('cp-'+mode.replace(/\+/g, 'p').toLowerCase());
+            mode = CodePrinter.aliases[mode] || mode || 'plaintext';
+            this.mainNode.removeClass('cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase()).addClass('cp-'+mode.replace(/\+/g, 'p').toLowerCase());
             this.options.mode = mode;
             return this;
         },
@@ -726,15 +691,12 @@
                 doc.updateDefaultHeight();
                 
                 if (doc.initialized) {
-                    this.intervalIterate(function(dl) {
-                        doc.updateLineHeight(dl, true);
-                    }, function() {
-                        doc.updateHeight();
-                        doc.fill();
-                        doc.showSelection();
-                        this.caret.refresh();
-                        this.emit('fontSize:changed', size);
-                    });
+                    runBackgroundParser(this, this.parser);
+                    doc.fill();
+                    doc.updateHeight();
+                    doc.showSelection();
+                    this.caret.refresh();
+                    this.emit('fontSize:changed', size);
                 }
             }
             return this;
@@ -743,29 +705,31 @@
         decreaseFontSize: function() { this.setFontSize(this.options.fontSize-1); },
         setWidth: function(size) {
             if (size == 'auto') {
-                this.mainElement.style.removeProperty('width');
+                this.mainNode.style.removeProperty('width');
             } else {
-                this.mainElement.style.width = (this.options.width = parseInt(size)) + 'px';
+                this.mainNode.style.width = (this.options.width = parseInt(size)) + 'px';
             }
             this.emit('width:changed');
             return this;
         },
         setHeight: function(size) {
             if (size == 'auto') {
-                this.container.style.removeProperty('height');
+                this.mainNode.style.removeProperty('height');
+                this.mainNode.addClass('cp-auto-height');
             } else {
-                this.container.style.height = this.container.style.flexBasis = this.container.style.MozFlexBasis = (this.options.height = parseInt(size)) + 'px';
+                this.mainNode.style.height = this.container.style.flexBasis = this.container.style.MozFlexBasis = (this.options.height = parseInt(size)) + 'px';
+                this.mainNode.removeClass('cp-auto-height');
             }
             this.emit('height:changed');
             return this;
         },
         showIndentation: function() {
             this.options.drawIndentGuides = true;
-            this.mainElement.removeClass('without-indentation');
+            this.mainNode.removeClass('without-indentation');
         },
         hideIndentation: function() {
             this.options.drawIndentGuides = false;
-            this.mainElement.addClass('without-indentation');
+            this.mainNode.addClass('without-indentation');
         },
         getLineEnding: function() {
             return lineendings[this.options.lineEndings] || this.options.lineEndings || lineendings['LF'];
@@ -833,8 +797,13 @@
                 if (diff) {
                     var tab = this.options.indentByTabs ? '\t' : ' '.repeat(this.options.tabWidth);
                     dl.setText(tab.repeat(indent) + dl.text.replace(/^\s*/g, ''));
+                    var sp = RegExp.lastMatch.length;
                     this.parse(dl);
-                    this.caret.line() == line && this.caret.moveX(tab.length * indent);
+                    if (this.caret.line() == line) {
+                        this.caret.moveX(tab.length * indent - sp);
+                    } else {
+                        this.caret.refresh();
+                    }
                     this.emit('changed', { line: line, column: 0, text: tab.repeat(Math.abs(diff)), added: diff > 0 });
                 }
             }
@@ -893,30 +862,32 @@
         },
         fixIndents: function() {
             var range = this.doc.getSelectionRange()
-            , opt = {}, i = 0, e, c;
+            , dl = this.doc.get(0)
+            , parser = this.parser
+            , i = 0, end = null, s;
             
             if (range) {
-                var sl = Math.max(0, range.start.line-1)
-                , dl = this.doc.get(sl);
-                
-                if (range.start.line === 0) {
-                    this.setIndentAtLine(0, 0, dl);
-                }
-                e = range.end.line;
-                i = nextLineIndent(this, this.getIndentAtLine(dl), sl);
-                opt.start = dl.next();
-                opt.index = sl+1;
-                this.doc.clearSelection();
+                dl = this.doc.get(Math.max(0, range.start.line - 1));
+                end = this.doc.get(range.end.line + 1);
+            } else {
+                this.setIndentAtLine(0, i, dl);
             }
-            this.intervalIterate(function(dl, index) {
-                c = this.getIndentAtLine(dl);
-                i = this.parser.fixIndent.call(this, dl, i);
-                if (c != i) {
-                    this.setIndentAtLine(index, i, dl);
+            
+            for (;;) {
+                s = this.getStateAt(dl, dl.text.length);
+                parser = s.state && s.state.parser || this.parser;
+                i = s.stream.indentation + parser.indent(s.stream, s.state);
+                dl = dl.next();
+                if (dl != end) {
+                    s = this.getStateAt(dl, 0);
+                    parser = s.state && s.state.parser || this.parser;
+                    s.stream.indentation = i;
+                    i = parser.indent(s.stream, s.state);
+                    this.setIndentAtLine(dl, i);
+                } else {
+                    break;
                 }
-                i = nextLineIndent(this, i, index, dl);
-                if (index == e) return false;
-            }, opt);
+            }
         },
         toggleComment: function() {
             if (this.parser && this.parser.lineComment) {
@@ -1008,18 +979,6 @@
         textNearCursor: function(i) {
             return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
         },
-        statesBefore: function(line, column) {
-            line = line >= 0 ? line : this.caret.line();
-            column = column >= 0 ? column : this.caret.column();
-            var states = getStates.call(this, this.doc.get(line).parsed, column);
-            return states || [];
-        },
-        statesAfter: function(line, column) {
-            line = line >= 0 ? line : this.caret.line();
-            column = column >= 0 ? column : this.caret.column();
-            var states = getStates.call(this, this.doc.get(line).parsed, column+1);
-            return states || [];
-        },
         cursorIsBeforePosition: function(line, column, atline) {
             var l = this.caret.line(), c = this.caret.column();
             return l == line ? c < column : !atline && l < line;
@@ -1028,41 +987,49 @@
             var l = this.caret.line(), c = this.caret.column();
             return l == line ? c > column : !atline && l > line;
         },
-        searchLeft: function(pattern, line, column, states) {
-            var i = -1, dl;
-            pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b(?!\\b'+pattern+'\\b).*$' : pattern.escape()+'(?!.*'+pattern.escape()+').*$');
-            line = Math.max(0, Math.min(line, this.doc.size() - 1));
-            while (dl = this.doc.get(line)) {
-                i = dl.text.substring(0, column).search(pattern);
-                if (i === -1) {
+        searchLeft: function(pattern, line, column, style) {
+            var i = -1, dl = this.doc.get(line)
+            , search = 'string' == typeof pattern
+            ? function(text) { return text.lastIndexOf(pattern); }
+            : function(text) { return text.search(pattern); };
+            
+            while (dl) {
+                i = search(dl.text.substring(0, column));
+                if (i == -1) {
                     column = Infinity;
+                    dl = dl.prev();
                     --line;
                 } else {
-                    if (this.isState(states, line, i + 1)) {
+                    var st = this.getStyleAt(line, i + 1);
+                    if (st == style) {
                         break;
                     }
                     column = i;
                 }
             }
-            return [line, i];
+            return dl && [line, i];
         },
-        searchRight: function(pattern, line, column, states) {
-            var i = -1, dl;
-            pattern = pattern instanceof RegExp ? pattern : new RegExp(pattern.isAlpha() ? '\\b'+pattern+'\\b' : pattern.escape());
-            line = Math.max(0, Math.min(line, this.doc.size() - 1));
-            while (dl = this.doc.get(line)) {
-                i = dl.text.substr(column).search(pattern);
-                if (i === -1) {
+        searchRight: function(pattern, line, column, style) {
+            var i = -1, dl = this.doc.get(line)
+            , search = 'string' === typeof pattern
+            ? function(text) { return text.indexOf(pattern); }
+            : function(text) { return text.search(pattern); };
+            
+            while (dl) {
+                i = search(dl.text.substr(column));
+                if (i == -1) {
                     column = 0;
+                    dl = dl.next();
                     ++line;
                 } else {
-                    if (this.isState(states, line, i + column + 1)) {
+                    var st = this.getStyleAt(line, column + i + 1);
+                    if (st == style) {
                         break;
                     }
                     column += i + 1;
                 }
             }
-            return [line, i + column];
+            return dl && [line, i + column];
         },
         substring: function(from, to) {
             var str = '';
@@ -1573,15 +1540,33 @@
         replaceAll: function(replaceWith) {
             return this.searches && this.replace(replaceWith, this.searches.length);
         },
+        getDefinitions: function() {
+            var obj = {}, dl = this.doc.get(0), i = 0;
+            for (; dl; dl = dl.next()) {
+                if (dl.definition) {
+                    obj[i] = dl.definition;
+                }
+                ++i;
+            }
+            return obj;
+        },
         nextDefinition: function() {
-            var l = this.caret.line()
-            , next = objNearProperty(this.definitions, l, 1);
-            this.setCursorPosition(+next, -1);
+            var dl = this.caret.dl().next();
+            for (; dl; dl = dl.next()) {
+                if (dl.definition) {
+                    this.caret.target(dl, dl.definition.pos, dl.definition.pos);
+                    return;
+                }
+            }
         },
         previousDefinition: function() {
-            var l = this.caret.line()
-            , prev = objNearProperty(this.definitions, l, -1);
-            this.setCursorPosition(+prev, -1);
+            var dl = this.caret.dl().prev();
+            for (; dl; dl = dl.prev()) {
+                if (dl.definition) {
+                    this.caret.target(dl, dl.definition.pos, dl.definition.pos);
+                    return;
+                }
+            }
         },
         getSnippets: function() {
             return {}.extend(this.options.snippets, this.parser && this.parser.snippets);
@@ -1630,14 +1615,13 @@
             return this;
         },
         enterFullscreen: function() {
-            if (! this.isFullscreen) {
-                var main = this.mainElement,
-                    b = document.body;
-                this.tempnode = document.createTextNode('');
+            if (!this.isFullscreen) {
+                var main = this.mainNode, b = document.body;
+                this._ = document.createTextNode('');
                 main.addClass('cp-fullscreen').style.margin = [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ');
                 main.style.width = "";
-                main.after(this.tempnode);
-                document.body.append(main);
+                main.parentNode.insertBefore(this._, main);
+                document.body.appendChild(main);
                 this.isFullscreen = true;
                 this.doc.fill();
                 this.input.focus();
@@ -1645,12 +1629,12 @@
             }
         },
         exitFullscreen: function() {
-            if (this.isFullscreen && this.tempnode) {
-                var tmp = this.tempnode;
-                this.mainElement.removeClass('cp-fullscreen').style.removeProperty('margin');
-                tmp.parentNode.insertBefore(this.mainElement, tmp);
+            if (this.isFullscreen && this._) {
+                var tmp = this._;
+                this.mainNode.removeClass('cp-fullscreen').style.removeProperty('margin');
+                tmp.parentNode.insertBefore(this.mainNode, tmp);
                 tmp.parentNode.removeChild(tmp);
-                delete this.tempnode;
+                delete this._;
                 this.isFullscreen = false;
                 this.setWidth(this.options.width);
                 this.doc.fill();
@@ -1663,17 +1647,155 @@
         },
         closeCounter: function() {
             this.counter.addClass('hidden');
-        },
-        convertToSpaces: function(text) {
-            return text.replace(/\t/g, Array(this.options.tabWidth+1).join(' ')).replace(/\r/g, '');
-        },
-        convertToTabs: function(text) {
-            return text.replace(new RegExp(' {'+this.options.tabWidth+'}','g'), '\t').replace(/\r/g, '');
-        },
-        prependTo: function(node) { node.prepend(this.mainElement); return this; },
-        appendTo: function(node) { node.append(this.mainElement); return this; },
-        insertBefore: function(node) { node.before(this.mainElement); return this; },
-        insertAfter: function(node) { node.after(this.mainElement); return this; }
+        }
+    }
+    
+    function searchLineWithState(parser, dl, tw) {
+        var tmp = dl.prev(), minI = Infinity, best;
+        for (var i = 0; tmp && i < 100; i++) {
+            if (tmp.state) {
+                best = tmp;
+                break;
+            }
+            var tmpind = parseIndentation(tmp.text, tw).length;
+            if (tmpind < minI) {
+                best = tmp;
+                minI = tmpind;
+            }
+            tmp = tmp.prev();
+        }
+        if (best && best.state) {
+            return { state: copyState(best.state), line: best.next() }
+        } else {
+            return { state: parser.initialState(), line: best || dl }
+        }
+    }
+    function parseIndentation(text, tabWidth) {
+        var p = '', i = -1, spaces = 0, ind = 0
+        , tab = ' '.repeat(tabWidth);
+        while (++i < text.length) {
+            if (text[i] == ' ') {
+                ++spaces;
+                if (spaces == tabWidth) {
+                    p += '<span class="cpx-tab">'+tab+'</span>';
+                    spaces = 0;
+                    ++ind;
+                }
+            } else if (text[i] == '\t') {
+                spaces = 0;
+                p += '<span class="cpx-tab">\t</span>';
+                ++ind;
+            } else {
+                break;
+            }
+        }
+        if (spaces) p += ' '.repeat(spaces);
+        return { indentation: ind, length: ind*tabWidth+spaces, html: p, indentText: text.substring(0, i), rest: text.substr(i) };
+    }
+    function readIteration(parser, stream, state) {
+        for (var i = 0; i < 10; i++) {
+            var style = (state.next && state.next instanceof Function ? state.next : (state.parser || parser).iterator)(stream, state);
+            if (style) stream.lastStyle = style;
+            if (stream.pos > stream.start) return style;
+        }
+        throw new Error();
+    }
+    function parse(cp, parser, stream, state, pre, col) {
+        var pos, style, l = col != null ? col : stream.length;
+        pos = stream.pos;
+        while (stream.pos < l) {
+            stream.start = stream.pos;
+            if (style = readIteration(parser, stream, state)) {
+                if (pos < stream.start) pre.appendChild(cspan(null, stream.value.substring(pos, stream.start).encode()));
+                var v = stream.from(stream.start);
+                if (v != ' ' && v != '\t') stream.lastValue = v;
+                pos = stream.pos;
+                pre.appendChild(cspan(style, v.encode()));
+            }
+        }
+        if (pos < stream.pos) pre.appendChild(cspan(null, stream.from(pos).encode()));
+        return state;
+    }
+    function fastParse(cp, parser, stream, state, col) {
+        var style, l = col != null ? col : stream.length;
+        while (stream.pos < l) {
+            stream.start = stream.pos;
+            style = readIteration(parser, stream, state);
+            var v = stream.from(stream.start);
+            if (v != ' ' && v != '\t') stream.lastValue = v;
+        }
+        return style;
+    }
+    function runBackgroundParser(cp, parser) {
+        var to = cp.doc.to(), dl = cp.doc.get(0)
+        , state = parser.initialState();
+        for (var i = 0; i <= to && dl; i++) {
+            cp.parse(dl, state);
+            state = dl.state;
+            dl = dl.next();
+        }
+    }
+    function cspan(style, content) {
+        var node = span.cloneNode();
+        if (style) node.className = style.replace(/\S+/g, 'cpx-$&');
+        node.innerHTML = content;
+        return node;
+    }
+    function copyState(state) {
+        var st = {};
+        for (var k in state) {
+            if (state[k] != null) st[k] = state[k];
+        }
+        return st;
+    }
+    function fixIndent(cp, parser, offset) {
+        var dl = cp.caret.dl(), prev = dl.prev()
+        , col = cp.caret.column() + offset
+        , s = prev && cp.getStateAt(prev, prev.text.length);
+        if (s) {
+            var i = s.stream.indentation + parser.indent(s.stream, s.state);
+            s = cp.getStateAt(dl, 0);
+            s.stream.indentation = i;
+            i = parser.indent(s.stream, s.state);
+            cp.setIndentAtLine(dl, i);
+        }
+    }
+    function matchingHelper(cp, key, opt, line, start, end) {
+        if (cp.getStyleAt(line, start+1) == opt.style) {
+            var counter = 1, i = -1, l = line, c, fn, fix = 0;
+            
+            if (opt.direction == 'left') {
+                c = start;
+                fn = cp.searchLeft;
+            } else {
+                c = end;
+                fn = cp.searchRight;
+                fix = 1;
+            }
+            
+            do {
+                var a = fn.call(cp, opt.value, l, c, opt.style)
+                , b = fn.call(cp, key, l, c, opt.style);
+                
+                if (a) {
+                    if (b && (fix ? (b[0] < a[0] || b[0] == a[0] && b[1] < a[1]) : (b[0] > a[0] || b[0] == a[0] && b[1] > a[1]))) {
+                        ++counter;
+                        a = b;
+                    } else {
+                        --counter;
+                    }
+                    l = a[0];
+                    c = a[1] + fix;
+                } else {
+                    counter = 0;
+                }
+            } while (counter != 0 && ++i < 100);
+            
+            if (i < 100) cp.createHighlightOverlay(
+                [line, start, key],
+                [l, c - fix, opt.value]
+            );
+        }
     }
     
     Branch = function(leaf, children) {
@@ -1703,6 +1825,7 @@
         splice: splice,
         push: push,
         pop: pop,
+        shift: Array.prototype.shift,
         indexOf: function(node, offset) {
             for (var i = offset || 0, l = this.length; i < l; i++) {
                 if (this[i] == node) {
@@ -1773,7 +1896,20 @@
                     at -= s;
                 }
             }
+            this.fall();
             return r;
+        },
+        fall: function() {
+            if (this.size < 10 && this.parent && this.length == 1) {
+                var child = this.pop();
+                while (child.length) {
+                    var node = child.shift();
+                    node.parent = this;
+                    this.push(node);
+                }
+                child.parent = null;
+                this.isLeaf = child.isLeaf;
+            }
         },
         wrapAll: function() {
             var parts = Math.ceil(this.length / BRANCH_OPTIMAL_SIZE) * 2;
@@ -1788,18 +1924,14 @@
         getOffset: function() {
             if (this.parent) {
                 var of = 0, i = this.parent.indexOf(this);
-                while (--i >= 0) {
-                    of += this.parent[i].height;
-                }
+                while (--i >= 0) of += this.parent[i].height;
                 return of + this.parent.getOffset();
             }
             return 0;
         },
         getLineWithOffset: function(offset) {
             var h = 0, i = -1;
-            while (++i < this.length && h + this[i].height < offset) {
-                h += this[i].height;
-            }
+            while (++i < this.length && h + this[i].height < offset) h += this[i].height;
             if (i == this.length) --i;
             return this.isLeaf ? this[i] : this[i] ? this[i].getLineWithOffset(offset - h) : null;
         },
@@ -1820,40 +1952,29 @@
         next: function() {
             var i;
             if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
-                if (i + 1 < this.parent.length) {
-                    return this.parent[i+1];
-                } else {
-                    var next = this.parent.next();
-                    while (next && !next.isLeaf) next = next[0];
-                    return next;
-                }
+                if (i + 1 < this.parent.length) return this.parent[i+1];
+                var next = this.parent.next();
+                while (next && !next.isLeaf) next = next[0];
+                return next;
             }
             return null;
         },
         prev: function() {
             var i;
             if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
-                if (i > 0) {
-                    return this.parent[i-1];
-                } else {
-                    var prev = this.parent.prev();
-                    while (prev && !prev.isLeaf) prev = prev[prev.length-1];
-                    return prev;
-                }
+                if (i > 0) return this.parent[i-1];
+                var prev = this.parent.prev();
+                while (prev && !prev.isLeaf) prev = prev[prev.length-1];
+                return prev;
             }
             return null;
         },
         foreach: function(f, tmp) {
             tmp = tmp || 0;
-            if (this.isLeaf) {
-                for (var i = 0; i < this.length; i++) {
-                    f.call(this[i], tmp + i);
-                }
-            } else {
-                for (var i = 0; i < this.length; i++) {
-                    this[i].foreach(f, tmp);
-                    tmp += this[i].size;
-                }
+            if (this.isLeaf) for (var i = 0; i < this.length; i++) f.call(this[i], tmp + i);
+            else for (var i = 0; i < this.length; i++) {
+                this[i].foreach(f, tmp);
+                tmp += this[i].size;
             }
             return this;
         }
@@ -1871,8 +1992,7 @@
     Line = function(text, height) {
         this.text = text;
         this.height = height;
-        this.parent = this.parsed = this.node = this.counter = null;
-        this.changed = 1;
+        this.parent = this.node = this.counter = null;
         return this;
     }
     
@@ -1880,20 +2000,9 @@
         getOffset: Branch.prototype.getOffset,
         info: Branch.prototype.info,
         setText: function(str) {
-            if (str !== this.text) {
-                this.text = str;
-                this.changed = 1;
-            }
-        },
-        setParsed: function(str) {
-            if (str !== this.parsed) {
-                this.parsed = str;
-                this.changed = 6;
-                this.touch();
-            }
+            this.text = str;
         },
         setNode: function(node) {
-            this.changed |= 2;
             return this.node = node;
         },
         captureNode: function(dl) {
@@ -1922,37 +2031,28 @@
             this.counter = counter;
             counter.style.lineHeight = this.height + 'px';
             counter._dl = this;
-            this.changed |= 2;
         },
         touch: function() {
             if (this.node) {
-                if (this.changed & 2) {
-                    this.node.innerHTML = this.parsed || zws;
-                    this.changed ^= 2;
-                }
                 this.node.className = this.counter.className = getLineClasses(this);
             }
         },
-        mark: function(className) {
-            if (!className) className = markClassName;
-            if (!this.classes) this.classes = [className];
-            else this.classes.push(className);
-            if (this.node) {
-                this.node.addClass(className);
-                this.counter.addClass(className);
-            }
+        addClass: function() {
+            if (!this.classes) this.classes = Array.apply(null, arguments);
+            else
+                for (var i = 0; i < arguments.length; i++)
+                    if (this.classes.indexOf(arguments[i]) == -1)
+                        this.classes.push(arguments[i]);
+            this.touch();
         },
-        unmark: function(className) {
-            if (!className) className = markClassName;
-            var i = this.classes ? this.classes.indexOf(className) : -1;
-            if (i >= 0) {
-                this.classes.splice(i, 1);
-                if (this.classes.length === 0) this.classes = undefined;
-                if (this.node) {
-                    this.node.removeClass(className);
-                    this.counter.removeClass(className);
-                }
+        removeClass: function() {
+            if (this.classes) {
+                for (var i = arguments.length - 1; i >= 0; i--)
+                    if ((j = this.classes.indexOf(arguments[i])) >= 0)
+                        this.classes.splice(j, 1);
+                if (this.classes.length == 0) this.classes = undefined;
             }
+            this.touch();
         },
         next: function() {
             if (this.parent) {
@@ -2016,8 +2116,8 @@
         }
         function heightOfLines() {
             var h = 0;
-            for (var i = 0; i < lines.length; i++) {
-                h += lines[i].height;
+            for (var i = 0; i < view.length; i++) {
+                h += view[i].height;
             }
             return h;
         }
@@ -2025,10 +2125,10 @@
             if (dl.node && dl.counter) {
                 dl.counter.innerHTML = formatter(firstNumber + (dl.counter._index = index));
                 if (index < to) {
-                    var q = index - from, bef = lines[q];
+                    var q = index - from, bef = view[q];
                     code.insertBefore(dl.node, bef.node);
                     ol.insertBefore(dl.counter, bef.counter);
-                    lines.splice(q, 0, dl);
+                    view.splice(q, 0, dl);
                     var tmp = dl.counter.nextSibling;
                     while (tmp && tmp._index !== index + 1) {
                         tmp.innerHTML = formatter(firstNumber + (tmp._index = ++index));
@@ -2037,11 +2137,9 @@
                 } else {
                     code.appendChild(dl.node);
                     ol.appendChild(dl.counter);
-                    index = lines.push(dl) + from - 1;
+                    index = view.push(dl) + from - 1;
                 }
-                withoutParsing || cp.parse(dl);
-                dl.touch();
-                doc.updateLineHeight(dl);
+                cp.parse(dl);
                 cp.emit('link', dl, index);
             }
         }
@@ -2057,16 +2155,16 @@
         function remove(dl, index) {
             code.removeChild(dl.deleteNode());
             ol.removeChild(dl.deleteCounter());
-            lines.remove(dl); --to;
+            view.remove(dl); --to;
             cp.emit('unlink', dl, index);
         }
         function clear() {
-            for (var i = 0; i < lines.length; i++) {
-                lines[i].deleteNode();
-                lines[i].deleteCounter();
+            for (var i = 0; i < view.length; i++) {
+                view[i].deleteNode();
+                view[i].deleteCounter();
             }
             to = -1; from = 0;
-            lines.length = 0;
+            view.length = 0;
             code.innerHTML = ol.innerHTML = '';
             code.style.top = ol.style.top = (cp.sizes.scrollTop = 0) + 'px';
         }
@@ -2138,10 +2236,6 @@
                     }
                 }
             }
-            var dl = lines[0].prev(), sb = dl && dl.stateAfter;
-            for (var i = 0, l = lines.length; i < l; i++) {
-                sb = cp.parse(lines[i], true, sb).stateAfter;
-            }
             this.updateHeight();
         }
         this.remove = function(at, n) {
@@ -2196,7 +2290,7 @@
                 
                 var last = rm[rm.length-1];
                 if (last.stateAfter) {
-                    cp.parse(data.get(at), true);
+                    cp.parse(data.get(at));
                 }
                 this.updateHeight();
                 cp.wrapper.scrollTop = cp.counter.scrollTop;
@@ -2204,16 +2298,16 @@
             }
         }
         this.updateCounters = function() {
-            updateCounters(lines[0], from);
+            updateCounters(view[0], from);
         }
         this.fill = function() {
-            var half, b, dl = (half = lines.length === 0) ? data.get(0) : lines[lines.length-1].next();
+            var half, b, dl = (half = view.length === 0) ? data.get(0) : view[view.length-1].next();
             while (dl && !(b = isFilled(half))) {
                 insert(dl);
                 dl = dl.next();
             }
             if (!dl) {
-                dl = lines[0].prev();
+                dl = view[0].prev();
                 while (dl && !(b = isFilled(half))) {
                     prepend(dl);
                     scroll(-dl.height);
@@ -2232,26 +2326,26 @@
             from = dli.index;
             to = from - 1;
             
-            while (tmp && ++i < lines.length) {
-                cp.emit('unlink', lines[i], oldfrom + i);
-                tmp.captureNode(lines[i]);
-                tmp.touch();
+            while (tmp && ++i < view.length) {
+                cp.emit('unlink', view[i], oldfrom + i);
+                tmp.captureNode(view[i]);
+                cp.parse(tmp);
                 tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = to = from + i));
-                lines[i] = tmp;
+                view[i] = tmp;
                 cp.emit('link', tmp, from + i);
                 tmp = tmp.next();
             }
-            if (++i < lines.length) {
-                var spliced = lines.splice(i, lines.length - i);
+            if (++i < view.length) {
+                var spliced = view.splice(i, view.length - i);
                 tmp = dl.prev();
                 while (tmp && spliced.length) {
                     cp.emit('unlink', spliced[0], oldfrom + i++);
                     tmp.captureNode(spliced.shift());
-                    tmp.touch();
+                    cp.parse(tmp);
                     tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = --from));
-                    code.insertBefore(tmp.node, lines[0].node);
-                    ol.insertBefore(tmp.counter, lines[0].counter);
-                    lines.unshift(tmp);
+                    code.insertBefore(tmp.node, view[0].node);
+                    ol.insertBefore(tmp.counter, view[0].counter);
+                    view.unshift(tmp);
                     cp.emit('link', tmp, from);
                     offset -= tmp.height;
                     tmp = tmp.prev();
@@ -2270,7 +2364,7 @@
             , h, dl;
             
             if (d) {
-                if (abs > 400 && abs > 3 * code.offsetHeight) {
+                if (abs > 900 && abs > 3 * code.offsetHeight) {
                     dl = data.getLineWithOffset(Math.max(0, st - limit));
                     if (doc.rewind(dl) !== false) {
                         scrollTo(lastST = st);
@@ -2278,29 +2372,29 @@
                     }
                 }
                 if (from === 0 && d < 0) {
-                    h = lines[0].height;
-                    dl = lines[lines.length-1];
+                    h = view[0].height;
+                    dl = view[view.length-1];
                     while (h < x && !isFilled() && (dl = dl.next())) {
                         insert(dl);
                         x -= dl.height;
                     }
                 } else if (d > 0) {
-                    while (lines.length && (h = lines[0].height) <= d && (dl = lines[lines.length-1].next())) {
-                        var first = lines.shift();
+                    while (view.length && (h = view[0].height) <= d && (dl = view[view.length-1].next())) {
+                        var first = view.shift();
                         dl.captureNode(first);
                         if (dl.active) cp.select(dl);
                         cp.emit('unlink', first, from);
-                        link(dl, to + 1, true);
+                        link(dl, to + 1);
                         ++from; ++to;
                         d -= h;
                     }
                 } else if (d < 0) {
-                    while (lines.length && (h = lines[lines.length-1].height) <= -d && (dl = lines[0].prev())) {
-                        var last = lines.pop();
+                    while (view.length && (h = view[view.length-1].height) <= -d && (dl = view[0].prev())) {
+                        var last = view.pop();
                         dl.captureNode(last);
                         if (dl.active) cp.select(dl);
                         cp.emit('unlink', last, to);
-                        --to; link(dl, --from, true);
+                        --to; link(dl, --from);
                         d += h;
                     }
                 }
@@ -2311,11 +2405,11 @@
             scrollTo(lastST = st);
         }
         this.isLineVisible = function(dl) {
-            return lines.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
+            return view.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
         }
         this.eachVisibleLines = function(callback) {
-            for (var i = 0; i < lines.length; i++) {
-                callback.call(this, lines[i], from + i, i && lines[i-1]);
+            for (var i = 0; i < view.length; i++) {
+                callback.call(this, view[i], from + i, i && view[i-1]);
             }
         }
         this.measureRect = function(dl, offset, to) {
@@ -2417,20 +2511,16 @@
         this.updateHeight = function() {
             screen.style.minHeight = counter.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
         }
-        this.updateLineHeight = function(dl, force) {
-            if (force || dl.changed & 4) {
+        this.updateLineHeight = function(dl) {
+            if (dl) {
                 var height, node = dl.node;
-                if (!node) {
-                    node = temp;
-                    node.innerHTML = dl.parsed || zws;
-                }
                 if (height = node.offsetHeight) {
                     var diff = height - dl.height;
                     if (diff) {
+                        if (dl == view[0] && from != 0) scrollBy(diff);
                         if (dl.counter) dl.counter.style.lineHeight = height + 'px';
                         for (; dl; dl = dl.parent) dl.height += diff;
                     }
-                    dl.changed ^= 4;
                     return height;
                 }
             }
@@ -2625,33 +2715,17 @@
                 }
             }
         }
-        this.undo = function() {
-            history.undo();
-        }
-        this.redo = function() {
-            history.redo();
-        }
-        this.getHistory = function(stringify) {
-            return history.getStates(stringify);
-        }
-        this.clearHistory = function() {
-            history.clear();
-        }
-        this.each = function() {
-            return data.foreach.apply(data, arguments);
-        }
-        this.get = function(i) {
-            return data.get(i);
-        }
-        this.lineWithOffset = function(offset) {
-            return data.getLineWithOffset(offset);
-        }
-        this.size = function() {
-            return data.size;
-        }
-        this.height = function() {
-            return data.height;
-        }
+        this.undo = function() { history.undo(); }
+        this.redo = function() { history.redo(); }
+        this.getHistory = function(stringify) { return history.getStates(stringify); }
+        this.clearHistory = function() { history.clear(); }
+        this.each = function() { return data.foreach.apply(data, arguments); }
+        this.get = function(i) { return data.get(i); }
+        this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
+        this.from = function() { return from; }
+        this.to = function() { return to; }
+        this.size = function() { return data.size; }
+        this.height = function() { return data.height; }
         
         this.updateDefaultHeight();
         selection.on({ done: this.showSelection.bind(this, false) });
@@ -2964,326 +3038,95 @@
         }
     }
     
-    StreamArray = function() {}
-    StreamArray.prototype = {
-        push: Array.prototype.push,
-        wrapAll: function() {
-            for (var i = 0; i < this.length; i++) {
-                this[i].wrap.apply(this[i], arguments);
-            }
-        }
-    }
-    
     Stream = function(value, extend) {
-        if (value) {
-            this.pos = this.start = 0;
-            this.value = value;
-            this.tree = [];
-            this.styles = null;
-            if (extend) {
-                for (var k in extend) {
-                    this[k] = extend[k];
-                }
+        this.pos = 0;
+        this.value = value;
+        this.length = value.length;
+        if (extend) {
+            for (var k in extend) {
+                this[k] = extend[k];
             }
         }
-        return this;
     }
     Stream.prototype = {
-        match: function(rgx, index) {
-            this.found && this.cut(this.found.length);
-            var f = false, i, v = (this.value || '').substr(this.pos);
-            
-            if (v) {
-                if (rgx.test(v)) {
-                    i = RegExp.leftContext.length;
-                    f = RegExp.lastMatch;
-                    this.indexOfFound = i;
-                    i > 0 && this.cut(i);
-                }
-            }
-            this.found = f;
-            return f && index ? RegExp['$'+index] : f;
-        },
-        capture: function(rgx, index, offset) {
-            var v = this.value.substr(this.pos + ('number' === typeof offset ? offset : 0))
-            , m = v.match(rgx);
-            if (m && m[0]) {
-                this.indexOfFound = RegExp.leftContext.length;
-                return m['number' === typeof index ? index : 0];
+        next: function() { if (this.pos < this.value.length) return this.value.charAt(this.pos++); },
+        peek: function() { return this.value.charAt(this.pos) || undefined; },
+        from: function(pos) { return this.value.substring(pos, this.pos); },
+        rest: function() { return this.value.substr(this.pos); },
+        sol: function() { return this.pos === 0; },
+        eol: function() { return this.pos >= this.value.length; },
+        eat: function(match) {
+            var ch = this.value.charAt(this.pos), eaten;
+            if ('string' == typeof match) eaten = ch == match;
+            else eaten = ch && (match.test ? match.test(ch) : match(ch));
+            if (eaten) {
+                ++this.pos;
+                return ch;
             }
         },
-        readline: function(index) {
-            return this.found = this.value.substr(this.pos);
+        eatWhile: function(match) {
+            var pos = this.pos;
+            while (this.eat(match));
+            return this.from(pos);
         },
-        indexOf: function(value) {
-            return Math.max(-1, this.value.indexOf(value, this.pos) - this.pos);
-        },
-        eat: function(from, to, whenNotFound) {
-            if (from) {
-                var v = this.value.substr(this.pos)
-                , indexFrom = 0, indexTo = 0, eaten;
-                
-                if (from !== this.found) {
-                    if ('string' === typeof from) {
-                        indexFrom = v.indexOf(from);
-                    } else {
-                        indexFrom = v.search(from);
-                        from = RegExp.lastMatch;
+        eatUntil: function(match, noLeftContext) {
+            var pos = this.pos;
+            if (match instanceof RegExp) {
+                if (match.test(this.value.substr(this.pos))) {
+                    var lc = RegExp.leftContext.length;
+                    if (!noLeftContext || lc == 0) {
+                        this.pos += lc + RegExp.lastMatch.length;
                     }
                 }
-                if (indexFrom >= 0) {
-                    if (to) {
-                        this.unfinished = undefined;
-                        v = this.value.substr(this.pos + indexFrom + from.length);
-                        if ('string' === typeof to) {
-                            indexTo = v.indexOf(to);
-                        } else {
-                            indexTo = v.search(to);
-                            to = RegExp.lastMatch;
-                        }
-                    }
-                    if (indexTo >= 0) {
-                        indexTo += indexFrom + from.length + (to ? to.length : 0);
-                    } else {
-                        if ('function' === typeof whenNotFound) {
-                            whenNotFound.call(this);
-                            return new Stream();
-                        } else {
-                            indexTo = indexFrom + from.length;
-                            if (whenNotFound) {
-                                indexTo += v.length;
-                                this.unfinished = true;
-                            }
-                        }
-                    }
-                    indexFrom > 0 && this.cut(indexFrom);
-                    eaten = this.cut(indexTo - indexFrom);
-                    this.found = null;
-                    return eaten;
-                }
             }
-            return new Stream();
+            return this.from(pos);
         },
-        _eat: function() {
-            if (this.found) {
-                var eaten = this.cut(this.found.length);
-                this.found = null;
-                return eaten;
+        match: function(match, eat, caseSensitive) {
+            if ('string' == typeof match) {
+                var cs = function(str) { return caseSensitive ? str.toLowerCase() : str; };
+                var substr = this.value.substr(this.pos, match.length);
+                if (cs(substr) == cs(match)) {
+                    if (eat) this.pos += match.length;
+                    return true;
+                }
+            } else {
+                var ex = match.exec(this.value.substr(this.pos));
+                if (ex && ex.index > 0) return null;
+                if (ex && eat) this.pos += ex[0].length;
+                return ex;
             }
         },
-        eatGreedily: function(from, to) {
-            return this.eat(from, to, true);
+        capture: function(match, index) {
+            if (match instanceof RegExp) {
+                var m = match.exec(this.value.substr(this.pos));
+                if (m) return m[index];
+            }
         },
-        eatWhile: function(to, until) {
-            var eaten, v, i;
-            if (to) {
-                v = this.value.substr(this.pos);
-                if ('string' === typeof to) {
-                    i = v.indexOf(to);
-                } else {
-                    i = v.search(to);
-                    to = RegExp.lastMatch;
-                }
+        isAfter: function(match) {
+            var str = this.value.substr(this.pos);
+            return 'string' == typeof match ? str.indexOf(match) == 0 : match.test ? match.test(str) : match(str);
+        },
+        isBefore: function(match, offset) {
+            var str = this.value.substring(0, this.pos + (offset || 0));
+            return 'string' == typeof match ? str.lastIndexOf(match) == str.length - match.length : match.test ? match.test(str) : match(str);
+        },
+        skip: function(ch, eat) {
+            if (ch) {
+                var i = this.value.indexOf(ch, this.pos);
                 if (i >= 0) {
-                    eaten = this.cut(i + (until ? 0 : to.length));
+                    this.pos = i + (eat ? ch.length : 0);
+                    return true;
                 }
-            }
-            if (this.unfinished = !eaten) {
-                eaten = this.tear();
-            }
-            this.found = null;
-            return eaten;
-        },
-        eatUntil: function(to) {
-            return this.eatWhile(to, true);
-        },
-        eatEach: function(rgx) {
-            var sa = new StreamArray, found;
-            while (found = this.match(rgx)) {
-                sa.push(this.eat(found));
-            }
-            return sa;
-        },
-        eatAll: function(from) {
-            var i = 0;
-            if (from !== this.found) {
-                i = 'string' === typeof from ? v.indexOf(from) : v.search(from);
-            }
-            i > 0 && this.cut(i);
-            return i >= 0 ? this.tear() : new Stream();
-        },
-        wrap: function(/*, .. styles */) {
-            if (this.found) {
-                var e = this._eat(this.found);
-                return e && e.wrap.apply(e, arguments);
-            } else if (!this.styles) {
-                var l = arguments.length, a = Array(l);
-                for (var i = 0; i < l; i++) a[i] = arguments[i];
-                this.styles = a;
-            }
-            return this;
-        },
-        unwrap: function() {
-            this.styles = null;
-            return this;
-        },
-        applyWrap: function(array) {
-            if (this.found) {
-                var e = this._eat(this.found);
-                return e && e.applyWrap(array);
-            } else if (!this.styles) {
-                this.styles = array;
-            }
-            return this;
-        },
-        isWrapped: function() {
-            return !!(this.styles && this.styles.length);
-        },
-        is: function(/*, .. styles */) {
-            var s = this.styles;
-            return s && s.contains.apply(s, arguments);
-        },
-        font: function(size) {
-            size = Math.max(0.4, Math.min(size, 1.6));
-            this.styles.push('font-'+parseInt(size*100));
-            return this;
-        },
-        cut: function(length) {
-            if (length < 0 || 'number' !== typeof length) length = 1;
-            if (length) {
-                var v = this.value.substring(this.pos, this.pos + length), ss = v && new Stream(v, { start: this.pos });
-                if (ss) {
-                    this.tree.push(this.lastEaten = ss);
-                    this.pos += length;
-                    return ss;
-                }
-            }
-            return new Stream();
-        },
-        tear: function() {
-            return this.cut(this.value.length - this.pos);
-        },
-        skip: function(found) {
-            found = found || this.found;
-            if (found && this.value.indexOf(found, this.pos) === this.pos) {
-                this.pos += found.length;
-                this.found = false;
+            } else {
+                this.pos = this.value.length;
+                return true;
             }
         },
-        reset: function() {
-            this.found = false;
-            if (this.isAborted) this.isAborted = undefined;
-            return this;
+        undo: function(n) {
+            this.pos = Math.max(0, this.pos - n);
         },
-        revert: function() {
-            if (this.tree.length) {
-                var last = this.tree.pop();
-                this.pos = last.start;
-            }
-        },
-        abort: function() {
-            this.isAborted = true;
-            return this;
-        },
-        save: function() {
-            if (!this.savedPos) this.savedPos = [];
-            this.savedPos.push(this.pos);
-        },
-        restore: function() {
-            if (this.savedPos && this.savedPos.length) {
-                var pos = this.savedPos.pop(), last;
-                if (this.tree.length) {
-                    while (this.tree.length && (last = this.tree[this.tree.length-1]).start >= pos) {
-                        this.tree.pop();
-                        this.pos = last.start;
-                    }
-                    if (this.tree.length) {
-                        if (last.start + last.value.length < pos) {
-                            last.value = last.value.substring(0, pos - last.start);
-                        }
-                    }
-                }
-                this.pos = Math.max(0, Math.min(pos, this.value.length));
-            }
-        },
-        last: function(lastIndex) {
-            if (!lastIndex) lastIndex = 1;
-            var l = this.tree.length;
-            return l && this.tree[l-lastIndex];
-        },
-        lastWrapped: function(lastIndex) {
-            var i = lastIndex || 1, l = this.tree.length, tmp;
-            while ((tmp = this.tree[l - i++]) && (!tmp.styles || !tmp.styles.length));
-            return tmp;
-        },
-        before: function(l) {
-            return this.value.substring(l != null ? this.pos - l : 0, this.pos);
-        },
-        after: function(l) {
-            return this.value.substr(this.pos + (this.found ? this.found.length : 0), l);
-        },
-        isAfter: function(s) {
-            var af = this.after();
-            return 'string' === typeof s ? af.replace(/^\s+/, '').indexOf(s) === 0 : s.test(af);
-        },
-        isBefore: function(s) {
-            var bf = this.before(), t;
-            return 'string' === typeof s ? (t = bf.replace(/\s+$/, '')).indexOf(s, t.length - s.length) >= 0 : s.test(bf);
-        },
-        has: function(s) {
-            return 'string' === typeof s ? this.value.indexOf(s) >= 0 : s.test(this.value);
-        },
-        isEmpty: function() {
-            return this.value == null;
-        },
-        peek: function(q) {
-            q = q || 0;
-            return this.value.charAt(this.pos + q);
-        },
-        eol: function() {
-            return this.pos === this.value.length - (this.found ? this.found.length : 0);
-        },
-        sol: function() {
-            return this.pos === 0;
-        },
-        isStillHungry: function() {
-            return this.eol() && this.unfinished === true;
-        },
-        setStateAfter: function(arg) {
-            if ('string' === typeof arg) {
-                var str = arg;
-                arg = {};
-                arg[str] = true;
-            }
-            if (arg) {
-                if (!this.stateAfter) this.stateAfter = {}
-                for (var k in arg) {
-                    this.stateAfter[k] = arg[k];
-                }
-            }
-        },
-        continueState: function() {
-            if (this.stateBefore) {
-                this.stateAfter = this.stateBefore;
-            }
-        },
-        toString: function() {
-            var v = this.value, tree = this.tree, node
-            , tmp = 0, r = '', hasStyle = !!this.styles;
-            
-            if (hasStyle) r += '<span class="cpx-'+this.styles.join(' cpx-')+'">';
-            
-            for (var i = 0; i < tree.length; i++) {
-                node = tree[i];
-                if (tmp < node.start) {
-                    r += hasStyle ? v.substring(tmp, node.start).encode() : '<span>'+v.substring(tmp, node.start).encode()+'</span>';
-                }
-                r += node.toString();
-                tmp = node.start + node.value.length;
-            }
-            if (tmp < v.length) r += hasStyle ? v.substr(tmp).encode() : '<span>'+v.substr(tmp).encode()+'</span>';
-            if (hasStyle) r += '</span>';
-            return r;
+        markDefinition: function(defObject) {
+            this.definition = { pos: this.start }.extend(defObject);
         }
     }
     
@@ -3327,7 +3170,6 @@
     CodePrinter.Mode = function(extend) {
         this.name = 'plaintext';
         this.keyMap = {};
-        this.caseSensitive = true;
         this.onLeftRemoval = {
             '{': '}', '(': ')', '[': ']', '"': '"', "'": "'"
         }
@@ -3337,108 +3179,27 @@
         this.selectionWrappers = {
             '(': ['(', ')'], '[': ['[', ']'], '{': ['{', '}'], '"': '"', "'": "'"
         }
-        this.indentIncrements = ['(', '[', '{', ':'];
-        this.indentDecrements = [')', ']', '}'];
-        this.brackets = {
-            '{': ['bracket', 'bracket-curly', 'bracket-open'],
-            '}': ['bracket', 'bracket-curly', 'bracket-close'],
-            '[': ['bracket', 'bracket-square', 'bracket-open'],
-            ']': ['bracket', 'bracket-square', 'bracket-close'],
-            '(': ['bracket', 'bracket-round', 'bracket-open'],
-            ')': ['bracket', 'bracket-round', 'bracket-close']
-        }
-        this.expressions = {
-            '//': { ending: /$/, classes: ['comment', 'line-comment'] }, 
-            '/*': { ending: '*/', classes: ['comment', 'block-comment'] },
-            "'": { ending: /(^'|[^\\]'|\\{2}')/, classes: ['string', 'single-quote'] },
-            '"': { ending: /(^"|[^\\]"|\\{2}")/, classes: ['string', 'double-quote'] }
-        }
-        this.punctuations = {
-            '.': 'dot',
-            ',': 'comma',
-            ':': 'colon',
-            ';': 'semicolon',
-            '?': 'question',
-            '!': 'exclamation'
-        }
-        this.operators = {
-            '=': 'equal',
-            '!': 'negation',
-            '-': 'minus',
-            '+': 'plus',
-            '*': 'multiply',
-            '/': 'divider',
-            '^': 'power',
-            '%': 'percentage',
-            '<': 'lower',
-            '>': 'greater',
-            '&': 'ampersand',
-            '|': 'verticalbar'
-        }
-        this.keyMap[')'] = this.keyMap[']'] = this.keyMap['}'] = function(e, k, ch) {
-            if (!this.caret.textBefore().trim()) {
-                var line = this.caret.line()
-                , indent = this.getNextLineIndent(line-1);
-                this.caret.setTextBefore(this.tabString(indent-1) + this.caret.textBefore().trim());
-            }
-        }
         this.extend(extend instanceof Function ? extend.call(this) : extend);
         this.extension && this.expand(this.extension);
         this.init();
     }
     CodePrinter.Mode.prototype = {
         init: function() {},
-        memoryAlloc: function() {
-            return {};
+        initialState: function() { return {}; },
+        iterator: function(stream, state) {
+            var ch = stream.next();
+            /\S/.test(ch) ? stream.eatWhile(/\S/) : stream.eatWhile(/\s/);
+            return;
         },
-        parse: function(stream, memory) {
-            return stream;
+        indent: function(stream, state) {
+            return stream.indentation;
         },
-        compile: function(string, memory) {
-            return this.parse(new Stream(string), memory || this.memoryAlloc()).toString();
-        },
-        indentation: function(textBefore, textAfter, line, indent, parser) {
-            var charBefore = textBefore.slice(-1)
-            , charAfter = textAfter.slice(0, 1);
-            if (parser.indentIncrements.indexOf(charBefore) >= 0) {
-                if (parser.indentDecrements.indexOf(charAfter) >= 0) {
-                    return [1, 0];
-                }
-                return 1;
-            }
-            if (parser.controls) {
-                var word = (textBefore.match(/^\w+/) || [])[0];
-                if (word && parser.controls.test(word)) {
-                    return 1;
-                }
-                var i = 0, prevline = this.getTextAtLine(line - 1).trim();
-                while (prevline && !/\{$/.test(prevline) && (word = (prevline.match(/^\w+/) || [])[0]) && parser.controls.test(word)) {
-                    i++;
-                    prevline = this.getTextAtLine(line - i - 1).trim();
-                }
-                return -i;
-            }
-            return 0;
-        },
-        fixIndent: function(dl, expectedIndent) {
-            var id = this.parser.indentDecrements;
-            if (id) {
-                var txt = dl.text.trim();
-                for (var i = 0; i < id.length; i++) {
-                    if (txt.startsWith(id[i])) {
-                        return expectedIndent - 1;
-                    }
-                }
-            }
-            return expectedIndent;
+        isIndentTrigger: function(char) {
+            return this.indentTriggers instanceof RegExp && this.indentTriggers.test(char);
         },
         isAutoCompleteTrigger: function(char) {
             return this.autoCompleteTriggers instanceof RegExp && this.autoCompleteTriggers.test(char);
-        },
-        parseBy: function(helper, stream) {
-            return helper.parse(stream, helper.memoryAlloc(), true);
-        },
-        codeCompletions: function() {}
+        }
     }
     
     keyMap = function() {}
@@ -3491,34 +3252,40 @@
         'Shift Tab': CodePrinter.prototype.unindent,
         'Enter': function() {
             var bf = this.caret.textBefore()
-            , af = this.caret.textAfter();
+            , af = this.caret.textAfter()
+            , dl = this.caret.dl()
+            , s = this.getStateAt(dl, this.caret.column())
+            , parser = s.parser;
             
             if (this.options.autoIndent) {
-                var rest = '', line = this.caret.line(), dl = this.caret.dl()
-                , indent = this.getIndentAtLine(dl), parser = dl.stateAfter && dl.stateAfter.parser || this.parser
-                , spacesAfter = 0;
+                var indent = this.getIndentAtLine(dl)
+                , rest = '', tw = this.options.tabWidth
+                , tmp, mv = 0;
                 
-                if (parser && parser.indentation) {
-                    var i = parser.indentation.call(this, this.caret.textBefore().trim(), af.trim(), line, indent, parser);
+                if (parser && parser.indent) {
+                    var tab = this.options.indentByTabs ? '\t' : ' '.repeat(tw)
+                    , i = parser.indent(s.stream, s.state);
+                    
                     if (i instanceof Array) {
-                        var first = i.shift();
+                        indent = i.shift();
                         while (i.length) {
-                            rest += '\n' + this.tabString(indent + i.shift());
+                            rest += '\n' + tab.repeat(indent + i.shift());
                         }
-                        indent += first;
                     } else {
-                        indent += parseInt(i) || 0;
+                        indent = parseInt(i, 10) || indent;
                     }
                 }
-                if (af && af.match(/^( +)/) && RegExp.$1) {
-                    spacesAfter = RegExp.$1.length;
+                tmp = parseIndentation(af, tw);
+                tab = tab.repeat(indent);
+                if (tmp.indentTex && tab.endsWith(tmp.indentText)) {
+                    tab = tab.slice(0, mv = -tmp.indentText.length);
                 }
-                this.insertText('\n' + this.tabString(indent).slice(spacesAfter) + rest, -rest.length + spacesAfter);
+                this.insertText('\n' + tab + rest, -rest.length - mv);
             } else {
                 this.insertText('\n');
             }
-            if (this.parser && this.parser.afterEnterKey) {
-                this.parser.afterEnterKey.call(this, bf, af);
+            if (parser && parser.afterEnterKey) {
+                parser.afterEnterKey.call(this, bf, af);
             }
             return false;
         },
@@ -3812,108 +3579,34 @@
         }
     }
     
-    tracking = function() {}
-    tracking.prototype = {
-        '(': function(key, textline, details) {
-            var states = ['bracket'];
-            if (this.options.highlightBrackets && this.isState(states, details.line, details.columnStart+1)) {
-                var sec = key === '(' ? ')' : String.fromCharCode(key.charCodeAt(0)+2)
-                , counter = 1
-                , line = details.line
-                , col = details.columnEnd;
-                
-                do {
-                    var a = this.searchRight(sec, line, col, states)
-                    , b = this.searchRight(key, line, col, states);
-                    
-                    if (a[0] >= 0 && a[1] >= 0) {
-                        if (b[0] >= 0 && b[1] >= 0 && (b[0] < a[0] || b[0] == a[0] && b[1] < a[1])) {
-                            ++counter;
-                            a = b;
-                        } else {
-                            --counter;
-                        }
-                        line = a[0];
-                        col = a[1] + 1;
-                    } else {
-                        counter = 0;
-                    }
-                } while (counter != 0);
-                
-                this.createHighlightOverlay(
-                    [details.line, details.columnStart, key],
-                    [line, col - 1, sec]
-                );
-            }
-        },
-        ')': function(key, textline, details) {
-            var states = ['bracket'];
-            if (this.options.highlightBrackets && this.isState(states, details.line, details.columnStart+1)) {
-                var sec = key === ')' ? '(' : String.fromCharCode(key.charCodeAt(0)-2)
-                , counter = 1
-                , line = details.line
-                , col = details.columnStart;
-                
-                do {
-                    var a = this.searchLeft(sec, line, col, states)
-                    , b = this.searchLeft(key, line, col, states);
-                    
-                    if (a[0] >= 0 && a[1] >= 0) {
-                        if (b[0] >= 0 && b[1] >= 0 && (b[0] > a[0] || b[0] == a[0] && b[1] > a[1])) {
-                            ++counter;
-                            a = b;
-                        } else {
-                            --counter;
-                        }
-                        line = a[0];
-                        col = a[1];
-                    } else {
-                        counter = 0;
-                    }
-                } while (counter != 0);
-                
-                this.createHighlightOverlay(
-                    [line, col, sec],
-                    [details.line, details.columnStart, key]
-                );
-            }
-        }
-    }
-    tracking.prototype['{'] = tracking.prototype['['] = tracking.prototype['('];
-    tracking.prototype['}'] = tracking.prototype[']'] = tracking.prototype[')'];
-    
     lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
+    CodePrinter.aliases = { 'js': 'javascript', 'htm': 'html', 'less': 'css', 'h': 'c++', 'cpp': 'c++', 'rb': 'ruby', 'pl': 'perl',
+        'sh': 'bash', 'adb': 'ada', 'coffee': 'coffeescript', 'md': 'markdown', 'svg': 'xml', 'plist': 'xml' };
+    CodePrinter.matching = {'brackets': {}};
     
-    aliases = {
-        'js': 'javascript',
-        'htm': 'html',
-        'less': 'css',
-        'h': 'c++',
-        'cpp': 'c++',
-        'rb': 'ruby',
-        'pl': 'perl',
-        'sh': 'bash',
-        'adb': 'ada',
-        'coffee': 'coffeescript',
-        'md': 'markdown',
-        'svg': 'xml',
-        'plist': 'xml'
+    var brackets = ['{', '(', '[', '}', ')', ']'];
+    for (var i = 0; i < brackets.length; i++) {
+        CodePrinter.matching.brackets[brackets[i]] = {
+            direction: i < 3 ? 'right' : 'left',
+            style: 'bracket',
+            value: complementBracket(brackets[i])
+        }
     }
     
     CodePrinter.requireMode = function(req, cb, del) {
-        return $.require('CodePrinter/'+req, cb, del);
+        $.require('CodePrinter/'+req, cb, del);
     }
-    CodePrinter.defineMode = function(name, req, obj) {
+    CodePrinter.defineMode = function(name, req, func) {
         if (arguments.length === 2) {
-            obj = req;
+            func = req;
             req = null;
         }
         if (req) {
             for (var i = 0; i < req.length; i++) {
-                req[i] = 'CodePrinter/'+(aliases[req[i]] || req[i]);
+                req[i] = 'CodePrinter/'+(CodePrinter.aliases[req[i]] || req[i]);
             }
         }
-        $.define('CodePrinter/'+name, req, obj);
+        $.define('CodePrinter/'+name, req, func);
         $.require('CodePrinter/'+name, function(mode) {
             mode.name = name;
             CodePrinter.emit(name+':loaded', mode);
@@ -3929,12 +3622,12 @@
         $.define('CodePrinter/addons/'+name, obj);
     }
     CodePrinter.registerExtension = function(ext, parserName) {
-        aliases[ext.toLowerCase()] = parserName.toLowerCase();
+        CodePrinter.aliases[ext.toLowerCase()] = parserName.toLowerCase();
     }
     CodePrinter.issetExtension = function(ext) {
-        if (aliases[ext]) return true;
-        for (var k in aliases) {
-            if (aliases[k] == ext) {
+        if (CodePrinter.aliases[ext]) return true;
+        for (var k in CodePrinter.aliases) {
+            if (CodePrinter.aliases[k] == ext) {
                 return true;
             }
         }
@@ -3968,8 +3661,8 @@
         
         return function(cp) {
             cp.caret = new Caret(cp);
-            cp.mainElement = m.cloneNode(true);
-            cp.body = cp.mainElement.firstChild;
+            cp.mainNode = m.cloneNode(true);
+            cp.body = cp.mainNode.firstChild;
             cp.container = cp.body.lastChild;
             cp.input = cp.container.firstChild;
             cp.input.tabIndex = cp.options.tabIndex;
@@ -3988,42 +3681,15 @@
         node.style.right = (right != null ? right + this.sizes.paddingLeft + 'px' : null);
         return node;
     }
-    function wrap(text, classes, filter) {
-        if (classes instanceof Array) {
-            for (var i = 0; i < classes.length; i++) classes[i] = 'cpx-'+classes[i];
-            classes = classes.join(' ');
-        }
-        var helper = function(a, b) {
-            if ('string' === typeof arguments[1]) {
-                arguments[1] = 'cpx-'+b.lbreak('cpx-');
-            }
-            return '</span>' + wrap.apply(this, arguments) + '<span class="'+classes+'">';
-        }
-        helper.wrap = wrap;
-        return '<span class="'+classes+'">' + (filter instanceof Function ? filter.call(text.encode(), helper) : text.encode()) + '</span>';
-    }
     function wrapTextNode(parent, textnode) {
         var sp = span.cloneNode();
         sp.textContent = sp.innerText = textnode.textContent;
         parent.replaceChild(sp, textnode);
         return sp;
     }
-    function getStates(text, length) {
-        var i = 0, cur, el = pre.cloneNode();
-        if (text) {
-            el.innerHTML = text;
-            if (el.childNodes.length) {
-                do {
-                    cur = el.childNodes[i];
-                    length -= cur.textContent.length;
-                } while (length > 0 && ++i < el.childNodes.length);
-                
-                if (length <= 0 && cur.nodeType !== 3) {
-                    return cur.className.replace(/cpx\-/g, '').split(' ');
-                }
-            }
-        }
-        return null;
+    function getMatchingObject(m) {
+        if ('string' === typeof m) return CodePrinter.matching[m];
+        return m;
     }
     function getLineClasses(line) {
         var isact = line.node && line.node.hasClass(activeClassName);
@@ -4035,31 +3701,8 @@
         return line.classes ? line.classes.join(' ') : '';
     }
     function complementBracket(ch) {
-        var obj = { '(':')', '{':'}', '[':']', '<':'>' }
+        var obj = { '(':')', ')':'(', '{':'}', '}':'{', '[':']', ']':'[', '<':'>', '>':'<' }
         return obj[ch];
-    }
-    function objNearProperty(obj, property, delta) {
-        var keys = Object.keys(obj)
-        , i = keys.indexOf(''+property);
-        return keys.item(i >= 0 ? i + delta : binarySearch(keys, +property) + (delta > 0 ? delta - 1 : delta));
-    }
-    function binarySearch(arr, value) {
-        var l = 0, r = arr.length;
-        while (l < r) {
-            var m = (l + r) >>> 1;
-            if (+arr[m] < value) l = m + 1;
-            else r = m;
-        }
-        return l;
-    }
-    function nextLineIndent(cp, indent, line, dl) {
-        var parser = cp.parser;
-        if (arguments.length < 4) dl = cp.doc.get(line);
-        if (parser && parser.indentation && dl) {
-            var i = parser.indentation.call(cp, dl.text.trim(), '', line, indent, parser);
-            return indent + (i instanceof Array ? i.shift() : parseInt(i) || 0);
-        }
-        return indent;
     }
     function searchOverLine(find, dl, line, offset) {
         var results = this.searches.results
