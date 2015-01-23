@@ -1,0 +1,39 @@
+/* CodePrinter - Elegant theme */
+
+.cps-elegant .cp-wrapper { background:#F2E9E4; color:#22223B; }
+.cps-elegant .cp-counter { background:#F2E9E4; border-color:#D3CBC6; color:#4A4E69; }
+.cps-elegant .cp-caret { background:#22223B; }
+.cps-elegant .cp-selection { background:#EAD4C7; }
+.cps-elegant .cp-highlight { border-bottom:1px solid #22223B; }
+.cps-elegant .cp-marked { background:#E2DAD5; }
+.cps-elegant .cp-active-line { background:#EAE2DC; }
+.cps-elegant .cp-search-occurrence { border:1px solid #9A8C98; }
+.cps-elegant .cp-search-occurrence.active { background:#9A8C98; color:#E2DAD5; }
+.cps-elegant .cp-hint-container { background:#F2E9E4; border-color:#D3CBC6; color:#22223B; }
+.cps-elegant .cp-hint-container .active { background:#E2DAD5; color:#4A4E69; }
+.cps-elegant .cp-scrollbar { padding:0; }
+.cps-elegant .cp-scrollbar-slider { background:#9A8C98; border-radius:0; }
+.cps-elegant .cp-scrollbar-vertical { width:2px; bottom:0px; }
+.cps-elegant .cp-scrollbar-horizontal { height:2px; right:0px; }
+
+.cps-elegant .cpx-tab { border-color:#ADA5A0; }
+.cps-elegant .cpx-bracket { color:#796465; }
+.cps-elegant .cpx-operator { color:#AAA694; }
+.cps-elegant .cpx-keyword { color:#9A8C98; }
+.cps-elegant .cpx-control { color:#432E36; font-weight:bold; }
+.cps-elegant .cpx-special { color:#5F4842; }
+.cps-elegant .cpx-variable { color:#88A0A8; }
+.cps-elegant .cpx-parameter { color:#88A0A8; }
+.cps-elegant .cpx-builtin { color:#7F9183; }
+.cps-elegant .cpx-constant { color:#7F9183; }
+.cps-elegant .cpx-namespace { color:#D7907B; }
+.cps-elegant .cpx-directive { color:#D7907B; }
+.cps-elegant .cpx-numeric { color:#CB8589; }
+.cps-elegant .cpx-function { color:#CC8B86; }
+.cps-elegant .cpx-property { color:#88A0A8; }
+.cps-elegant .cpx-string { color:#546A76; }
+.cps-elegant .cpx-regexp { color:#546A76; }
+.cps-elegant .cpx-escaped { color:#B3679B; }
+.cps-elegant .cpx-external { color:#A04668; }
+.cps-elegant .cpx-comment { color:#C6BDB6; }
+.cps-elegant .cpx-invalid { background-color:#A04668; }
