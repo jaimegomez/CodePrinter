@@ -3191,6 +3191,22 @@
             /\S/.test(ch) ? stream.eatWhile(/\S/) : stream.eatWhile(/\s/);
             return;
         },
+        compile: function(string) {
+            if ('string' == typeof string) {
+                var state = this.initialState()
+                , node = pre.cloneNode()
+                , lines = string.split(eol)
+                , l = lines.length;
+                
+                for (var i = 0; i < l; i++) {
+                    var stream = new Stream(lines[i]);
+                    node.innerHTML = '';
+                    state = parse(null, this, stream, state, node);
+                    lines[i] = '<pre>'+node.innerHTML+'</pre>';
+                }
+                return lines.join('');
+            }
+        },
         indent: function(stream, state) {
             return stream.indentation;
         },
