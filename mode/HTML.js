@@ -158,6 +158,11 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
             }
             return state.indent;
         },
+        onCompletionChosen: function(choice) {
+            if (/<\/[\w\-]*$/.test(this.caret.textBefore())) {
+                this.insertText('>');
+            }
+        },
         keyMap: {
             '/': function(stream, state) {
                 if (this.options.insertClosingBrackets) {
