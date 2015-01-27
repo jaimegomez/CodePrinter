@@ -124,6 +124,7 @@
   z-index: 4;
   overflow: hidden;
   cursor: text;
+  text-align: left;
 }
 .codeprinter .cp-wrapper.legacy-scrollbars {
   overflow: auto;
