@@ -107,7 +107,7 @@
             , options = this.options
             , addons = options.addons
             , lastScrollTop = 0, counterSelection = []
-            , doc, sizes, allowKeyup, activeLine
+            , sizes, allowKeyup, activeLine
             , isMouseDown, moveevent, moveselection
             , T, T2, T3, fn;
             
@@ -117,7 +117,7 @@
             
             this.mainNode.CodePrinter = this;
             sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
-            doc = this.doc = new Document(this);
+            this.doc = new Document(this);
             this.keyMap = new keyMap;
             this.setTheme(options.theme);
             this.setMode(options.mode);
@@ -126,7 +126,6 @@
             options.drawIndentGuides || this.mainNode.addClass('without-indentation');
             options.legacyScrollbars && this.wrapper.addClass('legacy-scrollbars');
             options.readOnly && this.caret.disable();
-            options.mode !== 'plaintext' && CodePrinter.requireMode(options.mode);
             options.width !== 'auto' && this.setWidth(options.width);
             options.height !== 300 && this.setHeight(options.height);
             options.fontSize !== 11 && this.setFontSize(options.fontSize);
@@ -148,7 +147,8 @@
             function mouseController(e) {
                 if (e.defaultPrevented) return false;
                 
-                var sl = cp.wrapper.scrollLeft
+                var doc = cp.doc
+                , sl = cp.wrapper.scrollLeft
                 , st = cp.wrapper.scrollTop
                 , o = sizes.bounds = sizes.bounds || wrapper.bounds()
                 , x = Math.max(0, sl + e.pageX - o.x)
@@ -235,7 +235,7 @@
                         var x = e.deltaX, y = e.deltaY;
                         
                         if (x) this.scrollLeft += options.scrollSpeed * x;
-                        if (y) doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
+                        if (y) cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
                         return e.cancel();
                     }
                 });
@@ -246,7 +246,7 @@
                     if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
                     if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
                     if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
-                    if (y) doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
+                    if (y) cp.doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
                     return e.cancel();
                 }
                 this.wrapper.listen({ mousewheel: mousewheel, DOMMouseScroll: mousewheel });
@@ -254,7 +254,7 @@
             
             wrapper.listen({
                 scroll: function(e) {
-                    if (!this._lockedScrolling) doc.scrollTo(cp.counter.scrollTop = this.scrollTop, false);
+                    if (!this._lockedScrolling) cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop, false);
                     this._lockedScrolling = true;
                     cp.emit('scroll');
                     return e.cancel(true);
@@ -270,7 +270,7 @@
                     , l = 1, r = 0, rgx, timeout;
                     
                     var tripleclick = function() {
-                        doc.setSelectionRange(line, 0, line+1, 0);
+                        cp.doc.setSelectionRange(line, 0, line+1, 0);
                         cp.caret.position(line+1, 0);
                         this.unlisten('click', tripleclick);
                         timeout = clearTimeout(timeout);
@@ -284,7 +284,7 @@
                     while (r < af.length && rgx.test(af[r])) r++;
                     
                     if (c-l+1 != c+r) {
-                        doc.setSelectionRange(line, c-l+1, line, c+r);
+                        cp.doc.setSelectionRange(line, c-l+1, line, c+r);
                     }
                 },
                 mousedown: mouseController
@@ -302,7 +302,7 @@
                     } else {
                         cp.caret.blur();
                         cp.mainNode.addClass('inactive');
-                        if (options.abortSelectionOnBlur) doc.clearSelection();
+                        if (options.abortSelectionOnBlur) cp.doc.clearSelection();
                         cp.emit('blur');
                     }
                 },
@@ -316,8 +316,8 @@
                     allowKeyup = true;
                     
                     if (iscmd) {
-                        if (doc.issetSelection() && kc.indexOf(' ') === -1) {
-                            this.value = doc.getSelection();
+                        if (cp.doc.issetSelection() && kc.indexOf(' ') === -1) {
+                            this.value = cp.doc.getSelection();
                             this.setSelectionRange(0, this.value.length);
                         } else if (commands[ch]) {
                             allowKeyup = commands[ch].call(cp, e, code, ch);
@@ -349,8 +349,8 @@
                     , ch = String.fromCharCode(code);
                     
                     if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-                        if (doc.issetSelection() && (a = parser.selectionWrappers[ch])) {
-                            'string' === typeof a ? doc.wrapSelection(a, a) : doc.wrapSelection(a[0], a[1]);
+                        if (cp.doc.issetSelection() && (a = parser.selectionWrappers[ch])) {
+                            'string' === typeof a ? cp.doc.wrapSelection(a, a) : cp.doc.wrapSelection(a[0], a[1]);
                             allowKeyup = false;
                         } else if (options.useParserKeyMap && parser.keyMap[ch]) {
                             allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
@@ -390,7 +390,7 @@
             
             this.select = function(dl) {
                 this.unselect();
-                if (options.highlightCurrentLine && !moveselection && !doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
+                if (options.highlightCurrentLine && !moveselection && !cp.doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
                     dl.node.addClass(activeClassName);
                     dl.counter.addClass(activeClassName);
                     dl.active = true;
@@ -433,7 +433,7 @@
                                 st = y + 2 * h + pt - ch;
                             }
                         }
-                        doc.scrollTo(st);
+                        cp.doc.scrollTo(st);
                         cp.counter.firstChild.scrollTop = st;
                     }
                     if (options.matching) {
@@ -466,8 +466,8 @@
                     counterSelection[1] = dl.info().index;
                     min = Math.min.apply(Math, counterSelection);
                     max = Math.max.apply(Math, counterSelection);
-                    doc.setSelectionRange(min, 0, max + 1, 0);
-                    if (range = doc.getSelectionRange()) {
+                    cp.doc.setSelectionRange(min, 0, max + 1, 0);
+                    if (range = cp.doc.getSelectionRange()) {
                         var tmp = min === counterSelection[0] ? range.end : range.start;
                         cp.caret.position(tmp.line, tmp.column);
                     }
@@ -479,8 +479,8 @@
                 
                 if (counterSelection.length === 1) {
                     var range, min = counterSelection[0];
-                    doc.setSelectionRange(min, 0, min + 1, 0);
-                    if (range = doc.getSelectionRange()) cp.caret.position(range.end.line, range.end.column);
+                    cp.doc.setSelectionRange(min, 0, min + 1, 0);
+                    if (range = cp.doc.getSelectionRange()) cp.caret.position(range.end.line, range.end.column);
                 }
                 counterSelection.length = 0;
                 isMouseDown = false;
@@ -530,6 +530,17 @@
                 CodePrinter.requireMode(mode, callback, this);
             }
             return this;
+        },
+        createDocument: function() {
+            return new Document(this);
+        },
+        setDocument: function(doc) {
+            if (doc instanceof Document) {
+                var old = this.doc.detach();
+                this.doc = doc.attach();
+                this.print();
+                return old;
+            }
         },
         initAddon: function(addon, options) {
             var cp = this;
@@ -2086,7 +2097,7 @@
         }
     }
     
-    Document = function(cp) {
+    Document = CodePrinter.Document = function(cp) {
         var doc = this
         , counter = cp.counter.firstChild
         , ol = counter.firstChild
@@ -2204,6 +2215,25 @@
             this.updateHeight();
             this.fill();
             return this;
+        }
+        this.attach = function() {
+            if (view.length) {
+                for (var i = 0; i < view.length; i++) {
+                    code.appendChild(view[i].node);
+                    ol.appendChild(view[i].counter);
+                }
+            }
+            doc.updateHeight();
+            selection.overlay.reveal();
+            return doc;
+        }
+        this.detach = function() {
+            for (var i = 0; i < view.length; i++) {
+                code.removeChild(view[i].node);
+                ol.removeChild(view[i].counter);
+            }
+            selection.overlay.remove();
+            return doc;
         }
         this.insert = function(at, text) {
             var lines = [];
