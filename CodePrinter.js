@@ -538,6 +538,7 @@
             if (doc instanceof Document) {
                 var old = this.doc.detach();
                 this.doc = doc.attach();
+                this.emit('doc:changed');
                 this.print();
                 return old;
             }
@@ -2225,6 +2226,7 @@
             }
             doc.updateHeight();
             selection.overlay.reveal();
+            doc.emit('attached');
             return doc;
         }
         this.detach = function() {
@@ -2233,6 +2235,7 @@
                 ol.removeChild(view[i].counter);
             }
             selection.overlay.remove();
+            doc.emit('detached');
             return doc;
         }
         this.insert = function(at, text) {
