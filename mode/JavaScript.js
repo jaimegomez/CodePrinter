@@ -141,7 +141,7 @@ CodePrinter.defineMode('JavaScript', function() {
         },
         iterator: function(stream, state) {
             var ch = stream.next();
-            if (ch == '"' || ch == "'") {
+            if (ch == '"' || ch == "'" || ch == '`') {
                 state.quote = ch;
                 return string(stream, state);
             }
