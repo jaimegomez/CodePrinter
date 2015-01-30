@@ -418,119 +418,6 @@
   border-width: 0 0 1px 0;
   box-sizing: border-box;
 }
-.codeprinter .cpx-tab {
-  padding: 0;
-  border-color: transparent;
-  border-left: 1px dashed #c8c8c8;
-}
-.codeprinter .cpx-bracket {
-  color: #000000;
-}
-.codeprinter .cpx-operator {
-  color: #0487FA;
-}
-.codeprinter .cpx-variable {
-  color: #028ec4;
-}
-.codeprinter .cpx-parameter {
-  color: #f66153;
-}
-.codeprinter .cpx-keyword,
-.codeprinter .cpx-control,
-.codeprinter .cpx-builtin {
-  color: #004eac;
-}
-.codeprinter .cpx-constant {
-  color: #885d3b;
-}
-.codeprinter .cpx-special {
-  color: #C93800;
-}
-.codeprinter .cpx-directive {
-  color: #74482E;
-}
-.codeprinter .cpx-namespace {
-  color: #885D3B;
-}
-.codeprinter .cpx-numeric {
-  color: #E68D3F;
-}
-.codeprinter .cpx-hex {
-  color: #531B93;
-}
-.codeprinter .cpx-function {
-  color: #003f83;
-}
-.codeprinter .cpx-property {
-  color: #028ec4;
-}
-.codeprinter .cpx-regexp {
-  color: #6F9D00;
-}
-.codeprinter .cpx-escaped {
-  color: #436300;
-}
-.codeprinter .cpx-external {
-  color: #FF0000;
-}
-.codeprinter .cpx-string {
-  color: #6F9D00;
-}
-.codeprinter .cpx-comment {
-  color: #999;
-}
-.codeprinter .cpx-invalid {
-  background: #E63B00;
-  color: #F9F9F2;
-}
-.codeprinter .cpx-italic {
-  font-style: italic;
-}
-.codeprinter .cpx-bold {
-  font-weight: bold;
-}
-.codeprinter .cpx-underline {
-  text-decoration: underline;
-}
-.codeprinter .cpx-strike {
-  text-decoration: line-through;
-}
-.codeprinter .cpx-font-40 {
-  font-size: 40%;
-}
-.codeprinter .cpx-font-50 {
-  font-size: 50%;
-}
-.codeprinter .cpx-font-60 {
-  font-size: 60%;
-}
-.codeprinter .cpx-font-70 {
-  font-size: 70%;
-}
-.codeprinter .cpx-font-80 {
-  font-size: 80%;
-}
-.codeprinter .cpx-font-90 {
-  font-size: 90%;
-}
-.codeprinter .cpx-font-110 {
-  font-size: 110%;
-}
-.codeprinter .cpx-font-120 {
-  font-size: 120%;
-}
-.codeprinter .cpx-font-130 {
-  font-size: 130%;
-}
-.codeprinter .cpx-font-140 {
-  font-size: 140%;
-}
-.codeprinter .cpx-font-150 {
-  font-size: 150%;
-}
-.codeprinter .cpx-font-160 {
-  font-size: 160%;
-}
 .codeprinter.cp-fullscreen {
   display: -webkit-box;
   display: -moz-box;
@@ -557,6 +444,119 @@
   -ms-flex: 1;
   -o-flex: 1;
   flex: 1;
+}
+.cpx-tab {
+  padding: 0;
+  border-color: transparent;
+  border-left: 1px dashed #c8c8c8;
+}
+.cpx-bracket {
+  color: #000000;
+}
+.cpx-operator {
+  color: #0487FA;
+}
+.cpx-variable {
+  color: #028ec4;
+}
+.cpx-parameter {
+  color: #f66153;
+}
+.cpx-keyword,
+.cpx-control,
+.cpx-builtin {
+  color: #004eac;
+}
+.cpx-constant {
+  color: #885d3b;
+}
+.cpx-special {
+  color: #C93800;
+}
+.cpx-directive {
+  color: #74482E;
+}
+.cpx-namespace {
+  color: #885D3B;
+}
+.cpx-numeric {
+  color: #E68D3F;
+}
+.cpx-hex {
+  color: #531B93;
+}
+.cpx-function {
+  color: #003f83;
+}
+.cpx-property {
+  color: #028ec4;
+}
+.cpx-regexp {
+  color: #6F9D00;
+}
+.cpx-escaped {
+  color: #436300;
+}
+.cpx-external {
+  color: #FF0000;
+}
+.cpx-string {
+  color: #6F9D00;
+}
+.cpx-comment {
+  color: #999;
+}
+.cpx-invalid {
+  background: #E63B00;
+  color: #F9F9F2;
+}
+.cpx-italic {
+  font-style: italic;
+}
+.cpx-bold {
+  font-weight: bold;
+}
+.cpx-underline {
+  text-decoration: underline;
+}
+.cpx-strike {
+  text-decoration: line-through;
+}
+.cpx-font-40 {
+  font-size: 40%;
+}
+.cpx-font-50 {
+  font-size: 50%;
+}
+.cpx-font-60 {
+  font-size: 60%;
+}
+.cpx-font-70 {
+  font-size: 70%;
+}
+.cpx-font-80 {
+  font-size: 80%;
+}
+.cpx-font-90 {
+  font-size: 90%;
+}
+.cpx-font-110 {
+  font-size: 110%;
+}
+.cpx-font-120 {
+  font-size: 120%;
+}
+.cpx-font-130 {
+  font-size: 130%;
+}
+.cpx-font-140 {
+  font-size: 140%;
+}
+.cpx-font-150 {
+  font-size: 150%;
+}
+.cpx-font-160 {
+  font-size: 160%;
 }
 .cps-default.inactive .cp-selection {
   background: #d0d0d0;
