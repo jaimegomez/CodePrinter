@@ -1589,7 +1589,8 @@
         s = this.parser && this.parser.snippets;
         b = s && s.hasOwnProperty(snippetName);
       }
-      return b && s[snippetName];
+      s = b && s[snippetName];
+      return 'string' == typeof s ? { content: s } : s;
     },
     registerSnippet: function() {
       if (!this.options.snippets) this.options.snippets = [];
