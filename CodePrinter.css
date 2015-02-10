@@ -1,8 +1,8 @@
-/*  CodePrinter
-*   CSS document
-*   
-*   version     0.7.3
-*/
+/*
+ * CodePrinter CSS File
+ * Copyright (C) 2013-2015 Tomasz Sapeta (@tsapeta)
+ * Released under the MIT License.
+ */
 .codeprinter-source {
   display: block;
   padding: 5px 10px;

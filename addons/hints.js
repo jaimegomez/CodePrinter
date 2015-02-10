@@ -1,299 +1,299 @@
 CodePrinter.defineAddon('hints', function() {
+  
+  var defaults = {
+    word: /[\w\-$]+/,
+    range: 500,
+    limit: 100,
+    maxWidth: 300,
+    maxHeight: 100
+  }
+  , li_clone = document.createElement('li');
+  
+  var Hints = function(cp, options) {
+    var that = this, ov, active, container, visible, curWord;
     
-    var defaults = {
-        word: /[\w\-$]+/,
-        range: 500,
-        limit: 100,
-        maxWidth: 300,
-        maxHeight: 100
-    }
-    , li_clone = document.createElement('li');
+    this.options = options = {}.extend(defaults, options);
+    cp.hints = this;
     
-    var Hints = function(cp, options) {
-        var that = this, ov, active, container, visible, curWord;
-        
-        this.options = options = {}.extend(defaults, options);
-        cp.hints = this;
-        
-        this.overlay = ov = cp.doc.createOverlay('cp-hint-overlay');
-        container = document.createElement('div');
-        container.className = 'cp-hint-container';
-        ov.node.appendChild(container);
-        
-        options.maxWidth != 300 && container.css('maxWidth', options.maxWidth);
-        options.maxHeight != 100 && container.css('maxHeight', options.maxHeight);
-        
-        function getWordRgx() {
-            return cp.parser.autoCompleteWord || options.word || defaults.word;
-        }
-        
-        this.search = function() {
-            var list = [], seen = {}
-            , range = options.range, limit = options.limit
-            , wordRgx = getWordRgx()
-            , rgx = new RegExp(wordRgx.source, 'g')
-            , wordBf = cp.wordBefore(wordRgx)
-            , wordAf = cp.wordAfter(wordRgx)
-            , caret = cp.caret
-            , curDL = caret.dl()
-            , bf = caret.textBefore()
-            , af = caret.textAfter()
-            , text = curDL.text
-            , s = cp.getStateAt(curDL, bf.length)
-            , parser = s && s.state && s.state.parser || cp.parser
-            , dl, text, m
-            , next, hOP, fn, ph;
-            
-            curWord = (wordBf + wordAf).toLowerCase();
-            hOP = Object.prototype.hasOwnProperty;
-            
-            fn = curWord ? function(match) {
-                var o = 0, m = 0, max = 0, p = 0
-                , l = curWord.length
-                , lc = match.toLowerCase();
-                
-                for (var i = 0, l = curWord.length; i < l; i++) {
-                    var j = lc.indexOf(curWord[i], o);
-                    if (j == o) {
-                        ++o;
-                        max = Math.max(++m, max);
-                    } else if (j > 0) {
-                        m = 1 - j/lc.length;
-                        o = j+1;
-                    } else {
-                        p += 1 - i/l;
-                        m = 0;
-                    }
-                }
-                if (max >= Math.sqrt(l)) {
-                    seen[match] = max - p;
-                    list.push(match);
-                } else {
-                    seen[match] = null;
-                }
-            }
-            : function(match) {
-                seen[match] = true;
-                list.push(match);
-            }
-            
-            function loop() {
-                while (m = rgx.exec(text)) {
-                    if (!hOP.call(seen, m[0])) {
-                        fn(m[0]);
-                    }
-                }
-            }
-            
-            if (parser && parser.completions && (ph = parser.completions.call(cp, s.stream, s.state))) {
-                var v = ph instanceof Array ? ph : ph.values;
-                for (var i = 0; i < v.length; i++) {
-                    if (!hOP.call(seen, v[i])) {
-                        fn(v[i]);
-                    }
-                }
-                if ('number' === typeof ph.search && ph.search > 1) {
-                    range = ph.search;
-                }
-            }
-            if (!ph || ph.search) {
-                text = curWord ? bf.substr(0, bf.length - wordBf.length) + ' ' + af.substr(wordAf.length) : bf + af;
-                loop();
-                
-                for (var dir = 0; dir <= 1; dir++) {
-                    next = dir ? curDL.next : curDL.prev;
-                    dl = next.call(curDL);
-                    
-                    for (var i = 1; i < range && dl && list.length < limit; i++) {
-                        text = dl.text;
-                        loop();
-                        dl = next.call(dl);
-                    }
-                    limit = limit * 2;
-                }
-            }
-            return curWord ? list.sort(function(a, b) { return seen[b] - seen[a]; }) : list;
-        }
-        this.show = function(autocomplete, byWord, except) {
-            var list = this.search(byWord), ul;
-            
-            if (except instanceof Array) {
-                list.diff(except);
-            }
-            
-            container.innerHTML = '<ul></ul>';
-            ul = container.firstChild;
-            
-            if (list.length) {
-                if (list.length == 1 && autocomplete !== false) {
-                    return this.choose(list[0]);
-                }
-                for (var i = 0; i < list.length; i++) {
-                    var li = li_clone.cloneNode();
-                    li.innerHTML = list[i];
-                    ul.appendChild(li);
-                }
-                this.overlay.reveal();
-                refreshPosition();
-                setActive(ul.children[0], true);
-                visible = true;
-            } else {
-                this.hide();
-            }
-            return this;
-        }
-        this.hide = function() {
-            ov.remove();
-            visible = active = undefined;
-            return that;
-        }
-        this.isVisible = function() {
-            return !!visible;
-        }
-        this.choose = function(value) {
-            var word = getWordRgx()
-            , wbf = cp.wordBefore(word)
-            , waf = cp.wordAfter(word)
-            , parser = cp.getCurrentParser();
-            
-            if (wbf + waf !== value) {
-                cp.removeBeforeCursor(wbf);
-                cp.removeAfterCursor(waf);
-                cp.insertText(value);
-            } else {
-                cp.caret.moveX(waf.length);
-            }
-            if (parser && parser.onCompletionChosen) {
-                if (parser.onCompletionChosen.call(cp, value)) {
-                    $.async(function() {
-                        that.show(false);
-                    });
-                }
-            }
-            cp.emit('autocomplete', value);
-            return this;
-        }
-        
-        cp.on({
-            '@Up': function(e) {
-                if (visible) {
-                    var last = container.children[0].lastChild;
-                    setActive(active && active.prev() || last, true);
-                    return e.cancel();
-                }
-            },
-            '@Down': function(e) {
-                if (visible) {
-                    var first = container.children[0].firstChild;
-                    setActive(active && active.next() || first, true);
-                    return e.cancel();
-                }
-            },
-            '@Enter': function(e) {
-                if (visible && active) {
-                    that.choose(active.innerHTML);
-                    that.hide();
-                    return e.cancel();
-                }
-            },
-            '@Esc': function(e) {
-                if (visible) {
-                    that.hide();
-                    return e.cancel();
-                }
-            }
-        });
-        
-        cp.registerKey({
-            'Ctrl Space': function() {
-                this.hints.show();
-            }
-        });
-        
-        ov.on({
-            'caretMove': function() {
-                if (curWord) {
-                    var wordRgx = getWordRgx()
-                    , word = cp.wordBefore(wordRgx) + cp.wordAfter(wordRgx);
-                    
-                    if (word === curWord) {
-                        that.show(false, word);
-                    } else {
-                        that.hide();
-                    }
-                }
-            },
-            'changed': function(e) {
-                !e.added || that.strictMatch(e.text) ? that.show(false) : that.hide();
-            },
-            'keydown': function() {
-                curWord = undefined;
-            },
-            'blur': that.hide,
-            'click': that.hide
-        });
-        
-        var stopprop = function(e) { e.stopPropagation(); };
-        ov.node.on({ wheel: stopprop, mousewheel: stopprop, scroll: stopprop });
-        
-        container.delegate('li', {
-            mousedown: function(e) {
-                that.choose(this.innerHTML);
-                that.hide();
-                return e.cancel();
-            },
-            mouseover: function(e) {
-                setActive(this);
-            },
-            mouseout: function(e) {
-                setActive(null);
-            }
-        });
-        
-        function refreshPosition() {
-            var x = cp.caret.offsetX() - 4
-            , y = cp.caret.offsetY(true) + cp.sizes.paddingTop + 2;
-            
-            if (y + container.clientHeight > cp.wrapper.scrollHeight) {
-                y = cp.caret.offsetY() - container.clientHeight - 2;
-            }
-            if (x + container.clientWidth > cp.wrapper.scrollWidth) {
-                x = x - container.clientWidth;
-            }
-            
-            container.style.top = y+'px';
-            container.style.left = x+'px';
-        }
-        function setActive(li, scroll) {
-            if (active) active.removeClass('active');
-            if (li) {
-                active = li.addClass('active');
-                if (scroll) container.scrollTop = scrollTop(li);
-            } else {
-                active = null;
-            }
-        }
-        function scrollTop(li) {
-            var ot = li.offsetTop, st = container.scrollTop, loh = li.offsetHeight, ch = container.clientHeight;
-            return ot < st ? ot : ot + loh < st + ch ? st : ot - ch + loh;
-        }
-        return this;
+    this.overlay = ov = cp.doc.createOverlay('cp-hint-overlay');
+    container = document.createElement('div');
+    container.className = 'cp-hint-container';
+    ov.node.appendChild(container);
+    
+    options.maxWidth != 300 && container.css('maxWidth', options.maxWidth);
+    options.maxHeight != 100 && container.css('maxHeight', options.maxHeight);
+    
+    function getWordRgx() {
+      return cp.parser.autoCompleteWord || options.word || defaults.word;
     }
     
-    Hints.prototype = {
-        setRange: function(range) {
-            this.options.range = range;
-        },
-        setWordPattern: function(word) {
-            this.options.word = word;
-        },
-        match: function(word) {
-            return this.options.word.test(word);
-        },
-        strictMatch: function(word) {
-            return new RegExp('^'+this.options.word.source+'$').test(word);
+    this.search = function() {
+      var list = [], seen = {}
+      , range = options.range, limit = options.limit
+      , wordRgx = getWordRgx()
+      , rgx = new RegExp(wordRgx.source, 'g')
+      , wordBf = cp.wordBefore(wordRgx)
+      , wordAf = cp.wordAfter(wordRgx)
+      , caret = cp.caret
+      , curDL = caret.dl()
+      , bf = caret.textBefore()
+      , af = caret.textAfter()
+      , text = curDL.text
+      , s = cp.getStateAt(curDL, bf.length)
+      , parser = s && s.state && s.state.parser || cp.parser
+      , dl, text, m
+      , next, hOP, fn, ph;
+      
+      curWord = (wordBf + wordAf).toLowerCase();
+      hOP = Object.prototype.hasOwnProperty;
+      
+      fn = curWord ? function(match) {
+        var o = 0, m = 0, max = 0, p = 0
+        , l = curWord.length
+        , lc = match.toLowerCase();
+        
+        for (var i = 0, l = curWord.length; i < l; i++) {
+          var j = lc.indexOf(curWord[i], o);
+          if (j == o) {
+            ++o;
+            max = Math.max(++m, max);
+          } else if (j > 0) {
+            m = 1 - j/lc.length;
+            o = j+1;
+          } else {
+            p += 1 - i/l;
+            m = 0;
+          }
         }
+        if (max >= Math.sqrt(l)) {
+          seen[match] = max - p;
+          list.push(match);
+        } else {
+          seen[match] = null;
+        }
+      }
+      : function(match) {
+        seen[match] = true;
+        list.push(match);
+      }
+      
+      function loop() {
+        while (m = rgx.exec(text)) {
+          if (!hOP.call(seen, m[0])) {
+            fn(m[0]);
+          }
+        }
+      }
+      
+      if (parser && parser.completions && (ph = parser.completions.call(cp, s.stream, s.state))) {
+        var v = ph instanceof Array ? ph : ph.values;
+        for (var i = 0; i < v.length; i++) {
+          if (!hOP.call(seen, v[i])) {
+            fn(v[i]);
+          }
+        }
+        if ('number' === typeof ph.search && ph.search > 1) {
+          range = ph.search;
+        }
+      }
+      if (!ph || ph.search) {
+        text = curWord ? bf.substr(0, bf.length - wordBf.length) + ' ' + af.substr(wordAf.length) : bf + af;
+        loop();
+        
+        for (var dir = 0; dir <= 1; dir++) {
+          next = dir ? curDL.next : curDL.prev;
+          dl = next.call(curDL);
+          
+          for (var i = 1; i < range && dl && list.length < limit; i++) {
+            text = dl.text;
+            loop();
+            dl = next.call(dl);
+          }
+          limit = limit * 2;
+        }
+      }
+      return curWord ? list.sort(function(a, b) { return seen[b] - seen[a]; }) : list;
+    }
+    this.show = function(autocomplete, byWord, except) {
+      var list = this.search(byWord), ul;
+      
+      if (except instanceof Array) {
+        list.diff(except);
+      }
+      
+      container.innerHTML = '<ul></ul>';
+      ul = container.firstChild;
+      
+      if (list.length) {
+        if (list.length == 1 && autocomplete !== false) {
+          return this.choose(list[0]);
+        }
+        for (var i = 0; i < list.length; i++) {
+          var li = li_clone.cloneNode();
+          li.innerHTML = list[i];
+          ul.appendChild(li);
+        }
+        this.overlay.reveal();
+        refreshPosition();
+        setActive(ul.children[0], true);
+        visible = true;
+      } else {
+        this.hide();
+      }
+      return this;
+    }
+    this.hide = function() {
+      ov.remove();
+      visible = active = undefined;
+      return that;
+    }
+    this.isVisible = function() {
+      return !!visible;
+    }
+    this.choose = function(value) {
+      var word = getWordRgx()
+      , wbf = cp.wordBefore(word)
+      , waf = cp.wordAfter(word)
+      , parser = cp.getCurrentParser();
+      
+      if (wbf + waf !== value) {
+        cp.removeBeforeCursor(wbf);
+        cp.removeAfterCursor(waf);
+        cp.insertText(value);
+      } else {
+        cp.caret.moveX(waf.length);
+      }
+      if (parser && parser.onCompletionChosen) {
+        if (parser.onCompletionChosen.call(cp, value)) {
+          $.async(function() {
+            that.show(false);
+          });
+        }
+      }
+      cp.emit('autocomplete', value);
+      return this;
     }
     
-    return Hints;
+    cp.on({
+      '@Up': function(e) {
+        if (visible) {
+          var last = container.children[0].lastChild;
+          setActive(active && active.prev() || last, true);
+          return e.cancel();
+        }
+      },
+      '@Down': function(e) {
+        if (visible) {
+          var first = container.children[0].firstChild;
+          setActive(active && active.next() || first, true);
+          return e.cancel();
+        }
+      },
+      '@Enter': function(e) {
+        if (visible && active) {
+          that.choose(active.innerHTML);
+          that.hide();
+          return e.cancel();
+        }
+      },
+      '@Esc': function(e) {
+        if (visible) {
+          that.hide();
+          return e.cancel();
+        }
+      }
+    });
+    
+    cp.registerKey({
+      'Ctrl Space': function() {
+        this.hints.show();
+      }
+    });
+    
+    ov.on({
+      'caretMove': function() {
+        if (curWord) {
+          var wordRgx = getWordRgx()
+          , word = cp.wordBefore(wordRgx) + cp.wordAfter(wordRgx);
+          
+          if (word === curWord) {
+            that.show(false, word);
+          } else {
+            that.hide();
+          }
+        }
+      },
+      'changed': function(e) {
+        !e.added || that.strictMatch(e.text) ? that.show(false) : that.hide();
+      },
+      'keydown': function() {
+        curWord = undefined;
+      },
+      'blur': that.hide,
+      'click': that.hide
+    });
+    
+    var stopprop = function(e) { e.stopPropagation(); };
+    ov.node.on({ wheel: stopprop, mousewheel: stopprop, scroll: stopprop });
+    
+    container.delegate('li', {
+      mousedown: function(e) {
+        that.choose(this.innerHTML);
+        that.hide();
+        return e.cancel();
+      },
+      mouseover: function(e) {
+        setActive(this);
+      },
+      mouseout: function(e) {
+        setActive(null);
+      }
+    });
+    
+    function refreshPosition() {
+      var x = cp.caret.offsetX() - 4
+      , y = cp.caret.offsetY(true) + cp.sizes.paddingTop + 2;
+      
+      if (y + container.clientHeight > cp.wrapper.scrollHeight) {
+        y = cp.caret.offsetY() - container.clientHeight - 2;
+      }
+      if (x + container.clientWidth > cp.wrapper.scrollWidth) {
+        x = x - container.clientWidth;
+      }
+      
+      container.style.top = y+'px';
+      container.style.left = x+'px';
+    }
+    function setActive(li, scroll) {
+      if (active) active.removeClass('active');
+      if (li) {
+        active = li.addClass('active');
+        if (scroll) container.scrollTop = scrollTop(li);
+      } else {
+        active = null;
+      }
+    }
+    function scrollTop(li) {
+      var ot = li.offsetTop, st = container.scrollTop, loh = li.offsetHeight, ch = container.clientHeight;
+      return ot < st ? ot : ot + loh < st + ch ? st : ot - ch + loh;
+    }
+    return this;
+  }
+  
+  Hints.prototype = {
+    setRange: function(range) {
+      this.options.range = range;
+    },
+    setWordPattern: function(word) {
+      this.options.word = word;
+    },
+    match: function(word) {
+      return this.options.word.test(word);
+    },
+    strictMatch: function(word) {
+      return new RegExp('^'+this.options.word.source+'$').test(word);
+    }
+  }
+  
+  return Hints;
 });
