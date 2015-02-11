@@ -3631,7 +3631,7 @@
   
   lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
   CodePrinter.aliases = { 'js': 'javascript', 'htm': 'html', 'less': 'css', 'h': 'c++', 'cpp': 'c++', 'rb': 'ruby', 'pl': 'perl',
-    'sh': 'bash', 'adb': 'ada', 'coffee': 'coffeescript', 'md': 'markdown', 'svg': 'xml', 'plist': 'xml' };
+    'sh': 'bash', 'adb': 'ada', 'coffee': 'coffeescript', 'md': 'markdown', 'svg': 'xml', 'plist': 'xml', 'yml': 'yaml' };
   CodePrinter.matching = {'brackets': {}};
   
   var brackets = ['{', '(', '[', '}', ')', ']'];
