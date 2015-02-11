@@ -56,13 +56,13 @@
     lineEndings: '\n',
     width: 'auto',
     height: 300,
-    tabWidth: 4,
+    tabWidth: 2,
     tabIndex: -1,
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: 'Menlo, Monaco, Consolas, Courier, monospace',
     minFontSize: 6,
     maxFontSize: 60,
-    viewportMargin: 150,
+    viewportMargin: 80,
     keyupInactivityTimeout: 1500,
     scrollSpeed: 1,
     autoScrollSpeed: 20,
@@ -97,6 +97,7 @@
   li = document.createElement('li');
   pre = document.createElement('pre');
   span = document.createElement('span');
+  pre.style.display = 'none';
   
   CodePrinter.prototype = {
     isFullscreen: false,
@@ -108,8 +109,9 @@
       , addons = options.addons
       , lastScrollTop = 0, counterSelection = []
       , sizes, allowKeyup, activeLine
-      , isMouseDown, moveevent, moveselection
-      , T, T2, T3, fn;
+      , isMouseDown, isScrolling
+      , moveevent, moveselection
+      , T, T2, T3, T4, fn;
       
       if (options.fontFamily !== CodePrinter.defaults.fontFamily) {
         this.container.style.fontFamily = options.fontFamily;
@@ -128,7 +130,7 @@
       options.readOnly && this.caret.disable();
       options.width !== 'auto' && this.setWidth(options.width);
       options.height !== 300 && this.setHeight(options.height);
-      options.fontSize !== 11 && this.setFontSize(options.fontSize);
+      options.fontSize !== 12 && this.setFontSize(options.fontSize);
       
       if (addons) {
         if (addons instanceof Array) {
@@ -230,14 +232,12 @@
       }
       
       if (this.wrapper.onwheel !== undefined) {
-        this.wrapper.listen({
-          wheel: function(e) {
-            var x = e.deltaX, y = e.deltaY;
-            
-            if (x) this.scrollLeft += options.scrollSpeed * x;
-            if (y) cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
-            return e.cancel();
-          }
+        this.wrapper.addEventListener('wheel', function(e) {
+          var x = e.deltaX, y = e.deltaY;
+          
+          if (x) this.scrollLeft += options.scrollSpeed * x;
+          if (y) cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
+          return e.cancel();
         });
       } else {
         var mousewheel = function(e) {
@@ -254,10 +254,21 @@
       
       wrapper.listen({
         scroll: function(e) {
-          if (!this._lockedScrolling) cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop, false);
-          this._lockedScrolling = true;
+          if (!this._lockedScrolling) {
+            cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop, false);
+          }
+          this._lockedScrolling = false;
+          if (!isScrolling) {
+            wrapper.addClass('scrolling');
+          }
+          isScrolling = true;
           cp.emit('scroll');
-          return e.cancel(true);
+          T4 = clearTimeout(T4) || setTimeout(function() {
+            isScrolling = false;
+            wrapper.removeClass('scrolling');
+            cp.emit('scrollend');
+          }, 100);
+          return e.cancel();
         },
         contextmenu: function(e) {
           return e.cancel();
@@ -585,39 +596,41 @@
     },
     parse: function(dl, stateBefore) {
       if (dl != null) {
-        var state = stateBefore, start = dl
+        var state = stateBefore, tmp = dl
         , tw = this.options.tabWidth
         , tmpnext = dl.state && dl.state.next, newnext;
         
         if (state === undefined) {
-          var s = searchLineWithState(this.parser, start, tw);
+          var s = searchLineWithState(this.parser, tmp, tw);
           state = s.state;
-          start = s.line;
+          tmp = s.line;
         } else {
           state = state ? copyState(state) : this.parser.initialState();
         }
-        for (; start; start = start.next()) {
-          var ind = parseIndentation(start.text, tw)
+        for (; tmp; tmp = tmp.next()) {
+          var ind = parseIndentation(tmp.text, tw)
           , stream = new Stream(ind.rest, { indentation: ind.indentation });
-          if (start.node) {
+          if (tmp.node) {
+            tmp.node.style.display = 'none';
             if (ind.rest) {
-              dl.node.innerHTML = ind.html;
-              parse(this, this.parser, stream, state, start.node);
+              tmp.node.innerHTML = ind.html;
+              parse(this, this.parser, stream, state, tmp.node);
             } else {
-              dl.node.innerHTML = ind.html || zws;
+              tmp.node.innerHTML = ind.html || zws;
             }
-            this.doc.updateLineHeight(dl);
+            tmp.node.style.display = '';
+            this.doc.updateLineHeight(tmp);
           } else {
             fastParse(this, this.parser, stream, state);
           }
-          if (stream.definition) dl.definition = stream.definition;
-          else if (dl.definition) dl.definition = undefined;
-          state = copyState(start.state = state);
-          if (start == dl) break;
+          if (stream.definition) tmp.definition = stream.definition;
+          else if (dl.definition) tmp.definition = undefined;
+          state = copyState(tmp.state = state);
+          if (tmp == dl) break;
         }
         newnext = dl.state && dl.state.next;
-        if ((!tmpnext && newnext || tmpnext && tmpnext != newnext) && (start = dl.next())) {
-          return this.parse(start, dl.state);
+        if ((!tmpnext && newnext || tmpnext && tmpnext != newnext) && (tmp = dl.next())) {
+          return this.parse(tmp, dl.state);
         }
       }
       return dl;
@@ -1623,8 +1636,10 @@
       }
     },
     emit: function(eventName) {
-      this.doc && this.doc.emitToOverlays.apply(this.doc, arguments);
-      Object.prototype.emit.apply(this, arguments);
+      var args = [], i = arguments.length;
+      while (i--) args[i] = arguments[i];
+      this.doc && this.doc.emitToOverlays(args);
+      Object.prototype.emit.apply(this, args);
       return this;
     },
     enterFullscreen: function() {
@@ -2398,7 +2413,7 @@
       , h, dl;
       
       if (d) {
-        if (abs > 900 && abs > 3 * code.offsetHeight) {
+        if (abs > 300 && abs > code.offsetHeight) {
           dl = data.getLineWithOffset(Math.max(0, st - limit));
           if (doc.rewind(dl) !== false) {
             scrollTo(lastST = st);
@@ -2539,6 +2554,7 @@
       pr.style.fontFamily = cp.options.fontFamily;
       pr.innerHTML = zws;
       document.documentElement.appendChild(pr);
+      pr.style.display = '';
       defHeight = pr.offsetHeight;
       document.documentElement.removeChild(pr);
     }
@@ -2555,10 +2571,8 @@
             if (dl.counter) dl.counter.style.lineHeight = height + 'px';
             for (; dl; dl = dl.parent) dl.height += diff;
           }
-          return height;
         }
       }
-      return 0;
     }
     this.getDefaultLineHeight = function() {
       return defHeight;
@@ -2726,13 +2740,13 @@
       selection.clear();
       cp.select(cp.caret.dl());
     }
-    this.createOverlay = function(classes, removable) {
-      return new CodePrinter.Overlay(this, classes, removable);
+    this.createOverlay = function(classes, removeOn) {
+      return new CodePrinter.Overlay(this, classes, removeOn);
     }
-    this.emitToOverlays = function(event) {
+    this.emitToOverlays = function(args) {
       var ov = this.overlays;
       for (var i = ov.length; i--; ) {
-        ov[i].emit.apply(ov[i], arguments);
+        ov[i].emit.apply(ov[i], args);
       }
     }
     this.removeOverlays = function() {
@@ -3228,7 +3242,7 @@
     compile: function(string) {
       if ('string' == typeof string) {
         var state = this.initialState()
-        , node = pre.cloneNode()
+        , node = document.createElement('pre')
         , lines = string.split(eol)
         , l = lines.length;
         
@@ -3698,7 +3712,7 @@
     
     w.appendChild(u);
     s.appendChild(l);
-    t.appendChild(pre.cloneNode());
+    t.appendChild(document.createElement('pre'));
     s.appendChild(t);
     w.appendChild(s);
     r.appendChild(document.createElement('ol'));

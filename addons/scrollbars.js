@@ -63,14 +63,12 @@ CodePrinter.defineAddon('scrollbars', function() {
   }
   
   Scrollbars.defaults = {
-    alwaysVisible: false,
-    inactivityTimeout: 600
+    alwaysVisible: false
   }
   
   return function(cp, options) {
     if (!cp.scrollbars) {
-      var sb = cp.scrollbars = new Scrollbars(cp)
-      , sTimeout;
+      var sb = cp.scrollbars = new Scrollbars(cp);
       
       sb.options = {}.extend(Scrollbars.defaults, options);
       
@@ -81,10 +79,10 @@ CodePrinter.defineAddon('scrollbars', function() {
       cp.on({
         'scroll': function() {
           sb.update();
+        },
+        'scrollend': function() {
           if (!sb.options.alwaysVisible) {
-            sTimeout = clearTimeout(sTimeout) || setTimeout(function() {
-              sb.hide();
-            }, sb.options.inactivityTimeout);
+            sb.hide();
           }
         }
       });
