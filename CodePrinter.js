@@ -21,7 +21,7 @@
   , BRANCH_HALF_SIZE = 25
   , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
   , activeClassName = 'cp-active-line'
-  , zws = '&#8203;'
+  , zws = '\u200b'
   , eol = /\r\n?|\n/;
   
   $.require.registerNamespace('CodePrinter', 'mode/');
@@ -97,7 +97,6 @@
   li = document.createElement('li');
   pre = document.createElement('pre');
   span = document.createElement('span');
-  pre.style.display = 'none';
   
   CodePrinter.prototype = {
     isFullscreen: false,
@@ -608,18 +607,19 @@
           state = state ? copyState(state) : this.parser.initialState();
         }
         for (; tmp; tmp = tmp.next()) {
-          var ind = parseIndentation(tmp.text, tw)
+          var frag = tmp.node ? document.createDocumentFragment() : null
+          , ind = parseIndentation(tmp.text, tw, frag)
           , stream = new Stream(ind.rest, { indentation: ind.indentation });
-          if (tmp.node) {
-            tmp.node.style.display = 'none';
+          
+          if (frag) {
             if (ind.rest) {
-              tmp.node.innerHTML = ind.html;
-              parse(this, this.parser, stream, state, tmp.node);
-            } else {
-              tmp.node.innerHTML = ind.html || zws;
+              parse(this, this.parser, stream, state, frag);
+            } else if (ind.length == 0) {
+              frag.appendChild(document.createTextNode(zws));
             }
-            tmp.node.style.display = '';
-            this.doc.updateLineHeight(tmp);
+            rm(tmp.node);
+            tmp.node.appendChild(frag);
+            //this.doc.updateLineHeight(tmp);
           } else {
             fastParse(this, this.parser, stream, state);
           }
@@ -1362,9 +1362,11 @@
           search.value = find;
           
           linkCallback = function(dl, line) {
-            if (cp.searches.results && (cur = cp.searches.results[line])) {
-              searchAppendResult.call(cp, dl, cur);
-            }
+            requestAnimationFrame(function() {
+              if (cp.searches.results && (cur = cp.searches.results[line])) {
+                searchAppendResult.call(cp, dl, cur);
+              }
+            });
           }
           clearSelected = function() {
             var children = search.overlay.node.children, k = 0;
@@ -1410,14 +1412,16 @@
             this.on({
               link: linkCallback,
               unlink: function(dl, line) {
-                if (cp.searches.results && (cur = cp.searches.results[line])) {
-                  for (var i = 0; i < cur.length; i++) {
-                    if (cur[i].node) {
-                      cur[i].node.parentNode && search.overlay.node.removeChild(cur[i].node);
-                      cur[i].node = undefined;
+                requestAnimationFrame(function() {
+                  if (cp.searches.results && (cur = cp.searches.results[line])) {
+                    for (var i = 0; i < cur.length; i++) {
+                      if (cur[i].node) {
+                        cur[i].node.parentNode && search.overlay.node.removeChild(cur[i].node);
+                        cur[i].node = undefined;
+                      }
                     }
                   }
-                }
+                });
               }
             });
           }
@@ -1698,27 +1702,27 @@
       return { state: parser.initialState(), line: best || dl }
     }
   }
-  function parseIndentation(text, tabWidth) {
+  function parseIndentation(text, tabWidth, fragment) {
     var p = '', i = -1, spaces = 0, ind = 0
     , tab = ' '.repeat(tabWidth);
     while (++i < text.length) {
       if (text[i] == ' ') {
         ++spaces;
         if (spaces == tabWidth) {
-          p += '<span class="cpx-tab">'+tab+'</span>';
+          if (fragment) fragment.appendChild(cspan('tab', tab));
           spaces = 0;
           ++ind;
         }
       } else if (text[i] == '\t') {
+        if (fragment) fragment.appendChild(cspan('tab', '\t'));
         spaces = 0;
-        p += '<span class="cpx-tab">\t</span>';
         ++ind;
       } else {
         break;
       }
     }
-    if (spaces) p += ' '.repeat(spaces);
-    return { indentation: ind, length: ind*tabWidth+spaces, html: p, indentText: text.substring(0, i), rest: text.substr(i) };
+    if (spaces && fragment) fragment.appendChild(cspan(null, ' '.repeat(spaces)));
+    return { indentation: ind, length: ind*tabWidth+spaces, indentText: text.substring(0, i), rest: text.substr(i) };
   }
   function readIteration(parser, stream, state) {
     for (var i = 0; i < 10; i++) {
@@ -1728,20 +1732,20 @@
     }
     throw new Error();
   }
-  function parse(cp, parser, stream, state, pre, col) {
+  function parse(cp, parser, stream, state, frag, col) {
     var pos, style, l = col != null ? col : stream.length;
     pos = stream.pos;
     while (stream.pos < l) {
       stream.start = stream.pos;
       if (style = readIteration(parser, stream, state)) {
-        if (pos < stream.start) pre.appendChild(cspan(null, stream.value.substring(pos, stream.start).encode()));
+        if (pos < stream.start) frag.appendChild(cspan(null, stream.value.substring(pos, stream.start).encode()));
         var v = stream.from(stream.start);
         if (v != ' ' && v != '\t') stream.lastValue = v;
         pos = stream.pos;
-        pre.appendChild(cspan(style, v.encode()));
+        frag.appendChild(cspan(style, v.encode()));
       }
     }
-    if (pos < stream.pos) pre.appendChild(cspan(null, stream.from(pos).encode()));
+    if (pos < stream.pos) frag.appendChild(cspan(null, stream.from(pos).encode()));
     return state;
   }
   function fastParse(cp, parser, stream, state, col) {
@@ -1766,8 +1770,15 @@
   function cspan(style, content) {
     var node = span.cloneNode();
     if (style) node.className = style.replace(/\S+/g, 'cpx-$&');
-    node.innerHTML = content;
+    node.appendChild(document.createTextNode(content));
     return node;
+  }
+  function rm(node) {
+    var fc = node.firstChild;
+    while (fc) {
+      node.removeChild(fc);
+      fc = node.firstChild;
+    }
   }
   function copyState(state) {
     var st = {};
@@ -2030,48 +2041,13 @@
     setText: function(str) {
       this.text = str;
     },
-    setNode: function(node) {
-      return this.node = node;
-    },
-    captureNode: function(dl) {
-      dl.node && this.setNode(dl.deleteNode());
-      dl.counter && this.setCounter(dl.deleteCounter());
-    },
-    deleteNode: function() {
-      var node = this.node;
-      if (node) node.className = '';
-      this.node = undefined;
-      return node;
-    },
-    setCounter: function(counter) {
-      counter.style.lineHeight = this.height + 'px';
-      counter._dl = this;
-      return this.counter = counter;
-    },
-    deleteCounter: function() {
-      var counter = this.counter;
-      if (counter) counter.className = '';
-      this.counter = undefined;
-      return counter;
-    },
-    bind: function(node, counter) {
-      this.node = node;
-      this.counter = counter;
-      counter.style.lineHeight = this.height + 'px';
-      counter._dl = this;
-    },
-    touch: function() {
-      if (this.node) {
-        this.node.className = this.counter.className = getLineClasses(this);
-      }
-    },
     addClass: function() {
       if (!this.classes) this.classes = Array.apply(null, arguments);
       else
         for (var i = 0; i < arguments.length; i++)
           if (this.classes.indexOf(arguments[i]) == -1)
             this.classes.push(arguments[i]);
-      this.touch();
+      touch(this);
     },
     removeClass: function() {
       if (this.classes) {
@@ -2080,13 +2056,12 @@
             this.classes.splice(j, 1);
         if (this.classes.length == 0) this.classes = undefined;
       }
-      this.touch();
+      touch(this);
     },
     next: function() {
       if (this.parent) {
-        var i = this.lastIndex >= 0 && this.parent[this.lastIndex] === this ? this.lastIndex : this.parent.indexOf(this);
+        var i = this.parent.indexOf(this);
         if (i >= 0) {
-          this.lastIndex = i;
           if (i + 1 < this.parent.length) {
             return this.parent[i+1];
           } else {
@@ -2099,9 +2074,8 @@
     },
     prev: function() {
       if (this.parent) {
-        var i = this.lastIndex >= 0 && this.parent[this.lastIndex] === this ? this.lastIndex : this.parent.indexOf(this);
+        var i = this.parent.indexOf(this);
         if (i >= 0) {
-          this.lastIndex = i;
           if (i > 0) {
             return this.parent[i-1];
           } else {
@@ -2151,7 +2125,7 @@
     }
     function link(dl, index, withoutParsing) {
       if (dl.node && dl.counter) {
-        dl.counter.innerHTML = formatter(firstNumber + (dl.counter._index = index));
+        dl.counter.firstChild.nodeValue = formatter(firstNumber + (dl.counter._index = index));
         if (index < to) {
           var q = index - from, bef = view[q];
           code.insertBefore(dl.node, bef.node);
@@ -2159,7 +2133,7 @@
           view.splice(q, 0, dl);
           var tmp = dl.counter.nextSibling;
           while (tmp && tmp._index !== index + 1) {
-            tmp.innerHTML = formatter(firstNumber + (tmp._index = ++index));
+            tmp.firstChild.nodeValue = formatter(firstNumber + (tmp._index = ++index));
             tmp = tmp.nextSibling;
           }
         } else {
@@ -2172,24 +2146,24 @@
       }
     }
     function insert(dl) {
-      dl.bind(pre.cloneNode(), li.cloneNode());
+      bind(dl, pre.cloneNode(), li.cloneNode());
       link(dl, to + 1);
       ++to;
     }
     function prepend(dl) {
-      dl.bind(pre.cloneNode(), li.cloneNode());
+      bind(dl, pre.cloneNode(), li.cloneNode());
       link(dl, --from);
     }
     function remove(dl, index) {
-      code.removeChild(dl.deleteNode());
-      ol.removeChild(dl.deleteCounter());
+      code.removeChild(deleteNode(dl));
+      ol.removeChild(deleteCounter(dl));
       view.remove(dl); --to;
       cp.emit('unlink', dl, index);
     }
     function clear() {
       for (var i = 0; i < view.length; i++) {
-        view[i].deleteNode();
-        view[i].deleteCounter();
+        deleteNode(view[i]);
+        deleteCounter(view[i]);
       }
       to = -1; from = 0;
       view.length = 0;
@@ -2198,10 +2172,12 @@
     }
     function scroll(delta) {
       cp.sizes.scrollTop = Math.max(0, cp.sizes.scrollTop + delta);
-      code.style.top = ol.style.top = cp.sizes.scrollTop + 'px';
+      code.style.top = cp.sizes.scrollTop + 'px';
+      ol.style.top = cp.sizes.scrollTop + 'px';
     }
     function scrollTo(st) {
-      cp.counter.scrollTop = cp.wrapper.scrollTop = st;
+      cp.counter.scrollTop = st;
+      cp.wrapper.scrollTop = st;
     }
     function scrollBy(delta, s) {
       cp.counter.scrollTop += delta;
@@ -2211,7 +2187,7 @@
     function updateCounters(dl, index) {
       var tmp = dl.counter;
       while (tmp) {
-        tmp.innerHTML = formatter(firstNumber + (tmp._index = index++));
+        tmp.firstChild.nodeValue = formatter(firstNumber + (tmp._index = index++));
         tmp = tmp.nextSibling;
       }
     }
@@ -2272,14 +2248,14 @@
           var m = Math.min(lines.length, to - at), rmdl;
           for (var i = 0; i < m; i++) {
             rmdl = view.pop();
-            lines[i].captureNode(rmdl);
+            captureNode(lines[i], rmdl);
             cp.emit('unlink', rmdl, to + m - i);
             link(lines[i], at + i);
           }
         } else {
           var i = -1;
           while (++i < lines.length && !isFilled()) {
-            lines[i].bind(pre.cloneNode(), li.cloneNode());
+            bind(lines[i], pre.cloneNode(), li.cloneNode());
             ++to;
             link(lines[i], at + i);
           }
@@ -2375,9 +2351,12 @@
       from = dli.index;
       to = from - 1;
       
+      ol.style.display = 'none';
+      code.style.display = 'none';
+      
       while (tmp && ++i < view.length) {
         cp.emit('unlink', view[i], oldfrom + i);
-        tmp.captureNode(view[i]);
+        captureNode(tmp, view[i]);
         cp.parse(tmp);
         tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = to = from + i));
         view[i] = tmp;
@@ -2389,7 +2368,7 @@
         tmp = dl.prev();
         while (tmp && spliced.length) {
           cp.emit('unlink', spliced[0], oldfrom + i++);
-          tmp.captureNode(spliced.shift());
+          captureNode(tmp, spliced.shift());
           cp.parse(tmp);
           tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = --from));
           code.insertBefore(tmp.node, view[0].node);
@@ -2400,7 +2379,11 @@
           tmp = tmp.prev();
         }
       }
-      code.style.top = ol.style.top = (cp.sizes.scrollTop = Math.max(0, offset)) + 'px';
+      cp.sizes.scrollTop = Math.max(0, offset);
+      ol.style.top = cp.sizes.scrollTop + 'px';
+      code.style.top = cp.sizes.scrollTop + 'px';
+      ol.style.display = '';
+      code.style.display = '';
     }
     this.scrollTo = function(st) {
       cp.wrapper._lockedScrolling = true;
@@ -2413,13 +2396,15 @@
       , h, dl;
       
       if (d) {
-        if (abs > 300 && abs > code.offsetHeight) {
+        if (abs > 500 && abs > code.offsetHeight) {
           dl = data.getLineWithOffset(Math.max(0, st - limit));
           if (doc.rewind(dl) !== false) {
             scrollTo(lastST = st);
             return;
           }
         }
+        ol.style.display = 'none';
+        code.style.display = 'none';
         if (from === 0 && d < 0) {
           h = view[0].height;
           dl = view[view.length-1];
@@ -2430,7 +2415,7 @@
         } else if (d > 0) {
           while (view.length && (h = view[0].height) <= d && (dl = view[view.length-1].next())) {
             var first = view.shift();
-            dl.captureNode(first);
+            captureNode(dl, first);
             if (dl.active) cp.select(dl);
             cp.emit('unlink', first, from);
             link(dl, to + 1);
@@ -2440,7 +2425,7 @@
         } else if (d < 0) {
           while (view.length && (h = view[view.length-1].height) <= -d && (dl = view[0].prev())) {
             var last = view.pop();
-            dl.captureNode(last);
+            captureNode(dl, last);
             if (dl.active) cp.select(dl);
             cp.emit('unlink', last, to);
             --to; link(dl, --from);
@@ -2452,6 +2437,8 @@
         }
       }
       scrollTo(lastST = st);
+      ol.style.display = '';
+      code.style.display = '';
     }
     this.isLineVisible = function(dl) {
       return view.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
@@ -2473,13 +2460,12 @@
       
       if (!node || !node.parentNode) {
         node = temp;
-        node.innerHTML = dl.parsed || '<span>'+(dl.text || '')+'</span>';
+        node.innerHTML = '<span>'+(dl.text || '')+'</span>';
         dl.node = null;
       }
       childNodes = node.childNodes;
-      if (childNodes.length === 1 && (first = childNodes[0]) && first.textContent == '\u200b') {
-        if (first.nodeType !== 1) first = wrapTextNode(node, first);
-        return { column: 0, offset: first.offsetLeft, width: 0, charWidth: 0 }
+      if (childNodes.length === 1 && (first = childNodes[0]) && first.nodeValue == zws) {
+        return { column: 0, offset: cp.sizes.paddingLeft, width: 0, charWidth: 0 }
       }
       
       if (arguments.length === 3) {
@@ -2489,7 +2475,6 @@
           child = childNodes[i];
           l = child.textContent.length;
           if (l === 0) continue;
-          if (child.nodeType !== 1) child = wrapTextNode(node, child);
           
           if (boo) {
             if (to <= tmp + l) {
@@ -2521,7 +2506,6 @@
           l = child.textContent.length;
           if (l === 0) continue;
           
-          if (child.nodeType !== 1) child = wrapTextNode(node, child);
           oL = child.offsetLeft;
           oW = child.offsetWidth;
           if (offset < oL + oW) {
@@ -2539,12 +2523,12 @@
         }
       }
       if (!r.charWidth) {
-        var sp = span.cloneNode();
-        sp.textContent = sp.innerText = 'A';
+        var sp = cspan(null, 'A');
         node.appendChild(sp);
         r.charWidth = sp.offsetWidth;
         node.removeChild(sp);
       }
+      console.log(JSON.stringify(r));
       return r;
     }
     this.updateDefaultHeight = function() {
@@ -3242,7 +3226,7 @@
     compile: function(string) {
       if ('string' == typeof string) {
         var state = this.initialState()
-        , node = document.createElement('pre')
+        , node = pre.cloneNode()
         , lines = string.split(eol)
         , l = lines.length;
         
@@ -3712,7 +3696,7 @@
     
     w.appendChild(u);
     s.appendChild(l);
-    t.appendChild(document.createElement('pre'));
+    t.appendChild(pre.cloneNode());
     s.appendChild(t);
     w.appendChild(s);
     r.appendChild(document.createElement('ol'));
@@ -3745,12 +3729,6 @@
     node.style.right = (right != null ? right + this.sizes.paddingLeft + 'px' : null);
     return node;
   }
-  function wrapTextNode(parent, textnode) {
-    var sp = span.cloneNode();
-    sp.textContent = sp.innerText = textnode.textContent;
-    parent.replaceChild(sp, textnode);
-    return sp;
-  }
   function getMatchingObject(m) {
     if ('string' === typeof m) return CodePrinter.matching[m];
     return m;
@@ -3763,6 +3741,35 @@
       return cls;
     }
     return line.classes ? line.classes.join(' ') : '';
+  }
+  function bind(dl, node, counter) {
+    dl.node = node;
+    dl.counter = counter;
+    counter.appendChild(document.createTextNode(''));
+    counter.style.lineHeight = dl.height + 'px';
+  }
+  function touch(dl) {
+    if (dl.node) {
+      var cls = getLineClasses(dl);
+      dl.node.className = cls;
+      dl.counter.className = cls;
+    }
+  }
+  function captureNode(dl, c) {
+    if (c.node) dl.node = deleteNode(c);
+    if (c.counter) dl.counter = deleteCounter(c);
+  }
+  function deleteNode(dl) {
+    var node = dl.node;
+    if (node) node.className = '';
+    dl.node = undefined;
+    return node;
+  }
+  function deleteCounter(dl) {
+    var counter = dl.counter;
+    if (counter) counter.className = '';
+    dl.counter = undefined;
+    return counter;
   }
   function complementBracket(ch) {
     var obj = { '(':')', ')':'(', '{':'}', '}':'{', '[':']', ']':'[', '<':'>', '>':'<' }
