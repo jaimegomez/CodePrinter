@@ -216,7 +216,7 @@ CodePrinter.defineAddon('hints', function() {
           var wordRgx = getWordRgx()
           , word = cp.wordBefore(wordRgx) + cp.wordAfter(wordRgx);
           
-          if (word === curWord) {
+          if (word && word === curWord) {
             that.show(false, word);
           } else {
             that.hide();
