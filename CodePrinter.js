@@ -1343,11 +1343,8 @@
         if (dl) {
           pos = this.doc.measureRect(dl, arguments[i][1], arguments[i][1] + arguments[i][2].length);
           var sp = span.cloneNode().addClass('cp-highlight');
-          sp.style.top = dl.getOffset() + this.sizes.paddingTop + 'px';
-          sp.style.left = pos.offset + 'px';
-          sp.style.width = pos.width + 'px';
-          sp.style.height = dl.height + 'px';
-          overlay.node.append(sp);
+          sp.setAttribute('style', 'top:'+(dl.getOffset() + this.sizes.paddingTop)+'px;left:'+pos.offset+'px;width:'+pos.width+'px;height:'+dl.height+'px;');
+          overlay.node.appendChild(sp);
         }
       }
       overlay.reveal();
@@ -3728,12 +3725,11 @@
     }
   })();
   function createSelectionNode(node, top, left, width, height, right) {
+    var style = 'top:'+(top+this.sizes.paddingTop)+'px;left:'+left+'px;height:'+height+'px;';
     node.addClass('cp-selection');
-    node.style.top = top + this.sizes.paddingTop + 'px';
-    node.style.left = left + 'px';
-    node.style.width = (width != null ? width + 'px' : null);
-    node.style.height = (height != null ? height + 'px' : null);
-    node.style.right = (right != null ? right + this.sizes.paddingLeft + 'px' : null);
+    if (width != null) style += 'width:'+width+'px;';
+    if (right != null) style += 'right:'+(right+this.sizes.paddingLeft)+'px;';
+    node.setAttribute('style', style);
     return node;
   }
   function getMatchingObject(m) {
@@ -3816,10 +3812,7 @@
   function searchUpdateNode(dl, node, res) {
     var rect = this.doc.measureRect(dl, res.startColumn, res.startColumn + res.length);
     node._searchResult = res;
-    node.style.top = this.sizes.paddingTop + res.offset + 'px';
-    node.style.left = rect.offset + 'px';
-    node.style.width = rect.width + 2 + 'px';
-    node.style.height = dl.height + 1 + 'px';
+    node.setAttribute('style', rect.width ? 'top:'+(this.sizes.paddingTop+res.offset)+'px;left:'+rect.offset+'px;width:'+(rect.width+2)+'px;height:'+(dl.height+2)+'px;' : 'display:none;');
     res.node = node;
     if (this.searches.active === res && scroll !== false) {
       node.addClass('active');
