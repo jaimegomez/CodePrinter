@@ -1362,11 +1362,9 @@
           search.value = find;
           
           linkCallback = function(dl, line) {
-            requestAnimationFrame(function() {
-              if (cp.searches.results && (cur = cp.searches.results[line])) {
-                searchAppendResult.call(cp, dl, cur);
-              }
-            });
+            if (cp.searches.results && (cur = cp.searches.results[line])) {
+              searchAppendResult.call(cp, dl, cur);
+            }
           }
           clearSelected = function() {
             var children = search.overlay.node.children, k = 0;
@@ -1410,9 +1408,13 @@
               return e.cancel();
             });
             this.on({
-              link: linkCallback,
+              link: function(dl, line) {
+                cp.doc.once('view:updated', function() {
+                  linkCallback(dl, line);
+                });
+              },
               unlink: function(dl, line) {
-                requestAnimationFrame(function() {
+                cp.doc.once('view:updated', function() {
                   if (cp.searches.results && (cur = cp.searches.results[line])) {
                     for (var i = 0; i < cur.length; i++) {
                       if (cur[i].node) {
