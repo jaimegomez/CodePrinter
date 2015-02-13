@@ -2403,7 +2403,7 @@
       , h, dl;
       
       if (d) {
-        if (abs > 500 && abs > code.offsetHeight) {
+        if (abs > 500 && abs > 2 * code.offsetHeight) {
           dl = data.getLineWithOffset(Math.max(0, st - limit));
           if (doc.rewind(dl) !== false) {
             scrollTo(lastST = st);
