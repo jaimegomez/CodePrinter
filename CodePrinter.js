@@ -38,7 +38,7 @@
     this.parser = new CodePrinter.Mode();
     
     if (source && source.nodeType) {
-      this.doc.init((source.tagName.toLowerCase() === 'textarea' ? source.value : source.innerHTML).decode());
+      this.doc.init((source.tagName == 'TEXTAREA' ? source.value : source.innerHTML).decode());
       source.before(this.mainNode);
     } else {
       this.doc.init(source);
@@ -1740,14 +1740,14 @@
     while (stream.pos < l) {
       stream.start = stream.pos;
       if (style = readIteration(parser, stream, state)) {
-        if (pos < stream.start) frag.appendChild(cspan(null, stream.value.substring(pos, stream.start).encode()));
+        if (pos < stream.start) frag.appendChild(cspan(null, stream.value.substring(pos, stream.start)));
         var v = stream.from(stream.start);
         if (v != ' ' && v != '\t') stream.lastValue = v;
         pos = stream.pos;
-        frag.appendChild(cspan(style, v.encode()));
+        frag.appendChild(cspan(style, v));
       }
     }
-    if (pos < stream.pos) frag.appendChild(cspan(null, stream.from(pos).encode()));
+    if (pos < stream.pos) frag.appendChild(cspan(null, stream.from(pos)));
     return state;
   }
   function fastParse(cp, parser, stream, state, col) {
@@ -3803,9 +3803,13 @@
   }
   function searchAppendResult(dl, res) {
     for (var i = 0; i < res.length; i++) {
-      var node = res[i].node || span.cloneNode();
+      var node = res[i].node;
+      if (!node) {
+        node = span.cloneNode();
+        node.appendChild(document.createTextNode(''));
+      }
       node.className = 'cp-search-occurrence';
-      node.innerHTML = res[i].value.encode();
+      node.firstChild.nodeValue = res[i].value;
       searchUpdateNode.call(this, dl, node, res[i]);
       this.searches.overlay.node.appendChild(node);
     }
