@@ -2536,7 +2536,6 @@
         r.charWidth = sp.offsetWidth;
         node.removeChild(sp);
       }
-      console.log(JSON.stringify(r));
       return r;
     }
     this.updateDefaultHeight = function() {
