@@ -2219,6 +2219,7 @@
       doc.updateHeight();
       selection.overlay.reveal();
       doc.emit('attached');
+      doc.emit('view:updated');
       return doc;
     }
     this.detach = function() {
@@ -2228,6 +2229,7 @@
       }
       selection.overlay.remove();
       doc.emit('detached');
+      doc.emit('view:updated');
       return doc;
     }
     this.insert = function(at, text) {
@@ -2262,6 +2264,7 @@
         }
       }
       this.updateHeight();
+      this.emit('view:updated');
     }
     this.remove = function(at, n) {
       if ('number' === typeof n && n > 0 && at >= 0 && at + n <= data.size) {
@@ -2319,6 +2322,7 @@
         }
         this.updateHeight();
         cp.wrapper.scrollTop = cp.counter.scrollTop;
+        this.emit('view:updated');
         return rm;
       }
     }
@@ -2384,6 +2388,7 @@
       code.style.top = cp.sizes.scrollTop + 'px';
       ol.style.display = '';
       code.style.display = '';
+      this.emit('view:updated');
     }
     this.scrollTo = function(st) {
       cp.wrapper._lockedScrolling = true;
@@ -2439,6 +2444,7 @@
       scrollTo(lastST = st);
       ol.style.display = '';
       code.style.display = '';
+      this.emit('view:updated');
     }
     this.isLineVisible = function(dl) {
       return view.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
