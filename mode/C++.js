@@ -1,7 +1,10 @@
 /* CodePrinter - Cpp Mode */
 
 CodePrinter.defineMode('C++', function() {
-  var controls = ['if','else','elseif','for','switch','while','do','try','catch']
+  var wordRgx = /[\w$\xa1-\uffff]/
+  , operatorRgx = /[+\-*&%=<>!?|~^]/
+  , closeBrackets = /^[}\]\)]/
+  , controls = ['if','else','elseif','for','switch','while','do','try','catch']
   , types = [
     'void','int','double','short','long','char','float','bool','unsigned',
     'signed','enum','struct','class','char16_t','char32_t','wchar_t'
@@ -46,104 +49,194 @@ CodePrinter.defineMode('C++', function() {
   }
   includeMap.iostream.union(includeMap.istream).union(includeMap.ostream);
   
+  function string(stream, state, escaped) {
+    var esc = !!escaped, ch;
+    while (ch = stream.next()) {
+      if (ch == state.quote && !esc) break;
+      if (esc = !esc && ch == '\\') {
+        stream.undo(1);
+        state.next = escapedString;
+        return 'string';
+      }
+    }
+    if (!ch && esc) state.next = string;
+    state.next = null;
+    if (!ch) return 'invalid';
+    state.quote = undefined;
+    return 'string';
+  }
+  function escapedString(stream, state) {
+    if (stream.eat('\\')) {
+      if (stream.match(allowedEscapes, true)) {
+        state.next = string;
+        return 'escaped';
+      }
+    }
+    state.next = string;
+    return 'invalid';
+  }
+  function comment(stream, state) {
+    var star, ch;
+    while (ch = stream.next()) {
+      if (star && ch == '/') {
+        break;
+      }
+      star = ch == '*';
+    }
+    state.next = ch && star ? null : comment;
+    return 'comment';
+  }
+  function include(stream, state) {
+    var af = stream.rest(), inc
+    , m = af.match(/[\w\/\.]+/);
+    
+    if (m && (inc = includeMap[m[0]])) {
+      if (inc instanceof Array) {
+        writeGlobal(state, inc, 'special');
+      } else {
+        inc.constants && writeGlobal(state, inc.constants, 'constant');
+        inc.specials && writeGlobal(state, inc.specials, 'special');
+        inc.types && writeGlobal(state, inc.types, 'keyword type');
+      }
+    }
+    stream.skip();
+    state.next = undefined;
+    return 'string';
+  }
+  
+  function pushcontext(state) {
+    state.context = { vars: {}, params: {}, indent: state.indent + 1, prev: state.context };
+  }
+  function popcontext(state) {
+    if (state.context.prev) state.context = state.context.prev;
+  }
+  function writeGlobal(state, arr, kind) {
+    for (var i = 0; i < arr.length; i++) {
+      state.globals[arr[i]] = kind;
+    }
+  }
+  function isVariable(varname, state) {
+    for (var ctx = state.context; ctx; ctx = ctx.prev) {
+      if ('string' == typeof ctx.vars[varname]) return ctx.vars[varname];
+      if (ctx.params[varname] === true) return 'variable';
+    }
+  }
+  
   return new CodePrinter.Mode({
     name: 'C++',
-    controls: new RegExp('^('+ controls.join('|') +')$'),
-    keywords: new RegExp('^('+ keywords.join('|') +')$'),
-    types: new RegExp('^('+ types.join('|') +')$'),
-    regexp: /\/\*|\/\/|#?\b\w+\b|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|[^\w\s]/,
     blockCommentStart: '/*',
     blockCommentEnd: '*/',
     lineComment: '//',
+    matching: 'brackets',
     
-    memoryAlloc: function() {
+    initialState: function() {
       return {
-        constants: [],
-        specials: [],
-        types: []
+        indent: 0,
+        globals: {},
+        context: { vars: {}, params: {}, indent: 0 }
       }
     },
-    parse: function(stream, memory) {
-      var sb = stream.stateBefore, found;
-      
-      if (sb && sb.comment) {
-        var e = this.expressions['/*'];
-        stream.eatWhile(e.ending).applyWrap(e.classes);
-        stream.isStillHungry() && stream.continueState();
+    iterator: function(stream, state) {
+      var ch = stream.next();
+      if (ch == '"' || ch == "'") {
+        state.quote = ch;
+        return string(stream, state);
       }
-      
-      while (found = stream.match(this.regexp)) {
-        if (!isNaN(found)) {
-          if (found.substring(0, 2) === '0x') {
-            stream.wrap('numeric', 'hex');
-          } else {
-            if ((found+'').indexOf('.') === -1) {
-              stream.wrap('numeric', 'int');
-            } else {
-              stream.wrap('numeric', 'float');
-            }
-          }
-        } else if (/^\w+$/.test(found)) {
-          if (found == 'true' || found == 'false') {
-            stream.wrap('builtin', 'boolean');
-          } else if (this.controls.test(found)) {
-            stream.wrap('control');
-          } else if (this.types.test(found)) {
-            stream.wrap('keyword', 'type');
-          } else if (this.keywords.test(found)) {
-            stream.wrap('keyword');
-          } else if (stream.isAfter('(')) {
-            stream.wrap('function');
-          } else if (stream.isAfter('::')) {
-            stream.wrap('namespace');
-          } else if (memory.types.indexOf(found) >= 0) {
-            stream.wrap('keyword', 'type');
-          } else if (memory.constants.indexOf(found) >= 0) {
-            stream.wrap('constant');
-          } else if (memory.specials.indexOf(found) >= 0) {
-            stream.wrap('special');
-          } else if (stream.isBefore(/\(.*$/) && stream.isAfter(/^[^\)]*\)/)) {
-            stream.wrap('parameter');
-          }
-        } else if (found[0] === '#') {
-          stream.wrap('directive');
-          if (found === '#include') {
-            var af = stream.after();
-            stream.eat(af).wrap('string');
-            var inc, m = af.match(/[\w\/\.]+/);
-            if (m && (inc = includeMap[m[0]])) {
-              if (inc instanceof Array) {
-                memory.specials.union(inc);
-              } else {
-                inc.constants && memory.constants.union(inc.constants);
-                inc.specials && memory.specials.union(inc.specials);
-                inc.types && memory.types.union(inc.types);
-              }
-            }
-          }
-        } else if (found.length == 1) {
-          if (this.punctuations[found]) {
-            stream.wrap('punctuation', this.punctuations[found]);
-          } else if (this.operators[found]) {
-            stream.wrap('operator', this.operators[found]);
-          } else if (this.brackets[found]) {
-            stream.applyWrap(this.brackets[found]);
-          } else if (found === '"' || found === "'") {
-            stream.eat(found, this.expressions[found].ending, function() {
-              this.tear().wrap('invalid');
-            }).applyWrap(this.expressions[found].classes);
-          }
-        } else if (this.expressions[found]) {
-          stream.eatGreedily(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-          found === '/*' && stream.isStillHungry() && stream.setStateAfter('comment');
+      if (ch == '/') {
+        if (stream.eat('/')) {
+          stream.skip();
+          return 'comment';
+        }
+        if (stream.eat('*')) {
+          return comment(stream, state);
+        }
+        if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'numeric'
+          || stream.lastStyle == 'constant' || stream.lastValue == ')') {
+          return 'operator';
         }
       }
-      return stream;
+      if (ch == '#' && stream.pos == 1) {
+        var word = stream.eatWhile(/\w/);
+        if (word == 'include' && !stream.eol()) {
+          state.next = include;
+        }
+        return 'directive';
+      }
+      if (ch == '0' && stream.eat(/x/i)) {
+        stream.eatWhile(/[\da-f]/i);
+        return 'numeric hex';
+      }
+      if (/\d/.test(ch)) {
+        stream.match(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/, true);
+        return 'numeric';
+      }
+      if (/[\[\]{}\(\)]/.test(ch)) {
+        if (state.hasFunction) {
+          if (ch == ')') {
+            state.hasFunction = undefined;
+          } else if (ch == '(') {
+            pushcontext(state);
+            if ('string' == typeof state.hasFunction) {
+              stream.markDefinition({
+                name: state.hasFunction,
+                params: state.context.params
+              });
+            }
+          }
+        }
+        if (ch == '{') {
+          ++state.indent;
+        } else if (ch == '}') {
+          if (state.indent == state.context.indent) {
+            popcontext(state);
+          }
+          --state.indent;
+        }
+        return 'bracket';
+      }
+      if (operatorRgx.test(ch)) {
+        stream.eatWhile(operatorRgx);
+        return 'operator';
+      }
+      if (wordRgx.test(ch)) {
+        var word = ch + stream.eatWhile(wordRgx);
+        
+        if (stream.lastValue == 'namespace' || stream.isAfter('::')) return 'namespace';
+        if (word == 'true' || word == 'false') return 'builtin boolean';
+        if (controls.indexOf(word) >= 0) return 'control';
+        if (types.indexOf(word) >= 0) return 'keyword type';
+        if (keywords.indexOf(word) >= 0) return 'keyword';
+        if ('string' == typeof state.globals[word]) return state.globals[word];
+        
+        var isVar = isVariable(word, state);
+        if (isVar) return isVar;
+        
+        if (state.hasFunction) {
+          state.context.params[word] = true;
+          return 'parameter';
+        }
+        if (stream.isAfter(/^\s*\(/)) {
+          state.hasFunction = word;
+          return 'function';
+        }
+        
+        return 'word';
+      }
     },
-    codeCompletions: function(bf, af) {
+    indent: function(stream, state) {
+      return state.indent;
+    },
+    completions: function(stream, state) {
+      var vars = [];
+      if (state.context) {
+        for (var ctx = state.context; ctx; ctx = ctx.prev) {
+          vars.push.apply(vars, Object.keys(ctx.vars));
+          vars.push.apply(vars, Object.keys(ctx.params));
+        }
+      }
       return {
-        values: [].concat(types, this.memory.types, keywords, this.memory.specials, this.memory.constants),
-        search: true
+        values: vars,
+        search: 200
       }
     },
     snippets: {
