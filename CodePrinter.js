@@ -2141,7 +2141,7 @@
         } else {
           code.appendChild(dl.node);
           ol.appendChild(dl.counter);
-          index = view.push(dl) + from - 1;
+          index = view.push(dl) + from;
         }
         cp.parse(dl);
         cp.emit('link', dl, index);
