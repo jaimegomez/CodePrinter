@@ -19,6 +19,7 @@
   position: relative;
   top: 0;
   z-index: 0;
+  text-align: left;
 }
 .codeprinter.cp-auto-height {
   height: auto;
@@ -95,7 +96,6 @@
   color: #555555;
   overflow: hidden;
   cursor: text;
-  text-align: left;
 }
 .codeprinter .cp-wrapper.legacy-scrollbars {
   overflow: auto;
@@ -135,7 +135,6 @@
   color: inherit;
   overflow: visible;
   position: absolute;
-  text-align: left;
   -moz-tab-size: 2;
   -o-tab-size: 2;
   tab-size: 2;
