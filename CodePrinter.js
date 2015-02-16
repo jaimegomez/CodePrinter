@@ -798,7 +798,6 @@
             }
           } else if (text[i] == '\t') {
             ++ind;
-            sp = 0;
           } else {
             break;
           }
@@ -820,7 +819,7 @@
         old = this.getIndentAtLine(dl);
         diff = indent - old;
         if (diff) {
-          var tab = this.options.indentByTabs ? '\t' : ' '.repeat(this.options.tabWidth);
+          var tab = tabString(this);
           dl.setText(tab.repeat(indent) + dl.text.replace(/^\s*/g, ''));
           var sp = RegExp.lastMatch.length;
           this.parse(dl);
@@ -836,50 +835,60 @@
     },
     indent: function(line) {
       var range;
-      if (arguments.length || !(range = this.doc.getSelectionRange())) {
+      if ('number' == typeof line || !(range = this.doc.getSelectionRange())) {
         line = line >= 0 ? line : this.caret.line();
-        var dl = this.doc.get(line);
+        var dl = this.doc.get(line), tab = tabString(this);
         if (dl) {
-          dl.setText('\t' + dl.text);
+          var i = tab == '\t' ? 1 : tab.length;
+          dl.text = tab + dl.text;
           this.parse(dl);
-          this.caret.line() == line && this.caret.moveX(this.options.tabWidth);
-          this.emit('changed', { line: line, column: 0, text: '\t', added: true });
+          this.caret.line() == line && this.caret.moveX(i);
+          this.emit('changed', { line: line, column: 0, text: tab, added: true });
+          return i;
         }
       } else {
-        var w = this.options.tabWidth, i, l;
-        this.caret.position(i = range.start.line, range.start.column);
-        l = range.end.line;
-        range.start.column += w;
-        range.end.column += w;
+        var i = range.start.line, l = range.end.line
+        , m = this.indent(i);
+        if (m > 0) range.start.column += m;
+        while (++i <= l) m = this.indent(i);
+        if (m > 0) range.end.column += m;
         this.doc.setSelectionRange(range);
-        do this.indent(i); while (++i <= l);
-        this.doc.showSelection();
       }
+      return 0;
     },
     unindent: function(line) {
       var range;
-      if (arguments.length || !(range = this.doc.getSelectionRange())) {
+      if ('number' == typeof line || !(range = this.doc.getSelectionRange())) {
         line = line >= 0 ? line : this.caret.line();
-        var dl = this.doc.get(line);
-        if (dl && dl.text.indexOf('\t') === 0) {
-          dl.setText(dl.text.substr(1));
-          this.parse(dl);
-          this.caret.line() == line && this.caret.moveX(-this.options.tabWidth);
-          this.emit('changed', { line: line, column: 0, text: '\t', added: false });
+        var dl = this.doc.get(line), change, i = 1;
+        if (dl) {
+          if (dl.text[0] == '\t') {
+            dl.text = dl.text.substr(1);
+            change = '\t';
+          } else if (dl.text[0] == ' ') {
+            while (dl.text[i] == ' ' && i < this.options.tabWidth) ++i;
+            dl.text = dl.text.substr(i);
+            change = ' '.repeat(i);
+          }
+          if (change) {
+            this.parse(dl);
+            if (this.caret.line() == line) {
+              var col = this.caret.column();
+              this.caret.moveX(Math.max(-col, change == '\t' ? -1 : -i));
+            }
+            this.emit('changed', { line: line, column: 0, text: change, added: false });
+            return i;
+          }
         }
       } else {
-        var w = this.options.tabWidth, i, l;
-        
-        this.caret.position(i = range.start.line, range.start.column);
-        l = range.end.line;
-        
-        if (this.doc.get(i).text.indexOf('\t') === 0) {
-          range.start.column -= w;
-        }
+        var i = range.start.line, l = range.end.line
+        , m = this.unindent(i);
+        if (m > 0) range.start.column -= m;
+        while (++i <= l) m = this.unindent(i);
+        if (m > 0) range.end.column -= m;
         this.doc.setSelectionRange(range);
-        do this.unindent(i); while (++i <= l);
-        this.doc.showSelection();
       }
+      return 0;
     },
     getNextLineIndent: function(line) {
       var indent = this.getIndentAtLine(line);
@@ -1791,7 +1800,7 @@
     , col = cp.caret.column() + offset
     , s = prev && cp.getStateAt(prev, prev.text.length);
     if (s) {
-      var i = s.stream.indentation + parser.indent(s.stream, s.state);
+      var i = parser.indent(s.stream, s.state);
       s = cp.getStateAt(dl, 0);
       s.stream.indentation = i;
       i = parser.indent(s.stream, s.state);
@@ -3300,8 +3309,6 @@
       }
       return false;
     },
-    'Alt Tab': CodePrinter.prototype.indent,
-    'Shift Tab': CodePrinter.prototype.unindent,
     'Enter': function() {
       var bf = this.caret.textBefore()
       , af = this.caret.textAfter()
@@ -3735,6 +3742,9 @@
   function getMatchingObject(m) {
     if ('string' === typeof m) return CodePrinter.matching[m];
     return m;
+  }
+  function tabString(cp) {
+    return cp.options.indentByTabs ? '\t' : ' '.repeat(cp.options.tabWidth);
   }
   function getLineClasses(line) {
     var isact = line.node && line.node.hasClass(activeClassName);

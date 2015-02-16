@@ -15,7 +15,7 @@ CodePrinter.defineAddon('shortcuts', function() {
     'Ctrl Alt Down': CodePrinter.prototype.swapLineDown,
     'Ctrl D': CodePrinter.prototype.nextDefinition,
     'Ctrl Alt D': CodePrinter.prototype.previousDefinition,
-    'Ctrl F': function(e) {
+    'Ctrl F': function() {
       var p = prompt('Find...');
       p ? this.search(p) : this.searchEnd();
     },
@@ -39,9 +39,11 @@ CodePrinter.defineAddon('shortcuts', function() {
     'Ctrl Z': function() {
       this.doc.undo();
     },
-    'Ctrl Shift Z': function(e) {
+    'Ctrl Shift Z': function() {
       this.doc.redo();
     },
+    'Ctrl ]': CodePrinter.prototype.indent,
+    'Ctrl [': CodePrinter.prototype.unindent,
     'Ctrl =': CodePrinter.prototype.increaseFontSize,
     'Ctrl -': CodePrinter.prototype.decreaseFontSize,
     'Ctrl /': CodePrinter.prototype.toggleComment,
