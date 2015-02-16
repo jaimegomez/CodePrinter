@@ -200,11 +200,11 @@
   display: none;
 }
 .codeprinter .cp-scrollbar {
-  -webkit-transition: all 0.4s ease-in-out;
-  -moz-transition: all 0.4s ease-in-out;
-  -ms-transition: all 0.4s ease-in-out;
-  -o-transition: all 0.4s ease-in-out;
-  transition: all 0.4s ease-in-out;
+  -webkit-transition: all 0.4s ease 2s;
+  -moz-transition: all 0.4s ease 2s;
+  -ms-transition: all 0.4s ease 2s;
+  -o-transition: all 0.4s ease 2s;
+  transition: all 0.4s ease 2s;
   padding: 2px;
   background: none;
   position: absolute;
@@ -214,6 +214,11 @@
   z-index: 10;
 }
 .codeprinter .cp-scrollbar.visible {
+  -webkit-transition-delay: 0s;
+  -moz-transition-delay: 0s;
+  -ms-transition-delay: 0s;
+  -o-transition-delay: 0s;
+  transition-delay: 0s;
   opacity: 1;
 }
 .codeprinter .cp-scrollbar-slider {
@@ -316,6 +321,8 @@
   top: -50px;
   left: -50px;
   z-index: 11;
+  -webkit-transform: translate3d(0, 0, 0);
+  -webkit-transform-style: preserve-3d;
 }
 .codeprinter .cp-caret-block {
   -webkit-transition: all 0 ease-in-out;
