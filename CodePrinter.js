@@ -230,7 +230,24 @@
         }
       }
       
-      if (this.wrapper.onwheel !== undefined) {
+      if ('ontouchstart' in window || navigator.msMaxTouchPoints > 0) {
+        var x, y;
+        this.wrapper.listen({
+          touchstart: function(e) {
+            y = e.touches[0].screenY;
+            x = e.touches[0].screenX;
+          },
+          touchmove: function(e) {
+            if (x != null && y != null) {
+              var touch = e.touches[0];
+              this.scrollLeft += x - (x = touch.screenX);
+              cp.doc.scrollTo(this.scrollTop + y - (y = touch.screenY));
+              return e.cancel();
+            }
+          },
+          touchend: function() { x = y = null; }
+        });
+      } else if (this.wrapper.onwheel !== undefined) {
         this.wrapper.addEventListener('wheel', function(e) {
           var x = e.deltaX, y = e.deltaY;
           
