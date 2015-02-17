@@ -108,8 +108,9 @@ CodePrinter.defineMode('Markdown', function() {
         if (state.emphasis) state.emphasis = undefined;
         
         if (ch == '#') {
+          var h = stream.eatWhile('#').length;
           stream.skip();
-          return 'namespace';
+          return 'font-1' + Math.max(0, Math.min(6-h, 6)) + '0 namespace';
         }
         if (ch == '>') {
           stream.skip();
