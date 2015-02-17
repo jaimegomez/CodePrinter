@@ -14,14 +14,13 @@
   border: 1px solid #d4d4d4;
   min-width: 50px;
   min-height: 13px;
-  height: 300px;
   overflow: hidden;
   position: relative;
   top: 0;
   z-index: 0;
   text-align: left;
 }
-.codeprinter.cp-auto-height {
+.codeprinter.cp-auto-height .cp-body {
   height: auto;
 }
 .codeprinter.cp-auto-height .cp-container {
@@ -48,7 +47,7 @@
   -ms-flex: 1;
   -o-flex: 1;
   flex: 1;
-  height: 100%;
+  height: 300px;
   position: relative;
 }
 .codeprinter .cp-container {
@@ -57,17 +56,17 @@
   display: -ms-flexbox;
   display: -webkit-flex;
   display: flex;
-  -webkit-flex: 1 1 100%;
-  -moz-flex: 1 1 100%;
-  -ms-flex: 1 1 100%;
-  -o-flex: 1 1 100%;
-  flex: 1 1 100%;
   -webkit-flex-flow: row nowrap;
   -moz-flex-flow: row nowrap;
   -ms-flex-flow: row nowrap;
   -o-flex-flow: row nowrap;
   flex-flow: row nowrap;
-  min-height: 300px;
+  -webkit-flex: 1;
+  -moz-flex: 1;
+  -ms-flex: 1;
+  -o-flex: 1;
+  flex: 1;
+  min-height: 100%;
   background: #fcfcfc;
   position: relative;
   font-family: Menlo, Monaco, Consolas, Courier, monospace;
@@ -79,16 +78,16 @@
   display: -ms-flexbox;
   display: -webkit-flex;
   display: flex;
-  -webkit-flex: 1;
-  -moz-flex: 1;
-  -ms-flex: 1;
-  -o-flex: 1;
-  flex: 1;
   -webkit-flex-flow: column nowrap;
   -moz-flex-flow: column nowrap;
   -ms-flex-flow: column nowrap;
   -o-flex-flow: column nowrap;
   flex-flow: column nowrap;
+  -webkit-flex: 1;
+  -moz-flex: 1;
+  -ms-flex: 1;
+  -o-flex: 1;
+  flex: 1;
   border: none;
   min-width: 120px;
   position: relative;
@@ -250,7 +249,6 @@
   right: 0;
   bottom: 0;
   left: 0;
-  pointer-events: none;
   overflow: hidden;
 }
 .codeprinter .cp-selection-overlay,
