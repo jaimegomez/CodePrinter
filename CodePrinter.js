@@ -253,7 +253,7 @@
           
           if (x) this.scrollLeft += options.scrollSpeed * x;
           if (y) cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
-          return e.cancel();
+          return e.cancel(true);
         });
       } else {
         var mousewheel = function(e) {
@@ -263,7 +263,7 @@
           if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
           if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
           if (y) cp.doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
-          return e.cancel();
+          return e.cancel(true);
         }
         this.wrapper.listen({ mousewheel: mousewheel, DOMMouseScroll: mousewheel });
       }
@@ -271,19 +271,20 @@
       wrapper.listen({
         scroll: function(e) {
           if (!this._lockedScrolling) {
-            cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop, false);
+            cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop);
+          } else {
+            if (!isScrolling) {
+              wrapper.addClass('scrolling');
+            }
+            isScrolling = true;
+            cp.emit('scroll');
+            T4 = clearTimeout(T4) || setTimeout(function() {
+              isScrolling = false;
+              wrapper.removeClass('scrolling');
+              cp.emit('scrollend');
+            }, 150);
           }
           this._lockedScrolling = false;
-          if (!isScrolling) {
-            wrapper.addClass('scrolling');
-          }
-          isScrolling = true;
-          cp.emit('scroll');
-          T4 = clearTimeout(T4) || setTimeout(function() {
-            isScrolling = false;
-            wrapper.removeClass('scrolling');
-            cp.emit('scrollend');
-          }, 100);
           return e.cancel();
         },
         contextmenu: function(e) {
@@ -547,7 +548,7 @@
       }
       
       if (mode === 'plaintext') {
-        callback.call(this, new CodePrinter.Mode('plaintext'));
+        callback.call(this, new CodePrinter.Mode());
       } else if (this.parser && this.parser.name === mode) {
         callback.call(this, this.parser);
       } else {
@@ -607,6 +608,10 @@
     },
     defineParser: function(parser) {
       if (parser instanceof CodePrinter.Mode && this.parser !== parser) {
+        if (this.parser) {
+          var dl = this.doc.get(0);
+          do dl.cache = null; while (dl = dl.next());
+        }
         this.parser = parser;
       }
     },
@@ -629,16 +634,19 @@
           , stream = new Stream(ind.rest, { indentation: ind.indentation });
           
           if (frag) {
-            if (ind.rest) {
-              parse(this, this.parser, stream, state, frag);
+            if (tmp.cache) {
+              restoreFromCache(ind.rest, tmp.cache, frag);
+              state = tmp.state;
+            } else if (ind.rest) {
+              tmp.cache = parse(this, this.parser, stream, state, frag);
             } else if (ind.length == 0) {
               frag.appendChild(document.createTextNode(zws));
+              tmp.cache = null;
             }
             rm(tmp.node);
             tmp.node.appendChild(frag);
-            //this.doc.updateLineHeight(tmp);
           } else {
-            fastParse(this, this.parser, stream, state);
+            tmp.cache = fastParse(this, this.parser, stream, state);
           }
           if (stream.definition) tmp.definition = stream.definition;
           else if (dl.definition) tmp.definition = undefined;
@@ -656,14 +664,15 @@
       var dl = 'number' === typeof line ? this.doc.get(line) : line;
       if (dl != null) {
         var s = searchLineWithState(this.parser, dl, this.options.tabWidth)
-        , state = s.state, tmp = s.line, style;
+        , state = s.state, tmp = s.line;
         for (; tmp; tmp = tmp.next()) {
           var ind = parseIndentation(tmp.text, this.options.tabWidth)
           , stream = new Stream(ind.rest, { indentation: ind.indentation });
           if (tmp == dl) {
-            style = fastParse(this, this.parser, stream, state, Math.max(0, Math.min(column - (tmp.text.length - ind.rest.length), stream.length)));
+            var cache = fastParse(this, this.parser, stream, state, Math.max(0, Math.min(column - (tmp.text.length - ind.rest.length), stream.length)));
+            cache = cache[cache.length-1];
             if (stream.eol()) tmp.state = state;
-            return { stream: stream, state: state, style: style, parser: state.parser || this.parser };
+            return { stream: stream, state: state, style: cache && cache.style, parser: state.parser || this.parser };
           } else {
             state = copyState(tmp.state = state);
           }
@@ -756,10 +765,10 @@
     },
     setHeight: function(size) {
       if (size == 'auto') {
-        this.mainNode.style.removeProperty('height');
+        this.body.style.removeProperty('height');
         this.mainNode.addClass('cp-auto-height');
       } else {
-        this.mainNode.style.height = this.container.style.flexBasis = this.container.style.MozFlexBasis = (this.options.height = parseInt(size)) + 'px';
+        this.body.style.height = (this.options.height = parseInt(size, 10)) + 'px';
         this.mainNode.removeClass('cp-auto-height');
       }
       this.emit('height:changed');
@@ -1112,11 +1121,9 @@
         var af = this.caret.textAfter()
         , dl = this.caret.dl(), sbf;
         
-        this._inserting = true;
         this.caret.setTextAtCurrentLine(bf + s.shift(), '');
         this.doc.insert(line+1, s);
         this.caret.position(line + s.length, -1);
-        delete this._inserting;
         this.caret.setTextAfter(af);
       } else {
         this.caret.setTextBefore(bf + s[0]);
@@ -1727,6 +1734,15 @@
       return { state: parser.initialState(), line: best || dl }
     }
   }
+  function restoreFromCache(text, cache, frag) {
+    var i = 0, j = 0, l = cache.length, tmp;
+    for (; i < l; i++) {
+      tmp = cache[i];
+      if (j < tmp.from) frag.appendChild(cspan(null, text.substring(j, tmp.from)));
+      frag.appendChild(cspan(tmp.style, text.substring(tmp.from, j = tmp.to)));
+    }
+    if (j < text.length) frag.appendChild(cspan(null, text.substr(j)));
+  }
   function parseIndentation(text, tabWidth, fragment) {
     var p = '', i = -1, spaces = 0, ind = 0
     , tab = ' '.repeat(tabWidth);
@@ -1758,7 +1774,7 @@
     throw new Error();
   }
   function parse(cp, parser, stream, state, frag, col) {
-    var pos, style, l = col != null ? col : stream.length;
+    var pos, style, l = col != null ? col : stream.length, cache = [];
     pos = stream.pos;
     while (stream.pos < l) {
       stream.start = stream.pos;
@@ -1768,20 +1784,22 @@
         if (v != ' ' && v != '\t') stream.lastValue = v;
         pos = stream.pos;
         frag.appendChild(cspan(style, v));
+        cache.push({ from: stream.start, to: pos, style: style });
       }
     }
     if (pos < stream.pos) frag.appendChild(cspan(null, stream.from(pos)));
-    return state;
+    return cache;
   }
   function fastParse(cp, parser, stream, state, col) {
-    var style, l = col != null ? col : stream.length;
+    var style, v, l = col != null ? col : stream.length, cache = [];
     while (stream.pos < l) {
       stream.start = stream.pos;
       style = readIteration(parser, stream, state);
-      var v = stream.from(stream.start);
+      v = stream.from(stream.start);
       if (v != ' ' && v != '\t') stream.lastValue = v;
+      if (style) cache.push({ from: stream.start, to: stream.pos, style: style });
     }
-    return style;
+    return cache;
   }
   function runBackgroundParser(cp, parser) {
     var to = cp.doc.to(), dl = cp.doc.get(0)
@@ -2056,7 +2074,8 @@
   Line = function(text, height) {
     this.text = text;
     this.height = height;
-    this.parent = this.node = this.counter = null;
+    this.parent = this.cache = null;
+    this.node = this.counter = null;
     return this;
   }
   
@@ -2065,6 +2084,7 @@
     info: Branch.prototype.info,
     setText: function(str) {
       this.text = str;
+      this.cache = null;
     },
     addClass: function() {
       if (!this.classes) this.classes = Array.apply(null, arguments);
@@ -2244,7 +2264,7 @@
       doc.updateHeight();
       selection.overlay.reveal();
       doc.emit('attached');
-      doc.emit('view:updated');
+      doc.updateView();
       return doc;
     }
     this.detach = function() {
@@ -2254,7 +2274,7 @@
       }
       selection.overlay.remove();
       doc.emit('detached');
-      doc.emit('view:updated');
+      doc.updateView();
       return doc;
     }
     this.insert = function(at, text) {
@@ -2289,7 +2309,7 @@
         }
       }
       this.updateHeight();
-      this.emit('view:updated');
+      this.updateView();
     }
     this.remove = function(at, n) {
       if ('number' === typeof n && n > 0 && at >= 0 && at + n <= data.size) {
@@ -2347,7 +2367,7 @@
         }
         this.updateHeight();
         cp.wrapper.scrollTop = cp.counter.scrollTop;
-        this.emit('view:updated');
+        this.updateView();
         return rm;
       }
     }
@@ -2413,7 +2433,7 @@
       code.style.top = cp.sizes.scrollTop + 'px';
       ol.style.display = '';
       code.style.display = '';
-      this.emit('view:updated');
+      this.updateView();
     }
     this.scrollTo = function(st) {
       cp.wrapper._lockedScrolling = true;
@@ -2422,8 +2442,8 @@
       , limit = cp.options.viewportMargin
       , d = Math.round(x - limit)
       , abs = Math.abs(d)
-      , tmpd = d
-      , h, dl;
+      , tmpd = d, a = to
+      , h, dl, disp;
       
       if (d) {
         if (abs > 500 && abs > 2 * code.offsetHeight) {
@@ -2433,8 +2453,6 @@
             return;
           }
         }
-        ol.style.display = 'none';
-        code.style.display = 'none';
         if (from === 0 && d < 0) {
           h = view[0].height;
           dl = view[view.length-1];
@@ -2442,34 +2460,36 @@
             insert(dl);
             x -= dl.height;
           }
-        } else if (d > 0) {
-          while (view.length && (h = view[0].height) <= d && (dl = view[view.length-1].next())) {
-            var first = view.shift();
-            captureNode(dl, first);
-            if (dl.active) cp.select(dl);
-            cp.emit('unlink', first, from);
-            link(dl, to + 1);
-            ++from; ++to;
-            d -= h;
+        } else {
+          if (disp = abs > defHeight) { ol.style.display = 'none'; code.style.display = 'none'; }
+          if (d > 0) {
+            while (view.length && (h = view[0].height) <= d && (dl = view[view.length-1].next())) {
+              var first = view.shift();
+              captureNode(dl, first);
+              if (dl.active) cp.select(dl);
+              cp.emit('unlink', first, from);
+              link(dl, to + 1);
+              ++from; ++to;
+              d -= h;
+            }
+          } else if (d < 0) {
+            while (view.length && (h = view[view.length-1].height) <= -d && (dl = view[0].prev())) {
+              var last = view.pop();
+              captureNode(dl, last);
+              if (dl.active) cp.select(dl);
+              cp.emit('unlink', last, to);
+              --to; link(dl, --from);
+              d += h;
+            }
           }
-        } else if (d < 0) {
-          while (view.length && (h = view[view.length-1].height) <= -d && (dl = view[0].prev())) {
-            var last = view.pop();
-            captureNode(dl, last);
-            if (dl.active) cp.select(dl);
-            cp.emit('unlink', last, to);
-            --to; link(dl, --from);
-            d += h;
+          if (tmpd != d) {
+            scroll(tmpd - d);
           }
-        }
-        if (tmpd != d) {
-          scroll(tmpd - d);
         }
       }
       scrollTo(lastST = st);
-      ol.style.display = '';
-      code.style.display = '';
-      this.emit('view:updated');
+      if (disp) { ol.style.display = ''; code.style.display = ''; }
+      if (to != a) this.updateView(a - to);
     }
     this.isLineVisible = function(dl) {
       return view.indexOf('number' === typeof dl ? data.get(dl) : dl) >= 0;
@@ -2574,6 +2594,22 @@
     }
     this.updateHeight = function() {
       screen.style.minHeight = counter.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
+    }
+    this.updateView = function(det) {
+      var i = 0, l = view.length, dl, c;
+      if (det > 0 && det < l) l = det;
+      if (det < 0 && -det < view.length) i = view.length + det;
+      for (; i < l; i++) {
+        dl = view[i];
+        if (c = dl.cache) {
+          for (var j = 0, cl = c.length; j < cl; j++) {
+            if (c[j].style.indexOf('font-') >= 0 || defHeight != dl.height) {
+              this.updateLineHeight(dl);
+            }
+          }
+        }
+      }
+      this.emit('view:updated');
     }
     this.updateLineHeight = function(dl) {
       if (dl) {
@@ -2841,6 +2877,7 @@
       if (currentDL) {
         currentDL.setText(before + after);
         cp.parse(currentDL);
+        cp.doc.updateLineHeight(currentDL);
       }
     }
     
@@ -3158,10 +3195,15 @@
         return ex;
       }
     },
+    take: function(match) {
+      var v = this.value.substr(this.pos), lm = '';
+      if (match.test(v) && !RegExp.leftContext) this.pos += (lm = RegExp.lastMatch).length;
+      return lm;
+    },
     capture: function(match, index) {
       if (match instanceof RegExp) {
         var m = match.exec(this.value.substr(this.pos));
-        if (m) return m[index];
+        if (m) return m[index || 0];
       }
     },
     isAfter: function(match) {
@@ -3249,8 +3291,7 @@
     init: function() {},
     initialState: function() { return {}; },
     iterator: function(stream, state) {
-      var ch = stream.next();
-      /\S/.test(ch) ? stream.eatWhile(/\S/) : stream.eatWhile(/\s/);
+      stream.skip();
       return;
     },
     compile: function(string) {
@@ -3263,7 +3304,7 @@
         for (var i = 0; i < l; i++) {
           var stream = new Stream(lines[i]);
           node.innerHTML = '';
-          state = parse(null, this, stream, state, node);
+          parse(null, this, stream, state, node);
           lines[i] = '<pre>'+node.innerHTML+'</pre>';
         }
         return lines.join('');
