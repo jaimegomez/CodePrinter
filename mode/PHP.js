@@ -203,7 +203,6 @@ CodePrinter.defineMode('PHP', function() {
       }
       if (stream.isAfter(closeBrackets) || state.parser && stream.isAfter(/^\?>/i)) return i - 1;
       return i;
-      return state.indent;
     },
     completions: function(stream, state) {
       var cc = [], fch = stream.lastValue && stream.lastValue[0];
