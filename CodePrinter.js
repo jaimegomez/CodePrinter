@@ -3388,12 +3388,12 @@
               rest += '\n' + tab.repeat(indent + i.shift());
             }
           } else {
-            indent = parseInt(i, 10) || indent;
+            indent = i >= 0 ? parseInt(i, 10) : indent;
           }
         }
         tmp = parseIndentation(af, tw);
         tab = tab.repeat(indent);
-        if (tmp.indentTex && tab.endsWith(tmp.indentText)) {
+        if (tmp.indentText && tab.endsWith(tmp.indentText)) {
           tab = tab.slice(0, mv = -tmp.indentText.length);
         }
         this.insertText('\n' + tab + rest, -rest.length - mv);
