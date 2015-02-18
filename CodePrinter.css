@@ -241,6 +241,32 @@
   right: 0;
   bottom: 7px;
 }
+.codeprinter .cp-findbar {
+  background: #fcfcfc;
+  border-top: 1px solid #d4d4d4;
+  color: #555555;
+}
+.codeprinter .cp-findbar input {
+  margin: 0;
+  padding: 0.4em;
+  border: none;
+  outline: none;
+}
+.codeprinter .cp-findbar button {
+  margin: 0;
+  padding: 0.4em 1.5em;
+  background: none;
+  border: none;
+  outline: none;
+}
+.codeprinter .cp-findbar input,
+.codeprinter .cp-findbar button {
+  border-right: 1px solid #d4d4d4;
+}
+.codeprinter .cp-findbar span {
+  display: inline-block;
+  padding: 0 0.5em;
+}
 .codeprinter .cp-overlay {
   background: none !important;
   z-index: 7;
