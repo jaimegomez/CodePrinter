@@ -3053,18 +3053,19 @@
       return this;
     }
     this.focus = function() {
-      var isVisible = this.isVisible;
-      if (!isVisible) {
+      if (!this.isVisible) {
         this.show().activate();
       } else if (currentDL && !cp.doc.isLineVisible(currentDL)) {
         cp.doc.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
       }
       cp.select(currentDL);
+      return this;
     }
     this.blur = function() {
       this.deactivate().hide();
       cp.unselect();
       this.emit('blur');
+      return this;
     }
   }
   Caret.prototype = {
@@ -3073,13 +3074,13 @@
     isDisabled: false,
     show: function() {
       if (!this.isDisabled) {
-        this.element.style.opacity = "";
+        this.element.style.display = '';
         this.isVisible = true;
       }
       return this;
     },
     hide: function() {
-      this.element.style.opacity = "0";
+      this.element.style.display = 'none';
       this.isVisible = false;
       return this;
     },
@@ -3092,10 +3093,8 @@
       this.deactivate().hide();
     },
     deactivate: function() {
-      if (this.isActive) {
-        this.element.removeClass('cp-animation-blink');
-        this.isActive = false;
-      }
+      this.element.removeClass('cp-animation-blink');
+      this.isActive = false;
       return this;
     },
     move: function(x, y) {
