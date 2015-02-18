@@ -73,7 +73,7 @@
     lineNumbers: true,
     lineNumberFormatter: false,
     autoComplete: false,
-    autofocus: true,
+    autofocus: false,
     abortSelectionOnBlur: false,
     legacyScrollbars: false,
     readOnly: false,
