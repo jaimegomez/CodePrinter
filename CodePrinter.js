@@ -41,7 +41,7 @@
       this.doc.init((source.tagName == 'TEXTAREA' ? source.value : source.innerHTML).decode());
       source.before(this.mainNode);
     } else {
-      this.doc.init(source);
+      this.doc.init('string' == typeof source ? source : '');
     }
     return this.print();
   }
@@ -65,7 +65,6 @@
     viewportMargin: 80,
     keyupInactivityTimeout: 1500,
     scrollSpeed: 1,
-    autoScrollSpeed: 20,
     autoCompleteDelay: 200,
     historyStackSize: 100,
     historyDelay: 1000,
@@ -126,7 +125,6 @@
       options.lineNumbers ? this.openCounter() : this.closeCounter();
       options.drawIndentGuides || this.mainNode.addClass('without-indentation');
       options.legacyScrollbars && this.wrapper.addClass('legacy-scrollbars');
-      options.readOnly && this.caret.disable();
       options.width !== 'auto' && this.setWidth(options.width);
       options.height !== 300 && this.setHeight(options.height);
       options.fontSize !== 12 && this.setFontSize(options.fontSize);
@@ -143,7 +141,7 @@
         }
       }
       options.shortcuts && this.initAddon('shortcuts');
-      options.autoCompletion && this.initAddon('hints');
+      options.autoComplete && this.initAddon('hints');
       
       function mouseController(e) {
         if (e.defaultPrevented) return false;
@@ -1671,9 +1669,9 @@
       }
     },
     emit: function(eventName) {
-      var args = [], i = arguments.length;
+      var args = [], i = arguments.length, ov = this.doc.overlays;
       while (i--) args[i] = arguments[i];
-      this.doc && this.doc.emitToOverlays(args);
+      for (var i = ov.length; i--; ) ov[i].emit.apply(ov[i], args);
       Object.prototype.emit.apply(this, args);
       return this;
     },
@@ -2791,12 +2789,6 @@
     }
     this.createOverlay = function(classes, removeOn) {
       return new CodePrinter.Overlay(this, classes, removeOn);
-    }
-    this.emitToOverlays = function(args) {
-      var ov = this.overlays;
-      for (var i = ov.length; i--; ) {
-        ov[i].emit.apply(ov[i], args);
-      }
     }
     this.removeOverlays = function() {
       var ov = this.overlays, args;
