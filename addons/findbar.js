@@ -49,8 +49,8 @@ CodePrinter.defineAddon('findbar', function() {
       }
     });
     
-      inf.innerHTML = length+' matches';
     cp.on('searchCompleted', function(find, length) {
+      inf.innerHTML = (length || 'No')+' matches';
     });
     
     cp.keyMap['Ctrl F'] = this.show;
