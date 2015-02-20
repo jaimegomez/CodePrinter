@@ -73,7 +73,7 @@
     lineNumbers: true,
     lineNumberFormatter: false,
     autoComplete: false,
-    autofocus: false,
+    autoFocus: false,
     abortSelectionOnBlur: false,
     legacyScrollbars: false,
     readOnly: false,
@@ -537,7 +537,7 @@
         this.defineParser(ModeObject);
         this.doc.fill();
         runBackgroundParser(this, ModeObject);
-        if (this.options.autofocus) {
+        if (this.options.autoFocus) {
           this.input.focus();
           this.caret.position(0, 0);
         }
@@ -566,7 +566,7 @@
       if (doc instanceof Document) {
         var old = this.doc.detach();
         this.doc = doc.attach();
-        this.emit('doc:changed');
+        this.emit('documentChanged');
         this.print();
         return old;
       }
@@ -696,7 +696,7 @@
     setOptions: function(key, value) {
       if (this.options[key] !== value) {
         this.options[key] = value;
-        this.emit('options:changed', key, value);
+        this.emit('optionsChanged', key, value);
       }
       return this;
     },
@@ -737,7 +737,6 @@
     setFontSize: function(size) {
       if ('number' === typeof size && this.options.minFontSize <= size && size <= this.options.maxFontSize) {
         var i = 0, doc = this.doc;
-        this.emit('fontSize:change', size);
         this.wrapper.style.fontSize = this.counter.style.fontSize = (this.options.fontSize = size) + 'px';
         doc.updateDefaultHeight();
         
@@ -747,7 +746,7 @@
           doc.updateHeight();
           doc.showSelection();
           this.caret.refresh();
-          this.emit('fontSize:changed', size);
+          this.emit('fontSizeChanged', size);
         }
       }
       return this;
@@ -760,7 +759,7 @@
       } else {
         this.mainNode.style.width = (this.options.width = parseInt(size)) + 'px';
       }
-      this.emit('width:changed');
+      this.emit('widthChanged');
       return this;
     },
     setHeight: function(size) {
@@ -771,7 +770,7 @@
         this.body.style.height = (this.options.height = parseInt(size, 10)) + 'px';
         this.mainNode.removeClass('cp-auto-height');
       }
-      this.emit('height:changed');
+      this.emit('heightChanged');
       return this;
     },
     showIndentation: function() {
@@ -1483,7 +1482,7 @@
               search.length = j;
               search.overlay.reveal();
               this.wrapper.scrollLeft = sl;
-              this.emit('search:completed', find, j);
+              this.emit('searchCompleted', find, j);
             }
           });
         } else {
@@ -1689,7 +1688,7 @@
         this.isFullscreen = true;
         this.doc.fill();
         this.input.focus();
-        this.emit('fullscreen:entered');
+        this.emit('fullscreenEntered');
       }
     },
     exitFullscreen: function() {
@@ -1703,7 +1702,7 @@
         this.setWidth(this.options.width);
         this.doc.fill();
         this.input.focus();
-        this.emit('fullscreen:leaved');
+        this.emit('fullscreenLeaved');
       }
     },
     openCounter: function() {
@@ -3782,7 +3781,7 @@
       cp.container = cp.body.lastChild;
       cp.input = cp.container.firstChild;
       cp.input.tabIndex = cp.options.tabIndex;
-      cp.input.autofocus = cp.options.autofocus;
+      cp.input.autofocus = cp.options.autoFocus;
       cp.counter = cp.input.nextSibling;
       cp.wrapper = cp.container.lastChild;
       cp.caret.element = cp.wrapper.firstChild;

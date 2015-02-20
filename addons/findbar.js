@@ -49,8 +49,8 @@ CodePrinter.defineAddon('findbar', function() {
       }
     });
     
-    cp.on('search:completed', function(find, length) {
       inf.innerHTML = length+' matches';
+    cp.on('searchCompleted', function(find, length) {
     });
     
     cp.keyMap['Ctrl F'] = this.show;
