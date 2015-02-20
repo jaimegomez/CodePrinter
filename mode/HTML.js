@@ -172,6 +172,13 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
           }
         }
       }
+    },
+    snippets: {
+      '<': function(stream, state) {
+        if (state.context) {
+          return '</'+state.context.name+'>';
+        }
+      }
     }
   });
 });

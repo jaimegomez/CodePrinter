@@ -1636,7 +1636,8 @@
         b = s && s.hasOwnProperty(snippetName);
       }
       s = b && s[snippetName];
-      return 'string' == typeof s ? { content: s } : s;
+      if ('function' == typeof s) s = functionSnippet(this, s);
+      if (s) return 'string' == typeof s ? { content: s } : s;
     },
     registerSnippet: function() {
       if (!this.options.snippets) this.options.snippets = [];
@@ -3346,7 +3347,7 @@
         this.indent();
       } else {
         if (this.options.tabTriggers) {
-          var wbf = this.wordBefore(), snippet;
+          var wbf = this.wordBefore(/\S+/), snippet;
           if (snippet = this.findSnippet(wbf)) {
             this.removeBeforeCursor(wbf);
             this.insertText(snippet.content, snippet.cursorMove);
@@ -3835,6 +3836,10 @@
   function complementBracket(ch) {
     var obj = { '(':')', ')':'(', '{':'}', '}':'{', '[':']', ']':'[', '<':'>', '>':'<' }
     return obj[ch];
+  }
+  function functionSnippet(cp, snippet) {
+    var s = cp.getStateAt(cp.caret.dl(), cp.caret.column());
+    return snippet.call(s.parser, s.stream, s.state);
   }
   function searchOverLine(find, dl, line, offset) {
     var results = this.searches.results
