@@ -2177,15 +2177,8 @@
         cp.emit('link', dl, index);
       }
     }
-    function insert(dl) {
-      bind(dl, pre.cloneNode(), li.cloneNode());
-      link(dl, to + 1);
-      ++to;
-    }
-    function prepend(dl) {
-      bind(dl, pre.cloneNode(), li.cloneNode());
-      link(dl, --from);
-    }
+    function insert(dl) { init(dl); link(dl, to + 1); ++to; }
+    function prepend(dl) { init(dl); link(dl, --from); }
     function remove(dl, index) {
       code.removeChild(deleteNode(dl));
       ol.removeChild(deleteCounter(dl));
@@ -2289,7 +2282,7 @@
         } else {
           var i = -1;
           while (++i < lines.length && !isFilled()) {
-            bind(lines[i], pre.cloneNode(), li.cloneNode());
+            init(lines[i]);
             ++to;
             link(lines[i], at + i);
           }
@@ -3804,11 +3797,11 @@
     }
     return line.classes ? line.classes.join(' ') : '';
   }
-  function bind(dl, node, counter) {
-    dl.node = node;
-    dl.counter = counter;
-    counter.appendChild(document.createTextNode(''));
-    counter.style.lineHeight = dl.height + 'px';
+  function init(dl, node, counter) {
+    dl.node = pre.cloneNode();
+    dl.counter = li.cloneNode();
+    dl.counter.appendChild(document.createTextNode(''));
+    dl.counter.style.lineHeight = dl.height + 'px';
   }
   function touch(dl) {
     if (dl.node) {
