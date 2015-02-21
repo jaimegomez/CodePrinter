@@ -62,6 +62,7 @@
     fontFamily: 'Menlo, Monaco, Consolas, Courier, monospace',
     minFontSize: 6,
     maxFontSize: 60,
+    caretHeight: 1,
     viewportMargin: 80,
     keyupInactivityTimeout: 1500,
     scrollSpeed: 1,
@@ -2486,6 +2487,7 @@
         column: 0,
         offset: 0,
         width: 0,
+        height: defHeight,
         charWidth: 0
       }
       
@@ -2553,6 +2555,7 @@
           r.column = tmp;
         }
       }
+      if (child) r.height = child.offsetHeight;
       if (!r.charWidth) {
         var sp = cspan(null, 'A');
         node.appendChild(sp);
@@ -2815,7 +2818,7 @@
     , styles = {
       vertical: function(css) {
         css.width = 1;
-        css.height = currentDL.height;
+        css.height = cp.options.caretHeight * lastdet.height;
         css.left -= 1;
         return css;
       },
@@ -2827,7 +2830,7 @@
       },
       block: function(css) {
         css.width = lastdet.charWidth || currentDL.height/2;
-        css.height = currentDL.height;
+        css.height = cp.options.caretHeight * lastdet.height;
         return css;
       }
     }
