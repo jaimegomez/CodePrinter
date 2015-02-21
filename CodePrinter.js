@@ -38,8 +38,8 @@
     this.parser = new CodePrinter.Mode();
     
     if (source && source.nodeType) {
+      if (source.parentNode) source.parentNode.insertBefore(this.mainNode, source);
       this.doc.init((source.tagName == 'TEXTAREA' ? source.value : source.innerHTML).decode());
-      source.before(this.mainNode);
     } else {
       this.doc.init('string' == typeof source ? source : '');
     }
@@ -1426,12 +1426,12 @@
             });
             this.on({
               link: function(dl, line) {
-                cp.doc.once('view:updated', function() {
+                cp.doc.once('viewUpdated', function() {
                   linkCallback(dl, line);
                 });
               },
               unlink: function(dl, line) {
-                cp.doc.once('view:updated', function() {
+                cp.doc.once('viewUpdated', function() {
                   if (cp.searches.results && (cur = cp.searches.results[line])) {
                     for (var i = 0; i < cur.length; i++) {
                       if (cur[i].node) {
@@ -2592,7 +2592,7 @@
           }
         }
       }
-      this.emit('view:updated');
+      this.emit('viewUpdated');
     }
     this.updateLineHeight = function(dl) {
       if (dl) {
@@ -3267,8 +3267,13 @@
     init: function() {},
     initialState: function() { return {}; },
     iterator: function(stream, state) {
-      stream.skip();
-      return;
+      var ch = stream.next();
+      if (/\s/.test(ch)) {
+        stream.take(/^\s+/);
+        return 'space';
+      }
+      stream.take(/^\S+/);
+      return 'word';
     },
     compile: function(string) {
       if ('string' == typeof string) {
