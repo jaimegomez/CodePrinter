@@ -19,7 +19,7 @@
   , div, li, pre, span
   , BRANCH_OPTIMAL_SIZE = 50
   , BRANCH_HALF_SIZE = 25
-  , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 15 : $.browser.ie ? -0.53 : null
+  , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 5 : $.browser.ie ? -0.53 : null
   , activeClassName = 'cp-active-line'
   , zws = '\u200b'
   , eol = /\r\n?|\n/;
@@ -240,28 +240,17 @@
               var touch = e.touches[0];
               this.scrollLeft += x - (x = touch.screenX);
               cp.doc.scrollTo(this.scrollTop + y - (y = touch.screenY));
-              return e.cancel();
+              return e.cancel(true);
             }
           },
           touchend: function() { x = y = null; }
         });
-      } else if (this.wrapper.onwheel !== undefined) {
-        this.wrapper.addEventListener('wheel', function(e) {
-          var x = e.deltaX, y = e.deltaY;
-          
-          if (x) this.scrollLeft += options.scrollSpeed * x;
-          if (y) cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * y);
-          return e.cancel(true);
-        });
+      } else if ('onwheel' in window) {
+        this.wrapper.addEventListener('wheel', function(e) { return wheel(cp.doc, this, e, options.scrollSpeed, e.deltaX, e.deltaY); }, false);
       } else {
         var mousewheel = function(e) {
-          var x = e.wheelDeltaX, y = e.wheelDeltaY;
-          
-          if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
-          if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
-          if (x) this.scrollLeft += wheelUnit * options.scrollSpeed * x;
-          if (y) cp.doc.scrollTo(this.scrollTop + wheelUnit * options.scrollSpeed * y);
-          return e.cancel(true);
+          var d = wheelDelta(e);
+          return wheel(cp.doc, this, e, wheelUnit * options.scrollSpeed, d.x, d.y);
         }
         this.wrapper.listen({ mousewheel: mousewheel, DOMMouseScroll: mousewheel });
       }
@@ -280,7 +269,7 @@
               isScrolling = false;
               wrapper.removeClass('scrolling');
               cp.emit('scrollend');
-            }, 150);
+            }, 200);
           }
           this._lockedScrolling = false;
           return e.cancel();
@@ -3794,6 +3783,17 @@
   }
   function tabString(cp) {
     return cp.options.indentByTabs ? '\t' : ' '.repeat(cp.options.tabWidth);
+  }
+  function wheelDelta(e) {
+    var x = e.wheelDeltaX, y = e.wheelDeltaY;
+    if (x == null && e.axis === e.HORIZONTAL_AXIS) x = e.detail;
+    if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
+    return { x: x, y: y };
+  }
+  function wheel(doc, node, e, speed, x, y) {
+    if (x) { node._lockedScrolling = true; node.scrollLeft += speed * x; }
+    if (y) doc.scrollTo(node.scrollTop + speed * y);
+    return e.cancel(true);
   }
   function getLineClasses(line) {
     var isact = line.node && line.node.hasClass(activeClassName);
