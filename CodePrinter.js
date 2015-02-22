@@ -20,9 +20,7 @@
   , BRANCH_OPTIMAL_SIZE = 50
   , BRANCH_HALF_SIZE = 25
   , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 5 : $.browser.ie ? -0.53 : null
-  , activeClassName = 'cp-active-line'
-  , zws = '\u200b'
-  , eol = /\r\n?|\n/;
+  , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/;
   
   $.require.registerNamespace('CodePrinter', 'mode/');
   $.require.registerNamespace('CodePrinter/addons', 'addons/');
@@ -43,6 +41,7 @@
     } else {
       this.doc.init('string' == typeof source ? source : '');
     }
+    CodePrinter.instances.push(this);
     return this.print();
   }
   
@@ -72,6 +71,7 @@
     firstLineNumber: 1,
     lineNumbers: true,
     lineNumberFormatter: false,
+    lineWrapping: false,
     autoComplete: false,
     autoFocus: false,
     abortSelectionOnBlur: false,
@@ -118,14 +118,16 @@
       
       this.mainNode.CodePrinter = this;
       sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
+      this.caret = new Caret(cp);
       this.doc = new Document(this);
       this.keyMap = new keyMap;
       this.setTheme(options.theme);
       this.setMode(options.mode);
       
       options.lineNumbers ? this.openCounter() : this.closeCounter();
-      options.drawIndentGuides || this.mainNode.addClass('without-indentation');
-      options.legacyScrollbars && this.wrapper.addClass('legacy-scrollbars');
+      options.drawIndentGuides || this.mainNode.addClass('cp-without-indentation');
+      options.legacyScrollbars && this.wrapper.addClass('cp-legacy-scrollbars');
+      options.lineWrapping && this.mainNode.addClass('cp-line-wrapping');
       options.width !== 'auto' && this.setWidth(options.width);
       options.height !== 300 && this.setHeight(options.height);
       options.fontSize !== 12 && this.setFontSize(options.fontSize);
@@ -157,7 +159,7 @@
         , isinactive = document.activeElement !== cp.input;
         
         cp.input.focus();
-        cp.caret.target(doc.lineWithOffset(ry), x);
+        cp.caret.target(x, ry);
         var l = cp.caret.line(), c = cp.caret.column();
         
         if (e.type === 'mousedown') {
@@ -552,8 +554,8 @@
     },
     setDocument: function(doc) {
       if (doc instanceof Document) {
-        var old = this.doc.detach();
-        this.doc = doc.attach();
+        var old = this.doc && this.doc.detach();
+        this.doc = doc.attach(this);
         this.emit('documentChanged');
         this.print();
         return old;
@@ -700,6 +702,11 @@
       this.options.lineEndings = lineendings[le] || this.options.lineEndings || '\n';
       return this;
     },
+    setLineWrapping: function(lw) {
+      this.options.lineWrapping = !!lw;
+      lw ? this.mainNode.addClass('cp-line-wrapping') : this.mainNode.removeClass('cp-line-wrapping');
+      this.doc.updateView();
+    },
     setTheme: function(name, dontrequire) {
       typeof name === 'string' && name !== 'default' ? dontrequire != true && this.requireStyle(name) : name = 'default';
       if (!this.options.disableThemeClassName) {
@@ -725,7 +732,7 @@
     setFontSize: function(size) {
       if ('number' === typeof size && this.options.minFontSize <= size && size <= this.options.maxFontSize) {
         var i = 0, doc = this.doc;
-        this.wrapper.style.fontSize = this.counter.style.fontSize = (this.options.fontSize = size) + 'px';
+        this.container.style.fontSize = (this.options.fontSize = size) + 'px';
         doc.updateDefaultHeight();
         
         if (doc.initialized) {
@@ -763,11 +770,11 @@
     },
     showIndentation: function() {
       this.options.drawIndentGuides = true;
-      this.mainNode.removeClass('without-indentation');
+      this.mainNode.removeClass('cp-without-indentation');
     },
     hideIndentation: function() {
       this.options.drawIndentGuides = false;
-      this.mainNode.addClass('without-indentation');
+      this.mainNode.addClass('cp-without-indentation');
     },
     getLineEnding: function() {
       return lineendings[this.options.lineEndings] || this.options.lineEndings || lineendings['LF'];
@@ -781,15 +788,13 @@
         l = this.doc.size();
         line = l + line % l;
       }
-      if (dl = this.doc.get(line)) {
-        if (column == null) column = 0;
-        if (column < 0) {
-          t = dl.text;
-          column = t.length + column % t.length + 1;
-        }
-        this.caret.target(dl, column, true);
-        this.focus();
+      if (column == null) column = 0;
+      if (column < 0) {
+        t = dl.text;
+        column = t.length + column % t.length + 1;
       }
+      this.caret.position(line, column);
+      this.focus();
     },
     getTextAtLine: function(line) {
       var dl = this.doc.get(line < 0 ? this.doc.size() + line : line);
@@ -1363,7 +1368,7 @@
         if (dl) {
           pos = this.doc.measureRect(dl, arguments[i][1], arguments[i][1] + arguments[i][2].length);
           var sp = span.cloneNode().addClass('cp-highlight');
-          sp.setAttribute('style', 'top:'+(dl.getOffset() + this.sizes.paddingTop)+'px;left:'+pos.offset+'px;width:'+pos.width+'px;height:'+dl.height+'px;');
+          sp.setAttribute('style', 'top:'+(dl.getOffset() + pos.offsetY + this.sizes.paddingTop)+'px;left:'+pos.offsetX+'px;width:'+pos.width+'px;height:'+pos.charHeight+'px;');
           overlay.node.appendChild(sp);
         }
       }
@@ -1602,7 +1607,7 @@
       var dl = this.caret.dl().next();
       for (; dl; dl = dl.next()) {
         if (dl.definition) {
-          this.caret.target(dl, dl.definition.pos, dl.definition.pos);
+          this.caret.position(dl.info().index, dl.definition.pos);
           return;
         }
       }
@@ -1611,7 +1616,7 @@
       var dl = this.caret.dl().prev();
       for (; dl; dl = dl.prev()) {
         if (dl.definition) {
-          this.caret.target(dl, dl.definition.pos, dl.definition.pos);
+          this.caret.position(dl.info().index, dl.definition.pos);
           return;
         }
       }
@@ -1699,6 +1704,11 @@
     },
     closeCounter: function() {
       this.counter.addClass('hidden');
+    },
+    destroy: function() {
+      var p = this.mainNode.parentNode, i = CodePrinter.instances.indexOf(this);
+      if (p) p.removeChild(this.mainNode);
+      if (i >= 0) CodePrinter.instances.splice(i, 1);
     }
   }
   
@@ -2002,8 +2012,8 @@
     getLineWithOffset: function(offset) {
       var h = 0, i = -1;
       while (++i < this.length && h + this[i].height < offset) h += this[i].height;
-      if (i == this.length) --i;
-      return this.isLeaf ? this[i] : this[i] ? this[i].getLineWithOffset(offset - h) : null;
+      if (i == this.length) --i; offsetDiff = offset - h;
+      return this.isLeaf ? this[i] : this[i] ? this[i].getLineWithOffset(offsetDiff) : null;
     },
     info: function() {
       var r = { offset: 0, index: 0 }
@@ -2121,27 +2131,11 @@
     }
   }
   
-  Document = CodePrinter.Document = function(cp) {
-    var doc = this
-    , counter = cp.counter.firstChild
-    , ol = counter.firstChild
-    , screen = cp.wrapper.lastChild
-    , code = screen.firstChild
-    , temp = screen.lastChild.firstChild
-    , from = 0, to = -1, lastST = 0, lines = []
+  Document = CodePrinter.Document = function(editor) {
+    var cp, counter, ol, code, measure
+    , from = 0, to = -1, lastST = 0
     , defHeight = 13, firstNumber
     , data, view, history, selection;
-    
-    doc.screen = screen;
-    doc.overlays = [];
-    doc.view = view = lines;
-    history = new History(cp, doc, cp.options.historyStackSize, cp.options.historyDelay);
-    selection = new Selection(doc);
-    
-    firstNumber = cp.options.firstLineNumber;
-    if (cp.options.lineNumberFormatter instanceof Function) {
-      formatter = cp.options.lineNumberFormatter;
-    }
     
     function desiredHeight(half) {
       return (cp.body.offsetHeight || cp.options.height) + cp.options.viewportMargin * (half ? 1 : 2);
@@ -2235,18 +2229,25 @@
       this.fill();
       return this;
     }
-    this.attach = function() {
+    this.attach = function(editor) {
+      cp = editor;
+      this.screen = cp.screen;
+      counter = cp.counterChild;
+      code = cp.code;
+      ol = cp.counterOL;
+      measure = cp.measure;
+      
       if (view.length) {
         for (var i = 0; i < view.length; i++) {
           code.appendChild(view[i].node);
           ol.appendChild(view[i].counter);
         }
       }
-      doc.updateHeight();
-      selection.overlay.reveal();
-      doc.emit('attached');
-      doc.updateView();
-      return doc;
+      if (data) this.updateHeight();
+      if (selection) selection.overlay.reveal();
+      this.emit('attached');
+      this.updateView();
+      return this;
     }
     this.detach = function() {
       for (var i = 0; i < view.length; i++) {
@@ -2254,9 +2255,9 @@
         ol.removeChild(view[i].counter);
       }
       selection.overlay.remove();
-      doc.emit('detached');
-      doc.updateView();
-      return doc;
+      this.emit('detached');
+      cp = cp.doc = this.screen = counter = code = ol = measure = null;
+      return this;
     }
     this.insert = function(at, text) {
       var lines = [];
@@ -2429,7 +2430,7 @@
       if (d) {
         if (abs > 500 && abs > 2 * code.offsetHeight) {
           dl = data.getLineWithOffset(Math.max(0, st - limit));
-          if (doc.rewind(dl) !== false) {
+          if (this.rewind(dl) !== false) {
             scrollTo(lastST = st);
             return;
           }
@@ -2460,7 +2461,7 @@
               if (dl.active) cp.select(dl);
               cp.emit('unlink', last, to);
               --to; link(dl, --from);
-              d += h;
+              d += dl.height;
             }
           }
           if (tmpd != d) {
@@ -2480,88 +2481,81 @@
         callback.call(this, view[i], from + i, i && view[i-1]);
       }
     }
-    this.measureRect = function(dl, offset, to) {
-      var childNodes, child, first, l
-      , oL, oW, tmp = 0, i = -1
-      , node = dl.node, r = {
-        column: 0,
-        offset: 0,
-        width: 0,
-        height: defHeight,
-        charWidth: 0
-      }
-      
-      if (!node || !node.parentNode) {
-        node = temp;
-        node.innerHTML = '<span>'+(dl.text || '')+'</span>';
-        dl.node = null;
-      }
-      childNodes = node.childNodes;
-      if (childNodes.length === 1 && (first = childNodes[0]) && first.nodeValue == zws) {
-        return { column: 0, offset: cp.sizes.paddingLeft, width: 0, charWidth: 0 }
-      }
-      
-      if (arguments.length === 3) {
-        var boo;
+    this.measurePosition = function(x, y) {
+      var dl = this.lineWithOffset(y)
+      , ch = dl.node.childNodes, child
+      , l, ow, ol, chl = ch.length
+      , i = -1, r = { dl: dl, column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, charWidth: 0, charHeight: defHeight };
+      y = offsetDiff;
+      if (chl === 1 && ch[0].nodeValue == zws) return r;
+      while (++i < chl) {
+        child = ch[i];
+        l = child.firstChild.nodeValue.length;
+        if (l === 0) continue;
         
-        while (++i < childNodes.length) {
-          child = childNodes[i];
-          l = child.textContent.length;
-          if (l === 0) continue;
-          
-          if (boo) {
-            if (to <= tmp + l) {
-              r.width = child.offsetLeft - r.offset + (to - tmp) * child.offsetWidth / l;
-              break;
-            }
-          } else if (offset < tmp + l) {
-            oW = child.offsetWidth;
-            oL = child.offsetLeft;
-            r.column = offset;
-            r.offset = Math.round(oL + (offset - tmp) * oW / l);
-            r.charWidth = Math.round(oW / l);
-            boo = true;
-            
-            if (to < offset || 'number' !== typeof to) break;
-            if (to <= tmp + l) {
-              r.width = Math.round((to - offset) * oW / l);
-              break;
-            }
+        if (!cp.options.lineWrapping || y <= (r.offsetY = child.offsetTop) + (r.height = child.offsetHeight)) {
+          ol = child.offsetLeft; ow = child.offsetWidth;
+          if (x <= ol + ow) {
+            r.charWidth = Math.round(ow / l);
+            var tmp = Math.round((x - ol) * l / ow);
+            r.column += tmp;
+            r.offsetX = Math.round(ol + tmp * ow / l);
+            break;
+          } else {
+            r.charWidth = Math.round(ow / l);
+            r.offsetX = ol + ow;
+            r.column += l;
           }
-          tmp += l;
+        } else {
+          r.column += l;
         }
-        if (!boo) { r.column = tmp; r.charWidth = child ? Math.round(child.offsetWidth / l) : 0; }
-        else if (r.width) r.width = Math.round(r.width);
-        if (!r.offset) r.offset = child ? child.offsetLeft + child.offsetWidth : 0;
-      } else {
-        while (++i < childNodes.length) {
-          child = childNodes[i];
-          l = child.textContent.length;
-          if (l === 0) continue;
-          
-          oL = child.offsetLeft;
-          oW = child.offsetWidth;
-          if (offset < oL + oW) {
-            r.charWidth = Math.round(oW / l);
-            var c = Math.round((offset - oL) * l / oW);
-            r.column = tmp + c;
-            r.offset = Math.round(oL + c * oW / l);
+      }
+      if (!r.charWidth) { r.charWidth = Math.round(ow / l); r.offsetX = ol + ow; }
+      return r;
+    }
+    this.measureRect = function(dl, offset, to) {
+      var ch = dl.node.childNodes, child, l
+      , ow, ol, chl = ch.length, tmp = 0, i = -1, bool
+      , r = { column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, width: 0, height: defHeight, charWidth: 0, charHeight: defHeight };
+      if (chl === 1 && ch[0].nodeValue == zws) return r;
+      while (++i < chl) {
+        child = ch[i];
+        l = child.firstChild.nodeValue.length;
+        if (l === 0) continue;
+        
+        if (bool) {
+          if (to <= tmp + l) {
+            r.width = child.offsetLeft - r.offsetX + (to - tmp) * child.offsetWidth / l; 
             break;
           }
-          tmp += l;
+        } else if (offset < tmp + l) {
+          ow = child.offsetWidth;
+          ol = child.offsetLeft;
+          r.column = offset;
+          r.offsetX = Math.round(ol + (offset - tmp) * ow / l);
+          r.offsetY = child.offsetTop;
+          r.charWidth = Math.round(ow / l);
+          bool = true;
+          
+          if (to < offset || 'number' !== typeof to) break;
+          if (to <= tmp + l) {
+            r.width = Math.round((to - offset) * ow / l);
+            break;
+          }
         }
-        if (i === childNodes.length) {
-          r.offset = oL + oW;
-          r.column = tmp;
+        tmp += l;
+      }
+      if (!bool) {
+        r.column = tmp;
+        if (child) {
+          ow = child.offsetWidth;
+          r.charWidth = Math.round(ow / l);
+          r.offsetX = child.offsetLeft + ow;
+          r.offsetY = child.offsetTop;
         }
-      }
-      if (child) r.height = child.offsetHeight;
-      if (!r.charWidth) {
-        var sp = cspan(null, 'A');
-        node.appendChild(sp);
-        r.charWidth = sp.offsetWidth;
-        node.removeChild(sp);
-      }
+      } else if (r.width) r.width = Math.round(r.width);
+      if (child) r.height = child.offsetTop - r.offsetY + (r.charHeight = child.offsetHeight);
+      if (!r.charWidth) r.charWidth = calcCharWidth(dl.node);
       return r;
     }
     this.updateDefaultHeight = function() {
@@ -2576,7 +2570,7 @@
       document.documentElement.removeChild(pr);
     }
     this.updateHeight = function() {
-      screen.style.minHeight = counter.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
+      this.screen.style.minHeight = counter.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
     }
     this.updateView = function(det) {
       var i = 0, l = view.length, dl, c;
@@ -2584,9 +2578,11 @@
       if (det < 0 && -det < view.length) i = view.length + det;
       for (; i < l; i++) {
         dl = view[i];
-        if (c = dl.cache) {
+        if (defHeight != dl.height || cp.options.lineWrapping) {
+          this.updateLineHeight(dl);
+        } else if (c = dl.cache) {
           for (var j = 0, cl = c.length; j < cl; j++) {
-            if (c[j].style.indexOf('font-') >= 0 || defHeight != dl.height) {
+            if (c[j].style.indexOf('font-') >= 0) {
               this.updateLineHeight(dl);
             }
           }
@@ -2675,40 +2671,27 @@
         var s = selection.start
         , e = selection.end
         , ov = selection.overlay
-        , dl = data.get(s.line)
-        , dloffset = dl.getOffset(), selnode
-        , delta = e.line - s.line;
+        , dl = data.get(s.line), dloffset = dl.getOffset()
+        , lastdl = data.get(e.line), lastdloffset = lastdl.getOffset()
+        , pos = this.measureRect(dl, s.column)
+        , endPos = this.measureRect(lastdl, e.column)
+        , equal = s.line == e.line, fh = pos.offsetY + pos.height, selnode;
         
-        if (delta) {
-          var pos = this.measureRect(dl, s.column, true)
-          , lastdl = data.get(e.line), lastdloffset = lastdl.getOffset();
-          
-          selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(), dloffset, pos.offset, null, dl.height, 0);
-          selnode.parentNode || ov.node.appendChild(selnode);
-          
-          if (delta > 1) {
-            selnode = ov.middle = createSelectionNode.call(cp, ov.middle || div.cloneNode(), dloffset + dl.height, cp.sizes.paddingLeft, null, lastdloffset - dloffset - dl.height, 0);
-            selnode.parentNode || ov.node.appendChild(selnode);
-          } else if (ov.middle) {
-            ov.node.removeChild(ov.middle);
-            ov.middle = undefined;
-          }
-          pos = this.measureRect(lastdl, 0, e.column);
-          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode(), lastdloffset, pos.offset, pos.width, lastdl.height);
-          selnode.parentNode || ov.node.appendChild(selnode);
+        selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode()
+          , dloffset + pos.offsetY, pos.offsetX, equal && pos.offsetY == endPos.offsetY ? 0 : null, pos.height, 0);
+        selnode.parentNode || ov.node.appendChild(selnode);
+        selnode = ov.middle = createSelectionNode.call(cp, ov.middle || div.cloneNode()
+          , dloffset + fh, cp.sizes.paddingLeft, null, lastdloffset - dloffset - pos.height + endPos.offsetY, 0);
+        selnode.parentNode || ov.node.appendChild(selnode);
+        
+        if (equal && pos.offsetY == endPos.offsetY) {
+          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode()
+            , dloffset + endPos.offsetY, pos.offsetX, endPos.offsetX - pos.offsetX, pos.height);
         } else {
-          var pos = this.measureRect(dl, s.column, e.column);
-          selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(), dloffset, pos.offset, pos.width, dl.height);
-          selnode.parentNode || ov.node.appendChild(selnode);
-          if (ov.middle) {
-            ov.node.removeChild(ov.middle);
-            ov.middle = undefined;
-          }
-          if (ov.bottom) {
-            ov.node.removeChild(ov.bottom);
-            ov.bottom = undefined;
-          }
+          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode()
+            , lastdloffset + endPos.offsetY, cp.sizes.paddingLeft, endPos.offsetX - cp.sizes.paddingLeft, endPos.charHeight);
         }
+        selnode.parentNode || ov.node.appendChild(selnode);
         ov.reveal();
         cp.unselect();
       }
@@ -2744,20 +2727,15 @@
           y = x;
         }
         cp.dispatch(dl, x.substring(0, s.column) + y.substr(e.column));
-        cp.caret.target(dl, s.column, s.column);
+        cp.caret.position(s.line, s.column);
         cp.emit('changed', { line: cp.caret.line(), column: cp.caret.column(true), text: t.join('\n'), added: false });
         this.clearSelection();
       }
     }
     
-    this.moveSelection = selection.move.bind(selection);
-    
-    this.moveSelectionStart = function(mv) {
-      selection.move(mv, null);
-    }
-    this.moveSelectionEnd = function(mv) {
-      selection.move(null, mv);
-    }
+    this.moveSelection = function(start, end) { selection.move(start, end); }
+    this.moveSelectionStart = function(mv) { selection.move(mv, null); }
+    this.moveSelectionEnd = function(mv) { selection.move(null, mv); }
     
     this.wrapSelection = function(before, after) {
       var r = this.getSelectionRange();
@@ -2802,11 +2780,27 @@
     this.size = function() { return data.size; }
     this.height = function() { return data.height; }
     
+    this.overlays = [];
+    this.view = view = [];
+    this.attach(editor);
+    history = new History(cp, this, cp.options.historyStackSize, cp.options.historyDelay);
+    selection = new Selection(this);
+    
+    firstNumber = cp.options.firstLineNumber;
+    if (cp.options.lineNumberFormatter instanceof Function) {
+      formatter = cp.options.lineNumberFormatter;
+    }
+    
     this.updateDefaultHeight();
     selection.on({ done: this.showSelection.bind(this, false) });
+    
+    var that = this;
     cp.on('changed', function(e) {
-      if (cp.options.history) {
-        history.pushChanges(e.line, e.column, e.text, e.added);
+      if (this.doc == that) {
+        that.updateView();
+        if (cp.options.history) {
+          history.pushChanges(e.line, e.column, e.text, e.added);
+        }
       }
     });
     return this;
@@ -2818,7 +2812,7 @@
     , styles = {
       vertical: function(css) {
         css.width = 1;
-        css.height = cp.options.caretHeight * lastdet.height;
+        css.height = cp.options.caretHeight * lastdet.charHeight;
         css.left -= 1;
         return css;
       },
@@ -2830,10 +2824,12 @@
       },
       block: function(css) {
         css.width = lastdet.charWidth || currentDL.height/2;
-        css.height = cp.options.caretHeight * lastdet.height;
+        css.height = cp.options.caretHeight * lastdet.charHeight;
         return css;
       }
     }
+    
+    this.node = create(cp.caretsContainer, 'div', 'cp-caret');
     
     function setPixelPosition(x, y) {
       if (!this.isDisabled) {
@@ -2845,7 +2841,7 @@
         stl != this.style && this.setStyle(stl);
         css = this.drawer(css);
         this.emit('beforeMove', x, y, currentDL, line, this.column());
-        this.element.css(css);
+        this.node.css(css);
         this.emit('move', x, y, currentDL, line, this.column());
       }
       return this;
@@ -2874,11 +2870,11 @@
         this.emit('columnChange', dl, dli.index, c);
         column = c;
       }
-      det.offsetY = dli.offset;
+      det.offsetY += dli.offset;
       lastdet = det;
       before = t.substring(0, c);
       after = t.substr(c);
-      setPixelPosition.call(this, det.offset, dli.offset);
+      setPixelPosition.call(this, det.offsetX, det.offsetY);
       cp.select(dl);
     }
     this.setTextBefore = function(str) {
@@ -2886,7 +2882,7 @@
       if (before !== str) {
         before = str;
         updateDL();
-        this.target(currentDL, col, true);
+        this.position(line, col);
       }
       return this;
     }
@@ -2894,7 +2890,7 @@
       if (after !== str) {
         after = str;
         updateDL();
-        this.target(currentDL, this.column(), true);
+        this.position(line, this.column());
       }
       return this;
     }
@@ -2904,7 +2900,7 @@
         before = bf;
         after = af;
         updateDL();
-        this.target(currentDL, col, true);
+        this.position(line, col);
       }
       return this;
     }
@@ -2927,15 +2923,13 @@
           var t = dl.text;
           c = t.length + c % t.length + 1;
         }
-        this.dispatch(dl, cp.doc.measureRect(dl, c, true), c);
+        this.dispatch(dl, cp.doc.measureRect(dl, c), c);
       }
       return this;
     }
-    this.target = function(dl) {
-      if (dl) {
-        var det = cp.doc.measureRect.apply(cp.doc, arguments);
-        this.dispatch(dl, det, det.column);
-      }
+    this.target = function(x, y) {
+      var m = cp.doc.measurePosition(x, y);
+      this.dispatch(m.dl, m, m.column);
       return this;
     }
     this.moveX = function(mv) {
@@ -2984,7 +2978,7 @@
       return this.position(mv, column);
     }
     this.offsetX = function() {
-      return lastdet ? lastdet.offset : 0;
+      return lastdet ? lastdet.offsetX : 0;
     }
     this.offsetY = function(withDL) {
       return lastdet ? lastdet.offsetY + (withDL ? currentDL.height : 0) : 0;
@@ -3018,13 +3012,13 @@
     }
     this.setStyle = function(style) {
       this.style = style;
-      this.element.className = 'cp-caret cp-caret-'+style;
+      this.node.className = 'cp-caret cp-caret-'+style;
       this.drawer = styles[styles[style] ? style : 'vertical'];
       this.refresh();
     }
     this.activate = function() {
       if (!this.isDisabled) {
-        if (cp.options.blinkCaret) this.element.addClass('cp-animation-blink');
+        if (cp.options.blinkCaret) this.node.addClass('cp-animation-blink');
         this.isActive = true;
       }
       return this;
@@ -3051,13 +3045,13 @@
     isDisabled: false,
     show: function() {
       if (!this.isDisabled) {
-        this.element.style.display = '';
+        this.node.style.display = '';
         this.isVisible = true;
       }
       return this;
     },
     hide: function() {
-      this.element.style.display = 'none';
+      this.node.style.display = 'none';
       this.isVisible = false;
       return this;
     },
@@ -3070,7 +3064,7 @@
       this.deactivate().hide();
     },
     deactivate: function() {
-      this.element.removeClass('cp-animation-blink');
+      this.node.removeClass('cp-animation-blink');
       this.isActive = false;
       return this;
     },
@@ -3533,10 +3527,9 @@
         doc.clearSelection();
         if (state) {
           for (var i = state.length - 1; i >= 0; i--) {
-            var a = state[i], dl = doc.get(a.line)
-            , t = dl.text.substring(0, a.column);
+            var a = state[i], t = dl.text.substring(0, a.column);
             
-            cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true);
+            cp.caret.position(a.line, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length);
             if (a.added) {
               cp.removeAfterCursor(a.text);
             } else {
@@ -3558,10 +3551,9 @@
         doc.clearSelection();
         if (state) {
           for (var i = 0; i < state.length; i++) {
-            var a = state[i], dl = doc.get(a.line)
-            , t = dl.text.substring(0, a.column);
+            var a = state[i], t = dl.text.substring(0, a.column);
             
-            cp.caret.target(dl, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length, true);
+            cp.caret.position(a.line, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length);
             if (a.added) {
               cp.insertText(a.text);
             } else {
@@ -3731,45 +3723,37 @@
     }
     return false;
   }
+  CodePrinter.instances = [];
   
-  var buildDOM = (function(){
-    var m = div.cloneNode().addClass('codeprinter')
-    , b = div.cloneNode().addClass('cp-body')
-    , c = div.cloneNode().addClass('cp-container')
-    , w = div.cloneNode().addClass('cp-wrapper')
-    , s = div.cloneNode().addClass('cp-screen')
-    , l = div.cloneNode().addClass('cp-codelines')
-    , t = div.cloneNode().addClass('cp-templine')
-    , u = div.cloneNode().addClass('cp-caret')
-    , n = div.cloneNode().addClass('cp-counter')
-    , r = div.cloneNode();
-    
-    w.appendChild(u);
-    s.appendChild(l);
-    t.appendChild(pre.cloneNode());
-    s.appendChild(t);
-    w.appendChild(s);
-    r.appendChild(document.createElement('ol'));
-    n.appendChild(r);
-    c.appendChild(document.createElement('textarea').addClass('cp-input'));
-    c.appendChild(n);
-    c.appendChild(w);
-    b.appendChild(c);
-    m.appendChild(b);
-    
-    return function(cp) {
-      cp.caret = new Caret(cp);
-      cp.mainNode = m.cloneNode(true);
-      cp.body = cp.mainNode.firstChild;
-      cp.container = cp.body.lastChild;
-      cp.input = cp.container.firstChild;
-      cp.input.tabIndex = cp.options.tabIndex;
-      cp.input.autofocus = cp.options.autoFocus;
-      cp.counter = cp.input.nextSibling;
-      cp.wrapper = cp.container.lastChild;
-      cp.caret.element = cp.wrapper.firstChild;
-    }
-  })();
+  window.addEventListener('resize', function() {
+    CodePrinter.instances.each(function(cp) {
+      cp.doc && cp.doc.updateView();
+    });
+  });
+  
+  function buildDOM(cp) {
+    cp.mainNode = document.createElement('div').addClass('codeprinter');
+    cp.body = create(cp.mainNode, 'div', 'cp-body');
+    cp.container = create(cp.body, 'div', 'cp-container');
+    cp.input = create(cp.container, 'textarea', 'cp-input');
+    cp.counter = create(cp.container, 'div', 'cp-counter');
+    cp.counterChild = create(cp.counter, 'div', 'cp-counter-child');
+    cp.counterOL = create(cp.counterChild, 'ol', 'cp-counter-ol');
+    cp.wrapper = create(cp.container, 'div', 'cp-wrapper');
+    cp.caretsContainer = create(cp.wrapper, 'div', 'cp-carets');
+    cp.screen = create(cp.wrapper, 'div', 'cp-screen');
+    cp.code = create(cp.screen, 'div', 'cp-code');
+    cp.measure = create(cp.screen, 'div', 'cp-measure');
+    cp.measure.appendChild(pre.cloneNode());
+    cp.input.tabIndex = cp.options.tabIndex;
+    cp.input.autofocus = cp.options.autoFocus;
+  }
+  function create(parent, tag, className) {
+    var d = document.createElement(tag);
+    d.className = className;
+    parent.appendChild(d);
+    return d;
+  }
   function createSelectionNode(node, top, left, width, height, right) {
     var style = 'top:'+(top+this.sizes.paddingTop)+'px;left:'+left+'px;height:'+height+'px;';
     node.addClass('cp-selection');
@@ -3819,8 +3803,10 @@
     }
   }
   function captureNode(dl, c) {
+    var co = c.counter;
     if (c.node) dl.node = deleteNode(c);
-    if (c.counter) dl.counter = deleteCounter(c);
+    if (co) dl.counter = deleteCounter(c);
+    if (c.height != dl.height) co.style.lineHeight = dl.height + 'px';
   }
   function deleteNode(dl) {
     var node = dl.node;
@@ -3833,6 +3819,11 @@
     if (counter) counter.className = '';
     dl.counter = undefined;
     return counter;
+  }
+  function calcCharWidth(node) {
+    var s = cspan(null, 'A'), cw;
+    node.appendChild(s); cw = s.offsetWidth; node.removeChild(s);
+    return cw;
   }
   function complementBracket(ch) {
     var obj = { '(':')', ')':'(', '{':'}', '}':'{', '[':']', ']':'[', '<':'>', '>':'<' }
@@ -3876,11 +3867,11 @@
   function searchUpdateNode(dl, node, res) {
     var rect = this.doc.measureRect(dl, res.startColumn, res.startColumn + res.length);
     node._searchResult = res;
-    node.setAttribute('style', rect.width ? 'top:'+(this.sizes.paddingTop+res.offset)+'px;left:'+rect.offset+'px;width:'+(rect.width+2)+'px;height:'+(dl.height+2)+'px;' : 'display:none;');
+    node.setAttribute('style', rect.width ? 'top:'+(this.sizes.paddingTop+dl.getOffset()+rect.offsetY)+'px;left:'+rect.offsetX+'px;width:'+(rect.width+2)+'px;height:'+(rect.charHeight+2)+'px;' : 'display:none;');
     res.node = node;
     if (this.searches.active === res && scroll !== false) {
       node.addClass('active');
-      this.wrapper.scrollLeft = rect.offset - this.wrapper.clientWidth / 2;
+      this.wrapper.scrollLeft = rect.offsetX - this.wrapper.clientWidth / 2;
     }
   }
   

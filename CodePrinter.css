@@ -31,6 +31,9 @@
   flex: none;
   min-height: initial;
 }
+.codeprinter.cp-line-wrapping .cp-screen {
+  white-space: pre-wrap;
+}
 .codeprinter .cp-body {
   display: -webkit-box;
   display: -moz-box;
@@ -96,7 +99,7 @@
   overflow: hidden;
   cursor: text;
 }
-.codeprinter .cp-wrapper.legacy-scrollbars {
+.codeprinter .cp-wrapper.cp-legacy-scrollbars {
   overflow: auto;
 }
 .codeprinter .cp-wrapper.scrolling * {
@@ -143,8 +146,8 @@
   padding: 0 10px;
   position: relative;
 }
-.codeprinter .cp-codelines,
-.codeprinter .cp-templine {
+.codeprinter .cp-code,
+.codeprinter .cp-measure {
   display: inline-block;
   vertical-align: top;
   min-width: 100%;
@@ -152,7 +155,7 @@
   box-sizing: border-box;
   position: relative;
 }
-.codeprinter .cp-templine {
+.codeprinter .cp-measure {
   visibility: hidden;
   opacity: 0;
   position: absolute;
@@ -398,7 +401,7 @@
 .codeprinter .cp-active-line {
   background: rgba(230, 239, 255, 0.5);
 }
-.codeprinter.without-indentation .cpx-tab {
+.codeprinter.cp-without-indentation .cpx-tab {
   margin-left: 0;
   border-width: 0 !important;
 }
