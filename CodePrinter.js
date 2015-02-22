@@ -1368,7 +1368,7 @@
         if (dl) {
           pos = this.doc.measureRect(dl, arguments[i][1], arguments[i][1] + arguments[i][2].length);
           var sp = span.cloneNode().addClass('cp-highlight');
-          sp.setAttribute('style', 'top:'+(dl.getOffset() + pos.offsetY + this.sizes.paddingTop)+'px;left:'+pos.offsetX+'px;width:'+pos.width+'px;height:'+pos.charHeight+'px;');
+          sp.setAttribute('style', 'top:'+(dl.getOffset()+pos.offsetY+this.sizes.paddingTop)+'px;left:'+pos.offsetX+'px;width:'+pos.width+'px;height:'+(pos.charHeight+1)+'px;');
           overlay.node.appendChild(sp);
         }
       }
