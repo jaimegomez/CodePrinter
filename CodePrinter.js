@@ -241,8 +241,8 @@
           touchmove: function(e) {
             if (x != null && y != null) {
               var touch = e.touches[0];
-              this.scrollLeft += x - (x = touch.screenX);
-              cp.doc.scrollTo(this.scrollTop + y - (y = touch.screenY));
+              this.scrollLeft += options.scrollSpeed * (x - (x = touch.screenX));
+              cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * (y - (y = touch.screenY)));
               return e.cancel(true);
             }
           },
