@@ -2132,8 +2132,8 @@
   }
   
   Document = CodePrinter.Document = function(editor) {
-    var cp, counter, ol, code, measure
-    , from = 0, to = -1, lastST = 0
+    var that = this, cp, counter, ol
+    , code, from = 0, to = -1
     , defHeight = 13, firstNumber
     , data, view, history, selection;
     
@@ -2211,6 +2211,12 @@
         tmp = tmp.nextSibling;
       }
     }
+    function changedListener(e) {
+      if (this.doc == that) {
+        if (e.text != '\n') that.updateView();
+        if (cp.options.history) history.pushChanges(e.line, e.column, e.text, e.added);
+      }
+    }
     function formatter(i) {
       return i;
     }
@@ -2230,12 +2236,12 @@
       return this;
     }
     this.attach = function(editor) {
+      if (cp) cp.off('changed', changedListener);
       cp = editor;
       this.screen = cp.screen;
       counter = cp.counterChild;
       code = cp.code;
       ol = cp.counterOL;
-      measure = cp.measure;
       
       if (view.length) {
         for (var i = 0; i < view.length; i++) {
@@ -2243,6 +2249,7 @@
           ol.appendChild(view[i].counter);
         }
       }
+      cp.on('changed', changedListener);
       if (data) this.updateHeight();
       if (selection) selection.overlay.reveal();
       this.emit('attached');
@@ -2254,9 +2261,10 @@
         code.removeChild(view[i].node);
         ol.removeChild(view[i].counter);
       }
+      cp.off('changed', changedListener);
       selection.overlay.remove();
       this.emit('detached');
-      cp = cp.doc = this.screen = counter = code = ol = measure = null;
+      cp = cp.doc = this.screen = counter = code = ol = null;
       return this;
     }
     this.insert = function(at, text) {
@@ -2372,7 +2380,7 @@
       }
       return b;
     }
-    this.rewind = function(dl) {
+    this.rewind = function(dl, st) {
       var tmp = dl, dli = dl.info()
       , offset = dli.offset
       , i = -1, oldfrom = from;
@@ -2413,6 +2421,7 @@
       cp.sizes.scrollTop = Math.max(0, offset);
       ol.style.top = cp.sizes.scrollTop + 'px';
       code.style.top = cp.sizes.scrollTop + 'px';
+      if (st != null) scrollTo(this.scrollTop = st);
       ol.style.display = '';
       code.style.display = '';
       this.updateView();
@@ -2428,12 +2437,9 @@
       , h, dl, disp;
       
       if (d) {
-        if (abs > 500 && abs > 2 * code.offsetHeight) {
+        if (abs > 700 && abs > 2 * code.offsetHeight && 0 <= st &&  st <= cp.wrapper.scrollHeight - cp.wrapper.clientHeight) {
           dl = data.getLineWithOffset(Math.max(0, st - limit));
-          if (this.rewind(dl) !== false) {
-            scrollTo(lastST = st);
-            return;
-          }
+          if (this.rewind(dl, st) !== false) return;
         }
         if (from === 0 && d < 0) {
           h = view[0].height;
@@ -2469,7 +2475,7 @@
           }
         }
       }
-      scrollTo(lastST = st);
+      scrollTo(this.scrollTop = st);
       if (disp) { ol.style.display = ''; code.style.display = ''; }
       if (to != a) this.updateView(a - to);
     }
@@ -2483,8 +2489,8 @@
     }
     this.measurePosition = function(x, y) {
       var dl = this.lineWithOffset(y)
-      , ch = dl.node.childNodes, child
-      , l, ow, ol, chl = ch.length
+      , ch = maybeExternalMeasure(cp, dl).childNodes
+      , child, l, ow, ol, chl = ch.length
       , i = -1, r = { dl: dl, column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, charWidth: 0, charHeight: defHeight };
       y = offsetDiff;
       if (chl === 1 && ch[0].nodeValue == zws) return r;
@@ -2514,8 +2520,8 @@
       return r;
     }
     this.measureRect = function(dl, offset, to) {
-      var ch = dl.node.childNodes, child, l
-      , ow, ol, chl = ch.length, tmp = 0, i = -1, bool
+      var ch = maybeExternalMeasure(cp, dl).childNodes, child
+      , l, ow, ol, chl = ch.length, tmp = 0, i = -1, bool
       , r = { column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, width: 0, height: defHeight, charWidth: 0, charHeight: defHeight };
       if (chl === 1 && ch[0].nodeValue == zws) return r;
       while (++i < chl) {
@@ -2782,27 +2788,16 @@
     
     this.overlays = [];
     this.view = view = [];
+    this.scrollTop = 0;
     this.attach(editor);
     history = new History(cp, this, cp.options.historyStackSize, cp.options.historyDelay);
     selection = new Selection(this);
-    
     firstNumber = cp.options.firstLineNumber;
     if (cp.options.lineNumberFormatter instanceof Function) {
       formatter = cp.options.lineNumberFormatter;
     }
-    
     this.updateDefaultHeight();
     selection.on({ done: this.showSelection.bind(this, false) });
-    
-    var that = this;
-    cp.on('changed', function(e) {
-      if (this.doc == that) {
-        that.updateView();
-        if (cp.options.history) {
-          history.pushChanges(e.line, e.column, e.text, e.added);
-        }
-      }
-    });
     return this;
   }
   
@@ -3819,6 +3814,14 @@
     if (counter) counter.className = '';
     dl.counter = undefined;
     return counter;
+  }
+  function maybeExternalMeasure(cp, dl) {
+    if (!dl.node) {
+      var n = dl.node = cp.measure.firstChild;
+      cp.parse(dl); dl.node = null;
+      return n;
+    }
+    return dl.node;
   }
   function calcCharWidth(node) {
     var s = cspan(null, 'A'), cw;
