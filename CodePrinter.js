@@ -127,7 +127,7 @@
       options.lineNumbers ? this.openCounter() : this.closeCounter();
       options.drawIndentGuides || this.mainNode.addClass('cp-without-indentation');
       options.legacyScrollbars && this.wrapper.addClass('cp-legacy-scrollbars');
-      options.lineWrapping && this.mainNode.addClass('cp-line-wrapping');
+      options.lineWrapping && this.setLineWrapping(true);
       options.width !== 'auto' && this.setWidth(options.width);
       options.height !== 300 && this.setHeight(options.height);
       options.fontSize !== 12 && this.setFontSize(options.fontSize);
