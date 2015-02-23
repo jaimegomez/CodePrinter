@@ -53,16 +53,24 @@ CodePrinter.defineMode('XML', function() {
     return 'comment cdata';
   }
   
+  function pushcontext(state, name) {
+    state.context = { name: name, indent: state.indent, prev: state.context }
+  }
+  function popcontext(state) {
+    if (state.context.prev) state.context = state.context.prev;
+  }
+  
   return new CodePrinter.Mode({
     name: 'XML',
     blockCommentStart: '<!--',
     blockCommentEnd: '-->',
-    indentTriggers: /</,
+    indentTriggers: /\//,
     autoCompleteTriggers: /</,
     
     initialState: function() {
       return {
-        indent: 0
+        indent: 0,
+        context: { name: null, indent: 0 }
       }
     },
     iterator: function(stream, state) {
@@ -74,8 +82,9 @@ CodePrinter.defineMode('XML', function() {
             state.bracketopen = undefined;
             return 'invalid';
           }
-          if (!stream.isBefore(/\/\s*>/)) {
-            state.closingTag ? --state.indent : ++state.indent;
+          if (state.closingTag || stream.isBefore(/(\/\s*|\?)$/, -1)) {
+            --state.indent;
+            if (state.tagName == state.context.name) popcontext(state);
           }
           state.bracketopen = state.tagName = state.closingTag = undefined;
           return 'bracket';
@@ -93,6 +102,15 @@ CodePrinter.defineMode('XML', function() {
             return 'property';
           }
           state.tagName = word;
+          if (!state.closingTag) {
+            ++state.indent;
+            if (selfClosingTagsRgx.test(word) || stream.isBefore(/\?\s*$/, -word.length)) {
+              state.closingTag = true;
+            }
+          }
+          if (!state.closingTag) {
+            pushcontext(state, word);
+          }
           return 'keyword';
         }
       }
@@ -114,7 +132,7 @@ CodePrinter.defineMode('XML', function() {
             return 'special doctype';
           }
         }
-        if (stream.eatUntil(/^\s*\//)) state.closingTag = true;
+        if (stream.take(/^\s*\//)) state.closingTag = true;
         state.bracketopen = true;
         return 'bracket';
       }
@@ -128,19 +146,25 @@ CodePrinter.defineMode('XML', function() {
       }
       return state.indent;
     },
+    onCompletionChosen: function(choice) {
+      if (/<\/[\w\-]*$/.test(this.caret.textBefore())) {
+        this.insertText('>');
+      }
+    },
     keyMap: {
-      '>': function(stream, state) {
+      '/': function(stream, state) {
         if (this.options.insertClosingBrackets) {
-          var bf = stream.value.substring(0, stream.pos)
-          , m = bf.match(matchTagNameRgx);
-          
-          if (m && m[1] && bf[bf.length-1] !== '>') {
-            var z = m[1].trim();
-            if (z[z.length-1] !== '/' && !selfClosingTagsRgx.test(m[1])) {
-              this.insertText('></'+m[1]+'>', -m[1].length - 3);
-              return false;
-            }
+          if (stream.isBefore('<') && state.context.name) {
+            this.insertText('/'+state.context.name+'>');
+            return false;
           }
+        }
+      }
+    },
+    snippets: {
+      '<': function(stream, state) {
+        if (state.context) {
+          return '</'+state.context.name+'>';
         }
       }
     }
