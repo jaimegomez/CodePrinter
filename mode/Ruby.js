@@ -123,7 +123,7 @@ CodePrinter.defineMode('Ruby', function() {
         stream.skip();
         return 'comment';
       }
-      if (ch == '0' && stream.peek().toLowerCase() == 'x') {
+      if (ch == '0' && stream.eat(/x/i)) {
         stream.eatWhile(/[0-9a-f]/i);
         return 'numeric hex';
       }
