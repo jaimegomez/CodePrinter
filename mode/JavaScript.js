@@ -117,9 +117,7 @@ CodePrinter.defineMode('JavaScript', function() {
     state.context = { vars: {}, params: {}, indent: state.indent + 1, prev: state.context };
   }
   function popcontext(state) {
-    if (state.context.prev) {
-      state.context = state.context.prev;
-    }
+    if (state.context.prev) state.context = state.context.prev;
   }
   function isVariable(varname, state) {
     for (var ctx = state.context; ctx; ctx = ctx.prev) if (ctx.vars[varname]) return ctx.vars[varname];

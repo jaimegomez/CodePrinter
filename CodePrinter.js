@@ -597,7 +597,7 @@
       if (parser instanceof CodePrinter.Mode && this.parser !== parser) {
         if (this.parser) {
           var dl = this.doc.get(0);
-          do dl.cache = null; while (dl = dl.next());
+          do dl.cache = dl.state = null; while (dl = dl.next());
         }
         this.parser = parser;
       }
@@ -1758,7 +1758,7 @@
   }
   function readIteration(parser, stream, state) {
     for (var i = 0; i < 10; i++) {
-      var style = (state.next && state.next instanceof Function ? state.next : (state.parser || parser).iterator)(stream, state);
+      var style = (state && (state.next ? state.next : (state.parser || parser).iterator) || parser.iterator)(stream, state);
       if (style) stream.lastStyle = style;
       if (stream.pos > stream.start) return style;
     }
@@ -1829,9 +1829,7 @@
   }
   function copyState(state) {
     var st = {};
-    for (var k in state) {
-      if (state[k] != null) st[k] = state[k];
-    }
+    for (var k in state) if (state[k] != null) st[k] = state[k];
     return st;
   }
   function fixIndent(cp, parser, offset) {
@@ -3288,7 +3286,7 @@
   }
   CodePrinter.Mode.prototype = {
     init: function() {},
-    initialState: function() { return {}; },
+    initialState: function() { return; },
     iterator: function(stream, state) {
       var ch = stream.next();
       if (/\s/.test(ch)) {
