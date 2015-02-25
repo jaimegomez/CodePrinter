@@ -2143,7 +2143,8 @@
   Document = CodePrinter.Document = function(editor) {
     var that = this, cp, counter, ol
     , code, from = 0, to = -1
-    , defHeight = 13, firstNumber
+    , defHeight = 13, firstNumber, maxLine
+    , maxLineLength = 0, maxLineChanged
     , data, view, history, selection;
     
     function desiredHeight(half) {
@@ -2280,9 +2281,19 @@
       var lines = [];
       if ('string' === typeof text) {
         lines[0] = new Line(text, defHeight);
+        if (text.length > maxLineLength) {
+          maxLine = lines[0];
+          maxLineLength = text.length;
+          maxLineChanged = true;
+        }
       } else {
         for (var i = 0; i < text.length; i++) {
           lines[i] = new Line(text[i], defHeight);
+          if (text[i].length > maxLineLength) {
+            maxLine = lines[i];
+            maxLineLength = text[i].length;
+            maxLineChanged = true;
+          }
         }
         data.insert(at, lines, defHeight * lines.length);
       }
@@ -2341,7 +2352,10 @@
           
           for (var i = 0; i < out; i++) {
             sd -= rm[i].height;
+            if (rm[i] == maxLine) maxLineChanged = !(maxLine = null);
           }
+          for (; i < rm.length; i++) if (rm[i] == maxLine) maxLineChanged = !(maxLine = null);
+          
           while (inv--) {
             var dl = view[k];
             remove(dl, from + k);
@@ -2602,6 +2616,20 @@
             }
           }
         }
+      }
+      if (maxLineChanged) {
+        if (!maxLine) {
+          var dl = data.get(0);
+          maxLine = dl; maxLineLength = dl.text.length;
+          while (dl = dl.next()) {
+            if (dl.text.length > maxLineLength) {
+              maxLine = dl;
+              maxLineLength = dl.text.length;
+            }
+          }
+        }
+        maxLineChanged = false;
+        this.screen.style.minWidth = (this.measureRect(maxLine, 0, maxLineLength).width + 2 * cp.sizes.paddingLeft) + 'px';
       }
       this.emit('viewUpdated');
     }
