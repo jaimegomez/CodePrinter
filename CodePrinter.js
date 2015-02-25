@@ -608,8 +608,7 @@
     parse: function(dl, stateBefore) {
       if (dl != null) {
         var state = stateBefore, tmp = dl
-        , tw = this.options.tabWidth
-        , tmpnext = dl.state && dl.state.next, newnext;
+        , tw = this.options.tabWidth;
         
         if (state === undefined) {
           var s = searchLineWithState(this.parser, tmp, tw);
@@ -639,13 +638,10 @@
             tmp.cache = fastParse(this, this.parser, stream, state);
           }
           if (stream.definition) tmp.definition = stream.definition;
-          else if (dl.definition) tmp.definition = undefined;
-          state = copyState(tmp.state = state);
+          else if (tmp.definition) tmp.definition = undefined;
+          tmp.state = state;
           if (tmp == dl) break;
-        }
-        newnext = dl.state && dl.state.next;
-        if ((!tmpnext && newnext || tmpnext && tmpnext != newnext) && (tmp = dl.next())) {
-          return this.parse(tmp, dl.state);
+          state = copyState(state); 
         }
       }
       return dl;
@@ -1799,8 +1795,21 @@
     }
     return cache;
   }
-  function runBackgroundParser(cp, parser) {
-    var to = cp.doc.to(), dl = cp.doc.get(0)
+  function forwardParsing(cp, dl) {
+    var a = dl.state && dl.state.next, b, state;
+    cp.parse(dl);
+    b = (state = dl.state) && state.next;
+    
+    while ((!a && b || a && a !== b) && (dl = dl.next())) {
+      if (dl.cache) dl.cache = undefined;
+      a = dl.state && dl.state.next;
+      cp.parse(dl, state);
+      b = (state = dl.state) && state.next;
+    }
+    return dl;
+  }
+  function runBackgroundParser(cp, parser, whole) {
+    var to = whole ? cp.doc.size() - 1 : cp.doc.to(), dl = cp.doc.get(0)
     , state = parser.initialState();
     for (var i = 0; i <= to && dl; i++) {
       cp.parse(dl, state);
@@ -2844,8 +2853,8 @@
     function updateDL() {
       if (currentDL) {
         currentDL.setText(before + after);
-        cp.parse(currentDL);
-        cp.doc.updateLineHeight(currentDL);
+        forwardParsing(cp, currentDL);
+        cp.doc.updateView();
       }
     }
     
