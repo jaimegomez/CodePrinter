@@ -263,9 +263,7 @@
           if (!this._lockedScrolling) {
             cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop);
           } else {
-            if (!isScrolling) {
-              wrapper.addClass('scrolling');
-            }
+            if (!isScrolling) wrapper.addClass('scrolling');
             isScrolling = true;
             cp.emit('scroll');
             T4 = clearTimeout(T4) || setTimeout(function() {
@@ -275,7 +273,6 @@
             }, 200);
           }
           this._lockedScrolling = false;
-          return e.cancel();
         },
         contextmenu: function(e) {
           return e.cancel();
