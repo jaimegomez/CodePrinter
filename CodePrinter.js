@@ -394,6 +394,7 @@
             T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.parser); }, options.keyupInactivityTimeout);
           }
           this.value = '';
+          cp.emit('keyup', e);
         },
         input: function(e) {
           if (!options.readOnly && this.value.length) {
