@@ -2416,7 +2416,7 @@
         cp.emit('unlink', view[i], oldfrom + i);
         captureNode(tmp, view[i]);
         cp.parse(tmp);
-        tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = to = from + i));
+        tmp.counter.firstChild.nodeValue = formatter(firstNumber + (tmp.counter._index = to = from + i));
         view[i] = tmp;
         cp.emit('link', tmp, from + i);
         tmp = tmp.next();
@@ -2428,7 +2428,7 @@
           cp.emit('unlink', spliced[0], oldfrom + i++);
           captureNode(tmp, spliced.shift());
           cp.parse(tmp);
-          tmp.counter.innerHTML = formatter(firstNumber + (tmp.counter._index = --from));
+          tmp.counter.firstChild.nodeValue = formatter(firstNumber + (tmp.counter._index = --from));
           code.insertBefore(tmp.node, view[0].node);
           ol.insertBefore(tmp.counter, view[0].counter);
           view.unshift(tmp);
