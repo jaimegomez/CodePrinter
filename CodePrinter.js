@@ -3555,14 +3555,9 @@
         doc.clearSelection();
         if (state) {
           for (var i = state.length - 1; i >= 0; i--) {
-            var a = state[i], t = dl.text.substring(0, a.column);
-            
-            cp.caret.position(a.line, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length);
-            if (a.added) {
-              cp.removeAfterCursor(a.text);
-            } else {
-              cp.insertText(a.text);
-            }
+            var a = state[i];
+            cp.caret.position(a.line, a.column);
+            a.added ? cp.removeAfterCursor(a.text) : cp.insertText(a.text);
           }
           this.emit('undo', state);
           muted = false;
@@ -3579,14 +3574,9 @@
         doc.clearSelection();
         if (state) {
           for (var i = 0; i < state.length; i++) {
-            var a = state[i], t = dl.text.substring(0, a.column);
-            
-            cp.caret.position(a.line, a.column + (cp.options.tabWidth-1) * (t.match(/\t/g) || []).length);
-            if (a.added) {
-              cp.insertText(a.text);
-            } else {
-              cp.removeAfterCursor(a.text);
-            }
+            var a = state[i];
+            cp.caret.position(a.line, a.column);
+            a.added ? cp.insertText(a.text) : cp.removeAfterCursor(a.text);
           }
           this.emit('redo', state);
           ++index;
