@@ -131,7 +131,7 @@
 .codeprinter .cp-screen {
   display: inline-block;
   vertical-align: top;
-  min-width: 100%;
+  width: 100%;
   height: 100%;
   border-width: 0;
   color: inherit;
@@ -148,9 +148,6 @@
 }
 .codeprinter .cp-code,
 .codeprinter .cp-measure {
-  display: inline-block;
-  vertical-align: top;
-  min-width: 100%;
   padding: 5px 10px;
   box-sizing: border-box;
   position: relative;

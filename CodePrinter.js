@@ -2624,7 +2624,7 @@
           }
         }
         maxLineChanged = false;
-        this.screen.style.minWidth = (this.measureRect(maxLine, 0, maxLineLength).width + 2 * cp.sizes.paddingLeft) + 'px';
+        this.screen.style.minWidth = externalMeasure(cp, maxLine).offsetWidth + 'px';
       }
       this.emit('viewUpdated');
     }
@@ -3848,12 +3848,12 @@
     return counter;
   }
   function maybeExternalMeasure(cp, dl) {
-    if (!dl.node) {
-      var n = dl.node = cp.measure.firstChild;
-      cp.parse(dl); dl.node = null;
-      return n;
-    }
-    return dl.node;
+    return dl.node || externalMeasure(cp, dl);
+  }
+  function externalMeasure(cp, dl) {
+    var o = dl.node, n = dl.node = cp.measure.firstChild;
+    cp.parse(dl); dl.node = o;
+    return n;
   }
   function calcCharWidth(node) {
     var s = cspan(null, 'A'), cw;
