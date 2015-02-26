@@ -1807,13 +1807,14 @@
     return dl;
   }
   function runBackgroundParser(cp, parser, whole) {
-    var to = whole ? cp.doc.size() - 1 : cp.doc.to(), dl = cp.doc.get(0)
+    var to = whole ? cp.doc.size() - 1 : cp.doc.to()
     , state = parser.initialState();
-    for (var i = 0; i <= to && dl; i++) {
-      cp.parse(dl, state);
+    
+    cp.intervalIterate(function(dl, index) {
+      if (index > to) return false;
+      this.parse(dl, state);
       state = dl.state;
-      dl = dl.next();
-    }
+    });
   }
   function cspan(style, content) {
     var node = span.cloneNode();
