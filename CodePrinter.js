@@ -470,7 +470,7 @@
               if ((!a || !b) && cp.highlightOverlay) cp.highlightOverlay.remove();
             }
           }
-          cp.emit('caretMove', line, column);
+          cp.emit('caretMoved', line, column);
         }
       });
       

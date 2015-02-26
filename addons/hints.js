@@ -211,7 +211,7 @@ CodePrinter.defineAddon('hints', function() {
     });
     
     ov.on({
-      'caretMove': function() {
+      'caretMoved': function() {
         if (curWord) {
           var wordRgx = getWordRgx()
           , word = cp.wordBefore(wordRgx) + cp.wordAfter(wordRgx);
