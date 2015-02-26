@@ -3747,6 +3747,7 @@
   window.addEventListener('resize', function() {
     CodePrinter.instances.each(function(cp) {
       cp.doc && cp.doc.updateView();
+      cp.caret.refresh();
     });
   });
   
