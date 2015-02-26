@@ -19,6 +19,7 @@
   top: 0;
   z-index: 0;
   text-align: left;
+  -webkit-font-smoothing: subpixel-antialiased !important;
 }
 .codeprinter.cp-auto-height .cp-body {
   height: auto;
@@ -148,9 +149,14 @@
 }
 .codeprinter .cp-code,
 .codeprinter .cp-measure {
+  display: inline-block;
+  vertical-align: top;
   padding: 5px 10px;
   box-sizing: border-box;
   position: relative;
+}
+.codeprinter .cp-code {
+  min-width: 100%;
 }
 .codeprinter .cp-measure {
   visibility: hidden;
