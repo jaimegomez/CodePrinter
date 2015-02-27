@@ -4,9 +4,8 @@ CodePrinter.defineAddon('css-colors', function() {
     
     cp.wrapper.delegate('span.cpx-hex', {
       mouseover: function() {
-        var p = cp.getCurrentParser()
-        , html = this.innerHTML;
-        if (p.name === 'CSS' && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(html)) {
+        var html = this.innerHTML;
+        if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(html)) {
           this.style[prop] = html;
         }
       },
@@ -17,9 +16,8 @@ CodePrinter.defineAddon('css-colors', function() {
     
     cp.wrapper.delegate('span.cpx-css-color', {
       mouseover: function() {
-        var p = cp.getCurrentParser()
-        , html = this.innerHTML;
-        if (p.name === 'CSS' && /^[a-z\-]+$/i.test(html)) {
+        var html = this.innerHTML;
+        if (/^[a-z\-]+$/i.test(html)) {
           this.style[prop] = html;
         }
       },
