@@ -535,14 +535,11 @@
         }
       }
       
-      if (mode === 'plaintext') {
-        callback.call(this, new CodePrinter.Mode());
-      } else if (this.parser && this.parser.name === mode) {
+      if (this.parser && this.parser.name === mode) {
         callback.call(this, this.parser);
+      } else if (mode == 'plaintext' && !this.parser) {
+        callback.call(this, new CodePrinter.Mode());
       } else {
-        if (!CodePrinter.hasMode(mode)) {
-          runBackgroundParser(this, this.parser);
-        }
         CodePrinter.requireMode(mode, callback, this);
       }
       return this;
@@ -596,10 +593,8 @@
     },
     defineParser: function(parser) {
       if (parser instanceof CodePrinter.Mode && this.parser !== parser) {
-        if (this.parser) {
-          var dl = this.doc.get(0);
-          do dl.cache = dl.state = null; while (dl = dl.next());
-        }
+        var dl = this.doc.get(0);
+        do dl.cache = dl.state = null; while (dl = dl.next());
         this.parser = parser;
       }
     },
@@ -668,7 +663,7 @@
       return s && (split ? s.style && s.style.split(' ') : s.style);
     },
     getCurrentParser: function(cp) {
-      var s = this.getStateAt(this.caret.dl(), this.caret.column());
+      var s = this.getStateAt(this.caret.dl() || 0, this.caret.column());
       return s && s.parser;
     },
     focus: function() {
