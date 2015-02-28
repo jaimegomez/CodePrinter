@@ -1,65 +1,62 @@
 CodePrinter.defineAddon('shortcuts', function() {
   
   var shortcuts = {
-    'Ctrl Backspace': function() {
+    'Cmd Backspace': function() {
       this.deleteToBeginning();
       return false;
     },
-    'Ctrl Del': function() {
+    'Cmd Delete': function() {
       this.deleteToEnd();
       return false;
     },
     'Alt Up': CodePrinter.prototype.searchPrev,
     'Alt Down': CodePrinter.prototype.searchNext,
-    'Ctrl Alt Up': CodePrinter.prototype.swapLineUp,
-    'Ctrl Alt Down': CodePrinter.prototype.swapLineDown,
-    'Ctrl D': CodePrinter.prototype.nextDefinition,
-    'Ctrl Alt D': CodePrinter.prototype.previousDefinition,
-    'Ctrl F': function() {
+    'Cmd Alt Up': CodePrinter.prototype.swapLineUp,
+    'Cmd Alt Down': CodePrinter.prototype.swapLineDown,
+    'Cmd D': CodePrinter.prototype.nextDefinition,
+    'Cmd Alt D': CodePrinter.prototype.previousDefinition,
+    'Cmd F': function() {
       var p = prompt('Find...');
       p ? this.search(p) : this.searchEnd();
     },
-    'Ctrl Shift F': function() {
+    'Cmd Shift F': function() {
       this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
     },
-    'Ctrl I': CodePrinter.prototype.fixIndents,
-    'Ctrl J': function() {
+    'Cmd I': CodePrinter.prototype.fixIndents,
+    'Cmd J': function() {
       this.setCursorPosition(parseInt(prompt("Jump to line..."), 10) - 1, 0);
     },
-    'Ctrl M': function() {
+    'Cmd M': function() {
       var dl = this.caret.dl();
       if (dl) dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
     },
-    'Ctrl N': function() {
+    'Cmd N': function() {
       this.counter.hasClass('hidden') ? this.openCounter() : this.closeCounter();
     },
-    'Ctrl R': function() {
-      this.forcePrint();
-    },
-    'Ctrl Z': function() {
+    'Cmd Z': function() {
       this.doc.undo();
     },
-    'Ctrl Shift Z': function() {
+    'Cmd Shift Z': function() {
       this.doc.redo();
     },
-    'Ctrl ]': CodePrinter.prototype.indent,
-    'Ctrl [': CodePrinter.prototype.unindent,
-    'Ctrl =': CodePrinter.prototype.increaseFontSize,
-    'Ctrl -': CodePrinter.prototype.decreaseFontSize,
-    'Ctrl /': CodePrinter.prototype.toggleComment,
-    'Ctrl Shift /': CodePrinter.prototype.toggleBlockComment,
-    'Ctrl Left': function() {
+    'Cmd ]': CodePrinter.prototype.indent,
+    'Cmd [': CodePrinter.prototype.unindent,
+    'Cmd =': CodePrinter.prototype.increaseFontSize,
+    'Cmd -': CodePrinter.prototype.decreaseFontSize,
+    'Cmd /': CodePrinter.prototype.toggleComment,
+    'Cmd Shift /': CodePrinter.prototype.toggleBlockComment,
+    'Cmd Left': function() {
       this.caret.position(this.caret.line(), 0);
       return false;
     },
-    'Ctrl Right': function() {
+    'Cmd Right': function() {
       this.caret.position(this.caret.line(), -1);
       return false;
     },
-    'Ctrl Up': function() {
+    'Cmd Up': function() {
       this.caret.position(0, 0);
     },
-    'Ctrl Down': function() {
+    'Cmd Down': function() {
       this.caret.position(this.doc.size() - 1, -1);
     }
   }

@@ -325,7 +325,7 @@
           var kc, code = e.getCharCode()
           , ch = String.fromCharCode(code)
           , iscmd = $.browser.macosx ? e.metaKey : e.ctrlKey
-          , kc = e.getKeyCombination(options.keyCombinationFlag, ' ');
+          , kc = e.getKeyCombination(1, ' ');
           
           cp.caret.deactivate().show();
           allowKeyup = true;
@@ -344,7 +344,7 @@
           }
           if (options.readOnly && (code < 37 || code > 40)) return;
           if (!cp.keyMap[kc] && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-            kc = e.getKeyCombination(options.keyCombinationFlag | 4, ' ');
+            kc = e.getKeyCombination(4, ' ');
           }
           cp.emit('@'+kc, e);
           cp.emit('keydown', e);
@@ -3413,32 +3413,16 @@
       this.isFullscreen ? this.exitFullscreen() : this.searchEnd();
       return false;
     },
-    'PageUp': function() {
-      if (keyMap.__disable !== true) {
-        this.caret.moveY(-50);
-        keyMap.__disable = true;
-        setTimeout(function() { delete keyMap.__disable; }, 50);
-      }
-    },
-    'PageDown': function() {
-      if (keyMap.__disable !== true) {
-        this.caret.moveY(50);
-        keyMap.__disable = true;
-        setTimeout(function() { delete keyMap.__disable; }, 50);
-      }
-    },
-    'End': function() {
-      this.caret.position(this.doc.size() - 1, -1);
-    },
-    'Home': function() {
-      this.caret.position(0, 0);
-    },
+    'PageUp': function() { this.caret.moveY(-50); },
+    'PageDown': function() { this.caret.moveY(50); },
+    'End': function() { this.caret.position(this.doc.size() - 1, -1); },
+    'Home': function() { this.caret.position(0, 0); },
     'Left': function(e, c) {
       c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
       this.doc.clearSelection();
       return false;
     },
-    'Del': function() {
+    'Delete': function() {
       if (this.doc.issetSelection()) {
         this.doc.removeSelection();
       } else {
