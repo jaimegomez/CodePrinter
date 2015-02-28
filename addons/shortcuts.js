@@ -3,11 +3,9 @@ CodePrinter.defineAddon('shortcuts', function() {
   var shortcuts = {
     'Cmd Backspace': function() {
       this.deleteToBeginning();
-      return false;
     },
     'Cmd Delete': function() {
       this.deleteToEnd();
-      return false;
     },
     'Alt Up': CodePrinter.prototype.searchPrev,
     'Alt Down': CodePrinter.prototype.searchNext,
@@ -39,19 +37,21 @@ CodePrinter.defineAddon('shortcuts', function() {
     'Cmd Shift Z': function() {
       this.doc.redo();
     },
-    'Cmd ]': CodePrinter.prototype.indent,
-    'Cmd [': CodePrinter.prototype.unindent,
+    'Cmd ]': function(e) {
+      this.indent();
+    },
+    'Cmd [': function() {
+      this.unindent();
+    },
     'Cmd =': CodePrinter.prototype.increaseFontSize,
     'Cmd -': CodePrinter.prototype.decreaseFontSize,
     'Cmd /': CodePrinter.prototype.toggleComment,
     'Cmd Shift /': CodePrinter.prototype.toggleBlockComment,
     'Cmd Left': function() {
       this.caret.position(this.caret.line(), 0);
-      return false;
     },
     'Cmd Right': function() {
       this.caret.position(this.caret.line(), -1);
-      return false;
     },
     'Cmd Up': function() {
       this.caret.position(0, 0);
