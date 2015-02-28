@@ -2095,7 +2095,7 @@
     },
     removeClass: function() {
       if (this.classes) {
-        for (var i = arguments.length - 1; i >= 0; i--)
+        for (var i = arguments.length - 1, j; i >= 0; i--)
           if ((j = this.classes.indexOf(arguments[i])) >= 0)
             this.classes.splice(j, 1);
         if (this.classes.length == 0) this.classes = undefined;
