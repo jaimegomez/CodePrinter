@@ -518,13 +518,12 @@
       mode && this.setMode(mode);
       mode = this.options.mode;
       source && this.doc.init(source);
-      var cp = this;
       
       function callback(ModeObject) {
         var b = !this.parser;
         this.defineParser(ModeObject);
         this.doc.fill();
-        runBackgroundParser(this, ModeObject);
+        runBackgroundParser(this, ModeObject, true);
         if (this.options.autoFocus) {
           this.input.focus();
           this.caret.position(0, 0);
@@ -725,10 +724,9 @@
         doc.updateDefaultHeight();
         
         if (doc.initialized) {
-          runBackgroundParser(this, this.parser);
           doc.fill();
-          doc.updateHeight();
-          doc.showSelection();
+          doc.updateHeight().updateView().showSelection();
+          doc.updateScroll();
           this.caret.refresh();
           this.emit('fontSizeChanged', size);
         }
@@ -2589,9 +2587,11 @@
       pr.style.display = '';
       defHeight = pr.offsetHeight;
       document.documentElement.removeChild(pr);
+      return this;
     }
     this.updateHeight = function() {
       this.screen.style.minHeight = counter.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
+      return this;
     }
     this.updateView = function(det) {
       var i = 0, l = view.length, dl, c;
@@ -2624,6 +2624,7 @@
         this.screen.style.minWidth = externalMeasure(cp, maxLine).offsetWidth + 'px';
       }
       this.emit('viewUpdated');
+      return this;
     }
     this.updateLineHeight = function(dl) {
       if (dl) {
@@ -2631,11 +2632,17 @@
         if (height = node.offsetHeight) {
           var diff = height - dl.height;
           if (diff) {
-            if (dl == view[0] && from != 0) scrollBy(diff);
+            if (dl == view[0] && from != 0) scrollBy(-diff);
             if (dl.counter) dl.counter.style.lineHeight = height + 'px';
             for (; dl; dl = dl.parent) dl.height += diff;
           }
         }
+      }
+    }
+    this.updateScroll = function() {
+      if (view.length) {
+        var o = view[0].getOffset();
+        code.style.top = ol.style.top = (cp.sizes.scrollTop = o) + 'px';
       }
     }
     this.getDefaultLineHeight = function() {
@@ -2894,11 +2901,10 @@
         this.emit('columnChange', dl, dli.index, c);
         column = c;
       }
-      det.offsetY += dli.offset;
       lastdet = det;
       before = t.substring(0, c);
       after = t.substr(c);
-      setPixelPosition.call(this, det.offsetX, det.offsetY);
+      setPixelPosition.call(this, det.offsetX, det.offsetY + dli.offset);
       cp.select(dl);
     }
     this.setTextBefore = function(str) {
@@ -3004,8 +3010,8 @@
     this.offsetX = function() {
       return lastdet ? lastdet.offsetX : 0;
     }
-    this.offsetY = function(withDL) {
-      return lastdet ? lastdet.offsetY + (withDL ? currentDL.height : 0) : 0;
+    this.offsetY = function() {
+      return lastdet ? lastdet.offsetY : 0;
     }
     this.refresh = function() {
       cp.emit('caretRefresh');
