@@ -127,6 +127,7 @@
       options.lineNumbers ? this.openCounter() : this.closeCounter();
       options.drawIndentGuides || this.mainNode.addClass('cp-without-indentation');
       options.legacyScrollbars && this.wrapper.addClass('cp-legacy-scrollbars');
+      options.tabWidth && this.setTabWidth(options.tabWidth);
       options.lineWrapping && this.setLineWrapping(true);
       options.width !== 'auto' && this.setWidth(options.width);
       options.height !== 300 && this.setHeight(options.height);
@@ -679,9 +680,10 @@
       return this;
     },
     setTabWidth: function(tw) {
-      if (typeof tw === 'number' && tw >= 0) {
+      if ('number' == typeof tw && tw >= 0) {
         this.options.tabWidth = tw;
-        runBackgroundParser(this, this.parser);
+        this.tabString = ' '.repeat(tw);
+        this.doc && this.doc.initialized && runBackgroundParser(this, this.parser);
       }
       return this;
     },
