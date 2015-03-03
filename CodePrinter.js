@@ -530,7 +530,7 @@
           this.caret.position(0, 0);
         }
         if (b) {
-          this.sizes.paddingTop = parseInt(this.wrapper.querySelector('.cp-codelines').getStyle('padding-top'), 10) || 5;
+          this.sizes.paddingTop = parseInt(this.code.getStyle('padding-top'), 10) || 5;
           $.async(this.emit.bind(this, 'ready'));
         }
       }
@@ -611,24 +611,19 @@
           state = state ? copyState(state) : this.parser.initialState();
         }
         for (; tmp; tmp = tmp.next()) {
-          var frag = tmp.node ? document.createDocumentFragment() : null
-          , ind = parseIndentation(tmp.text, tw, frag)
-          , stream = new Stream(ind.rest, { indentation: ind.indentation });
+          var ind = parseIndentation(tmp.text, tw)
+          , stream = new Stream(ind.rest, { indentation: ind.indent });
           
-          if (frag) {
-            if (tmp.cache) {
-              restoreFromCache(ind.rest, tmp.cache, frag);
-              state = tmp.state;
-            } else if (ind.rest) {
-              tmp.cache = parse(this, this.parser, stream, state, frag);
-            } else if (ind.length == 0) {
-              frag.appendChild(document.createTextNode(zws));
-              tmp.cache = null;
+          if (!tmp.cache) tmp.cache = parse(this, this.parser, stream, state);
+          
+          if (tmp.node) {
+            if (tmp.text.length == 0) {
+              var child = tmp.node.firstChild;
+              while (child) child = rm(tmp.node, child);
+              tmp.node.appendChild(cspan(null, zws));
+            } else {
+              updateLine(tmp.node, ind, this.tabString, tmp.cache);
             }
-            rm(tmp.node);
-            tmp.node.appendChild(frag);
-          } else {
-            tmp.cache = fastParse(this, this.parser, stream, state);
           }
           if (stream.definition) tmp.definition = stream.definition;
           else if (tmp.definition) tmp.definition = undefined;
@@ -646,9 +641,9 @@
         , state = s.state, tmp = s.line;
         for (; tmp; tmp = tmp.next()) {
           var ind = parseIndentation(tmp.text, this.options.tabWidth)
-          , stream = new Stream(ind.rest, { indentation: ind.indentation });
+          , stream = new Stream(ind.rest, { indentation: ind.indent });
           if (tmp == dl) {
-            var cache = fastParse(this, this.parser, stream, state, Math.max(0, Math.min(column - (tmp.text.length - ind.rest.length), stream.length)));
+            var cache = parse(this, this.parser, stream, state, Math.max(0, Math.min(column - (tmp.text.length - ind.rest.length), stream.length)));
             cache = cache[cache.length-1];
             if (stream.eol()) tmp.state = state;
             return { stream: stream, state: state, style: cache && cache.style, parser: state.parser || this.parser };
@@ -1702,55 +1697,64 @@
   }
   
   function searchLineWithState(parser, dl, tw) {
-    var tmp = dl.prev(), minI = Infinity, best;
+    var tmp = dl.prev(), minI = Infinity, best, ind;
     for (var i = 0; tmp && i < 100; i++) {
-      if (tmp.state) {
-        best = tmp;
-        break;
-      }
-      var tmpind = parseIndentation(tmp.text, tw).length;
-      if (tmpind < minI) {
-        best = tmp;
-        minI = tmpind;
-      }
+      if (tmp.state) { best = tmp; break; }
+      ind = parseIndentation(tmp.text, tw).indent;
+      if (ind < minI) { best = tmp; minI = ind; }
       tmp = tmp.prev();
     }
-    if (best && best.state) {
-      return { state: copyState(best.state), line: best.next() }
-    } else {
-      return { state: parser.initialState(), line: best || dl }
-    }
+    return best && best.state ? { state: copyState(best.state), line: best.next() } : { state: parser.initialState(), line: best || dl };
   }
-  function restoreFromCache(text, cache, frag) {
-    var i = 0, j = 0, l = cache.length, tmp;
-    for (; i < l; i++) {
+  function updateIndent(node, child, tabString, indent, spaces) {
+    for (var i = 0; i < indent; i++) child = maybeSpanUpdate(node, child, 'cpx-tab', tabString);
+    if (spaces) child = maybeSpanUpdate(node, child, '', ' '.repeat(spaces));
+    return child;
+  }
+  function maybeSpanUpdate(node, child, className, content) {
+    if (child) {
+      updateSpan(child, className, content);
+      return child.nextSibling;
+    }
+    node.appendChild(cspan(className, content));
+  }
+  function updateLine(node, ind, tabString, cache) {
+    var i = 0, j = 0, l = cache.length, text = ind.rest, child, tmp;
+    child = updateIndent(node, node.firstChild, tabString, ind.indent, ind.spaces);
+    for (var i = 0; i < l; i++) {
       tmp = cache[i];
-      if (j < tmp.from) frag.appendChild(cspan(null, text.substring(j, tmp.from)));
-      frag.appendChild(cspan(tmp.style, text.substring(tmp.from, j = tmp.to)));
+      if (j < tmp.from) child = maybeSpanUpdate(node, child, '', text.substring(j, j = tmp.from));
+      child = maybeSpanUpdate(node, child, cpx(tmp.style), text.substring(tmp.from, j = tmp.to));
     }
-    if (j < text.length) frag.appendChild(cspan(null, text.substr(j)));
+    if (j < text.length) child = maybeSpanUpdate(node, child, '', text.substr(j));
+    while (child) child = rm(node, child);
   }
-  function parseIndentation(text, tabWidth, fragment) {
-    var p = '', i = -1, spaces = 0, ind = 0
-    , tab = ' '.repeat(tabWidth);
+  function rm(parent, child) {
+    var next = child.nextSibling;
+    parent.removeChild(child);
+    return next;
+  }
+  function updateSpan(span, className, content) {
+    span.className = className;
+    span.firstChild.nodeValue = content;
+  }
+  function parseIndentation(text, tabWidth) {
+    var p = '', i = -1, spaces = 0, ind = 0;
     while (++i < text.length) {
       if (text[i] == ' ') {
         ++spaces;
         if (spaces == tabWidth) {
-          if (fragment) fragment.appendChild(cspan('tab', tab));
           spaces = 0;
           ++ind;
         }
       } else if (text[i] == '\t') {
-        if (fragment) fragment.appendChild(cspan('tab', '\t'));
         spaces = 0;
         ++ind;
       } else {
         break;
       }
     }
-    if (spaces && fragment) fragment.appendChild(cspan(null, ' '.repeat(spaces)));
-    return { indentation: ind, length: ind*tabWidth+spaces, indentText: text.substring(0, i), rest: text.substr(i) };
+    return { indent: ind, spaces: spaces, length: i, indentText: text.substring(0, i), rest: text.substr(i) };
   }
   function readIteration(parser, stream, state) {
     for (var i = 0; i < 10; i++) {
@@ -1760,24 +1764,7 @@
     }
     throw new Error();
   }
-  function parse(cp, parser, stream, state, frag, col) {
-    var pos, style, l = col != null ? col : stream.length, cache = [];
-    pos = stream.pos;
-    while (stream.pos < l) {
-      stream.start = stream.pos;
-      if (style = readIteration(parser, stream, state)) {
-        if (pos < stream.start) frag.appendChild(cspan(null, stream.value.substring(pos, stream.start)));
-        var v = stream.from(stream.start);
-        if (v != ' ' && v != '\t') stream.lastValue = v;
-        pos = stream.pos;
-        frag.appendChild(cspan(style, v));
-        cache.push({ from: stream.start, to: pos, style: style });
-      }
-    }
-    if (pos < stream.pos) frag.appendChild(cspan(null, stream.from(pos)));
-    return cache;
-  }
-  function fastParse(cp, parser, stream, state, col) {
+  function parse(cp, parser, stream, state, col) {
     var style, v, l = col != null ? col : stream.length, cache = [];
     while (stream.pos < l) {
       stream.start = stream.pos;
@@ -1813,16 +1800,9 @@
   }
   function cspan(style, content) {
     var node = span.cloneNode();
-    if (style) node.className = style.replace(/\S+/g, 'cpx-$&');
+    if (style) node.className = style;
     node.appendChild(document.createTextNode(content));
     return node;
-  }
-  function rm(node) {
-    var fc = node.firstChild;
-    while (fc) {
-      node.removeChild(fc);
-      fc = node.firstChild;
-    }
   }
   function copyState(state) {
     var st = {};
@@ -3402,7 +3382,7 @@
         tmp = parseIndentation(af, tw);
         tab = tab.repeat(indent);
         if (tmp.indentText && tab.endsWith(tmp.indentText)) {
-          tab = tab.slice(0, mv = -tmp.indentText.length);
+          tab = tab.slice(0, mv = -tmp.length);
         }
         this.insertText('\n' + tab + rest, -rest.length - mv);
       } else {
@@ -3772,6 +3752,9 @@
   function getMatchingObject(m) {
     if ('string' === typeof m) return CodePrinter.matching[m];
     return m;
+  }
+  function cpx(style) {
+    return style.replace(/\S+/g, 'cpx-$&');
   }
   function tabString(cp) {
     return cp.options.indentByTabs ? '\t' : ' '.repeat(cp.options.tabWidth);
