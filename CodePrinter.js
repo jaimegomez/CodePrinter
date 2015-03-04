@@ -3771,8 +3771,8 @@
     return { x: x, y: y };
   }
   function wheel(doc, node, e, speed, x, y) {
-    if (x) { node._lockedScrolling = true; node.scrollLeft += speed * x; }
     if (y) doc.scrollTo(node.scrollTop + speed * y);
+    if (x) { node._lockedScrolling = true; node.scrollLeft += speed * x; }
     return e.cancel(true);
   }
   function getLineClasses(line) {
