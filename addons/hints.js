@@ -252,7 +252,7 @@ CodePrinter.defineAddon('hints', function() {
     
     function refreshPosition() {
       var x = cp.caret.offsetX() - 4
-      , y = cp.caret.offsetY(true) + cp.sizes.paddingTop + 2;
+      , y = cp.caret.totalOffsetY(true) + cp.sizes.paddingTop + 2;
       
       if (y + container.clientHeight > cp.wrapper.scrollHeight) {
         y = cp.caret.offsetY() - container.clientHeight - 2;

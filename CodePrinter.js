@@ -2995,6 +2995,11 @@
     this.offsetY = function() {
       return lastdet ? lastdet.offsetY : 0;
     }
+    this.totalOffsetY = function(withLine) {
+      var o = currentDL.getOffset() + this.offsetY();
+      if (withLine && lastdet) o += lastdet.charHeight;
+      return o;
+    }
     this.refresh = function() {
       cp.emit('caretRefresh');
       return this.position(line || 0, column || 0);
