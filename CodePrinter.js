@@ -1794,7 +1794,7 @@
   }
   function runBackgroundParser(cp, parser, whole) {
     var to = whole ? cp.doc.size() - 1 : cp.doc.to()
-    , state = parser.initialState();
+    , state = parser.initialState && parser.initialState();
     
     cp.intervalIterate(function(dl, index) {
       if (index > to) return false;
@@ -3300,7 +3300,7 @@
     },
     compile: function(string) {
       if ('string' == typeof string) {
-        var state = this.initialState()
+        var state = this.initialState && this.initialState()
         , node = pre.cloneNode()
         , lines = string.split(eol)
         , l = lines.length;
