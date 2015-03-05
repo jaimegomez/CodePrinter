@@ -2119,21 +2119,16 @@
   Document = CodePrinter.Document = function(editor) {
     var that = this, cp, counter, ol
     , code, from = 0, to = -1
-    , defHeight = 13, firstNumber, maxLine
+    , defHeight = 14, firstNumber, maxLine
     , maxLineLength = 0, maxLineChanged
     , data, view, history, selection;
     
     function desiredHeight(half) {
       return (cp.body.offsetHeight || cp.options.height) + cp.options.viewportMargin * (half ? 1 : 2);
     }
-    function isFilled(half) {
-      return (code.scrollHeight || heightOfLines()) > desiredHeight(half);
-    }
     function heightOfLines() {
       var h = 0;
-      for (var i = 0; i < view.length; i++) {
-        h += view[i].height;
-      }
+      for (var i = 0; i < view.length; i++) h += view[i].height;
       return h;
     }
     function link(dl, index, withoutParsing) {
@@ -2236,6 +2231,7 @@
         }
       }
       cp.on('changed', changedListener);
+      this.updateDefaultHeight();
       if (data) this.updateHeight();
       if (selection) selection.overlay.reveal();
       this.emit('attached');
@@ -2277,7 +2273,8 @@
         from += lines.length;
         updateCounters(view[0], from);
       } else if (at <= to + 1) {
-        if (isFilled()) {
+        var sh = code.scrollHeight || heightOfLines(), dh = desiredHeight();
+        if (sh >= dh) {
           var m = Math.min(lines.length, to - at), rmdl;
           for (var i = 0; i < m; i++) {
             rmdl = view.pop();
@@ -2287,9 +2284,9 @@
           }
         } else {
           var i = -1;
-          while (++i < lines.length && !isFilled()) {
-            init(lines[i]);
-            ++to;
+          while (++i < lines.length && sh < dh) {
+            init(lines[i]); ++to;
+            sh += lines[i].height;
             link(lines[i], at + i);
           }
         }
@@ -2364,15 +2361,18 @@
       updateCounters(view[0], from);
     }
     this.fill = function() {
-      var half, b, dl = (half = view.length === 0) ? data.get(0) : view[view.length-1].next();
-      while (dl && !(b = isFilled(half))) {
+      var half, b, dl = (half = view.length === 0) ? data.get(0) : view[view.length-1].next()
+      , sh = code.scrollHeight || heightOfLines(), dh = desiredHeight(half);
+      while (dl && !(b = sh > dh)) {
         insert(dl);
+        sh += dl.height;
         dl = dl.next();
       }
       if (!dl) {
         dl = view[0].prev();
-        while (dl && !(b = isFilled(half))) {
+        while (dl && !(b = sh > dh)) {
           prepend(dl);
+          sh += dl.height;
           scroll(-dl.height);
           dl = dl.prev();
         }
@@ -2443,9 +2443,11 @@
         if (from === 0 && d < 0) {
           h = view[0].height;
           dl = view[view.length-1];
-          while (h < x && !isFilled() && (dl = dl.next())) {
+          var sh = code.scrollHeight, dh = desiredHeight();
+          while (h < x && sh < dh && (dl = dl.next())) {
             insert(dl);
             x -= dl.height;
+            sh += dl.height;
           }
         } else {
           if (disp = abs > defHeight) { ol.style.display = 'none'; code.style.display = 'none'; }
@@ -2565,12 +2567,9 @@
     }
     this.updateDefaultHeight = function() {
       var pr = pre.cloneNode();
-      pr.style.position = 'absolute';
-      pr.style.fontSize = cp.options.fontSize + 'px';
-      pr.style.fontFamily = cp.options.fontFamily;
-      pr.innerHTML = zws;
+      pr.setAttribute('style', 'position:absolute;font:normal normal ' + cp.options.fontSize + 'px ' + cp.options.fontFamily+';');
+      pr.innerHTML = 'CP';
       document.documentElement.appendChild(pr);
-      pr.style.display = '';
       defHeight = pr.offsetHeight;
       document.documentElement.removeChild(pr);
       return this;
@@ -2827,7 +2826,7 @@
     if (cp.options.lineNumberFormatter instanceof Function) {
       formatter = cp.options.lineNumberFormatter;
     }
-    this.updateDefaultHeight();
+    
     selection.on({ done: this.showSelection.bind(this, false) });
     return this;
   }
