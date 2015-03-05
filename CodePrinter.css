@@ -19,6 +19,8 @@
   top: 0;
   z-index: 0;
   text-align: left;
+}
+.codeprinter * {
   -webkit-font-smoothing: subpixel-antialiased !important;
 }
 .codeprinter.cp-auto-height .cp-body {
