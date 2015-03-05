@@ -2470,8 +2470,8 @@
           }
         }
       }
-      scrollTo(this.scrollTop = st);
       if (disp) { ol.style.display = ''; code.style.display = ''; }
+      scrollTo(this.scrollTop = st);
       if (to != a) this.updateView(a - to);
     }
     this.isLineVisible = function(dl) {
@@ -2572,7 +2572,12 @@
       return this;
     }
     this.updateHeight = function() {
-      this.screen.style.minHeight = counter.style.minHeight = (data.height + cp.sizes.paddingTop * 2) + 'px';
+      var minHeight = data.height + cp.sizes.paddingTop * 2;
+      if (cp.sizes.minHeight != minHeight) {
+        this.screen.style.minHeight = minHeight + 'px';
+        counter.style.minHeight = minHeight + 'px';
+        cp.sizes.minHeight = minHeight;
+      }
       return this;
     }
     this.updateView = function(det) {
@@ -2603,7 +2608,11 @@
           }
         }
         maxLineChanged = false;
-        this.screen.style.minWidth = externalMeasure(cp, maxLine).offsetWidth + 'px';
+        var minWidth = externalMeasure(cp, maxLine).offsetWidth;
+        if (cp.sizes.minWidth != minWidth) {
+          this.screen.style.minWidth = minWidth + 'px';
+          cp.sizes.minWidth = minWidth;
+        }
       }
       this.emit('viewUpdated');
       return this;

@@ -143,7 +143,7 @@
   tab-size: 2;
 }
 .codeprinter .cp-screen pre {
-  margin: 0 -10px;
+  margin: 0;
   padding: 0 10px;
   position: relative;
 }
@@ -151,12 +151,11 @@
 .codeprinter .cp-measure {
   display: inline-block;
   vertical-align: top;
-  padding: 5px 10px;
-  box-sizing: border-box;
-  position: relative;
+  padding: 5px 0;
 }
 .codeprinter .cp-code {
   min-width: 100%;
+  position: relative;
 }
 .codeprinter .cp-measure {
   visibility: hidden;
