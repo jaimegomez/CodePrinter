@@ -601,20 +601,24 @@
     parse: function(dl, stateBefore) {
       if (dl != null) {
         var state = stateBefore, tmp = dl
-        , tw = this.options.tabWidth;
+        , tw = this.options.tabWidth
+        , parser = this.parser;
         
-        if (state === undefined) {
-          var s = searchLineWithState(this.parser, tmp, tw);
-          state = s.state;
-          tmp = s.line;
-        } else {
-          state = state ? copyState(state) : this.parser.initialState();
+        if (parser.initialState) {
+          if (state === undefined) {
+            var s = searchLineWithState(parser, tmp, tw);
+            state = s.state;
+            tmp = s.line;
+          } else {
+            state = state ? copyState(state) : parser.initialState();
+          }
         }
+        
         for (; tmp; tmp = tmp.next()) {
           var ind = parseIndentation(tmp.text, tw)
           , stream = new Stream(ind.rest, { indentation: ind.indent });
           
-          if (!tmp.cache) tmp.cache = parse(this, this.parser, stream, state);
+          if (!tmp.cache) tmp.cache = parse(this, parser, stream, state);
           
           if (tmp.node) {
             if (tmp.text.length == 0) {
@@ -629,7 +633,7 @@
           else if (tmp.definition) tmp.definition = undefined;
           tmp.state = state;
           if (tmp == dl) break;
-          state = copyState(state); 
+          state = copyState(state);
         }
       }
       return dl;
@@ -1698,7 +1702,7 @@
   
   function searchLineWithState(parser, dl, tw) {
     var tmp = dl.prev(), minI = Infinity, best, ind;
-    for (var i = 0; tmp && i < 100; i++) {
+    for (var i = 0; tmp && i < 300; i++) {
       if (tmp.state) { best = tmp; break; }
       ind = parseIndentation(tmp.text, tw).indent;
       if (ind < minI) { best = tmp; minI = ind; }
@@ -3285,12 +3289,11 @@
   }
   CodePrinter.Mode.prototype = {
     init: function() {},
-    initialState: function() { return; },
     iterator: function(stream, state) {
       var ch = stream.next();
       if (/\s/.test(ch)) {
         stream.take(/^\s+/);
-        return 'space';
+        return;
       }
       stream.take(/^\S+/);
       return 'word';
