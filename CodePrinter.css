@@ -77,6 +77,7 @@
   position: relative;
   font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 12px;
+  -webkit-backface-visibility: hidden;
 }
 .codeprinter .cp-wrapper {
   display: -webkit-box;
