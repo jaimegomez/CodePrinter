@@ -73,7 +73,7 @@
   -o-flex: 1;
   flex: 1;
   min-height: 100%;
-  background: #fcfcfc;
+  background: #ffffff;
   position: relative;
   font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 12px;
@@ -175,7 +175,7 @@
   display: inline-block;
   vertical-align: top;
   min-width: 35px;
-  background: #fcfcfc;
+  background: #ffffff;
   border-right: 1px solid #d4d4d4;
   box-sizing: border-box;
   color: #999999;
@@ -249,7 +249,7 @@
   bottom: 7px;
 }
 .codeprinter .cp-findbar {
-  background: #fcfcfc;
+  background: #ffffff;
   border-top: 1px solid #d4d4d4;
   color: #555555;
 }
@@ -323,7 +323,7 @@
 .codeprinter .cp-hint-container {
   max-width: 300px;
   max-height: 100px;
-  background: #fcfcfc;
+  background: #ffffff;
   border: 1px solid #d4d4d4;
   pointer-events: all;
   position: absolute;
