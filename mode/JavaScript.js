@@ -13,9 +13,9 @@ CodePrinter.defineMode('JavaScript', function() {
     'void','with','const','of'
   ]
   , specials = [
-    'this','window','document','console','arguments','function','import','export','module',
-    'Object','Array','String','Number','Function','RegExp','Date','Boolean','Math','JSON',
-    'Proxy','Map','WeakMap','Set','WeakSet','Symbol',
+    'this','$','_','window','document','console','arguments','function','import','export',
+    'module','Object','Array','String','Number','Function','RegExp','Date','Boolean',
+    'Math','JSON','Proxy','Map','WeakMap','Set','WeakSet','Symbol',
     'Error','EvalError','InternalError','RangeError','ReferenceError',
     'StopIteration','SyntaxError','TypeError','URIError'
   ]
@@ -272,8 +272,7 @@ CodePrinter.defineMode('JavaScript', function() {
           var isVar = isVariable(word, state);
           if (isVar && 'string' === typeof isVar) return isVar;
         }
-        if (stream.isAfter(/^\s*\(/)) return 'function';
-        if (stream.isAfter(/^\s*:/) || stream.isBefore(/\.\s*$/, -word.length) && stream.peek() != '.') return 'property';
+        if (stream.isAfter(/^\s*(:\s*function)?\(/)) return 'function';
         if (!stream.lastValue || (stream.lastStyle == 'keyword' && stream.lastValue != 'new') || stream.lastValue == ',') {
           if (state.vardef == 1) return state.context.vars[word] = 'variable';
           if (state.constdef == 1) return state.context.vars[word] = 'constant';
