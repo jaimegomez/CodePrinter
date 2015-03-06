@@ -373,7 +373,7 @@
             }
             if (allowKeyup !== false) {
               this.value = '';
-              if (cp.keyMap[ch] ? cp.keyMap[ch].call(cp, e, code, ch) !== false : true) cp.insertText(ch);
+              if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, e, code, ch) !== false) cp.insertText(ch);
               if (T3) T3 = clearTimeout(T3);
               if (options.autoComplete && cp.hints) {
                 var isdigit = /^\d+$/.test(ch);
@@ -382,7 +382,7 @@
               }
             }
             if (options.autoIndent && parser.isIndentTrigger(ch)) {
-              fixIndent(cp, parser, -ch.length);
+              fixIndent(cp, parser, cp.caret.column() - ch.length);
             }
             return e.cancel();
           }
@@ -617,18 +617,9 @@
         for (; tmp; tmp = tmp.next()) {
           var ind = parseIndentation(tmp.text, tw)
           , stream = new Stream(ind.rest, { indentation: ind.indent });
+          tmp.cache = parse(this, parser, stream, state);
           
-          if (!tmp.cache) tmp.cache = parse(this, parser, stream, state);
-          
-          if (tmp.node) {
-            if (tmp.text.length == 0) {
-              var child = tmp.node.firstChild;
-              while (child) child = rm(tmp.node, child);
-              tmp.node.appendChild(cspan(null, zws));
-            } else {
-              updateLine(tmp.node, ind, this.tabString, tmp.cache);
-            }
-          }
+          if (tmp.node) updateLine(tmp, ind, this.tabString, tmp.cache);
           if (stream.definition) tmp.definition = stream.definition;
           else if (tmp.definition) tmp.definition = undefined;
           tmp.state = state;
@@ -647,12 +638,12 @@
           var ind = parseIndentation(tmp.text, this.options.tabWidth)
           , stream = new Stream(ind.rest, { indentation: ind.indent });
           if (tmp == dl) {
-            var cache = parse(this, this.parser, stream, state, Math.max(0, Math.min(column - (tmp.text.length - ind.rest.length), stream.length)));
+            var cache = parse(this, this.parser, stream, state, Math.max(0, Math.min(column - ind.length, ind.rest.length)));
             cache = cache[cache.length-1];
             if (stream.eol()) tmp.state = state;
             return { stream: stream, state: state, style: cache && cache.style, parser: state.parser || this.parser };
           } else {
-            state = copyState(tmp.state = state);
+            state = copyState(this.parse(tmp, state).state);
           }
         }
       }
@@ -1722,8 +1713,14 @@
     }
     node.appendChild(cspan(className, content));
   }
-  function updateLine(node, ind, tabString, cache) {
-    var i = 0, j = 0, l = cache.length, text = ind.rest, child, tmp;
+  function updateLine(dl, ind, tabString, cache) {
+    if (dl.text.length == 0) {
+      var child = dl.node.firstChild;
+      while (child) child = rm(dl.node, child);
+      dl.node.appendChild(cspan(null, zws));
+      return;
+    }
+    var i = 0, j = 0, l = cache.length, node = dl.node, text = ind.rest, child, tmp;
     child = updateIndent(node, node.firstChild, tabString, ind.indent, ind.spaces);
     for (var i = 0; i < l; i++) {
       tmp = cache[i];
@@ -1802,6 +1799,10 @@
       state = dl.state;
     });
   }
+  function restoreFromCache(cp, dl) {
+    var ind = parseIndentation(dl.text, cp.options.tabWidth), stream = new Stream(ind.rest, { indentation: ind.indent });
+    updateLine(dl, ind, cp.tabString, dl.cache);
+  }
   function cspan(style, content) {
     var node = span.cloneNode();
     if (style) node.className = style;
@@ -1815,11 +1816,10 @@
   }
   function fixIndent(cp, parser, offset) {
     var dl = cp.caret.dl(), prev = dl.prev()
-    , col = cp.caret.column() + offset
     , s = prev && cp.getStateAt(prev, prev.text.length);
     if (s) {
       var i = parser.indent(s.stream, s.state);
-      s = cp.getStateAt(dl, 0);
+      s = cp.getStateAt(dl, offset | 0);
       s.stream.indentation = i;
       i = parser.indent(s.stream, s.state);
       cp.setIndentAtLine(dl, i);
@@ -2149,7 +2149,7 @@
           ol.appendChild(dl.counter);
           index = view.push(dl) + from;
         }
-        cp.parse(dl);
+        dl.cache ? restoreFromCache(cp, dl) : cp.parse(dl);
         cp.emit('link', dl, index);
       }
     }
@@ -3458,14 +3458,14 @@
       }
     },
     '(': function(e, k, ch) {
-      this.insertText(ch);
       if (this.options.insertClosingBrackets) {
         var af = this.caret.textAfter()[0]
         , cb = complementBracket(ch);
         if (!af || af === cb || !/\w/.test(af)) {
-          this.insertText(cb, -cb.length);
+          ch += cb;
         }
       }
+      this.insertText(ch, -ch.length + 1);
       return false;
     },
     ')': function(e, k, ch) {
