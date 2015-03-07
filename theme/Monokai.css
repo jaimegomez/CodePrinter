@@ -19,7 +19,7 @@
 .cps-monokai .cpx-bracket { color:#F9FAF4; }
 .cps-monokai .cpx-operator { color:#FF007F; }
 .cps-monokai .cpx-keyword { color:#FF007F; }
-.cps-monokai .cpx-control { color:#FF007F; }
+.cps-monokai .cpx-control { color:#FF007F; font-weight: bold; }
 .cps-monokai .cpx-variable { color:#FFFFFF; }
 .cps-monokai .cpx-parameter { color:#FF9919; }
 .cps-monokai .cpx-builtin { color:#888DFF; }

@@ -36,10 +36,7 @@ CodePrinter.defineMode('PHP', function() {
       }
     }
     if (!ch) state.next = string;
-    else {
-      state.next = null;
-      state.quote = undefined;
-    }
+    else state.next = state.quote = null;
     return 'string';
   }
   function escapedString(stream, state) {

@@ -32,15 +32,16 @@
     }
     options = this.options = $.extend({}, CodePrinter.defaults, options);
     buildDOM(this);
-    this.prepare();
-    this.parser = new CodePrinter.Mode();
     
-    if (source && source.nodeType) {
-      if (source.parentNode) source.parentNode.insertBefore(this.mainNode, source);
-      this.doc.init((source.tagName == 'TEXTAREA' ? source.value : source.innerHTML).decode());
-    } else {
-      this.doc.init('string' == typeof source ? source : '');
-    }
+    this.parser = new CodePrinter.Mode();
+    this.caret = new Caret(this);
+    this.doc = new Document(this, valueOf(source));
+    this.keyMap = new keyMap;
+    
+    checkOptions(this, options);
+    attachEvents(this);
+    
+    if (source && source.parentNode) source.parentNode.insertBefore(this.mainNode, source);
     CodePrinter.instances.push(this);
     return this.print();
   }
@@ -100,422 +101,6 @@
   span = document.createElement('span');
   
   CodePrinter.prototype = {
-    isFullscreen: false,
-    prepare: function() {
-      if (this.doc) return;
-      var cp = this
-      , wrapper = this.wrapper
-      , options = this.options
-      , addons = options.addons
-      , lastScrollTop = 0, counterSelection = []
-      , sizes, allowKeyup, activeLine
-      , isMouseDown, isScrolling
-      , moveevent, moveselection
-      , T, T2, T3, T4, fn;
-      
-      if (options.fontFamily !== CodePrinter.defaults.fontFamily) {
-        this.container.style.fontFamily = options.fontFamily;
-      }
-      
-      this.mainNode.CodePrinter = this;
-      sizes = this.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
-      this.caret = new Caret(cp);
-      this.doc = new Document(this);
-      this.keyMap = new keyMap;
-      this.setTheme(options.theme);
-      this.setMode(options.mode);
-      
-      options.lineNumbers ? this.openCounter() : this.closeCounter();
-      options.drawIndentGuides || this.mainNode.addClass('cp-without-indentation');
-      options.legacyScrollbars && this.wrapper.addClass('cp-legacy-scrollbars');
-      options.tabWidth && this.setTabWidth(options.tabWidth);
-      options.lineWrapping && this.setLineWrapping(true);
-      options.width !== 'auto' && this.setWidth(options.width);
-      options.height !== 300 && this.setHeight(options.height);
-      options.fontSize !== 12 && this.setFontSize(options.fontSize);
-      
-      if (addons) {
-        if (addons instanceof Array) {
-          for (var i = 0; i < addons.length; i++) {
-            this.initAddon(addons[i]);
-          }
-        } else {
-          for (var k in addons) {
-            this.initAddon(k, addons[k]);
-          }
-        }
-      }
-      options.shortcuts && this.initAddon('shortcuts');
-      options.autoComplete && this.initAddon('hints');
-      
-      function mouseController(e) {
-        if (e.defaultPrevented) return false;
-        
-        var doc = cp.doc
-        , sl = cp.wrapper.scrollLeft
-        , st = cp.wrapper.scrollTop
-        , o = sizes.bounds = sizes.bounds || wrapper.bounds()
-        , x = Math.max(0, sl + e.pageX - o.x)
-        , y = e.pageY < o.y ? 0 : e.pageY <= o.y + wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : wrapper.scrollHeight
-        , ry = Math.max(0, Math.min(y, doc.height()))
-        , isinactive = document.activeElement !== cp.input;
-        
-        cp.input.focus();
-        cp.caret.target(x, ry);
-        var l = cp.caret.line(), c = cp.caret.column();
-        
-        if (e.type === 'mousedown') {
-          isMouseDown = true;
-          if (doc.inSelection(l, c) && ry === y && (x - 3 <= cp.caret.offsetX() || doc.inSelection(l, c+1))) {
-            moveselection = true;
-            window.on('mousemove', mouseController);
-            window.once('mouseup', function(e) {
-              window.off('mousemove', mouseController);
-              if (moveselection > 1) {
-                var savedpos = cp.caret.savePosition();
-                if (moveselection && doc.issetSelection() && !doc.inSelection(savedpos[0], savedpos[1])) {
-                  var selection = doc.getSelection()
-                  , sel = doc.getSelectionRange()
-                  , isbf = cp.cursorIsBeforePosition(sel.start.line, sel.start.column);
-                  
-                  cp.caret.position(sel.end.line, sel.end.column);
-                  if (!isbf) {
-                    savedpos[0] -= sel.end.line - sel.start.line;
-                  }
-                  !e.altKey && doc.removeSelection();
-                  cp.caret.restorePosition(savedpos);
-                  cp.insertSelectedText(selection);
-                } else {
-                  doc.clearSelection();
-                  mouseController(arguments[0]);
-                }
-              } else {
-                isinactive || doc.clearSelection();
-                cp.input.focus();
-              }
-              return isMouseDown = moveselection = e.cancel();
-            });
-          } else {
-            cp.input.value = '';
-            cp.caret.deactivate().show();
-            if (y > ry) cp.caret.position(l, -1);
-            else if (y < 0) cp.caret.position(l, 0);
-            
-            doc.beginSelection();
-            window.on('mousemove', mouseController);
-            window.once('mouseup', function(e) {
-              !doc.issetSelection() && doc.clearSelection();
-              window.off('mousemove', mouseController);
-              cp.caret.activate();
-              sizes.bounds = moveevent = null;
-              document.activeElement != cp.input && ($.browser.firefox ? $.async(function() { cp.input.focus() }) : cp.input.focus());
-              return isMouseDown = e.cancel();
-            });
-          }
-          cp.emit('click');
-        } else if (!moveselection) {
-          moveevent = e;
-          doc.endSelection();
-          
-          if (e.pageY > o.y && e.pageY < o.y + wrapper.clientHeight) {
-            var oH = wrapper.offsetHeight
-            , i = (e.pageY <= o.y + 25 ? e.pageY - o.y - 25 : e.pageY >= o.y + oH - 25 ? e.pageY - o.y - oH + 25 : 0);
-            
-            i && setTimeout(function() {
-              if (i && !moveselection && isMouseDown && moveevent === e) {
-                doc.scrollTo(wrapper.scrollTop + i);
-                mouseController.call(wrapper, moveevent);
-              }
-            }, 50);
-          }
-        } else {
-          ++moveselection;
-        }
-      }
-      
-      if ('ontouchstart' in window || navigator.msMaxTouchPoints > 0) {
-        var x, y;
-        this.wrapper.listen({
-          touchstart: function(e) {
-            y = e.touches[0].screenY;
-            x = e.touches[0].screenX;
-          },
-          touchmove: function(e) {
-            if (x != null && y != null) {
-              var touch = e.touches[0];
-              this.scrollLeft += options.scrollSpeed * (x - (x = touch.screenX));
-              cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * (y - (y = touch.screenY)));
-              return e.cancel(true);
-            }
-          },
-          touchend: function() { x = y = null; }
-        });
-      } else if ('onwheel' in window) {
-        this.wrapper.addEventListener('wheel', function(e) { return wheel(cp.doc, this, e, options.scrollSpeed, e.deltaX, e.deltaY); }, false);
-      } else {
-        var mousewheel = function(e) {
-          var d = wheelDelta(e);
-          return wheel(cp.doc, this, e, wheelUnit * options.scrollSpeed, d.x, d.y);
-        }
-        this.wrapper.listen({ mousewheel: mousewheel, DOMMouseScroll: mousewheel });
-      }
-      
-      wrapper.listen({
-        scroll: function(e) {
-          if (!this._lockedScrolling) {
-            cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop);
-          } else {
-            if (!isScrolling) wrapper.addClass('scrolling');
-            isScrolling = true;
-            cp.emit('scroll');
-            T4 = clearTimeout(T4) || setTimeout(function() {
-              isScrolling = false;
-              wrapper.removeClass('scrolling');
-              cp.emit('scrollend');
-            }, 200);
-          }
-          this._lockedScrolling = false;
-        },
-        contextmenu: function(e) {
-          return e.cancel();
-        },
-        dblclick: function() {
-          var bf = cp.caret.textBefore()
-          , af = cp.caret.textAfter()
-          , line = cp.caret.line()
-          , c = cp.caret.column()
-          , l = 1, r = 0, rgx, timeout;
-          
-          var tripleclick = function() {
-            cp.doc.setSelectionRange(line, 0, line+1, 0);
-            cp.caret.position(line+1, 0);
-            this.unlisten('click', tripleclick);
-            timeout = clearTimeout(timeout);
-          }
-          this.listen({ 'click': tripleclick });
-          timeout = setTimeout(function() { wrapper.unlisten('click', tripleclick); }, 350);
-          
-          rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
-          
-          while (l <= c && rgx.test(bf[c-l])) l++;
-          while (r < af.length && rgx.test(af[r])) r++;
-          
-          if (c-l+1 != c+r) {
-            cp.doc.setSelectionRange(line, c-l+1, line, c+r);
-          }
-        },
-        mousedown: mouseController
-      });
-      
-      this.input.listen({
-        focus: function() {
-          cp.caret.focus();
-          cp.mainNode.removeClass('inactive');
-          cp.emit('focus');
-        },
-        blur: function() {
-          if (isMouseDown) {
-            this.focus();
-          } else {
-            cp.caret.blur();
-            cp.mainNode.addClass('inactive');
-            if (options.abortSelectionOnBlur) cp.doc.clearSelection();
-            cp.emit('blur');
-          }
-        },
-        keydown: function(e) {
-          var kc, code = e.getCharCode()
-          , ch = String.fromCharCode(code)
-          , iscmd = $.browser.macosx ? e.metaKey : e.ctrlKey
-          , kc = e.getKeyCombination(1, ' ');
-          
-          cp.caret.deactivate().show();
-          allowKeyup = true;
-          
-          if (iscmd) {
-            if (cp.doc.issetSelection() && kc.indexOf(' ') === -1) {
-              this.value = cp.doc.getSelection();
-              this.setSelectionRange(0, this.value.length);
-            } else if (commands[ch]) {
-              allowKeyup = commands[ch].call(cp, e, code, ch);
-              if (allowKeyup === false) e.cancel();
-              return allowKeyup;
-            } else {
-              this.value = '';
-            }
-          }
-          if (options.readOnly && (code < 37 || code > 40)) return;
-          if (!cp.keyMap[kc] && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-            kc = e.getKeyCombination(4, ' ');
-          }
-          cp.emit('@'+kc, e);
-          cp.emit('keydown', e);
-          if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && cp.keyMap[kc]) {
-            allowKeyup = cp.keyMap[kc].call(cp, e, code, kc);
-          }
-          if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
-            return allowKeyup = e.cancel();
-          }
-          return allowKeyup;
-        },
-        keypress: function(e) {
-          if (options.readOnly) return;
-          var a, code = e.getCharCode()
-          , s = cp.getStateAt(cp.caret.dl(), cp.caret.column())
-          , parser = s && s.parser
-          , ch = String.fromCharCode(code);
-          
-          if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-            if (cp.doc.issetSelection() && (a = parser.selectionWrappers[ch])) {
-              'string' === typeof a ? cp.doc.wrapSelection(a, a) : cp.doc.wrapSelection(a[0], a[1]);
-              allowKeyup = false;
-            } else if (options.useParserKeyMap && parser.keyMap[ch]) {
-              allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
-            }
-            if (allowKeyup !== false) {
-              this.value = '';
-              if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, e, code, ch) !== false) cp.insertText(ch);
-              if (T3) T3 = clearTimeout(T3);
-              if (options.autoComplete && cp.hints) {
-                var isdigit = /^\d+$/.test(ch);
-                if ((!isdigit && cp.hints.match(ch)) || parser.isAutoCompleteTrigger(ch)) T3 = setTimeout(function() { cp.hints.show(false); }, options.autoCompleteDelay);
-                else if (!isdigit) cp.hints.hide();
-              }
-            }
-            if (options.autoIndent && parser.isIndentTrigger(ch)) {
-              fixIndent(cp, parser, cp.caret.column() - ch.length);
-            }
-            return e.cancel();
-          }
-        },
-        keyup: function(e) {
-          if (options.readOnly) return;
-          if (cp.caret.isVisible) cp.caret.activate();
-          if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
-            this.value.length && cp.insertText(this.value);
-            T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.parser); }, options.keyupInactivityTimeout);
-          }
-          this.value = '';
-          cp.emit('keyup', e);
-        },
-        input: function(e) {
-          if (!options.readOnly && this.value.length) {
-            cp.insertText(this.value);
-            this.value = '';
-          }
-        }
-      });
-      
-      this.select = function(dl) {
-        this.unselect();
-        if (options.highlightCurrentLine && !moveselection && !cp.doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
-          dl.node.addClass(activeClassName);
-          dl.counter.addClass(activeClassName);
-          dl.active = true;
-          activeLine = dl;
-        }
-      }
-      this.unselect = function() {
-        if (activeLine && activeLine.node) {
-          activeLine.node.removeClass(activeClassName);
-          activeLine.counter.removeClass(activeClassName);
-          activeLine.active = undefined;
-        }
-        activeLine = null;
-      }
-      
-      this.caret.on({
-        move: function(x, y, dl, line, column) {
-          if (options.autoScroll) {
-            var pl = sizes.paddingLeft, pt = sizes.paddingTop
-            , sl = wrapper.scrollLeft, st = wrapper.scrollTop
-            , cw = wrapper.clientWidth, ch = wrapper.clientHeight
-            , h = dl.height;
-            
-            if (x - pl < sl) {
-              sl = x - pl;
-            } else if (x + pl >= cw + sl) {
-              sl = x + pl - cw;
-            }
-            wrapper.scrollLeft = sl;
-            if (Math.abs(y - st) > ch) {
-              if (y < ch / 2) {
-                st = 0;
-              } else {
-                st = y - ch / 2;
-              }
-            } else {
-              if (y < st + h) {
-                st = y - h - pt;
-              } else if (y + 2 * h >= ch + st) {
-                st = y + 2 * h + pt - ch;
-              }
-            }
-            cp.doc.scrollTo(st);
-            cp.counter.firstChild.scrollTop = st;
-          }
-          if (options.matching) {
-            var m = getMatchingObject(cp.parser.matching);
-            if (m) {
-              var a, b, cur, bf = this.textBefore(), af = this.textAfter();
-              for (var s in m) {
-                var len = s.length, i = 0;
-                do {
-                  a = len == i || bf.endsWith(s.substring(0, len - i));
-                  b = af.startsWith(s.substring(len - i, len));
-                } while ((!a || !b) && ++i <= len);
-                if (a && b) {
-                  matchingHelper(cp, s, m[s], line, column - len + i, column + i);
-                  break;
-                }
-              }
-              if ((!a || !b) && cp.highlightOverlay) cp.highlightOverlay.remove();
-            }
-          }
-          cp.emit('caretMoved', line, column);
-        }
-      });
-      
-      function counterMousemove(e) {
-        var min, max, range
-        , b = sizes.bounds
-        , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
-        if (dl) {
-          counterSelection[1] = dl.info().index;
-          min = Math.min.apply(Math, counterSelection);
-          max = Math.max.apply(Math, counterSelection);
-          cp.doc.setSelectionRange(min, 0, max + 1, 0);
-          if (range = cp.doc.getSelectionRange()) {
-            var tmp = min === counterSelection[0] ? range.end : range.start;
-            cp.caret.position(tmp.line, tmp.column);
-          }
-        }
-      }
-      function counterMouseup(e) {
-        this.removeEventListener('mousemove', counterMousemove);
-        this.removeEventListener('mouseup', counterMouseup);
-        
-        if (counterSelection.length === 1) {
-          var range, min = counterSelection[0];
-          cp.doc.setSelectionRange(min, 0, min + 1, 0);
-          if (range = cp.doc.getSelectionRange()) cp.caret.position(range.end.line, range.end.column);
-        }
-        counterSelection.length = 0;
-        isMouseDown = false;
-      }
-      
-      this.counter.delegate('li', 'mousedown', function(e) {
-        var b = sizes.bounds = sizes.bounds || wrapper.bounds()
-        , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
-        if (dl) {
-          counterSelection[0] = dl.info().index;
-          cp.input.focus();
-          isMouseDown = true;
-          window.addEventListener('mousemove', counterMousemove, false);
-          window.addEventListener('mouseup', counterMouseup, false);
-        }
-      });
-    },
     print: function(mode, source) {
       mode && this.setMode(mode);
       mode = this.options.mode;
@@ -524,7 +109,7 @@
       function callback(ModeObject) {
         var b = !this.parser;
         this.defineParser(ModeObject);
-        this.doc.fill();
+        this.doc.fill(); this.doc.updateView();
         runBackgroundParser(this, ModeObject, true);
         if (this.options.autoFocus) {
           this.input.focus();
@@ -714,15 +299,14 @@
       if ('number' === typeof size && this.options.minFontSize <= size && size <= this.options.maxFontSize) {
         var i = 0, doc = this.doc;
         this.container.style.fontSize = (this.options.fontSize = size) + 'px';
-        doc.updateDefaultHeight();
         
-        if (doc.initialized) {
-          doc.fill();
+        if (doc) {
+          doc.updateDefaultHeight().fill();
           doc.updateHeight().updateView().showSelection();
           doc.updateScroll();
-          this.caret.refresh();
-          this.emit('fontSizeChanged', size);
         }
+        this.caret.refresh();
+        this.emit('fontSizeChanged', size);
       }
       return this;
     },
@@ -959,9 +543,10 @@
       if (this.parser && (cs = this.parser.blockCommentStart) && (ce = this.parser.blockCommentEnd)) {
         var range = this.doc.getSelectionRange()
         , l = this.caret.line(), c = this.caret.column()
-        , bc = 'block-comment';
+        , s = this.getStyleAt(l, c, true)
+        , bc = 'comment';
         
-        if (this.isState(bc, l, c)) {
+        if (s && s.indexOf(bc) >= 0) {
           var sl = this.searchLeft(cs, l, c, bc)
           , sr = this.searchRight(ce, l, c, bc);
           if (sl && sr) {
@@ -2117,11 +1702,11 @@
     }
   }
   
-  Document = CodePrinter.Document = function(editor) {
+  Document = CodePrinter.Document = function(editor, source) {
     var that = this, cp, counter, ol
     , code, from = 0, to = -1
-    , defHeight = 14, firstNumber, maxLine
-    , maxLineLength = 0, maxLineChanged
+    , defHeight = 14, firstNumber, formatter
+    , maxLine, maxLineLength = 0, maxLineChanged
     , data, view, history, selection;
     
     function desiredHeight(half) {
@@ -2167,6 +1752,7 @@
         deleteNode(view[i]);
         deleteCounter(view[i]);
       }
+      that.clearSelection();
       to = -1; from = 0;
       view.length = 0;
       code.innerHTML = ol.innerHTML = '';
@@ -2199,22 +1785,16 @@
         if (cp.options.history) history.pushChanges(e.line, e.column, e.text, e.added);
       }
     }
-    function formatter(i) {
+    function defaultFormatter(i) {
       return i;
     }
     
     this.init = function(source) {
       source = source || '';
       this.initialized = true;
-      data = this.data = new Data();
-      
-      if (to !== -1) {
-        clear();
-        this.clearSelection();
-      }
-      this.insert(data.size, source.split(eol));
-      this.updateHeight();
-      this.fill();
+      data = new Data();
+      if (to !== -1) clear();
+      this.insert(0, source.split(eol));
       return this;
     }
     this.attach = function(editor) {
@@ -2224,6 +1804,8 @@
       counter = cp.counterChild;
       code = cp.code;
       ol = cp.counterOL;
+      firstNumber = cp.options.firstLineNumber;
+      formatter = cp.options.lineNumberFormatter || defaultFormatter;
       
       if (view.length) {
         for (var i = 0; i < view.length; i++) {
@@ -2270,30 +1852,32 @@
         }
         data.insert(at, lines, defHeight * lines.length);
       }
-      if (at < from) {
-        from += lines.length;
-        updateCounters(view[0], from);
-      } else if (at <= to + 1) {
-        var sh = code.scrollHeight || heightOfLines(), dh = desiredHeight();
-        if (sh >= dh) {
-          var m = Math.min(lines.length, to - at), rmdl;
-          for (var i = 0; i < m; i++) {
-            rmdl = view.pop();
-            captureNode(lines[i], rmdl);
-            cp.emit('unlink', rmdl, to + m - i);
-            link(lines[i], at + i);
-          }
-        } else {
-          var i = -1;
-          while (++i < lines.length && sh < dh) {
-            init(lines[i]); ++to;
-            sh += lines[i].height;
-            link(lines[i], at + i);
+      this.updateHeight();
+      if (cp && cp.mainNode.parentNode) {
+        if (at < from) {
+          from += lines.length;
+          updateCounters(view[0], from);
+        } else if (at <= to + 1) {
+          var sh = code.scrollHeight || heightOfLines(), dh = desiredHeight();
+          if (sh >= dh) {
+            var m = Math.min(lines.length, to - at), rmdl;
+            for (var i = 0; i < m; i++) {
+              rmdl = view.pop();
+              captureNode(lines[i], rmdl);
+              cp.emit('unlink', rmdl, to + m - i);
+              link(lines[i], at + i);
+            }
+          } else {
+            var i = -1;
+            while (++i < lines.length && sh < dh) {
+              init(lines[i]); ++to;
+              sh += lines[i].height;
+              link(lines[i], at + i);
+            }
           }
         }
+        this.updateView();
       }
-      this.updateHeight();
-      this.updateView();
     }
     this.remove = function(at, n) {
       if ('number' === typeof n && n > 0 && at >= 0 && at + n <= data.size) {
@@ -2365,8 +1949,7 @@
       var half, b, dl = (half = view.length === 0) ? data.get(0) : view[view.length-1].next()
       , sh = code.scrollHeight || heightOfLines(), dh = desiredHeight(half);
       while (dl && !(b = sh > dh)) {
-        insert(dl);
-        sh += dl.height;
+        insert(dl); sh += dl.height;
         dl = dl.next();
       }
       if (!dl) {
@@ -2818,13 +2401,8 @@
     this.attach(editor);
     history = new History(cp, this, cp.options.historyStackSize, cp.options.historyDelay);
     selection = new Selection(this);
-    firstNumber = cp.options.firstLineNumber;
-    if (cp.options.lineNumberFormatter instanceof Function) {
-      formatter = cp.options.lineNumberFormatter;
-    }
     
-    selection.on({ done: this.showSelection.bind(this, false) });
-    return this;
+    return this.init(source);
   }
   
   Caret = function(cp) {
@@ -3010,7 +2588,8 @@
     }
     this.refresh = function() {
       cp.emit('caretRefresh');
-      return this.position(line || 0, column || 0);
+      if (this.isVisible) this.position(line | 0, column | 0);
+      return this;
     }
     this.dl = function() {
       return currentDL;
@@ -3626,6 +3205,7 @@
         this.start = { line: coords[0][0], column: coords[0][1] }
         this.end = { line: coords[1][0], column: coords[1][1] }
       }
+      doc.showSelection();
       this.emit('done', this.start, this.end);
     }
     this.overlay = new CodePrinter.Overlay(doc, 'cp-selection-overlay');
@@ -3746,6 +3326,411 @@
     cp.measure.appendChild(pre.cloneNode());
     cp.input.tabIndex = cp.options.tabIndex;
     cp.input.autofocus = cp.options.autoFocus;
+    cp.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
+  }
+  function attachEvents(cp) {
+    var wrapper = cp.wrapper
+    , options = cp.options
+    , sizes = cp.sizes
+    , counterSelection = []
+    , allowKeyup, activeLine
+    , isMouseDown, isScrolling
+    , moveevent, moveselection
+    , T, T2, T3, fn;
+    
+    function mouseController(e) {
+      if (e.defaultPrevented) return false;
+      
+      var doc = cp.doc
+      , sl = cp.wrapper.scrollLeft
+      , st = cp.wrapper.scrollTop
+      , o = sizes.bounds = sizes.bounds || wrapper.bounds()
+      , x = Math.max(0, sl + e.pageX - o.x)
+      , y = e.pageY < o.y ? 0 : e.pageY <= o.y + wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : wrapper.scrollHeight
+      , ry = Math.max(0, Math.min(y, doc.height()))
+      , isinactive = document.activeElement !== cp.input;
+      
+      cp.input.focus();
+      cp.caret.target(x, ry);
+      var l = cp.caret.line(), c = cp.caret.column();
+      
+      if (e.type === 'mousedown') {
+        isMouseDown = true;
+        if (doc.inSelection(l, c) && ry === y && (x - 3 <= cp.caret.offsetX() || doc.inSelection(l, c+1))) {
+          moveselection = true;
+          window.on('mousemove', mouseController);
+          window.once('mouseup', function(e) {
+            window.off('mousemove', mouseController);
+            if (moveselection > 1) {
+              var savedpos = cp.caret.savePosition();
+              if (moveselection && doc.issetSelection() && !doc.inSelection(savedpos[0], savedpos[1])) {
+                var selection = doc.getSelection()
+                , sel = doc.getSelectionRange()
+                , isbf = cp.cursorIsBeforePosition(sel.start.line, sel.start.column);
+                
+                cp.caret.position(sel.end.line, sel.end.column);
+                if (!isbf) {
+                  savedpos[0] -= sel.end.line - sel.start.line;
+                }
+                !e.altKey && doc.removeSelection();
+                cp.caret.restorePosition(savedpos);
+                cp.insertSelectedText(selection);
+              } else {
+                doc.clearSelection();
+                mouseController(arguments[0]);
+              }
+            } else {
+              isinactive || doc.clearSelection();
+              cp.input.focus();
+            }
+            return isMouseDown = moveselection = e.cancel();
+          });
+        } else {
+          cp.input.value = '';
+          cp.caret.deactivate().show();
+          if (y > ry) cp.caret.position(l, -1);
+          else if (y < 0) cp.caret.position(l, 0);
+          
+          doc.beginSelection();
+          window.on('mousemove', mouseController);
+          window.once('mouseup', function(e) {
+            !doc.issetSelection() && doc.clearSelection();
+            window.off('mousemove', mouseController);
+            cp.caret.activate();
+            sizes.bounds = moveevent = null;
+            document.activeElement != cp.input && ($.browser.firefox ? $.async(function() { cp.input.focus() }) : cp.input.focus());
+            return isMouseDown = e.cancel();
+          });
+        }
+        cp.emit('click');
+      } else if (!moveselection) {
+        moveevent = e;
+        doc.endSelection();
+        
+        if (e.pageY > o.y && e.pageY < o.y + wrapper.clientHeight) {
+          var oH = wrapper.offsetHeight
+          , i = (e.pageY <= o.y + 25 ? e.pageY - o.y - 25 : e.pageY >= o.y + oH - 25 ? e.pageY - o.y - oH + 25 : 0);
+          
+          i && setTimeout(function() {
+            if (i && !moveselection && isMouseDown && moveevent === e) {
+              doc.scrollTo(wrapper.scrollTop + i);
+              mouseController.call(wrapper, moveevent);
+            }
+          }, 50);
+        }
+      } else {
+        ++moveselection;
+      }
+    }
+    
+    if ('ontouchstart' in window || navigator.msMaxTouchPoints > 0) {
+      var x, y;
+      wrapper.listen({
+        touchstart: function(e) {
+          y = e.touches[0].screenY;
+          x = e.touches[0].screenX;
+        },
+        touchmove: function(e) {
+          if (x != null && y != null) {
+            var touch = e.touches[0];
+            this.scrollLeft += options.scrollSpeed * (x - (x = touch.screenX));
+            cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * (y - (y = touch.screenY)));
+            return e.cancel(true);
+          }
+        },
+        touchend: function() { x = y = null; }
+      });
+    } else if ('onwheel' in window) {
+      wrapper.addEventListener('wheel', function(e) { return wheel(cp.doc, this, e, options.scrollSpeed, e.deltaX, e.deltaY); }, false);
+    } else {
+      var mousewheel = function(e) {
+        var d = wheelDelta(e);
+        return wheel(cp.doc, this, e, wheelUnit * options.scrollSpeed, d.x, d.y);
+      }
+      wrapper.listen({ mousewheel: mousewheel, DOMMouseScroll: mousewheel });
+    }
+    
+    wrapper.listen({
+      scroll: function(e) {
+        if (!this._lockedScrolling) {
+          cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop);
+        } else {
+          if (!isScrolling) wrapper.addClass('scrolling');
+          isScrolling = true;
+          cp.emit('scroll');
+          T3 = clearTimeout(T3) || setTimeout(function() {
+            isScrolling = false;
+            wrapper.removeClass('scrolling');
+            cp.emit('scrollend');
+          }, 200);
+        }
+        this._lockedScrolling = false;
+      },
+      contextmenu: function(e) {
+        return e.cancel();
+      },
+      dblclick: function() {
+        var bf = cp.caret.textBefore()
+        , af = cp.caret.textAfter()
+        , line = cp.caret.line()
+        , c = cp.caret.column()
+        , l = 1, r = 0, rgx, timeout;
+        
+        var tripleclick = function() {
+          cp.doc.setSelectionRange(line, 0, line+1, 0);
+          cp.caret.position(line+1, 0);
+          this.unlisten('click', tripleclick);
+          timeout = clearTimeout(timeout);
+        }
+        this.addEventListener('click', tripleclick, false);
+        timeout = setTimeout(function() { wrapper.removeEventListener('click', tripleclick); }, 350);
+        
+        rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
+        
+        while (l <= c && rgx.test(bf[c-l])) l++;
+        while (r < af.length && rgx.test(af[r])) r++;
+        
+        if (c-l+1 != c+r) {
+          cp.doc.setSelectionRange(line, c-l+1, line, c+r);
+        }
+      },
+      mousedown: mouseController
+    });
+    
+    cp.input.listen({
+      focus: function() {
+        cp.caret.focus();
+        cp.mainNode.removeClass('inactive');
+        cp.emit('focus');
+      },
+      blur: function() {
+        if (isMouseDown) {
+          this.focus();
+        } else {
+          cp.caret.blur();
+          cp.mainNode.addClass('inactive');
+          if (options.abortSelectionOnBlur) cp.doc.clearSelection();
+          cp.emit('blur');
+        }
+      },
+      keydown: function(e) {
+        var kc, code = e.getCharCode()
+        , ch = String.fromCharCode(code)
+        , iscmd = $.browser.macosx ? e.metaKey : e.ctrlKey
+        , kc = e.getKeyCombination(1, ' ');
+        
+        cp.caret.deactivate().show();
+        allowKeyup = true;
+        
+        if (iscmd) {
+          if (cp.doc.issetSelection() && kc.indexOf(' ') === -1) {
+            this.value = cp.doc.getSelection();
+            this.setSelectionRange(0, this.value.length);
+          } else if (commands[ch]) {
+            allowKeyup = commands[ch].call(cp, e, code, ch);
+            if (allowKeyup === false) e.cancel();
+            return allowKeyup;
+          } else {
+            this.value = '';
+          }
+        }
+        if (options.readOnly && (code < 37 || code > 40)) return;
+        if (!cp.keyMap[kc] && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          kc = e.getKeyCombination(4, ' ');
+        }
+        cp.emit('@'+kc, e);
+        cp.emit('keydown', e);
+        if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && cp.keyMap[kc]) {
+          allowKeyup = cp.keyMap[kc].call(cp, e, code, kc);
+        }
+        if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
+          return allowKeyup = e.cancel();
+        }
+        return allowKeyup;
+      },
+      keypress: function(e) {
+        if (options.readOnly) return;
+        var a, code = e.getCharCode()
+        , s = cp.getStateAt(cp.caret.dl(), cp.caret.column())
+        , parser = s && s.parser
+        , ch = String.fromCharCode(code);
+        
+        if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
+          if (cp.doc.issetSelection() && (a = parser.selectionWrappers[ch])) {
+            'string' === typeof a ? cp.doc.wrapSelection(a, a) : cp.doc.wrapSelection(a[0], a[1]);
+            allowKeyup = false;
+          } else if (options.useParserKeyMap && parser.keyMap[ch]) {
+            allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
+          }
+          if (allowKeyup !== false) {
+            this.value = '';
+            if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, e, code, ch) !== false) cp.insertText(ch);
+            if (T2) T2 = clearTimeout(T2);
+            if (options.autoComplete && cp.hints) {
+              var isdigit = /^\d+$/.test(ch);
+              if (parser.autoCompleteTriggers ? parser.autoCompleteTriggers.test(ch) : !isdigit && cp.hints.match(ch)) T2 = setTimeout(function() { cp.hints.show(false); }, options.autoCompleteDelay);
+              else if (!isdigit) cp.hints.hide();
+            }
+          }
+          if (options.autoIndent && parser.isIndentTrigger(ch)) {
+            fixIndent(cp, parser, cp.caret.column() - ch.length);
+          }
+          return e.cancel();
+        }
+      },
+      keyup: function(e) {
+        if (options.readOnly) return;
+        if (cp.caret.isVisible) cp.caret.activate();
+        if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
+          this.value.length && cp.insertText(this.value);
+          T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.parser); }, options.keyupInactivityTimeout);
+        }
+        this.value = '';
+        cp.emit('keyup', e);
+      },
+      input: function(e) {
+        if (!options.readOnly && this.value.length) {
+          cp.insertText(this.value);
+          this.value = '';
+        }
+      }
+    });
+    
+    cp.select = function(dl) {
+      this.unselect();
+      if (options.highlightCurrentLine && !moveselection && !cp.doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
+        dl.node.addClass(activeClassName);
+        dl.counter.addClass(activeClassName);
+        dl.active = true;
+        activeLine = dl;
+      }
+    }
+    cp.unselect = function() {
+      if (activeLine && activeLine.node) {
+        activeLine.node.removeClass(activeClassName);
+        activeLine.counter.removeClass(activeClassName);
+        activeLine.active = undefined;
+      }
+      activeLine = null;
+    }
+    
+    cp.caret.on({
+      move: function(x, y, dl, line, column) {
+        if (options.autoScroll) {
+          var pl = sizes.paddingLeft, pt = sizes.paddingTop
+          , sl = wrapper.scrollLeft, st = wrapper.scrollTop
+          , cw = wrapper.clientWidth, ch = wrapper.clientHeight
+          , h = dl.height;
+          
+          if (x - pl < sl) {
+            sl = x - pl;
+          } else if (x + pl >= cw + sl) {
+            sl = x + pl - cw;
+          }
+          wrapper.scrollLeft = sl;
+          if (Math.abs(y - st) > ch) {
+            if (y < ch / 2) {
+              st = 0;
+            } else {
+              st = y - ch / 2;
+            }
+          } else {
+            if (y < st + h) {
+              st = y - h - pt;
+            } else if (y + 2 * h >= ch + st) {
+              st = y + 2 * h + pt - ch;
+            }
+          }
+          cp.doc.scrollTo(st);
+          cp.counter.firstChild.scrollTop = st;
+        }
+        if (options.matching) {
+          var m = getMatchingObject(cp.parser.matching);
+          if (m) {
+            var a, b, cur, bf = this.textBefore(), af = this.textAfter();
+            for (var s in m) {
+              var len = s.length, i = 0;
+              do {
+                a = len == i || bf.endsWith(s.substring(0, len - i));
+                b = af.startsWith(s.substring(len - i, len));
+              } while ((!a || !b) && ++i <= len);
+              if (a && b) {
+                matchingHelper(cp, s, m[s], line, column - len + i, column + i);
+                break;
+              }
+            }
+            if ((!a || !b) && cp.highlightOverlay) cp.highlightOverlay.remove();
+          }
+        }
+        cp.emit('caretMoved', line, column);
+      }
+    });
+    
+    function counterMousemove(e) {
+      var min, max, range
+      , b = sizes.bounds
+      , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
+      if (dl) {
+        counterSelection[1] = dl.info().index;
+        min = Math.min.apply(Math, counterSelection);
+        max = Math.max.apply(Math, counterSelection);
+        cp.doc.setSelectionRange(min, 0, max + 1, 0);
+        if (range = cp.doc.getSelectionRange()) {
+          var tmp = min === counterSelection[0] ? range.end : range.start;
+          cp.caret.position(tmp.line, tmp.column);
+        }
+      }
+    }
+    function counterMouseup(e) {
+      this.removeEventListener('mousemove', counterMousemove);
+      this.removeEventListener('mouseup', counterMouseup);
+      
+      if (counterSelection.length === 1) {
+        var range, min = counterSelection[0];
+        cp.doc.setSelectionRange(min, 0, min + 1, 0);
+        if (range = cp.doc.getSelectionRange()) cp.caret.position(range.end.line, range.end.column);
+      }
+      counterSelection.length = 0;
+      isMouseDown = false;
+    }
+    cp.counter.delegate('li', 'mousedown', function(e) {
+      var b = sizes.bounds = sizes.bounds || wrapper.bounds()
+      , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
+      if (dl) {
+        counterSelection[0] = dl.info().index;
+        cp.input.focus();
+        isMouseDown = true;
+        window.addEventListener('mousemove', counterMousemove, false);
+        window.addEventListener('mouseup', counterMouseup, false);
+      }
+    });
+  }
+  function checkOptions(cp, options) {
+    var addons = options.addons;
+    cp.setTheme(options.theme);
+    cp.setMode(options.mode);
+    if (options.fontFamily !== CodePrinter.defaults.fontFamily) cp.container.style.fontFamily = options.fontFamily;
+    options.lineNumbers ? cp.openCounter() : cp.closeCounter();
+    options.drawIndentGuides || cp.mainNode.addClass('cp-without-indentation');
+    options.legacyScrollbars && cp.wrapper.addClass('cp-legacy-scrollbars');
+    options.tabWidth && cp.setTabWidth(options.tabWidth);
+    options.lineWrapping && cp.setLineWrapping(true);
+    options.width !== 'auto' && cp.setWidth(options.width);
+    options.height !== 300 && cp.setHeight(options.height);
+    options.fontSize !== 12 && cp.setFontSize(options.fontSize);
+    if (addons) {
+      if (addons instanceof Array) {
+        for (var i = 0; i < addons.length; i++) {
+          cp.initAddon(addons[i]);
+        }
+      } else {
+        for (var k in addons) {
+          cp.initAddon(k, addons[k]);
+        }
+      }
+    }
+    options.shortcuts && cp.initAddon('shortcuts');
+    options.autoComplete && cp.initAddon('hints');
   }
   function create(parent, tag, className) {
     var d = document.createElement(tag);
@@ -3764,6 +3749,10 @@
   function getMatchingObject(m) {
     if ('string' === typeof m) return CodePrinter.matching[m];
     return m;
+  }
+  function valueOf(source) {
+    if (source && source.nodeType) return source.value || '';
+    return 'string' == typeof source ? source : '';
   }
   function cpx(style) {
     return style.replace(/\S+/g, 'cpx-$&');

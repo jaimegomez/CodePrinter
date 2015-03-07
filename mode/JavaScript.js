@@ -31,7 +31,7 @@ CodePrinter.defineMode('JavaScript', function() {
       }
     }
     if (!ch && esc) state.next = string;
-    state.next = null;
+    else state.next = null;
     if (!ch) return 'invalid';
     state.quote = null;
     return 'string';

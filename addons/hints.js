@@ -254,11 +254,11 @@ CodePrinter.defineAddon('hints', function() {
       var x = cp.caret.offsetX() - 4
       , y = cp.caret.totalOffsetY(true) + cp.sizes.paddingTop + 2;
       
-      if (y + container.clientHeight > cp.wrapper.scrollHeight) {
-        y = cp.caret.offsetY() - container.clientHeight - 2;
+      if (y + container.offsetHeight > cp.wrapper.offsetHeight) {
+        y = cp.caret.totalOffsetY() - container.offsetHeight - 2;
       }
-      if (x + container.clientWidth > cp.wrapper.scrollWidth) {
-        x = x - container.clientWidth;
+      if (x + container.offsetWidth > cp.wrapper.offsetWidth) {
+        x = x - container.offsetWidth;
       }
       
       container.style.top = y+'px';

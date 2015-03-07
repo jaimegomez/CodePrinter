@@ -60,9 +60,9 @@ CodePrinter.defineMode('C++', function() {
       }
     }
     if (!ch && esc) state.next = string;
-    state.next = null;
+    else state.next = null;
     if (!ch) return 'invalid';
-    state.quote = undefined;
+    state.quote = null;
     return 'string';
   }
   function escapedString(stream, state) {
