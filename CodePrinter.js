@@ -61,6 +61,7 @@
     fontFamily: 'Menlo, Monaco, Consolas, Courier, monospace',
     minFontSize: 6,
     maxFontSize: 60,
+    lineHeight: 1.2,
     caretHeight: 1,
     viewportMargin: 80,
     keyupInactivityTimeout: 1500,
@@ -2566,12 +2567,7 @@
       return r;
     }
     this.updateDefaultHeight = function() {
-      var pr = pre.cloneNode();
-      pr.setAttribute('style', 'position:absolute;font:normal normal ' + cp.options.fontSize + 'px ' + cp.options.fontFamily+';');
-      pr.innerHTML = 'CP';
-      document.documentElement.appendChild(pr);
-      defHeight = pr.offsetHeight;
-      document.documentElement.removeChild(pr);
+      defHeight = Math.round(cp.options.fontSize * cp.options.lineHeight);
       return this;
     }
     this.updateHeight = function() {
@@ -2627,7 +2623,7 @@
           var diff = height - dl.height;
           if (diff) {
             if (dl == view[0] && from != 0) scrollBy(-diff);
-            if (dl.counter) dl.counter.style.lineHeight = height + 'px';
+            if (dl.counter) dl.counter.style.minHeight = height + 'px';
             for (; dl; dl = dl.parent) dl.height += diff;
           }
         }
@@ -3799,7 +3795,7 @@
     dl.node = pre.cloneNode();
     dl.counter = li.cloneNode();
     dl.counter.appendChild(document.createTextNode(''));
-    dl.counter.style.lineHeight = dl.height + 'px';
+    dl.counter.style.minHeight = dl.height + 'px';
   }
   function touch(dl) {
     if (dl.node) {
@@ -3812,7 +3808,7 @@
     var co = c.counter;
     if (c.node) dl.node = deleteNode(c);
     if (co) dl.counter = deleteCounter(c);
-    if (c.height != dl.height) co.style.lineHeight = dl.height + 'px';
+    if (c.height != dl.height) co.style.minHeight = dl.height + 'px';
   }
   function deleteNode(dl) {
     var node = dl.node;

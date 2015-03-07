@@ -148,6 +148,9 @@
 .codeprinter .cp-screen pre {
   margin: 0;
   padding: 0 10px;
+  font: inherit;
+  word-wrap: inherit;
+  white-space: inherit;
   position: relative;
 }
 .codeprinter .cp-code,
@@ -194,10 +197,10 @@
   position: relative;
 }
 .codeprinter .cp-counter li {
+  display: block;
   margin: 0;
   padding: 0 6px;
   text-align: right;
-  line-height: 13px;
   text-rendering: auto;
 }
 .codeprinter .cp-counter li::before {
@@ -319,6 +322,7 @@
   z-index: 5;
 }
 .codeprinter .cp-hint-overlay {
+  pointer-events: none;
   z-index: 20;
 }
 .codeprinter .cp-hint-container {
@@ -380,15 +384,12 @@
   word-wrap: normal;
   white-space: pre;
 }
-.codeprinter .cp-screen pre,
-.codeprinter .cp-counter li,
+.codeprinter .cp-screen span,
 .codeprinter .cp-overlay span {
   font-family: inherit;
   font-size: inherit;
-  word-break: inherit;
-  word-spacing: inherit;
   word-wrap: inherit;
-  white-space: inherit;
+  line-height: 1.2;
 }
 .codeprinter .cp-marked {
   background: #f0f0f0;
