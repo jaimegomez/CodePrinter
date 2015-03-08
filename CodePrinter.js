@@ -62,7 +62,7 @@
     fontFamily: 'Menlo, Monaco, Consolas, Courier, monospace',
     minFontSize: 6,
     maxFontSize: 60,
-    lineHeight: 1.2,
+    lineHeight: 'normal',
     caretHeight: 1,
     viewportMargin: 80,
     keyupInactivityTimeout: 1500,
@@ -2150,7 +2150,12 @@
       return r;
     }
     this.updateDefaultHeight = function() {
-      defHeight = Math.round(cp.options.fontSize * cp.options.lineHeight);
+      var pr = pre.cloneNode();
+      pr.setAttribute('style', 'position:absolute;font:normal normal '+cp.options.fontSize+'px/'+cp.options.lineHeight+' '+cp.options.fontFamily+';');
+      pr.appendChild(document.createTextNode('CP'));
+      document.documentElement.appendChild(pr);
+      defHeight = pr.offsetHeight;
+      document.documentElement.removeChild(pr);
       return this;
     }
     this.updateHeight = function() {
@@ -2206,7 +2211,7 @@
           var diff = height - dl.height;
           if (diff) {
             if (dl == view[0] && from != 0) scrollBy(-diff);
-            if (dl.counter) dl.counter.style.minHeight = height + 'px';
+            if (dl.counter) dl.counter.style.height = height + 'px';
             for (; dl; dl = dl.parent) dl.height += diff;
           }
         }
@@ -3784,7 +3789,7 @@
     dl.node = pre.cloneNode();
     dl.counter = li.cloneNode();
     dl.counter.appendChild(document.createTextNode(''));
-    dl.counter.style.minHeight = dl.height + 'px';
+    dl.counter.style.height = dl.height + 'px';
   }
   function touch(dl) {
     if (dl.node) {
@@ -3797,7 +3802,7 @@
     var co = c.counter;
     if (c.node) dl.node = deleteNode(c);
     if (co) dl.counter = deleteCounter(c);
-    if (c.height != dl.height) co.style.minHeight = dl.height + 'px';
+    if (c.height != dl.height) co.style.height = dl.height + 'px';
   }
   function deleteNode(dl) {
     var node = dl.node;

@@ -140,6 +140,7 @@
   border-width: 0;
   color: inherit;
   overflow: visible;
+  white-space: pre;
   position: absolute;
   -moz-tab-size: 2;
   -o-tab-size: 2;
@@ -151,6 +152,7 @@
   font: inherit;
   word-wrap: inherit;
   white-space: inherit;
+  line-height: normal;
   position: relative;
 }
 .codeprinter .cp-code,
@@ -280,6 +282,7 @@
 }
 .codeprinter .cp-overlay {
   background: none !important;
+  white-space: pre;
   z-index: 7;
   position: absolute;
   top: 0;
@@ -375,21 +378,11 @@
   -o-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
   animation: cp-animation-blink 500ms ease-in-out infinite alternate;
 }
-.codeprinter .cp-screen,
-.codeprinter .cp-input,
-.codeprinter .cp-counter,
-.codeprinter .cp-overlay {
-  word-break: normal;
-  word-spacing: 0px;
-  word-wrap: normal;
-  white-space: pre;
-}
 .codeprinter .cp-screen span,
 .codeprinter .cp-overlay span {
   font-family: inherit;
   font-size: inherit;
   word-wrap: inherit;
-  line-height: 1.2;
 }
 .codeprinter .cp-marked {
   background: #f0f0f0;
