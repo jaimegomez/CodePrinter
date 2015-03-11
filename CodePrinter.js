@@ -1443,10 +1443,10 @@
         }
       } while (counter != 0 && ++i < 100);
       
-      if (i < 100) cp.createHighlightOverlay(
-        [line, start, key],
-        [l, c - fix, opt.value]
-      );
+      if (i < 100) {
+        cp.createHighlightOverlay([line, start, key], [l, c - fix, opt.value]);
+        return true;
+      }
     }
   }
   
@@ -3659,18 +3659,18 @@
           var m = getMatchingObject(cp.parser.matching);
           if (m) {
             var a, b, cur, bf = this.textBefore(), af = this.textAfter();
-            for (var s in m) {
+            outer: for (var s in m) {
               var len = s.length, i = 0;
               do {
                 a = len == i || bf.endsWith(s.substring(0, len - i));
-                b = af.startsWith(s.substring(len - i, len));
-              } while ((!a || !b) && ++i <= len);
-              if (a && b) {
-                matchingHelper(cp, s, m[s], line, column - len + i, column + i);
-                break;
-              }
+                b = i == 0 || af.startsWith(s.substring(len - i, len));
+                if (a && b) {
+                  a = b = matchingHelper(cp, s, m[s], line, column - len + i, column + i);
+                  if (a) break outer;
+                }
+              } while (++i <= len);
             }
-            if ((!a || !b) && cp.highlightOverlay) cp.highlightOverlay.remove();
+            if (!(a && b) && cp.highlightOverlay) cp.highlightOverlay.remove();
           }
         }
         cp.emit('caretMoved', line, column);
