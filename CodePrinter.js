@@ -19,7 +19,8 @@
   , div, li, pre, span
   , BRANCH_OPTIMAL_SIZE = 50
   , BRANCH_HALF_SIZE = 25
-  , wheelUnit = $.browser.webkit ? -1/3 : $.browser.firefox ? 5 : $.browser.ie ? -0.53 : null
+  , macosx = $.browser.macosx, webkit = $.browser.webkit
+  , wheelUnit = webkit ? -1/3 : $.browser.firefox ? 5 : $.browser.ie ? -0.53 : null
   , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/;
   
   $.require.registerNamespace('CodePrinter', 'mode/');
@@ -205,7 +206,7 @@
           , stream = new Stream(ind.rest, { indentation: ind.indent });
           tmp.cache = parse(this, parser, stream, state);
           
-          if (tmp.node) updateLine(tmp, ind, this.tabString, tmp.cache);
+          if (tmp.node) updateLine(this, tmp, ind, this.tabString, tmp.cache);
           if (stream.definition) tmp.definition = stream.definition;
           else if (tmp.definition) tmp.definition = undefined;
           tmp.state = state;
@@ -1299,11 +1300,10 @@
     }
     node.appendChild(cspan(className, content));
   }
-  function updateLine(dl, ind, tabString, cache) {
+  function updateLine(cp, dl, ind, tabString, cache) {
     if (dl.text.length == 0) {
-      var child = dl.node.firstChild;
-      while (child) child = rm(dl.node, child);
-      dl.node.appendChild(cspan(null, zws));
+      var child = maybeSpanUpdate(dl.node, dl.node.firstChild, '', zws);
+      while (child) child = rm(cp.doc, dl.node, child);
       return;
     }
     var i = 0, j = 0, l = cache.length, node = dl.node, text = ind.rest, child, tmp;
@@ -1314,11 +1314,12 @@
       child = maybeSpanUpdate(node, child, cpx(tmp.style), text.substring(tmp.from, j = tmp.to));
     }
     if (j < text.length) child = maybeSpanUpdate(node, child, '', text.substr(j));
-    while (child) child = rm(node, child);
+    while (child) child = rm(cp.doc, node, child);
   }
-  function rm(parent, child) {
+  function rm(doc, parent, child) {
     var next = child.nextSibling;
-    parent.removeChild(child);
+    if (doc.wheelTarget == child) child.style.display = 'none';
+    else parent.removeChild(child);
     return next;
   }
   function updateSpan(span, className, content) {
@@ -1387,7 +1388,7 @@
   }
   function restoreFromCache(cp, dl) {
     var ind = parseIndentation(dl.text, cp.options.tabWidth), stream = new Stream(ind.rest, { indentation: ind.indent });
-    updateLine(dl, ind, cp.tabString, dl.cache);
+    updateLine(cp, dl, ind, cp.tabString, dl.cache);
   }
   function cspan(style, content) {
     var node = span.cloneNode();
@@ -3466,6 +3467,11 @@
           T3 = clearTimeout(T3) || setTimeout(function() {
             isScrolling = false;
             wrapper.removeClass('scrolling');
+            var wt = cp.doc.wheelTarget;
+            if (wt) {
+              if (wt.style.display == 'none') wt.parentNode.removeChild(wt);
+              cp.doc.wheelTarget = null;
+            }
             cp.emit('scrollend');
           }, 200);
         }
@@ -3521,7 +3527,7 @@
       keydown: function(e) {
         var kc, code = e.getCharCode()
         , ch = String.fromCharCode(code)
-        , iscmd = $.browser.macosx ? e.metaKey : e.ctrlKey
+        , iscmd = macosx ? e.metaKey : e.ctrlKey
         , kc = e.getKeyCombination(1, ' ');
         
         cp.caret.deactivate().show();
@@ -3772,6 +3778,7 @@
     return { x: x, y: y };
   }
   function wheel(doc, node, e, speed, x, y) {
+    if (webkit && macosx) doc.wheelTarget = e.target;
     if (y) doc.scrollTo(node.scrollTop + speed * y);
     if (x) { node._lockedScrolling = true; node.scrollLeft += speed * x; }
     return e.cancel(true);
