@@ -65,6 +65,7 @@
     maxFontSize: 60,
     lineHeight: 'normal',
     caretHeight: 1,
+    caretBlinkRate: 500,
     viewportMargin: 80,
     keyupInactivityTimeout: 1500,
     scrollSpeed: 1,
@@ -2626,16 +2627,10 @@
       this.drawer = styles[styles[style] ? style : 'vertical'];
       this.refresh();
     }
-    this.activate = function() {
-      if (!this.isDisabled) {
-        if (cp.options.blinkCaret) this.node.addClass('cp-animation-blink');
-        this.isActive = true;
-      }
-      return this;
-    }
     this.focus = function() {
       if (!this.isVisible) {
-        this.show().activate();
+        this.isVisible = true;
+        startBlinking(this, cp.options);
       } else if (currentDL && !cp.doc.isLineVisible(currentDL)) {
         cp.doc.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
       }
@@ -2643,7 +2638,9 @@
       return this;
     }
     this.blur = function() {
-      this.deactivate().hide();
+      clearInterval(this.interval);
+      this.isVisible = false;
+      this.node.style.opacity = '0';
       cp.unselect();
       this.emit('blur');
       return this;
@@ -2653,30 +2650,19 @@
     isActive: false,
     isVisible: false,
     isDisabled: false,
-    show: function() {
-      if (!this.isDisabled) {
-        this.node.style.display = '';
-        this.isVisible = true;
-      }
-      return this;
+    activate: function() {
+      this.isActive = true;
     },
-    hide: function() {
-      this.node.style.display = 'none';
-      this.isVisible = false;
-      return this;
+    deactivate: function() {
+      this.isActive = false;
+      this.node.style.opacity = '1';
     },
     enable: function() {
       this.isDisabled = false;
-      this.show().activate();
     },
     disable: function() {
       this.isDisabled = true;
-      this.deactivate().hide();
-    },
-    deactivate: function() {
-      this.node.removeClass('cp-animation-blink');
-      this.isActive = false;
-      return this;
+      this.blur();
     },
     move: function(x, y) {
       x && this.moveX(x);
@@ -3393,7 +3379,7 @@
           });
         } else {
           cp.input.value = '';
-          cp.caret.deactivate().show();
+          cp.caret.deactivate();
           if (y > ry) cp.caret.position(l, -1);
           else if (y < 0) cp.caret.position(l, 0);
           
@@ -3530,7 +3516,7 @@
         , iscmd = macosx ? e.metaKey : e.ctrlKey
         , kc = e.getKeyCombination(1, ' ');
         
-        cp.caret.deactivate().show();
+        cp.caret.deactivate();
         allowKeyup = true;
         
         if (iscmd) {
@@ -3782,6 +3768,19 @@
     if (y) doc.scrollTo(node.scrollTop + speed * y);
     if (x) { node._lockedScrolling = true; node.scrollLeft += speed * x; }
     return e.cancel(true);
+  }
+  function startBlinking(caret, options) {
+    clearInterval(caret.interval);
+    if (options.blinkCaret) {
+      var v = true;
+      if (options.caretBlinkRate > 0) {
+        caret.node.style.opacity = '1';
+        caret.interval = setInterval(function() {
+          caret.node.style.opacity = !caret.isActive || (v = !v) ? '1' : '0';
+        }, options.caretBlinkRate);
+      } else if (options.caretBlinkRate < 0)
+        caret.node.style.opacity = '0';
+    }
   }
   function getLineClasses(line) {
     var isact = line.node && line.node.hasClass(activeClassName);

@@ -353,9 +353,14 @@
   color: #fafafa;
 }
 .codeprinter .cp-caret {
+  -webkit-transition: opacity 0.3s ease-in-out;
+  -moz-transition: opacity 0.3s ease-in-out;
+  -ms-transition: opacity 0.3s ease-in-out;
+  -o-transition: opacity 0.3s ease-in-out;
+  transition: opacity 0.3s ease-in-out;
   width: 1px;
   height: 13px;
-  background: #000000;
+  background: #000;
   position: absolute;
   top: -50px;
   left: -50px;
@@ -370,13 +375,6 @@
   -o-transition: all 0 ease-in-out;
   transition: all 0 ease-in-out;
   z-index: 6 !important;
-}
-.codeprinter .cp-animation-blink {
-  -webkit-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
-  -moz-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
-  -ms-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
-  -o-animation: cp-animation-blink 500ms ease-in-out infinite alternate;
-  animation: cp-animation-blink 500ms ease-in-out infinite alternate;
 }
 .codeprinter .cp-screen span,
 .codeprinter .cp-overlay span {
@@ -581,44 +579,4 @@
   background: #aaeeff;
   color: #444;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
-}
-@-webkit-keyframes cp-animation-blink {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-@-moz-keyframes cp-animation-blink {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-@-ms-keyframes cp-animation-blink {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-@-o-keyframes cp-animation-blink {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-@keyframes cp-animation-blink {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
 }
