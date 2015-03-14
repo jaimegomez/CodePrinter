@@ -482,7 +482,7 @@
       var range = this.doc.getSelectionRange()
       , dl = this.doc.get(0)
       , parser = this.parser
-      , i = 0, end = null, s;
+      , i = 0, end = null, s, oi;
       
       if (range) {
         dl = this.doc.get(Math.max(0, range.start.line - 1));
@@ -494,13 +494,13 @@
       for (;;) {
         s = this.getStateAt(dl, dl.text.length);
         parser = s.state && s.state.parser || this.parser;
-        i = s.stream.indentation + parser.indent(s.stream, s.state);
+        i = parser.indent(s.stream, s.state);
         dl = dl.next();
         if (dl != end) {
           s = this.getStateAt(dl, 0);
           parser = s.state && s.state.parser || this.parser;
-          s.stream.indentation = i;
-          i = parser.indent(s.stream, s.state);
+          oi = s.stream.indentation; s.stream.indentation = i;
+          i = parser.indent(s.stream, s.state, oi);
           this.setIndentAtLine(dl, i);
         } else {
           break;
@@ -1406,10 +1406,10 @@
     var dl = cp.caret.dl(), prev = dl.prev()
     , s = prev && cp.getStateAt(prev, prev.text.length);
     if (s) {
-      var i = parser.indent(s.stream, s.state);
+      var i = parser.indent(s.stream, s.state), oi;
       s = cp.getStateAt(dl, offset | 0);
-      s.stream.indentation = i;
-      i = parser.indent(s.stream, s.state);
+      oi = s.stream.indentation; s.stream.indentation = i;
+      i = parser.indent(s.stream, s.state, oi);
       cp.setIndentAtLine(dl, i);
     }
   }
