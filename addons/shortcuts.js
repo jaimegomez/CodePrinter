@@ -62,6 +62,8 @@ CodePrinter.defineAddon('shortcuts', function() {
   }
   
   return function(cp, options) {
-    cp.keyMap.extend(shortcuts);
+    for (var k in shortcuts) {
+      cp.keyMap[k] = shortcuts[k];
+    }
   }
 });

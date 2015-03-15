@@ -20,8 +20,8 @@ CodePrinter.defineAddon('hints', function() {
     container.className = 'cp-hint-container';
     ov.node.appendChild(container);
     
-    options.maxWidth != 300 && container.css('maxWidth', options.maxWidth);
-    options.maxHeight != 100 && container.css('maxHeight', options.maxHeight);
+    if (options.maxWidth != 300) container.style.maxWidth = options.maxWidth + 'px';
+    if (options.maxHeight != 100) container.style.maxHeight = options.maxHeight + 'px';
     
     function getWordRgx() {
       return cp.parser.autoCompleteWord || options.word || defaults.word;
@@ -114,12 +114,8 @@ CodePrinter.defineAddon('hints', function() {
       }
       return curWord ? list.sort(function(a, b) { return seen[b] - seen[a]; }) : list;
     }
-    this.show = function(autocomplete, byWord, except) {
+    this.show = function(autocomplete, byWord) {
       var list = this.search(byWord), ul;
-      
-      if (except instanceof Array) {
-        list.diff(except);
-      }
       
       container.innerHTML = '<ul></ul>';
       ul = container.firstChild;
@@ -175,28 +171,28 @@ CodePrinter.defineAddon('hints', function() {
     }
     
     cp.on({
-      '@Up': function(e) {
+      '[Up]': function(e) {
         if (visible) {
           var last = container.children[0].lastChild;
           setActive(active && active.prev() || last, true);
           return e.cancel();
         }
       },
-      '@Down': function(e) {
+      '[Down]': function(e) {
         if (visible) {
           var first = container.children[0].firstChild;
           setActive(active && active.next() || first, true);
           return e.cancel();
         }
       },
-      '@Enter': function(e) {
+      '[Enter]': function(e) {
         if (visible && active) {
           that.choose(active.innerHTML);
           that.hide();
           return e.cancel();
         }
       },
-      '@Esc': function(e) {
+      '[Esc]': function(e) {
         if (visible) {
           that.hide();
           return e.cancel();
@@ -234,20 +230,23 @@ CodePrinter.defineAddon('hints', function() {
     });
     
     var stopprop = function(e) { e.stopPropagation(); };
-    ov.node.on({ wheel: stopprop, mousewheel: stopprop, scroll: stopprop });
+    ov.node.addEventListener('wheel', stopprop);
+    ov.node.addEventListener('mousewheel', stopprop);
+    ov.node.addEventListener('DOMMouseScroll', stopprop);
     
-    container.delegate('li', {
-      mousedown: function(e) {
-        that.choose(this.innerHTML);
+    container.addEventListener('mousedown', function(e) {
+      if (e.target.tagName == 'LI') {
+        that.choose(e.target.innerHTML);
         that.hide();
-        return e.cancel();
-      },
-      mouseover: function(e) {
-        setActive(this);
-      },
-      mouseout: function(e) {
-        setActive(null);
+        e.stopPropagation();
+        return false;
       }
+    });
+    container.addEventListener('mouseover', function(e) {
+      if (e.target.tagName == 'LI') setActive(e.target);
+    });
+    container.addEventListener('mouseout', function(e) {
+      if (e.target.tagName == 'LI') setActive(null);
     });
     
     function refreshPosition() {

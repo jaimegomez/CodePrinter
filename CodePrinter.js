@@ -11,28 +11,30 @@
 
 "use strict";
 
-(window.define || function() { arguments[2]($ || env); })('CodePrinter', ['env'], function($) {
-  var CodePrinter, Data, Branch, Line
-  , Caret, Document, Stream, ReadStream
+var CodePrinter = (function() {
+  var CodePrinter, EventEmitter, Data, Branch
+  , Line, Caret, Document, Stream, ReadStream
   , History, Selection, keyMap
   , commands, lineendings
   , div, li, pre, span
   , BRANCH_OPTIMAL_SIZE = 50
   , BRANCH_HALF_SIZE = 25
-  , macosx = $.browser.macosx, webkit = $.browser.webkit
-  , wheelUnit = webkit ? -1/3 : $.browser.firefox ? 5 : $.browser.ie ? -0.53 : null
-  , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/;
-  
-  $.require.registerNamespace('CodePrinter', 'mode/');
-  $.require.registerNamespace('CodePrinter/addons', 'addons/');
+  , macosx = /Mac/.test(navigator.platform)
+  , webkit = /WebKit\//.test(navigator.userAgent)
+  , gecko = /gecko\/\d/i.test(navigator.userAgent)
+  , ie = /(MSIE \d|Trident\/)/.test(navigator.userAgent)
+  , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : null
+  , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
+  , modes = {}, addons = {}, instances = [], keyCodes, async, asyncQueue = [];
   
   CodePrinter = function(source, options) {
     if (arguments.length === 1 && source == '[object Object]') {
       options = source;
       source = null;
     }
-    options = this.options = $.extend({}, CodePrinter.defaults, options);
+    options = this.options = extend({}, CodePrinter.defaults, options);
     buildDOM(this);
+    EventEmitter.call(this);
     
     this.parser = new CodePrinter.Mode();
     this.caret = new Caret(this);
@@ -43,7 +45,7 @@
     attachEvents(this);
     
     if (source && source.parentNode) source.parentNode.insertBefore(this.mainNode, source);
-    CodePrinter.instances.push(this);
+    instances.push(this);
     return this.print();
   }
   
@@ -102,35 +104,70 @@
   pre = document.createElement('pre');
   span = document.createElement('span');
   
-  CodePrinter.prototype = {
-    print: function(mode, source) {
-      mode && this.setMode(mode);
-      mode = this.options.mode;
-      source && this.doc.init(source);
-      
-      function callback(ModeObject) {
-        var b = !this.parser;
-        this.defineParser(ModeObject);
-        this.doc.fill(); this.doc.updateView();
-        runBackgroundParser(this, ModeObject, true);
-        if (this.options.autoFocus) {
-          this.input.focus();
-          this.caret.position(0, 0);
+  EventEmitter = function() {
+    var events = {};
+    this.emit = function(event) {
+      var args = arguments.length > 1 ? Array.prototype.slice.call(arguments, 1) : null, ev;
+      if (ev = events[event]) for (var i = ev.length; i-- && ev[i];) ev[i].apply(this, args);
+      return this;
+    }
+    this.on = function(event, callback) {
+      var args = parseEventArguments(event, callback);
+      for (var k in args) if (events[k]) events[k].unshift(args[k]); else events[k] = [args[k]];
+      return this;
+    }
+    this.once = function(event, callback) {
+      var fn;
+      return this.on(event, fn = function() {
+        callback.apply(this, arguments);
+        this.off(event, fn);
+      });
+    }
+    this.off = function(event, callback) {
+      var args = parseEventArguments(event, callback);
+      for (var k in args) {
+        if (events[k]) {
+          if (args[k]) {
+            var i = events[k].lastIndexOf(args[k]);
+            if (i >= 0) events[k].splice(i, 1);
+          }
+          if (!args[k] || events[k].length == 0) events[k] = null;
         }
-        if (b) {
-          this.sizes.paddingTop = parseInt(this.code.getStyle('padding-top'), 10) || 5;
-          $.async(this.emit.bind(this, 'ready'));
-        }
-      }
-      
-      if (this.parser && this.parser.name === mode) {
-        callback.call(this, this.parser);
-      } else if (mode == 'plaintext' && !this.parser) {
-        callback.call(this, new CodePrinter.Mode());
-      } else {
-        CodePrinter.requireMode(mode, callback, this);
       }
       return this;
+    }
+  }
+  EventEmitter.call(CodePrinter);
+  
+  CodePrinter.prototype = {
+    print: function(mode, source) {
+      var cp = this;
+      mode && cp.setMode(mode);
+      mode = cp.options.mode;
+      source && cp.doc.init(source);
+      
+      function callback(ModeObject) {
+        var b = !cp.parser;
+        cp.defineParser(ModeObject);
+        cp.doc.fill(); cp.doc.updateView();
+        runBackgroundParser(cp, ModeObject, true);
+        if (cp.options.autoFocus) {
+          cp.input.focus();
+          cp.caret.position(0, 0);
+        }
+        if (b) {
+          cp.sizes.paddingTop = parseInt(cp.code.getStyle('padding-top'), 10) || 5;
+          async(function() { cp.emit('ready'); });
+        }
+      }
+      if (cp.parser && cp.parser.name === mode) {
+        callback(cp.parser);
+      } else if (mode == 'plaintext' && !cp.parser) {
+        callback(new CodePrinter.Mode());
+      } else {
+        CodePrinter.requireMode(mode, callback);
+      }
+      return cp;
     },
     createDocument: function() {
       return new Document(this);
@@ -165,7 +202,7 @@
         }
       }
       
-      $.async(fn = function() {
+      async(fn = function() {
         var j = 0, r;
         while (dl && j++ < queue) {
           r = callback.call(that, dl, index++, offset);
@@ -176,7 +213,7 @@
           onend instanceof Function && onend.call(that, index, dl);
           return false;
         }
-        $.async(fn);
+        async(fn);
       });
     },
     defineParser: function(parser) {
@@ -245,7 +282,7 @@
       return s && s.parser;
     },
     focus: function() {
-      $.async(this.input.focus.bind(this.input));
+      async(this.input.focus.bind(this.input));
     },
     requireStyle: function(style, callback) {
       $.include($.pathJoin(this.options.path, 'theme', style+'.css'), callback);
@@ -260,7 +297,7 @@
     setTabWidth: function(tw) {
       if ('number' == typeof tw && tw >= 0) {
         this.options.tabWidth = tw;
-        this.tabString = ' '.repeat(tw);
+        this.tabString = repeat(' ', tw);
         this.doc && this.doc.initialized && runBackgroundParser(this, this.parser);
       }
       return this;
@@ -272,20 +309,22 @@
     },
     setLineWrapping: function(lw) {
       this.options.lineWrapping = !!lw;
-      lw ? this.mainNode.addClass('cp-line-wrapping') : this.mainNode.removeClass('cp-line-wrapping');
+      lw ? addClass(this.mainNode, 'cp-line-wrapping') : removeClass(this.mainNode, 'cp-line-wrapping');
       this.doc.updateView();
     },
     setTheme: function(name, dontrequire) {
       typeof name === 'string' && name !== 'default' ? dontrequire != true && this.requireStyle(name) : name = 'default';
       if (!this.options.disableThemeClassName) {
-        this.mainNode.removeClass('cps-'+this.options.theme.replace(' ', '-').toLowerCase()).addClass('cps-'+name.replace(' ', '-').toLowerCase());
+        removeClass(this.mainNode, 'cps-'+this.options.theme.replace(' ', '-').toLowerCase());
+        addClass(this.mainNode, 'cps-'+name.replace(' ', '-').toLowerCase());
       }
       this.options.theme = name;
       return this;
     },
     setMode: function(mode) {
       mode = CodePrinter.aliases[mode] || mode || 'plaintext';
-      this.mainNode.removeClass('cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase()).addClass('cp-'+mode.replace(/\+/g, 'p').toLowerCase());
+      removeClass(this.mainNode, 'cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase());
+      addClass(this.mainNode, 'cp-'+mode.replace(/\+/g, 'p').toLowerCase());
       this.options.mode = mode;
       return this;
     },
@@ -326,21 +365,21 @@
     setHeight: function(size) {
       if (size == 'auto') {
         this.body.style.removeProperty('height');
-        this.mainNode.addClass('cp-auto-height');
+        addClass(this.mainNode, 'cp-auto-height');
       } else {
         this.body.style.height = (this.options.height = parseInt(size, 10)) + 'px';
-        this.mainNode.removeClass('cp-auto-height');
+        removeClass(this.mainNode, 'cp-auto-height');
       }
       this.emit('heightChanged');
       return this;
     },
     showIndentation: function() {
       this.options.drawIndentGuides = true;
-      this.mainNode.removeClass('cp-without-indentation');
+      removeClass(this.mainNode, 'cp-without-indentation');
     },
     hideIndentation: function() {
       this.options.drawIndentGuides = false;
-      this.mainNode.addClass('cp-without-indentation');
+      addClass(this.mainNode, 'cp-without-indentation');
     },
     getLineEnding: function() {
       return lineendings[this.options.lineEndings] || this.options.lineEndings || lineendings['LF'];
@@ -404,7 +443,7 @@
         diff = indent - old;
         if (diff) {
           var tab = tabString(this);
-          dl.setText(tab.repeat(indent) + dl.text.replace(/^\s*/g, ''));
+          dl.setText(repeat(tab, indent) + dl.text.replace(/^\s*/g, ''));
           var sp = RegExp.lastMatch.length;
           this.parse(dl);
           if (this.caret.line() == line) {
@@ -412,7 +451,7 @@
           } else {
             this.caret.refresh();
           }
-          this.emit('changed', { line: line, column: 0, text: tab.repeat(Math.abs(diff)), added: diff > 0 });
+          this.emit('changed', { line: line, column: 0, text: repeat(tab, Math.abs(diff)), added: diff > 0 });
         }
       }
       return indent;
@@ -452,7 +491,7 @@
           } else if (dl.text[0] == ' ') {
             while (dl.text[i] == ' ' && i < this.options.tabWidth) ++i;
             dl.text = dl.text.substr(i);
-            change = ' '.repeat(i);
+            change = repeat(' ', i);
           }
           if (change) {
             this.parse(dl);
@@ -521,7 +560,7 @@
         }
         for (var line = end; line >= start; line--) {
           var text = this.getTextAtLine(line)
-          , i = text.search(new RegExp('^(\\s*)'+comment.escape()))
+          , i = text.search(new RegExp('^(\\s*)'+escape(comment)))
           , s = RegExp.$1.length;
           
           if (insert !== false && i === -1) {
@@ -564,7 +603,7 @@
             var start = range.start, end = range.end
             , sel = this.doc.getSelection();
             
-            if (new RegExp('^'+cs.escape()).test(sel) && new RegExp(ce.escape()+'$').test(sel)) {
+            if (new RegExp('^'+escape(cs)).test(sel) && new RegExp(escape(ce)+'$').test(sel)) {
               this.erase(ce, end.line, end.column);
               this.erase(cs, start.line, start.column + ce.length);
               if (l === start.line) this.caret.moveX(-cs.length);
@@ -934,7 +973,7 @@
         var dl = this.doc.get(arguments[i][0]), pos;
         if (dl) {
           pos = this.doc.measureRect(dl, arguments[i][1], arguments[i][1] + arguments[i][2].length);
-          var sp = span.cloneNode().addClass('cp-highlight');
+          var sp = addClass(span.cloneNode(), 'cp-highlight');
           sp.setAttribute('style', 'top:'+(dl.getOffset()+pos.offsetY+this.sizes.paddingTop)+'px;left:'+pos.offsetX+'px;width:'+pos.width+'px;height:'+(pos.charHeight+1)+'px;');
           overlay.node.appendChild(sp);
         }
@@ -947,7 +986,7 @@
         var search = this.searches = this.searches || {};
         
         if (!search.value || find.toString() != search.value.toString() || !search.results || !search.length) {
-          var cp = this, j = 0, results = search.results = {}, cur, linkCallback, clearSelected, escape;
+          var cp = this, j = 0, results = search.results = {}, cur, linkCallback, clearSelected, esc;
           search.value = find;
           
           linkCallback = function(dl, line) {
@@ -983,18 +1022,18 @@
                 cp.searches.length = 0;
               }
             });
-            search.overlay.node.delegate('span', 'mousedown', function(e) {
-              var res = this._searchResult;
-              if (res) {
+            search.overlay.node.addEventListener('mousedown', function(e) {
+              var res = e.target._searchResult;
+              if (res && e.target.tagName == 'SPAN') {
                 clearSelected();
                 search.mute = true;
                 cp.input.focus();
                 cp.doc.setSelectionRange(res.line, res.startColumn, res.line, res.startColumn + res.length);
                 cp.caret.position(res.line, res.startColumn + res.length);
-                this.style.opacity = '0';
+                e.target.style.opacity = '0';
                 search.mute = false;
+                return eventCancel(e);
               }
-              return e.cancel();
             });
             this.on({
               link: function(dl, line) {
@@ -1017,12 +1056,12 @@
             });
           }
           
-          if ('string' === typeof find) escape = new RegExp(find.escape());
-          else escape = find;
+          if ('string' === typeof find) esc = new RegExp(escape(find));
+          else esc = find;
           
           this.intervalIterate(function(dl, line, offset) {
             if (this.searches.value !== find) return false;
-            j += searchOverLine.call(cp, escape, dl, line, offset);
+            j += searchOverLine.call(cp, esc, dl, line, offset);
           }, function(index, last) {
             var sl = this.wrapper.scrollLeft;
             search.overlay.node.innerHTML = '';
@@ -1072,7 +1111,7 @@
             , j = keys.indexOf(''+activeLine);
             newActive = results[keys[j+1 < keys.length ? j+1 : 0]][0];
           }
-          search.active.node.removeClass('active');
+          removeClass(search.active.node, 'active');
         } else {
           for (var k in results) {
             newActive = results[k][0];
@@ -1083,7 +1122,7 @@
           if (newActive.offset < this.wrapper.scrollHeight || newActive.offset > this.wrapper.scrollHeight + this.wrapper.offsetHeight) {
             this.doc.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
           }
-          (search.active = newActive).node.addClass('active');
+          addClass((search.active = newActive).node, 'active');
         } else {
           search.active = undefined;
         }
@@ -1106,7 +1145,7 @@
             , cur = results[keys[j > 0 ? j-1 : keys.length - 1]];
             newActive = cur[cur.length-1];
           }
-          search.active.node.removeClass('active');
+          removeClass(search.active.node, 'active');
         } else {
           for (var k in results) {
             newActive = results[k][0];
@@ -1115,7 +1154,7 @@
         }
         if (newActive) {
           this.doc.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
-          (search.active = newActive).node.addClass('active');
+          addClass((search.active = newActive).node, 'active');
         }
       }
     },
@@ -1189,7 +1228,7 @@
       }
     },
     getSnippets: function() {
-      return {}.extend(this.options.snippets, this.parser && this.parser.snippets);
+      return extend({}, this.options.snippets, this.parser && this.parser.snippets);
     },
     findSnippet: function(snippetName) {
       var s = this.options.snippets, b;
@@ -1212,7 +1251,7 @@
     },
     registerKey: function(arg) {
       if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
-      this.keyMap.extend(arg);
+      extend(this.keyMap, arg);
       return this;
     },
     unregisterKey: function() {
@@ -1242,7 +1281,8 @@
       if (!this.isFullscreen) {
         var main = this.mainNode, b = document.body;
         this._ = document.createTextNode('');
-        main.addClass('cp-fullscreen').style.margin = [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ');
+        addClass(main, 'cp-fullscreen');
+        main.style.margin = [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ');
         main.style.width = "";
         main.parentNode.insertBefore(this._, main);
         document.body.appendChild(main);
@@ -1255,7 +1295,7 @@
     exitFullscreen: function() {
       if (this.isFullscreen && this._) {
         var tmp = this._;
-        this.mainNode.removeClass('cp-fullscreen').style.removeProperty('margin');
+        removeClass(this.mainNode, 'cp-fullscreen').style.removeProperty('margin');
         tmp.parentNode.insertBefore(this.mainNode, tmp);
         tmp.parentNode.removeChild(tmp);
         delete this._;
@@ -1267,15 +1307,15 @@
       }
     },
     openCounter: function() {
-      this.counter.removeClass('hidden');
+      removeClass(this.counter, 'hidden');
     },
     closeCounter: function() {
-      this.counter.addClass('hidden');
+      addClass(this.counter, 'hidden');
     },
     destroy: function() {
-      var p = this.mainNode.parentNode, i = CodePrinter.instances.indexOf(this);
+      var p = this.mainNode.parentNode, i = instances.indexOf(this);
       if (p) p.removeChild(this.mainNode);
-      if (i >= 0) CodePrinter.instances.splice(i, 1);
+      if (i >= 0) instances.splice(i, 1);
     }
   }
   
@@ -1291,7 +1331,7 @@
   }
   function updateIndent(node, child, tabString, indent, spaces) {
     for (var i = 0; i < indent; i++) child = maybeSpanUpdate(node, child, 'cpx-tab', tabString);
-    if (spaces) child = maybeSpanUpdate(node, child, '', ' '.repeat(spaces));
+    if (spaces) child = maybeSpanUpdate(node, child, '', repeat(' ', spaces));
     return child;
   }
   function maybeSpanUpdate(node, child, className, content) {
@@ -1746,8 +1786,9 @@
     function remove(dl, index) {
       code.removeChild(deleteNode(dl));
       ol.removeChild(deleteCounter(dl));
-      view.remove(dl); --to;
-      cp.emit('unlink', dl, index);
+      var i = view.indexOf(dl);
+      if (i >= 0) view.splice(i, 1);
+      --to; cp.emit('unlink', dl, index);
     }
     function clear() {
       for (var i = 0; i < view.length; i++) {
@@ -2402,6 +2443,7 @@
     this.size = function() { return data.size; }
     this.height = function() { return data.height; }
     
+    EventEmitter.call(this);
     this.overlays = [];
     this.view = view = [];
     this.scrollTop = 0;
@@ -2435,6 +2477,7 @@
       }
     }
     
+    EventEmitter.call(this);
     this.node = create(cp.caretsContainer, 'div', 'cp-caret');
     
     function setPixelPosition(x, y) {
@@ -2447,7 +2490,7 @@
         stl != this.style && this.setStyle(stl);
         css = this.drawer(css);
         this.emit('beforeMove', x, y, currentDL, line, this.column());
-        this.node.css(css);
+        for (var k in css) this.node.style[k] = css[k] + 'px';
         this.emit('move', x, y, currentDL, line, this.column());
       }
       return this;
@@ -2672,14 +2715,14 @@
   }
   
   CodePrinter.Overlay = function(doc, className, removeOn) {
-    this.node = div.cloneNode().addClass('cp-overlay', className);
+    EventEmitter.call(this);
+    this.node = addClass(addClass(div.cloneNode(), 'cp-overlay'), className);
     this.doc = doc;
     if (removeOn instanceof Array) {
+      var emit = this.emit;
       this.emit = function(event) {
-        Object.prototype.emit.apply(this, arguments);
-        if (removeOn.indexOf(event) >= 0) {
-          this.remove();
-        }
+        emit.apply(this, arguments);
+        if (removeOn.indexOf(event) >= 0) this.remove();
       }
     }
     return this;
@@ -2703,15 +2746,11 @@
     }
   }
   
-  Stream = function(value, extend) {
+  Stream = function(value, ext) {
     this.pos = 0;
     this.value = value;
     this.length = value.length;
-    if (extend) {
-      for (var k in extend) {
-        this[k] = extend[k];
-      }
-    }
+    if (ext) for (var k in ext) this[k] = ext[k];
   }
   Stream.prototype = {
     next: function() { if (this.pos < this.value.length) return this.value.charAt(this.pos++); },
@@ -2796,7 +2835,7 @@
       this.pos = Math.max(0, this.pos - n);
     },
     markDefinition: function(defObject) {
-      this.definition = { pos: this.start }.extend(defObject);
+      this.definition = extend({ pos: this.start }, defObject);
     }
   }
   
@@ -2804,8 +2843,9 @@
     var rs = this, stack = []
     , dl = cp.doc.get(0)
     , le = cp.getLineEnding(), fn;
+    EventEmitter.call(this);
     
-    $.async(fn = function() {
+    async(fn = function() {
       var r = 25 + 50 * Math.random(), i = -1;
       
       while (dl && ++i < r) {
@@ -2815,7 +2855,7 @@
       if (i >= 0) {
         rs.emit('data', stack.join(le));
         stack = [''];
-        $.async(fn);
+        async(fn);
       } else {
         rs.emit('end');
       }
@@ -2837,20 +2877,13 @@
     }
   }
   
-  CodePrinter.Mode = function(extend) {
+  CodePrinter.Mode = function(ext) {
     this.name = 'plaintext';
     this.keyMap = {};
-    this.onLeftRemoval = {
-      '{': '}', '(': ')', '[': ']', '"': '"', "'": "'"
-    }
-    this.onRightRemoval = {
-      '}': '{', ')': '(', ']': '[', '"': '"', "'": "'"
-    }
-    this.selectionWrappers = {
-      '(': ['(', ')'], '[': ['[', ']'], '{': ['{', '}'], '"': '"', "'": "'"
-    }
-    this.extend(extend instanceof Function ? extend.call(this) : extend);
-    this.extension && this.expand(this.extension);
+    this.onLeftRemoval = { '{': '}', '(': ')', '[': ']', '"': '"', "'": "'" }
+    this.onRightRemoval = { '}': '{', ')': '(', ']': '[', '"': '"', "'": "'" }
+    this.selectionWrappers = { '(': ['(', ')'], '[': ['[', ']'], '{': ['{', '}'], '"': '"', "'": "'" }
+    extend(this, ext instanceof Function ? ext.call(this) : ext);
     this.init();
   }
   CodePrinter.Mode.prototype = {
@@ -2933,7 +2966,7 @@
             return false;
           }
         }
-        this.insertText(this.options.indentByTabs ? '\t' : ' '.repeat(this.options.tabWidth - this.caret.column() % this.options.tabWidth));
+        this.insertText(this.options.indentByTabs ? '\t' : repeat(' ', this.options.tabWidth - this.caret.column() % this.options.tabWidth));
       }
       return false;
     },
@@ -2950,21 +2983,21 @@
         , tmp, mv = 0;
         
         if (parser && parser.indent) {
-          var tab = this.options.indentByTabs ? '\t' : ' '.repeat(tw)
+          var tab = this.options.indentByTabs ? '\t' : repeat(' ', tw)
           , i = parser.indent(s.stream, s.state);
           
           if (i instanceof Array) {
             indent = i.shift();
             while (i.length) {
-              rest += '\n' + tab.repeat(indent + i.shift());
+              rest += '\n' + repeat(tab, indent + i.shift());
             }
           } else {
             indent = i >= 0 ? parseInt(i, 10) : indent;
           }
         }
         tmp = parseIndentation(af, tw);
-        tab = tab.repeat(indent);
-        if (tmp.indentText && tab.endsWith(tmp.indentText)) {
+        tab = repeat(tab, indent);
+        if (tmp.indentText && tab.indexOf(tmp.indentText, tab.length - tmp.indentText.length) >= 0) {
           tab = tab.slice(0, mv = -tmp.length);
         }
         this.insertText('\n' + tab + rest, -rest.length - mv);
@@ -3049,6 +3082,33 @@
       }
       c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
       this.doc.endSelection();
+    },
+    'Cmd A': function() {
+      if (!this.doc.isAllSelected()) {
+        this.doc.selectAll();
+        this.emit('selectAll');
+      }
+      return false;
+    },
+    'Cmd C': function() {
+      if (this.doc.issetSelection()) this.emit('copy');
+      return false;
+    },
+    'Cmd V': function() {
+      this.doc.removeSelection();
+      this.emit('paste');
+      return true;
+    },
+    'Cmd X': function() {
+      if (this.doc.issetSelection()) {
+        this.doc.removeSelection();
+        this.emit('cut');
+      }
+      return -1;
+    },
+    'Cmd Z': function(e) {
+      e.shiftKey ? this.doc.redo() : this.doc.undo();
+      return false;
     }
   }
   keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
@@ -3056,38 +3116,6 @@
   keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
   keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
   keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
-  
-  commands = {
-    'A': function(e) {
-      if (!this.doc.isAllSelected()) {
-        this.doc.selectAll();
-        this.emit('cmd.selectAll');
-      }
-      return false;
-    },
-    'C': function(e) {
-      if (this.doc.issetSelection()) {
-        this.emit('cmd.copy');
-      }
-      return -1;
-    },
-    'V': function(e) {
-      this.doc.removeSelection();
-      this.emit('cmd.paste');
-      return true;
-    },
-    'X': function() {
-      if (this.doc.issetSelection()) {
-        this.doc.removeSelection();
-        this.emit('cmd.cut');
-      }
-      return -1;
-    },
-    'Z': function(e) {
-      e.shiftKey ? this.doc.redo() : this.doc.undo();
-      return false;
-    }
-  }
   
   History = function(cp, doc, stackSize, delay) {
     var states, initialState
@@ -3145,7 +3173,8 @@
         if (!states[index]) {
           states[index] = [{ line: line, column: column, text: text, added: added }];
         } else {
-          var last = states[index].last(), b = false;
+          var last = states[index], b = false;
+          last = last[last.length-1];
           if (last.line == line && added == last.added) {
             if (b = (last.column + (added ? last.text.length : '') == column)) {
               last.text += text;
@@ -3185,6 +3214,7 @@
         --index;
       }
     }
+    EventEmitter.call(this);
     this.clear();
   }
   
@@ -3200,6 +3230,7 @@
       doc.showSelection();
       this.emit('done', this.start, this.end);
     }
+    EventEmitter.call(this);
     this.overlay = new CodePrinter.Overlay(doc, 'cp-selection-overlay');
     
     this.clear = function() {
@@ -3240,8 +3271,8 @@
   }
   
   lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
-  CodePrinter.aliases = { 'js': 'javascript', 'htm': 'html', 'less': 'css', 'h': 'c++', 'cpp': 'c++', 'rb': 'ruby', 'pl': 'perl',
-    'sh': 'bash', 'adb': 'ada', 'coffee': 'coffeescript', 'md': 'markdown', 'svg': 'xml', 'plist': 'xml', 'yml': 'yaml' };
+  CodePrinter.aliases = { 'js': 'JavaScript', 'htm': 'HTML', 'less': 'CSS', 'h': 'C++', 'cpp': 'C++', 'rb': 'Ruby', 'pl': 'Perl',
+    'sh': 'Bash', 'adb': 'Ada', 'coffee': 'CoffeeScript', 'md': 'Markdown', 'svg': 'XML', 'plist': 'XML', 'yml': 'YAML' };
   CodePrinter.matching = {'brackets': {}};
   
   var brackets = ['{', '(', '[', '}', ')', ']'];
@@ -3253,36 +3284,45 @@
     }
   }
   
-  CodePrinter.requireMode = function(req, cb, del) {
-    $.require('CodePrinter/'+req, cb, del);
+  if (document.currentScript) {
+    var src = document.currentScript.getAttribute('src')
+    , ex = /codeprinter([\w\.]*)js\/?$/i.exec(src);
+    if (ex) CodePrinter.src = src = src.slice(0, -ex[0].length);
+  }
+  if (!CodePrinter.src) CodePrinter.src = '';
+  
+  CodePrinter.requireMode = function(name, cb) {
+    if ('string' == typeof name && 'function' == typeof cb) {
+      if (CodePrinter.hasMode(name)) cb.call(CodePrinter, modes[name]);
+      else CodePrinter.on(name+':loaded', cb) && loadScript('mode/'+name+'.js');
+    }
   }
   CodePrinter.defineMode = function(name, req, func) {
-    if (arguments.length === 2) {
-      func = req;
-      req = null;
-    }
-    if (req) {
-      for (var i = 0; i < req.length; i++) {
-        req[i] = 'CodePrinter/'+(CodePrinter.aliases[req[i]] || req[i]);
-      }
-    }
-    $.define('CodePrinter/'+name, req, func);
-    $.require('CodePrinter/'+name, function(mode) {
-      mode.name = name;
+    if (arguments.length === 2) { func = req; req = null; }
+    var fn = function() {
+      var mode = func.apply(CodePrinter, arguments);
+      modes[mode.name = name] = mode;
       CodePrinter.emit(name+':loaded', mode);
-    });
+    }
+    req ? CodePrinter.requireMode(req, fn) : fn();
   }
   CodePrinter.hasMode = function(name) {
-    return $.require.has('CodePrinter/'+name);
+    if (name instanceof Array) for (var i = 0; i < name.length; i++) if (!modes.hasOwnProperty(name[i])) return false;
+    return modes.hasOwnProperty(name);
   }
-  CodePrinter.requireAddon = function(name, cb, del) {
-    $.require('CodePrinter/addons/'+name, cb, del);
+  CodePrinter.requireAddon = function(name, cb) {
+    if ('string' == typeof name && 'function' == typeof cb) {
+      if (addons.hasOwnProperty(name)) cb.call(CodePrinter, addons[name]);
+      else CodePrinter.on(name+':addonLoaded', cb) && loadScript('addons/'+name+'.js');
+    }
   }
-  CodePrinter.defineAddon = function(name, obj) {
-    $.define('CodePrinter/addons/'+name, obj);
+  CodePrinter.defineAddon = function(name, func) {
+    var addon = func.call(CodePrinter);
+    addons[name] = addon;
+    CodePrinter.emit(name+':addonLoaded', addon);
   }
   CodePrinter.registerExtension = function(ext, parserName) {
-    CodePrinter.aliases[ext.toLowerCase()] = parserName.toLowerCase();
+    CodePrinter.aliases[ext.toLowerCase()] = parserName;
   }
   CodePrinter.issetExtension = function(ext) {
     if (CodePrinter.aliases[ext]) return true;
@@ -3293,17 +3333,17 @@
     }
     return false;
   }
-  CodePrinter.instances = [];
   
   window.addEventListener('resize', function() {
-    CodePrinter.instances.each(function(cp) {
+    for (var i = 0; i < instances.length; i++) {
+      var cp = instances[i];
       cp.doc && cp.doc.updateView();
       cp.caret.refresh();
-    });
+    }
   });
   
   function buildDOM(cp) {
-    cp.mainNode = document.createElement('div').addClass('codeprinter');
+    cp.mainNode = addClass(document.createElement('div'), 'codeprinter');
     cp.body = create(cp.mainNode, 'div', 'cp-body');
     cp.container = create(cp.body, 'div', 'cp-container');
     cp.input = create(cp.container, 'textarea', 'cp-input');
@@ -3322,6 +3362,7 @@
   }
   function attachEvents(cp) {
     var wrapper = cp.wrapper
+    , input = cp.input
     , options = cp.options
     , sizes = cp.sizes
     , counterSelection = []
@@ -3336,13 +3377,13 @@
       var doc = cp.doc
       , sl = cp.wrapper.scrollLeft
       , st = cp.wrapper.scrollTop
-      , o = sizes.bounds = sizes.bounds || wrapper.bounds()
+      , o = sizes.bounds = sizes.bounds || bounds(wrapper)
       , x = Math.max(0, sl + e.pageX - o.x)
       , y = e.pageY < o.y ? 0 : e.pageY <= o.y + wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : wrapper.scrollHeight
       , ry = Math.max(0, Math.min(y, doc.height()))
-      , isinactive = document.activeElement !== cp.input;
+      , isinactive = document.activeElement !== input, msp;
       
-      cp.input.focus();
+      input.focus();
       cp.caret.target(x, ry);
       var l = cp.caret.line(), c = cp.caret.column();
       
@@ -3350,9 +3391,9 @@
         isMouseDown = true;
         if (doc.inSelection(l, c) && ry === y && (x - 3 <= cp.caret.offsetX() || doc.inSelection(l, c+1))) {
           moveselection = true;
-          window.on('mousemove', mouseController);
-          window.once('mouseup', function(e) {
-            window.off('mousemove', mouseController);
+          window.addEventListener('mousemove', mouseController);
+          window.addEventListener('mouseup', msp = function(e) {
+            window.removeEventListener('mousemove', mouseController);
             if (moveselection > 1) {
               var savedpos = cp.caret.savePosition();
               if (moveselection && doc.issetSelection() && !doc.inSelection(savedpos[0], savedpos[1])) {
@@ -3373,25 +3414,27 @@
               }
             } else {
               isinactive || doc.clearSelection();
-              cp.input.focus();
+              input.focus();
             }
-            return isMouseDown = moveselection = e.cancel();
+            window.removeEventListener('mouseup', msp);
+            return isMouseDown = moveselection = eventCancel(e);
           });
         } else {
-          cp.input.value = '';
+          input.value = '';
           cp.caret.deactivate();
           if (y > ry) cp.caret.position(l, -1);
           else if (y < 0) cp.caret.position(l, 0);
           
           doc.beginSelection();
-          window.on('mousemove', mouseController);
-          window.once('mouseup', function(e) {
+          window.addEventListener('mousemove', mouseController);
+          window.addEventListener('mouseup', msp = function(e) {
             !doc.issetSelection() && doc.clearSelection();
-            window.off('mousemove', mouseController);
+            window.removeEventListener('mousemove', mouseController);
             cp.caret.activate();
             sizes.bounds = moveevent = null;
-            document.activeElement != cp.input && ($.browser.firefox ? $.async(function() { cp.input.focus() }) : cp.input.focus());
-            return isMouseDown = e.cancel();
+            document.activeElement != input && (gecko ? async(function() { input.focus() }) : input.focus());
+            window.removeEventListener('mouseup', msp);
+            return isMouseDown = eventCancel(e);
           });
         }
         cp.emit('click');
@@ -3417,21 +3460,19 @@
     
     if ('ontouchstart' in window || navigator.msMaxTouchPoints > 0) {
       var x, y;
-      wrapper.listen({
-        touchstart: function(e) {
-          y = e.touches[0].screenY;
-          x = e.touches[0].screenX;
-        },
-        touchmove: function(e) {
-          if (x != null && y != null) {
-            var touch = e.touches[0];
-            this.scrollLeft += options.scrollSpeed * (x - (x = touch.screenX));
-            cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * (y - (y = touch.screenY)));
-            return e.cancel(true);
-          }
-        },
-        touchend: function() { x = y = null; }
+      wrapper.addEventListener('touchstart', function(e) {
+        y = e.touches[0].screenY;
+        x = e.touches[0].screenX;
       });
+      wrapper.addEventListener('touchmove', function(e) {
+        if (x != null && y != null) {
+          var touch = e.touches[0];
+          this.scrollLeft += options.scrollSpeed * (x - (x = touch.screenX));
+          cp.doc.scrollTo(this.scrollTop + options.scrollSpeed * (y - (y = touch.screenY)));
+          return eventCancel(e);
+        }
+      });
+      wrapper.addEventListener('touchend', function() { x = y = null; });
     } else if ('onwheel' in window) {
       wrapper.addEventListener('wheel', function(e) { return wheel(cp.doc, this, e, options.scrollSpeed, e.deltaX, e.deltaY); }, false);
     } else {
@@ -3439,173 +3480,154 @@
         var d = wheelDelta(e);
         return wheel(cp.doc, this, e, wheelUnit * options.scrollSpeed, d.x, d.y);
       }
-      wrapper.listen({ mousewheel: mousewheel, DOMMouseScroll: mousewheel });
+      wrapper.addEventListener('mousewheel', mousewheel);
+      gecko && wrapper.addEventListener('DOMMouseScroll', mousewheel);
     }
     
-    wrapper.listen({
-      scroll: function(e) {
-        if (!this._lockedScrolling) {
-          cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop);
-        } else {
-          if (!isScrolling) wrapper.addClass('scrolling');
-          isScrolling = true;
-          cp.emit('scroll');
-          T3 = clearTimeout(T3) || setTimeout(function() {
-            isScrolling = false;
-            wrapper.removeClass('scrolling');
-            var wt = cp.doc.wheelTarget;
-            if (wt) {
-              if (wt.style.display == 'none') wt.parentNode.removeChild(wt);
-              cp.doc.wheelTarget = null;
-            }
-            cp.emit('scrollend');
-          }, 200);
-        }
-        this._lockedScrolling = false;
-      },
-      contextmenu: function(e) {
-        return e.cancel();
-      },
-      dblclick: function() {
-        var bf = cp.caret.textBefore()
-        , af = cp.caret.textAfter()
-        , line = cp.caret.line()
-        , c = cp.caret.column()
-        , l = 1, r = 0, rgx, timeout;
-        
-        var tripleclick = function() {
-          cp.doc.setSelectionRange(line, 0, line+1, 0);
-          cp.caret.position(line+1, 0);
-          this.unlisten('click', tripleclick);
-          timeout = clearTimeout(timeout);
-        }
-        this.addEventListener('click', tripleclick, false);
-        timeout = setTimeout(function() { wrapper.removeEventListener('click', tripleclick); }, 350);
-        
-        rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
-        
-        while (l <= c && rgx.test(bf[c-l])) l++;
-        while (r < af.length && rgx.test(af[r])) r++;
-        
-        if (c-l+1 != c+r) {
-          cp.doc.setSelectionRange(line, c-l+1, line, c+r);
-        }
-      },
-      mousedown: mouseController
+    wrapper.addEventListener('scroll', function(e) {
+      if (!this._lockedScrolling) {
+        cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop);
+      } else {
+        if (!isScrolling) addClass(wrapper, 'scrolling');
+        isScrolling = true;
+        cp.emit('scroll');
+        T3 = clearTimeout(T3) || setTimeout(function() {
+          isScrolling = false;
+          removeClass(wrapper, 'scrolling');
+          var wt = cp.doc.wheelTarget;
+          if (wt) {
+            if (wt.style.display == 'none') wt.parentNode.removeChild(wt);
+            cp.doc.wheelTarget = null;
+          }
+          cp.emit('scrollend');
+        }, 200);
+      }
+      this._lockedScrolling = false;
     });
+    wrapper.addEventListener('dblclick', function() {
+      var bf = cp.caret.textBefore()
+      , af = cp.caret.textAfter()
+      , line = cp.caret.line()
+      , c = cp.caret.column()
+      , l = 1, r = 0, rgx, timeout;
+      
+      var tripleclick = function() {
+        cp.doc.setSelectionRange(line, 0, line+1, 0);
+        cp.caret.position(line+1, 0);
+        this.removeEventListener('click', tripleclick);
+        timeout = clearTimeout(timeout);
+      }
+      this.addEventListener('click', tripleclick, false);
+      timeout = setTimeout(function() { wrapper.removeEventListener('click', tripleclick); }, 350);
+      
+      rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
+      
+      while (l <= c && rgx.test(bf[c-l])) l++;
+      while (r < af.length && rgx.test(af[r])) r++;
+      
+      if (c-l+1 != c+r) {
+        cp.doc.setSelectionRange(line, c-l+1, line, c+r);
+      }
+    });
+    wrapper.addEventListener('mousedown', mouseController);
+    wrapper.addEventListener('selectstart', function(e) { return eventCancel(e); });
     
-    cp.input.listen({
-      focus: function() {
-        cp.caret.focus();
-        cp.mainNode.removeClass('inactive');
-        cp.emit('focus');
-      },
-      blur: function() {
-        if (isMouseDown) {
-          this.focus();
-        } else {
-          cp.caret.blur();
-          cp.mainNode.addClass('inactive');
-          if (options.abortSelectionOnBlur) cp.doc.clearSelection();
-          cp.emit('blur');
+    input.addEventListener('focus', function() {
+      cp.caret.focus();
+      removeClass(cp.mainNode, 'inactive');
+      cp.emit('focus');
+    });
+    input.addEventListener('blur', function() {
+      if (isMouseDown) {
+        this.focus();
+      } else {
+        cp.caret.blur();
+        addClass(cp.mainNode, 'inactive');
+        if (options.abortSelectionOnBlur) cp.doc.clearSelection();
+        if (cp.highlightOverlay) cp.highlightOverlay.remove();
+        cp.emit('blur');
+      }
+    });
+    input.addEventListener('keydown', function(e) {
+      var code = e.keyCode, seq = keySequence(e);
+      
+      cp.caret.deactivate();
+      allowKeyup = true;
+      
+      if (seq == (macosx ? 'Cmd' : 'Ctrl')) {
+        this.value = cp.doc.getSelection();
+        this.setSelectionRange(0, this.value.length);
+        allowKeyup = false;
+        return;
+      }
+      if (options.readOnly && (code < 37 || code > 40)) return;
+      cp.emit('['+seq+']', e); cp.emit('keydown', seq, e);
+      if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
+      if ((allowKeyup = !e.defaultPrevented) && seq.length > 1 && cp.keyMap[seq]) {
+        allowKeyup = cp.keyMap[seq].call(cp, e, code, seq);
+      }
+      return !allowKeyup && eventCancel(e);
+    });
+    input.addEventListener('keypress', function(e) {
+      if (options.readOnly) return;
+      var a, code = e.keyCode
+      , s = cp.getStateAt(cp.caret.dl(), cp.caret.column())
+      , parser = s && s.parser
+      , ch = String.fromCharCode(code);
+      
+      if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
+        if (cp.doc.issetSelection() && (a = parser.selectionWrappers[ch])) {
+          'string' === typeof a ? cp.doc.wrapSelection(a, a) : cp.doc.wrapSelection(a[0], a[1]);
+          allowKeyup = false;
+        } else if (options.useParserKeyMap && parser.keyMap[ch]) {
+          allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
         }
-      },
-      keydown: function(e) {
-        var kc, code = e.getCharCode()
-        , ch = String.fromCharCode(code)
-        , iscmd = macosx ? e.metaKey : e.ctrlKey
-        , kc = e.getKeyCombination(1, ' ');
-        
-        cp.caret.deactivate();
-        allowKeyup = true;
-        
-        if (iscmd) {
-          if (cp.doc.issetSelection() && kc.indexOf(' ') === -1) {
-            this.value = cp.doc.getSelection();
-            this.setSelectionRange(0, this.value.length);
-          } else if (commands[ch]) {
-            allowKeyup = commands[ch].call(cp, e, code, ch);
-            if (allowKeyup === false) e.cancel();
-            return allowKeyup;
-          } else {
-            this.value = '';
-          }
-        }
-        if (options.readOnly && (code < 37 || code > 40)) return;
-        if (!cp.keyMap[kc] && e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
-          kc = e.getKeyCombination(4, ' ');
-        }
-        cp.emit('@'+kc, e);
-        cp.emit('keydown', e);
-        if ((allowKeyup = !e.defaultPrevented) && kc.length > 1 && (!e.ctrlKey || options.shortcuts) && cp.keyMap[kc]) {
-          allowKeyup = cp.keyMap[kc].call(cp, e, code, kc);
-        }
-        if (!allowKeyup || 16 <= code && code <= 20 || 91 <= code && code <= 95 || 112 <= code && code <= 145 || code == 224) {
-          return allowKeyup = e.cancel();
-        }
-        return allowKeyup;
-      },
-      keypress: function(e) {
-        if (options.readOnly) return;
-        var a, code = e.getCharCode()
-        , s = cp.getStateAt(cp.caret.dl(), cp.caret.column())
-        , parser = s && s.parser
-        , ch = String.fromCharCode(code);
-        
-        if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-          if (cp.doc.issetSelection() && (a = parser.selectionWrappers[ch])) {
-            'string' === typeof a ? cp.doc.wrapSelection(a, a) : cp.doc.wrapSelection(a[0], a[1]);
-            allowKeyup = false;
-          } else if (options.useParserKeyMap && parser.keyMap[ch]) {
-            allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
-          }
-          if (allowKeyup !== false) {
-            this.value = '';
-            if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, e, code, ch) !== false) cp.insertText(ch);
-            if (T2) T2 = clearTimeout(T2);
-            if (options.autoComplete && cp.hints) {
-              var isdigit = /^\d+$/.test(ch);
-              if (parser.autoCompleteTriggers ? parser.autoCompleteTriggers.test(ch) : !isdigit && cp.hints.match(ch)) T2 = setTimeout(function() { cp.hints.show(false); }, options.autoCompleteDelay);
-              else if (!isdigit) cp.hints.hide();
-            }
-          }
-          if (options.autoIndent && parser.isIndentTrigger(ch)) {
-            fixIndent(cp, parser, cp.caret.column() - ch.length);
-          }
-          return e.cancel();
-        }
-      },
-      keyup: function(e) {
-        if (options.readOnly) return;
-        if (cp.caret.isVisible) cp.caret.activate();
-        if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
-          this.value.length && cp.insertText(this.value);
-          T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.parser); }, options.keyupInactivityTimeout);
-        }
-        this.value = '';
-        cp.emit('keyup', e);
-      },
-      input: function(e) {
-        if (!options.readOnly && this.value.length) {
-          cp.insertText(this.value);
+        if (allowKeyup !== false) {
           this.value = '';
+          if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, e, code, ch) !== false) cp.insertText(ch);
+          if (T2) T2 = clearTimeout(T2);
+          if (options.autoComplete && cp.hints) {
+            var isdigit = /^\d+$/.test(ch);
+            if (parser.autoCompleteTriggers ? parser.autoCompleteTriggers.test(ch) : !isdigit && cp.hints.match(ch)) T2 = setTimeout(function() { cp.hints.show(false); }, options.autoCompleteDelay);
+            else if (!isdigit) cp.hints.hide();
+          }
         }
+        if (options.autoIndent && parser.isIndentTrigger(ch)) {
+          fixIndent(cp, parser, cp.caret.column() - ch.length);
+        }
+        return eventCancel(e);
+      }
+    });
+    input.addEventListener('keyup', function(e) {
+      if (options.readOnly) return;
+      if (cp.caret.isVisible) cp.caret.activate();
+      if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
+        this.value.length && cp.insertText(this.value);
+        T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.parser); }, options.keyupInactivityTimeout);
+      }
+      this.value = '';
+      cp.emit('keyup', e);
+    });
+    input.addEventListener('input', function(e) {
+      if (!options.readOnly && this.value.length) {
+        cp.insertText(this.value);
+        this.value = '';
       }
     });
     
     cp.select = function(dl) {
       this.unselect();
       if (options.highlightCurrentLine && !moveselection && !cp.doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
-        dl.node.addClass(activeClassName);
-        dl.counter.addClass(activeClassName);
+        addClass(dl.node, activeClassName);
+        addClass(dl.counter, activeClassName);
         dl.active = true;
         activeLine = dl;
       }
     }
     cp.unselect = function() {
       if (activeLine && activeLine.node) {
-        activeLine.node.removeClass(activeClassName);
-        activeLine.counter.removeClass(activeClassName);
+        removeClass(activeLine.node, activeClassName);
+        removeClass(activeLine.counter, activeClassName);
         activeLine.active = undefined;
       }
       activeLine = null;
@@ -3648,8 +3670,8 @@
             outer: for (var s in m) {
               var len = s.length, i = 0;
               do {
-                a = len == i || bf.endsWith(s.substring(0, len - i));
-                b = i == 0 || af.startsWith(s.substring(len - i, len));
+                a = len == i || bf.indexOf(s.substring(0, len - i), bf.length - len + i) >= 0;
+                b = i == 0 || af.indexOf(s.substring(len - i, len)) == 0;
                 if (a && b) {
                   a = b = matchingHelper(cp, s, m[s], line, column - len + i, column + i);
                   if (a) break outer;
@@ -3690,15 +3712,17 @@
       counterSelection.length = 0;
       isMouseDown = false;
     }
-    cp.counter.delegate('li', 'mousedown', function(e) {
-      var b = sizes.bounds = sizes.bounds || wrapper.bounds()
-      , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
-      if (dl) {
-        counterSelection[0] = dl.info().index;
-        cp.input.focus();
-        isMouseDown = true;
-        window.addEventListener('mousemove', counterMousemove, false);
-        window.addEventListener('mouseup', counterMouseup, false);
+    cp.counter.addEventListener('mousedown', function(e) {
+      if (e.target.tagName == 'LI') {
+        var b = sizes.bounds = sizes.bounds || bounds(wrapper)
+        , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
+        if (dl) {
+          counterSelection[0] = dl.info().index;
+          cp.input.focus();
+          isMouseDown = true;
+          window.addEventListener('mousemove', counterMousemove, false);
+          window.addEventListener('mouseup', counterMouseup, false);
+        }
       }
     });
   }
@@ -3708,8 +3732,8 @@
     cp.setMode(options.mode);
     if (options.fontFamily !== CodePrinter.defaults.fontFamily) cp.container.style.fontFamily = options.fontFamily;
     options.lineNumbers ? cp.openCounter() : cp.closeCounter();
-    options.drawIndentGuides || cp.mainNode.addClass('cp-without-indentation');
-    options.legacyScrollbars && cp.wrapper.addClass('cp-legacy-scrollbars');
+    options.drawIndentGuides || addClass(cp.mainNode, 'cp-without-indentation');
+    options.legacyScrollbars && addClass(cp.wrapper, 'cp-legacy-scrollbars');
     options.tabWidth && cp.setTabWidth(options.tabWidth);
     options.lineWrapping && cp.setLineWrapping(true);
     options.width !== 'auto' && cp.setWidth(options.width);
@@ -3737,7 +3761,7 @@
   }
   function createSelectionNode(node, top, left, width, height, right) {
     var style = 'top:'+(top+this.sizes.paddingTop)+'px;left:'+left+'px;height:'+height+'px;';
-    node.addClass('cp-selection');
+    addClass(node, 'cp-selection');
     if (width != null) style += 'width:'+width+'px;';
     if (right != null) style += 'right:'+(right+this.sizes.paddingLeft)+'px;';
     node.setAttribute('style', style);
@@ -3755,7 +3779,7 @@
     return style.replace(/\S+/g, 'cpx-$&');
   }
   function tabString(cp) {
-    return cp.options.indentByTabs ? '\t' : ' '.repeat(cp.options.tabWidth);
+    return cp.options.indentByTabs ? '\t' : repeat(' ', cp.options.tabWidth);
   }
   function wheelDelta(e) {
     var x = e.wheelDeltaX, y = e.wheelDeltaY;
@@ -3767,7 +3791,7 @@
     if (webkit && macosx) doc.wheelTarget = e.target;
     if (y) doc.scrollTo(node.scrollTop + speed * y);
     if (x) { node._lockedScrolling = true; node.scrollLeft += speed * x; }
-    return e.cancel(true);
+    return eventCancel(e);
   }
   function startBlinking(caret, options) {
     clearInterval(caret.interval);
@@ -3783,7 +3807,7 @@
     }
   }
   function getLineClasses(line) {
-    var isact = line.node && line.node.hasClass(activeClassName);
+    var isact = line.node && hasClass(line.node, activeClassName);
     if (isact) {
       var cls = activeClassName;
       if (line.classes && line.classes.length) cls += ' '+line.classes.join(' ');
@@ -3880,10 +3904,72 @@
     node.setAttribute('style', rect.width ? 'top:'+(this.sizes.paddingTop+dl.getOffset()+rect.offsetY)+'px;left:'+rect.offsetX+'px;width:'+(rect.width+2)+'px;height:'+(rect.charHeight+2)+'px;' : 'display:none;');
     res.node = node;
     if (this.searches.active === res && scroll !== false) {
-      node.addClass('active');
+      addClass(node, 'active');
       this.wrapper.scrollLeft = rect.offsetX - this.wrapper.clientWidth / 2;
     }
   }
+  function loadScript(src) {
+    var s = document.createElement('script');
+    s.type = 'text/javascript';
+    s.async = true;
+    s.src = CodePrinter.src + src;
+    document.head.appendChild(s);
+  }
+  CodePrinter.keyCodes = keyCodes = {
+    3: 'Enter', 8: 'Backspace', 9: 'Tab', 12: 'NumLock', 13: 'Enter', 16: 'Shift', 17: 'Ctrl', 18: 'Alt', 19: 'Pause', 20: 'CapsLock',
+    27: 'Esc', 32: 'Space', 33: 'PageUp', 34: 'PageDown', 35: 'End', 36: 'Home', 37: 'Left', 38: 'Up', 39: 'Right', 40: 'Down',
+    44: 'PrintScrn', 45: 'Insert', 46: 'Delete', 59: ';', 61: '=', 91: 'Cmd', 92: 'Cmd', 93: 'Cmd', 106: 'Multiply', 107: 'Add',
+    109: 'Subtract', 110: 'Point', 111: 'Divide', 127: 'Delete', 144: 'NumLock', 145: 'ScrollLock', 186: ';', 187: '=', 188: ',',
+    189: '-', 190: '.', 191: '/', 192: '`', 219: '[', 220: '\\', 221: ']', 222: '\'', 224: 'Cmd', 229: '/', 63232: 'Up', 63233: 'Down',
+    63234: 'Left', 63235: 'Right', 63272: 'Delete', 63273: 'Home', 63275: 'End', 63276: 'PageUp', 63277: 'PageDown', 63302: 'Insert'
+  }
+  for (var i = 0; i < 10; i++) { keyCodes[i+96] = 'Num'+i; keyCodes[i+48] = ''+i; }
+  for (var i = 65; i < 91; i++) keyCodes[i] = String.fromCharCode(i);
+  for (var i = 1; i < 20; i++) keyCodes[i+111] = keyCodes[i+63235] = 'F'+i;
   
-  return window.CodePrinter = CodePrinter;
-});
+  function keySequence(e, noShift) {
+    var key = keyCodes[e.keyCode], res = key;
+    if (key == null) return false;
+    if (!noShift && e.shiftKey && key != 'Shift') res = 'Shift ' + res;
+    if (e.altKey && key != 'Alt') res = 'Alt ' + res;
+    if ((macosx ? e.ctrlKey : e.metaKey) && key != 'Ctrl') res = 'Ctrl ' + res;
+    if ((macosx ? e.metaKey : e.ctrlKey) && key != 'Cmd') res = 'Cmd ' + res;
+    return res;
+  }
+  function escape(str) { return str.replace(/[-\/\\^$*+?.()|[\]{}"']/g, '\\$&'); }
+  function extend(base) { for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
+  function eventCancel(e) { e.preventDefault(); e.stopPropagation(); return e.returnValue = false; }
+  function addClass(n, c) { if (n.classList) n.classList.add(c); else if (!hasClass(n, c)) n.className += ' '+c; return n; }
+  function removeClass(n, c) { if (n.classList) n.classList.remove(c); else if (hasClass(n, c)) n.className = n.className.replace(new RegExp('(^|\\s+)'+c), ''); return n; }
+  function hasClass(n, c) {
+    if (!c || 'string' !== typeof c) return true;
+    if (n.classList) return n.classList.contains(c);
+    if (new RegExp('(^|\\s)'+c+'(\\s|$)').test(n.className)) return true;
+  }
+  function repeat(th, times) {
+    var str = '';
+    while (times > 0) { if (times % 2 == 1) str += th; th += th; times >>= 1; }
+    return str;
+  }
+  function bounds(n) {
+    var x = 0, y = 0;
+    do { x += n.offsetLeft; y += n.offsetTop; } while (n = n.offsetParent);
+    return { x: x, y: y };
+  }
+  function parseEventArguments(a, b) {
+    if ('string' == typeof a) { var obj = {}; obj[a] = b; return obj; }
+    return a;
+  }
+  if (window.postMessage) {
+    async = function(callback) {
+      if ('function' == typeof callback) {
+        asyncQueue.push(callback);
+        window.postMessage('CodePrinter', '*');
+      }
+    }
+    window.addEventListener('message', function(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); }, false);
+  } else {
+    async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
+  }
+  return CodePrinter;
+})();

@@ -55,10 +55,10 @@ CodePrinter.defineAddon('scrollbars', function() {
       }
     }
     this.show = function() {
-      div.addClass('visible');
+      div.className += ' visible';
     }
     this.hide = function() {
-      div.removeClass('visible');
+      div.className = div.className.replace(/ visible/g, '');
     }
   }
   
@@ -70,7 +70,8 @@ CodePrinter.defineAddon('scrollbars', function() {
     if (!cp.scrollbars) {
       var sb = cp.scrollbars = new Scrollbars(cp);
       
-      sb.options = {}.extend(Scrollbars.defaults, options);
+      sb.options = { alwaysVisible: false };
+      for (var k in options) sb.options[k] = options[k];
       
       if (cp.caret.isActive) {
         sb.update(false);

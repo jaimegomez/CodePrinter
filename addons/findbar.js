@@ -36,16 +36,14 @@ CodePrinter.defineAddon('findbar', function() {
     next.onclick = this.next;
     prev.onclick = this.prev;
     
-    input.on({
-      keydown: function(e) {
-        if (e.keyCode == 13) {
-          cp.search(input.value);
-          return e.cancel();
-        }
-        if (e.keyCode == 27) {
-          that.hide();
-          return e.cancel();
-        }
+    input.addEventListener('keydown', function(e) {
+      if (e.keyCode == 13) {
+        cp.search(input.value);
+        return cancel(e);
+      }
+      if (e.keyCode == 27) {
+        that.hide();
+        return cancel(e);
       }
     });
     
@@ -54,6 +52,12 @@ CodePrinter.defineAddon('findbar', function() {
     });
     
     cp.keyMap['Ctrl F'] = this.show;
+  }
+  
+  function cancel(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    return e.returnValue = false;
   }
   
   return Findbar;
