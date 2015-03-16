@@ -498,7 +498,7 @@ var CodePrinter = (function() {
             this.parse(dl);
             if (this.caret.line() == line) {
               var col = this.caret.column();
-              this.caret.moveX(Math.max(-col, change == '\t' ? -1 : -i));
+              this.caret.moveX(-Math.min(col, i));
             }
             this.emit('changed', { line: line, column: 0, text: change, added: false });
             return i;
@@ -2402,6 +2402,7 @@ var CodePrinter = (function() {
       if (r) {
         after && cp.put(after, r.end.line, r.end.column);
         before && cp.put(before, r.start.line, r.start.column) && selection.move(before.length, r.start.line == r.end.line ? before.length : 0);
+        this.showSelection();
       }
     }
     this.selectAll = function() {
@@ -2452,8 +2453,7 @@ var CodePrinter = (function() {
   }
   
   Caret = function(cp) {
-    var line, column, currentDL, lastdet
-    , before = '', after = '', tmp
+    var line, column, currentDL, lastdet, tmp
     , styles = {
       vertical: function(css) {
         css.width = 1;
@@ -2492,9 +2492,9 @@ var CodePrinter = (function() {
       }
       return this;
     }
-    function updateDL() {
+    function updateDL(text) {
       if (currentDL) {
-        currentDL.setText(before + after);
+        currentDL.setText(text);
         forwardParsing(cp, currentDL);
         cp.doc.updateView();
       }
@@ -2517,46 +2517,29 @@ var CodePrinter = (function() {
         column = c;
       }
       lastdet = det;
-      before = t.substring(0, c);
-      after = t.substr(c);
       setPixelPosition.call(this, det.offsetX, det.offsetY + dli.offset);
       cp.select(dl);
     }
     this.setTextBefore = function(str) {
-      var col = str.length;
-      if (before !== str) {
-        before = str;
-        updateDL();
-        this.position(line, col);
-      }
-      return this;
+      updateDL(str + this.textAfter());
+      return this.position(line, str.length);
     }
     this.setTextAfter = function(str) {
-      if (after !== str) {
-        after = str;
-        updateDL();
-        this.position(line, this.column());
-      }
-      return this;
+      updateDL(this.textBefore() + str);
+      return this.position(line, this.column());
     }
     this.setTextAtCurrentLine = function(bf, af) {
-      var col = bf.length;
-      if (before !== bf || after !== af) {
-        before = bf;
-        after = af;
-        updateDL();
-        this.position(line, col);
-      }
-      return this;
+      updateDL(bf + af);
+      return this.position(line, bf.length);
     }
     this.textBefore = function() {
-      return before;
+      return currentDL && currentDL.text.substring(0, column);
     }
     this.textAfter = function() {
-      return after;
+      return currentDL && currentDL.text.substr(column);
     }
-    this.textAtCurrentLine = function(b) {
-      return b ? before + after : this.textBefore() + this.textAfter();
+    this.textAtCurrentLine = function() {
+      return currentDL && currentDL.text;
     }
     this.getPosition = function() {
       return { line: line ? line + 1 : 1, column: this.column() + 1 };
@@ -2592,7 +2575,7 @@ var CodePrinter = (function() {
       }
       
       if (abs <= t.length) {
-        return this.position(cl, Math.max(0, Math.min((bf + af).length, column) + mv));
+        return this.position(cl, Math.max(0, Math.min(column + mv, (bf + af).length)));
       }
       while (abs > t.length) {
         abs = abs - t.length - 1;
@@ -2648,7 +2631,7 @@ var CodePrinter = (function() {
       return line;
     }
     this.column = function() {
-      return before.length;
+      return Math.min(column, currentDL.text.length);
     }
     this.savePosition = function(onlycolumn) {
       return tmp = [onlycolumn ? null : line, column];
