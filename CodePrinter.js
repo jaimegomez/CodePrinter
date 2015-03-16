@@ -1262,12 +1262,10 @@ var CodePrinter = (function() {
       }
       return this;
     },
-    call: function(keyCombination, code, prototype) {
-      if (keyCombination) {
-        var obj = prototype ? keyMap.prototype : this.keyMap;
-        if (obj[keyCombination]) {
-          return obj[keyCombination].call(this, {}, code || 0, keyCombination);
-        }
+    call: function(keySequence) {
+      if (keySequence) {
+        var c = this.keyMap[keySequence];
+        if (c) return c.call(this, keySequence);
       }
     },
     emit: function(eventName) {
@@ -3021,7 +3019,7 @@ var CodePrinter = (function() {
     'PageDown': function() { this.caret.moveY(50); },
     'End': function() { this.caret.position(this.doc.size() - 1, -1); },
     'Home': function() { this.caret.position(0, 0); },
-    'Left': function(e, c) {
+    'Left': function(k, c) {
       c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
       this.doc.clearSelection();
       return false;
@@ -3051,35 +3049,27 @@ var CodePrinter = (function() {
       }
       return false;
     },
-    '"': function(e, k, ch) {
+    '"': function(k) {
       if (this.options.insertClosingQuotes) {
         this.textAfterCursor(1) !== ch ? this.caret.textAtCurrentLine().count(ch) % 2 ? this.insertText(ch, 0) : this.insertText(ch + ch, -1) : this.caret.moveX(1);
         return false;
       }
     },
-    '(': function(e, k, ch) {
+    '(': function(k) {
       if (this.options.insertClosingBrackets) {
-        var af = this.caret.textAfter()[0]
-        , cb = complementBracket(ch);
-        if (!af || af === cb || !/\w/.test(af)) {
-          ch += cb;
-        }
+        var af = this.caret.textAfter()[0], cb = complementBracket(k);
+        if (!af || af === cb || !/\w/.test(af)) k += cb;
       }
-      this.insertText(ch, -ch.length + 1);
+      this.insertText(k, -k.length + 1);
       return false;
     },
-    ')': function(e, k, ch) {
-      if (this.options.insertClosingBrackets && this.textAfterCursor(1) == ch) {
-        this.caret.moveX(1);
-      } else {
-        this.insertText(ch);
-      }
+    ')': function(k) {
+      if (this.options.insertClosingBrackets && this.textAfterCursor(1) == k) this.caret.moveX(1);
+      else this.insertText(k);
       return false;
     },
-    'Shift Left': function(e, c) {
-      if (!this.doc.issetSelection()) {
-        this.doc.beginSelection();
-      }
+    'Shift Left': function(k, c) {
+      if (!this.doc.issetSelection()) this.doc.beginSelection();
       c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
       this.doc.endSelection();
     },
@@ -3106,10 +3096,8 @@ var CodePrinter = (function() {
       }
       return -1;
     },
-    'Cmd Z': function(e) {
-      e.shiftKey ? this.doc.redo() : this.doc.undo();
-      return false;
-    }
+    'Cmd Z': function() { this.doc.undo(); },
+    'Shift Cmd Z': function() { this.doc.redo(); }
   }
   keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
   keyMap.prototype['Shift Down'] = keyMap.prototype['Shift Right'] = keyMap.prototype['Shift Up'] = keyMap.prototype['Shift Left'];
@@ -3564,7 +3552,7 @@ var CodePrinter = (function() {
       cp.emit('['+seq+']', e); cp.emit('keydown', seq, e);
       if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
       if ((allowKeyup = !e.defaultPrevented) && seq.length > 1 && cp.keyMap[seq]) {
-        allowKeyup = cp.keyMap[seq].call(cp, e, code, seq);
+        allowKeyup = cp.keyMap[seq].call(cp, seq, code);
       }
       return !allowKeyup && eventCancel(e);
     });
@@ -3584,7 +3572,7 @@ var CodePrinter = (function() {
         }
         if (allowKeyup !== false) {
           this.value = '';
-          if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, e, code, ch) !== false) cp.insertText(ch);
+          if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, ch, code) !== false) cp.insertText(ch);
           if (T2) T2 = clearTimeout(T2);
           if (options.autoComplete && cp.hints) {
             var isdigit = /^\d+$/.test(ch);

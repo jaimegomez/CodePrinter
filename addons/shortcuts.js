@@ -37,7 +37,7 @@ CodePrinter.defineAddon('shortcuts', function() {
     'Cmd Shift Z': function() {
       this.doc.redo();
     },
-    'Cmd ]': function(e) {
+    'Cmd ]': function() {
       this.indent();
     },
     'Cmd [': function() {
