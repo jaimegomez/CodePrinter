@@ -109,6 +109,7 @@ var CodePrinter = (function() {
     this.emit = function(event) {
       var args = arguments.length > 1 ? Array.prototype.slice.call(arguments, 1) : null, ev;
       if (ev = events[event]) for (var i = ev.length; i-- && ev[i];) ev[i].apply(this, args);
+      if (this.broadcast) this.broadcast.call(this, arguments);
       return this;
     }
     this.on = function(event, callback) {
@@ -1268,11 +1269,9 @@ var CodePrinter = (function() {
         if (c) return c.call(this, keySequence);
       }
     },
-    emit: function(eventName) {
-      var args = [], i = arguments.length, ov = this.doc.overlays;
-      while (i--) args[i] = arguments[i];
+    broadcast: function(args) {
+      var ov = this.doc && this.doc.overlays;
       for (var i = ov.length; i--; ) ov[i].emit.apply(ov[i], args);
-      Object.prototype.emit.apply(this, args);
       return this;
     },
     enterFullscreen: function() {
