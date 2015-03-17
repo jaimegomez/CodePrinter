@@ -284,7 +284,7 @@ var CodePrinter = (function() {
     focus: function() {
       async(this.input.focus.bind(this.input));
     },
-    requireStyle: function(style, callback) {
+    requireStyle: function(style) {
       load('theme/'+style+'.css', true);
     },
     setOptions: function(key, value) {
