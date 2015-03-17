@@ -52,7 +52,6 @@ var CodePrinter = (function() {
   CodePrinter.version = '0.7.2';
   
   CodePrinter.defaults = {
-    path: '',
     mode: 'plaintext',
     theme: 'default',
     caretStyle: 'vertical',
@@ -286,7 +285,7 @@ var CodePrinter = (function() {
       async(this.input.focus.bind(this.input));
     },
     requireStyle: function(style, callback) {
-      $.include($.pathJoin(this.options.path, 'theme', style+'.css'), callback);
+      load('theme/'+style+'.css', true);
     },
     setOptions: function(key, value) {
       if (this.options[key] !== value) {
@@ -3256,7 +3255,7 @@ var CodePrinter = (function() {
   
   if (document.currentScript) {
     var src = document.currentScript.getAttribute('src')
-    , ex = /codeprinter([\w\.]*)js\/?$/i.exec(src);
+    , ex = /codeprinter([\d\-\.]+)js\/?$/i.exec(src);
     if (ex) CodePrinter.src = src = src.slice(0, -ex[0].length);
   }
   if (!CodePrinter.src) CodePrinter.src = '';
@@ -3277,7 +3276,7 @@ var CodePrinter = (function() {
             }
           }
         });
-        for (var i = 0; i < m.length; i++) m[i] || loadScript('mode/'+names[i]+'.js');
+        for (var i = 0; i < m.length; i++) m[i] || load('mode/'+names[i]+'.js');
       }
     }
   }
@@ -3298,7 +3297,7 @@ var CodePrinter = (function() {
   CodePrinter.requireAddon = function(name, cb) {
     if ('string' == typeof name && 'function' == typeof cb) {
       if (addons.hasOwnProperty(name)) cb.call(CodePrinter, addons[name]);
-      else CodePrinter.on(name+':addonLoaded', cb) && loadScript('addons/'+name+'.js');
+      else CodePrinter.on(name+':addonLoaded', cb) && load('addons/'+name+'.js');
     }
   }
   CodePrinter.defineAddon = function(name, func) {
@@ -3898,12 +3897,14 @@ var CodePrinter = (function() {
     for (var i = 0; i < names.length; i++) m.push(modes[names[i].toLowerCase()] || null);
     return m;
   }
-  function loadScript(src) {
+  function load(src, css) {
     src = CodePrinter.src + src;
-    if (!document.querySelector('script[src="'+src+'"]')) {
-      var s = document.createElement('script');
-      s.type = 'text/javascript';
-      s.async = true; s.src = src;
+    var s, tag = css ? 'link' : 'script', attr = css ? 'href' : 'src';
+    if (!document.querySelector(tag+'['+attr+'="'+src+'"]')) {
+      s = document.createElement(tag);
+      s.type = css ? 'text/css' : 'text/javascript';
+      if (css) s.rel = 'stylesheet';
+      s.async = true; s[attr] = src;
       document.head.appendChild(s);
     }
   }
