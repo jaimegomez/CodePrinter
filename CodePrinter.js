@@ -3261,24 +3261,39 @@ var CodePrinter = (function() {
   }
   if (!CodePrinter.src) CodePrinter.src = '';
   
-  CodePrinter.requireMode = function(name, cb) {
-    if ('string' == typeof name && 'function' == typeof cb) {
-      if (CodePrinter.hasMode(name)) cb.call(CodePrinter, modes[name]);
-      else CodePrinter.on(name+':loaded', cb) && loadScript('mode/'+name+'.js');
+  CodePrinter.requireMode = function(names, cb) {
+    if ('string' == typeof names) names = [names];
+    if ('function' == typeof cb) {
+      var m = getModes(names), fn;
+      if (m.indexOf(null) == -1) cb.apply(CodePrinter, m);
+      else {
+        CodePrinter.on('modeLoaded', fn = function(modeName, mode) {
+          var i = names.indexOf(modeName);
+          if (i >= 0) {
+            m[i] = mode;
+            if (m.indexOf(null) == -1) {
+              cb.apply(CodePrinter, m);
+              CodePrinter.off('modeLoaded', fn);
+            }
+          }
+        });
+        for (var i = 0; i < m.length; i++) m[i] || loadScript('mode/'+names[i]+'.js');
+      }
     }
   }
   CodePrinter.defineMode = function(name, req, func) {
     if (arguments.length === 2) { func = req; req = null; }
     var fn = function() {
       var mode = func.apply(CodePrinter, arguments);
-      modes[mode.name = name] = mode;
+      modes[(mode.name = name).toLowerCase()] = mode;
+      CodePrinter.emit('modeLoaded', name, mode);
       CodePrinter.emit(name+':loaded', mode);
     }
     req ? CodePrinter.requireMode(req, fn) : fn();
   }
   CodePrinter.hasMode = function(name) {
-    if (name instanceof Array) for (var i = 0; i < name.length; i++) if (!modes.hasOwnProperty(name[i])) return false;
-    return modes.hasOwnProperty(name);
+    if (name instanceof Array) for (var i = 0; i < name.length; i++) if (!modes.hasOwnProperty(name[i].toLowerCase())) return false;
+    return modes.hasOwnProperty(name.toLowerCase());
   }
   CodePrinter.requireAddon = function(name, cb) {
     if ('string' == typeof name && 'function' == typeof cb) {
@@ -3878,12 +3893,19 @@ var CodePrinter = (function() {
       this.wrapper.scrollLeft = rect.offsetX - this.wrapper.clientWidth / 2;
     }
   }
+  function getModes(names) {
+    var m = [];
+    for (var i = 0; i < names.length; i++) m.push(modes[names[i].toLowerCase()] || null);
+    return m;
+  }
   function loadScript(src) {
-    var s = document.createElement('script');
-    s.type = 'text/javascript';
-    s.async = true;
-    s.src = CodePrinter.src + src;
-    document.head.appendChild(s);
+    src = CodePrinter.src + src;
+    if (!document.querySelector('script[src="'+src+'"]')) {
+      var s = document.createElement('script');
+      s.type = 'text/javascript';
+      s.async = true; s.src = src;
+      document.head.appendChild(s);
+    }
   }
   CodePrinter.keyCodes = keyCodes = {
     3: 'Enter', 8: 'Backspace', 9: 'Tab', 12: 'NumLock', 13: 'Enter', 16: 'Shift', 17: 'Ctrl', 18: 'Alt', 19: 'Pause', 20: 'CapsLock',
