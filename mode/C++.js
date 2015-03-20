@@ -4,6 +4,7 @@ CodePrinter.defineMode('C++', function() {
   var wordRgx = /[\w$\xa1-\uffff]/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
   , closeBrackets = /^[}\]\)]/
+  , allowedEscapes = /('|"|\?|\\|a|b|f|n|r|t|v|\d{3}|x\d{2}|u\d{4}|U\d{8})/
   , controls = ['if','else','elseif','for','switch','while','do','try','catch']
   , types = [
     'void','int','double','short','long','char','float','bool','unsigned',
@@ -117,8 +118,20 @@ CodePrinter.defineMode('C++', function() {
   }
   function isVariable(varname, state) {
     for (var ctx = state.context; ctx; ctx = ctx.prev) {
-      if ('string' == typeof ctx.vars[varname]) return ctx.vars[varname];
-      if (ctx.params[varname] === true) return 'variable';
+      if (ctx.vars[varname] === true || ctx.params[varname] === true) return 'variable';
+    }
+  }
+  
+  function Definition(type, name, params) {
+    this.type = type;
+    this.name = name;
+    this.params = params;
+  }
+  Definition.prototype = {
+    toString: function() {
+      var pstr = '';
+      for (var k in this.params) pstr += k + ', ';
+      return (this.type ? this.type + ' ' : '') + this.name + '(' + pstr.slice(0, -2) + ')';
     }
   }
   
@@ -171,17 +184,13 @@ CodePrinter.defineMode('C++', function() {
         return 'numeric';
       }
       if (/[\[\]{}\(\)]/.test(ch)) {
-        if (state.hasFunction) {
+        if (state.fn) {
           if (ch == ')') {
-            state.hasFunction = undefined;
+            state.fn = null;
           } else if (ch == '(') {
             pushcontext(state);
-            if ('string' == typeof state.hasFunction) {
-              stream.markDefinition({
-                name: state.hasFunction,
-                params: state.context.params
-              });
-            }
+            if ('string' == typeof state.fn) stream.markDefinition(new Definition(state.type, state.fn, state.context.params));
+            if (state.type) state.type = null;
           }
         }
         if (ch == '{') {
@@ -204,26 +213,33 @@ CodePrinter.defineMode('C++', function() {
         if (stream.lastValue == 'namespace' || stream.isAfter('::')) return 'namespace';
         if (word == 'true' || word == 'false') return 'builtin boolean';
         if (controls.indexOf(word) >= 0) return 'control';
-        if (types.indexOf(word) >= 0) return 'keyword type';
+        if (types.indexOf(word) >= 0) {
+          state.type = word;
+          return 'keyword type';
+        }
         if (keywords.indexOf(word) >= 0) return 'keyword';
         if ('string' == typeof state.globals[word]) return state.globals[word];
-        
-        var isVar = isVariable(word, state);
-        if (isVar) return isVar;
-        
-        if (state.hasFunction) {
+        if (state.fn && state.type) {
           state.context.params[word] = true;
           return 'parameter';
         }
         if (stream.isAfter(/^\s*\(/)) {
-          state.hasFunction = word;
+          if (state.indent == state.context.indent && state.type) state.fn = word;
           return 'function';
         }
-        
-        return 'word';
+        if (state.type) {
+          state.context.vars[word] = true;
+          return 'variable';
+        }
+        return isVariable(word, state);
+      }
+      if (ch == ';') {
+        if (state.type) state.type = null;
+        if (state.fn) state.fn = null;
       }
     },
     indent: function(stream, state) {
+      if (stream.lastStyle == 'bracket' && stream.isAfter(closeBrackets)) return [state.indent, -1];
       return state.indent;
     },
     completions: function(stream, state) {
