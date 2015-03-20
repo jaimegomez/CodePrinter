@@ -1343,15 +1343,19 @@ var CodePrinter = (function() {
       while (child) child = rm(cp.doc, dl.node, child);
       return;
     }
-    var i = 0, j = 0, l = cache.length, node = dl.node, text = ind.rest, child, tmp;
-    child = updateIndent(node, node.firstChild, tabString, ind.indent, ind.spaces);
-    for (var i = 0; i < l; i++) {
+    var child = updateInnerLine(dl.node, cache, ind, tabString);
+    while (child) child = rm(cp.doc, dl.node, child);
+  }
+  function updateInnerLine(node, cache, ind, tabString) {
+    var child = updateIndent(node, node.firstChild, tabString, ind.indent, ind.spaces)
+    , i = -1, j = 0, l = cache.length, text = ind.rest, tmp;
+    while (++i < l) {
       tmp = cache[i];
       if (j < tmp.from) child = maybeSpanUpdate(node, child, '', text.substring(j, j = tmp.from));
       child = maybeSpanUpdate(node, child, cpx(tmp.style), text.substring(tmp.from, j = tmp.to));
     }
     if (j < text.length) child = maybeSpanUpdate(node, child, '', text.substr(j));
-    while (child) child = rm(cp.doc, node, child);
+    return child;
   }
   function rm(doc, parent, child) {
     var next = child.nextSibling;
@@ -2059,7 +2063,7 @@ var CodePrinter = (function() {
       , h, dl, disp;
       
       if (d) {
-        if (abs > 700 && abs > 2 * code.offsetHeight && 0 <= st &&  st <= cp.wrapper.scrollHeight - cp.wrapper.clientHeight) {
+        if (abs > 700 && abs > 2 * code.offsetHeight && 0 <= st && st <= cp.wrapper.scrollHeight - cp.wrapper.clientHeight) {
           dl = data.getLineWithOffset(Math.max(0, st - limit));
           if (this.rewind(dl, st) !== false) return;
         }
@@ -2127,7 +2131,7 @@ var CodePrinter = (function() {
           ol = child.offsetLeft; ow = child.offsetWidth;
           if (x <= ol + ow) {
             r.charWidth = Math.round(ow / l);
-            var tmp = Math.round((x - ol) * l / ow);
+            var tmp = Math.round(Math.max(0, x - ol) * l / ow);
             r.column += tmp;
             r.offsetX = Math.round(ol + tmp * ow / l);
             break;
@@ -2876,17 +2880,20 @@ var CodePrinter = (function() {
       stream.take(/^\S+/);
       return 'word';
     },
-    compile: function(string) {
+    compile: function(string, tabWidth) {
       if ('string' == typeof string) {
+        if ('number' != typeof tabWidth) tabWidth = 2;
         var state = this.initialState && this.initialState()
         , node = pre.cloneNode()
         , lines = string.split(eol)
-        , l = lines.length;
+        , l = lines.length
+        , tabString = repeat(' ', tabWidth);
         
         for (var i = 0; i < l; i++) {
-          var stream = new Stream(lines[i]);
+          var ind = parseIndentation(lines[i], tabWidth), stream = new Stream(lines[i], { indentation: ind.indent })
+          , cache = parse(null, this, stream, state);
           node.innerHTML = '';
-          parse(null, this, stream, state, node);
+          updateInnerLine(node, cache, ind, tabString);
           lines[i] = '<pre>'+node.innerHTML+'</pre>';
         }
         return lines.join('');
@@ -3284,7 +3291,8 @@ var CodePrinter = (function() {
     if (arguments.length === 2) { func = req; req = null; }
     var fn = function() {
       var mode = func.apply(CodePrinter, arguments);
-      modes[(mode.name = name).toLowerCase()] = mode;
+      mode.name = name;
+      modes[name = name.toLowerCase()] = mode;
       CodePrinter.emit('modeLoaded', name, mode);
       CodePrinter.emit(name+':loaded', mode);
     }
@@ -3478,11 +3486,7 @@ var CodePrinter = (function() {
         T3 = clearTimeout(T3) || setTimeout(function() {
           isScrolling = false;
           removeClass(wrapper, 'scrolling');
-          var wt = cp.doc.wheelTarget;
-          if (wt) {
-            if (wt.style.display == 'none') wt.parentNode.removeChild(wt);
-            cp.doc.wheelTarget = null;
-          }
+          wheelTarget(cp.doc, null);
           cp.emit('scrollend');
         }, 200);
       }
@@ -3772,10 +3776,16 @@ var CodePrinter = (function() {
     return { x: x, y: y };
   }
   function wheel(doc, node, e, speed, x, y) {
-    if (webkit && macosx) doc.wheelTarget = e.target;
+    if (webkit && macosx) wheelTarget(doc, e.target);
     if (y) doc.scrollTo(node.scrollTop + speed * y);
     if (x) { node._lockedScrolling = true; node.scrollLeft += speed * x; }
     return eventCancel(e);
+  }
+  function wheelTarget(doc, wt) {
+    if (doc.wheelTarget != wt) {
+      if (wt && wt.style.display == 'none') wt.parentNode.removeChild(wt);
+      doc.wheelTarget = wt;
+    }
   }
   function startBlinking(caret, options) {
     clearInterval(caret.interval);
