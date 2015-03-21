@@ -3293,8 +3293,8 @@ var CodePrinter = (function() {
       var mode = func.apply(CodePrinter, arguments);
       mode.name = name;
       modes[name = name.toLowerCase()] = mode;
-      CodePrinter.emit('modeLoaded', name, mode);
-      CodePrinter.emit(name+':loaded', mode);
+      CodePrinter.emit('modeLoaded', mode.name, mode);
+      CodePrinter.emit(mode.name+':loaded', mode);
     }
     req ? CodePrinter.requireMode(req, fn) : fn();
   }
