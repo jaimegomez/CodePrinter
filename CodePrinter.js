@@ -2886,15 +2886,14 @@ var CodePrinter = (function() {
         var state = this.initialState && this.initialState()
         , node = pre.cloneNode()
         , lines = string.split(eol)
-        , l = lines.length
         , tabString = repeat(' ', tabWidth);
         
-        for (var i = 0; i < l; i++) {
-          var ind = parseIndentation(lines[i], tabWidth), stream = new Stream(lines[i], { indentation: ind.indent })
+        for (var i = 0; i < lines.length; i++) {
+          var ind = parseIndentation(lines[i], tabWidth), stream = new Stream(ind.rest, { indentation: ind.indent })
           , cache = parse(null, this, stream, state);
           node.innerHTML = '';
           updateInnerLine(node, cache, ind, tabString);
-          lines[i] = '<pre>'+node.innerHTML+'</pre>';
+          lines[i] = '<pre>'+(node.innerHTML || zws)+'</pre>';
         }
         return lines.join('');
       }
