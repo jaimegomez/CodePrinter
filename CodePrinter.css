@@ -52,6 +52,11 @@
   position: relative;
 }
 .codeprinter .cp-container {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
   display: -webkit-box;
   display: -moz-box;
   display: -ms-flexbox;
@@ -75,11 +80,6 @@
   -webkit-backface-visibility: hidden;
 }
 .codeprinter .cp-wrapper {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  -o-user-select: none;
-  user-select: none;
   display: -webkit-box;
   display: -moz-box;
   display: -ms-flexbox;
