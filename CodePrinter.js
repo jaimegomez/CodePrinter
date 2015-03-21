@@ -3553,7 +3553,7 @@ var CodePrinter = (function() {
       if ((allowKeyup = !e.defaultPrevented) && seq.length > 1 && cp.keyMap[seq]) {
         allowKeyup = cp.keyMap[seq].call(cp, seq, code);
       }
-      return !allowKeyup && eventCancel(e);
+      if (!allowKeyup) return eventCancel(e);
     });
     input.addEventListener('keypress', function(e) {
       if (options.readOnly) return;
@@ -3709,6 +3709,7 @@ var CodePrinter = (function() {
           isMouseDown = true;
           window.addEventListener('mousemove', counterMousemove, false);
           window.addEventListener('mouseup', counterMouseup, false);
+          return eventCancel(e);
         }
       }
     });
