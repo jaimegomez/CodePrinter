@@ -127,6 +127,18 @@ CodePrinter.defineMode('JavaScript', function() {
     state.control = word;
   }
   
+  function Definition(name, params) {
+    this.name = name;
+    this.params = params;
+  }
+  Definition.prototype = {
+    toString: function() {
+      var pstr = '';
+      for (var k in this.params) pstr += k + ', ';
+      return this.name + '(' + pstr.slice(0, -2) + ')';
+    }
+  }
+  
   return new CodePrinter.Mode({
     name: 'JavaScript',
     blockCommentStart: '/*',
@@ -196,10 +208,7 @@ CodePrinter.defineMode('JavaScript', function() {
           state.next = parameters;
           pushcontext(state);
           if ('string' == typeof state.fn) {
-            stream.markDefinition({
-              name: state.fn,
-              params: state.context.params
-            });
+            stream.markDefinition(new Definition(state.fn, state.context.params));
           }
           state.fn = null;
         }
