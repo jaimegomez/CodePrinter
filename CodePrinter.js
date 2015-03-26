@@ -973,7 +973,7 @@ var CodePrinter = (function() {
         var dl = this.doc.get(arguments[i][0]), pos;
         if (dl) {
           pos = this.doc.measureRect(dl, arguments[i][1], arguments[i][1] + arguments[i][2].length);
-          var sp = addClass(span.cloneNode(), 'cp-highlight');
+          var sp = addClass(span.cloneNode(false), 'cp-highlight');
           sp.setAttribute('style', 'top:'+(dl.getOffset()+pos.offsetY+this.sizes.paddingTop)+'px;left:'+pos.offsetX+'px;width:'+pos.width+'px;height:'+(pos.charHeight+1)+'px;');
           overlay.node.appendChild(sp);
         }
@@ -1022,7 +1022,7 @@ var CodePrinter = (function() {
                 cp.searches.length = 0;
               }
             });
-            search.overlay.node.addEventListener('mousedown', function(e) {
+            on(search.overlay.node, 'mousedown', function(e) {
               var res = e.target._searchResult;
               if (res && e.target.tagName == 'SPAN') {
                 clearSelected();
@@ -1432,7 +1432,7 @@ var CodePrinter = (function() {
     updateLine(cp, dl, ind, cp.tabString, dl.cache);
   }
   function cspan(style, content) {
-    var node = span.cloneNode();
+    var node = span.cloneNode(false);
     if (style) node.className = style;
     node.appendChild(document.createTextNode(content));
     return node;
@@ -2193,7 +2193,7 @@ var CodePrinter = (function() {
       return r;
     }
     this.updateDefaultHeight = function() {
-      var pr = pre.cloneNode();
+      var pr = pre.cloneNode(false);
       pr.setAttribute('style', 'position:absolute;font:normal normal '+cp.options.fontSize+'px/'+cp.options.lineHeight+' '+cp.options.fontFamily+';');
       pr.appendChild(document.createTextNode('CP'));
       document.documentElement.appendChild(pr);
@@ -2340,18 +2340,18 @@ var CodePrinter = (function() {
         , endPos = this.measureRect(lastdl, e.column)
         , equal = s.line == e.line, fh = pos.offsetY + pos.height, selnode;
         
-        selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode()
+        selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(false)
           , dloffset + pos.offsetY, pos.offsetX, equal && pos.offsetY == endPos.offsetY ? 0 : null, pos.height, 0);
         selnode.parentNode || ov.node.appendChild(selnode);
-        selnode = ov.middle = createSelectionNode.call(cp, ov.middle || div.cloneNode()
+        selnode = ov.middle = createSelectionNode.call(cp, ov.middle || div.cloneNode(false)
           , dloffset + fh, cp.sizes.paddingLeft, null, lastdloffset - dloffset - pos.height + endPos.offsetY, 0);
         selnode.parentNode || ov.node.appendChild(selnode);
         
         if (equal && pos.offsetY == endPos.offsetY) {
-          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode()
+          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode(false)
             , dloffset + endPos.offsetY, pos.offsetX, endPos.offsetX - pos.offsetX, pos.height);
         } else {
-          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode()
+          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode(false)
             , lastdloffset + endPos.offsetY, cp.sizes.paddingLeft, endPos.offsetX - cp.sizes.paddingLeft, endPos.charHeight);
         }
         selnode.parentNode || ov.node.appendChild(selnode);
@@ -2699,7 +2699,7 @@ var CodePrinter = (function() {
   
   CodePrinter.Overlay = function(doc, className, removeOn) {
     EventEmitter.call(this);
-    this.node = addClass(addClass(div.cloneNode(), 'cp-overlay'), className);
+    this.node = addClass(addClass(div.cloneNode(false), 'cp-overlay'), className);
     this.doc = doc;
     if (removeOn instanceof Array) {
       var emit = this.emit;
@@ -2884,7 +2884,7 @@ var CodePrinter = (function() {
       if ('string' == typeof string) {
         if ('number' != typeof tabWidth) tabWidth = 2;
         var state = this.initialState && this.initialState()
-        , node = pre.cloneNode()
+        , node = pre.cloneNode(false)
         , lines = string.split(eol)
         , tabString = repeat(' ', tabWidth);
         
@@ -3259,10 +3259,20 @@ var CodePrinter = (function() {
     }
   }
   
+  function checkScript(script) {
+    var src = script.getAttribute('src'), ex = /codeprinter([\d\-\.]+)js\/?$/i.exec(src);
+    if (ex) {
+      CodePrinter.src = src.slice(0, -ex[0].length);
+      return true;
+    }
+  }
   if (document.currentScript) {
-    var src = document.currentScript.getAttribute('src')
-    , ex = /codeprinter([\d\-\.]+)js\/?$/i.exec(src);
-    if (ex) CodePrinter.src = src = src.slice(0, -ex[0].length);
+    checkScript(document.currentScript);
+  } else {
+    var scripts = document.scripts;
+    for (var i = 0; i < scripts.length; i++) {
+      if (checkScript(scripts[i])) break;
+    }
   }
   if (!CodePrinter.src) CodePrinter.src = '';
   
@@ -3325,7 +3335,7 @@ var CodePrinter = (function() {
     return false;
   }
   
-  window.addEventListener('resize', function() {
+  on(window, 'resize', function() {
     for (var i = 0; i < instances.length; i++) {
       var cp = instances[i];
       cp.doc && cp.doc.updateView();
@@ -3346,7 +3356,7 @@ var CodePrinter = (function() {
     cp.screen = create(cp.wrapper, 'div', 'cp-screen');
     cp.code = create(cp.screen, 'div', 'cp-code');
     cp.measure = create(cp.screen, 'div', 'cp-measure');
-    cp.measure.appendChild(pre.cloneNode());
+    cp.measure.appendChild(pre.cloneNode(false));
     cp.input.tabIndex = cp.options.tabIndex;
     cp.input.autofocus = cp.options.autoFocus;
     cp.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
@@ -3382,9 +3392,9 @@ var CodePrinter = (function() {
         isMouseDown = true;
         if (doc.inSelection(l, c) && ry === y && (x - 3 <= cp.caret.offsetX() || doc.inSelection(l, c+1))) {
           moveselection = true;
-          window.addEventListener('mousemove', mouseController);
-          window.addEventListener('mouseup', msp = function(e) {
-            window.removeEventListener('mousemove', mouseController);
+          on(window, 'mousemove', mouseController);
+          on(window, 'mouseup', msp = function(e) {
+            off(window, 'mousemove', mouseController);
             if (moveselection > 1) {
               var savedpos = cp.caret.savePosition();
               if (moveselection && doc.issetSelection() && !doc.inSelection(savedpos[0], savedpos[1])) {
@@ -3407,7 +3417,7 @@ var CodePrinter = (function() {
               isinactive || doc.clearSelection();
               input.focus();
             }
-            window.removeEventListener('mouseup', msp);
+            off(window, 'mouseup', msp);
             return isMouseDown = moveselection = eventCancel(e);
           });
         } else {
@@ -3417,14 +3427,14 @@ var CodePrinter = (function() {
           else if (y < 0) cp.caret.position(l, 0);
           
           doc.beginSelection();
-          window.addEventListener('mousemove', mouseController);
-          window.addEventListener('mouseup', msp = function(e) {
+          on(window, 'mousemove', mouseController);
+          on(window, 'mouseup', msp = function(e) {
             !doc.issetSelection() && doc.clearSelection();
-            window.removeEventListener('mousemove', mouseController);
+            off(window, 'mousemove', mouseController);
             cp.caret.activate();
             sizes.bounds = moveevent = null;
             document.activeElement != input && (gecko ? async(function() { input.focus() }) : input.focus());
-            window.removeEventListener('mouseup', msp);
+            off(window, 'mouseup', msp);
             return isMouseDown = eventCancel(e);
           });
         }
@@ -3451,11 +3461,11 @@ var CodePrinter = (function() {
     
     if ('ontouchstart' in window || navigator.msMaxTouchPoints > 0) {
       var x, y;
-      wrapper.addEventListener('touchstart', function(e) {
+      on(wrapper, 'touchstart', function(e) {
         y = e.touches[0].screenY;
         x = e.touches[0].screenX;
       });
-      wrapper.addEventListener('touchmove', function(e) {
+      on(wrapper, 'touchmove', function(e) {
         if (x != null && y != null) {
           var touch = e.touches[0];
           this.scrollLeft += options.scrollSpeed * (x - (x = touch.screenX));
@@ -3463,19 +3473,19 @@ var CodePrinter = (function() {
           return eventCancel(e);
         }
       });
-      wrapper.addEventListener('touchend', function() { x = y = null; });
+      on(wrapper, 'touchend', function() { x = y = null; });
     } else if ('onwheel' in window) {
-      wrapper.addEventListener('wheel', function(e) { return wheel(cp.doc, this, e, options.scrollSpeed, e.deltaX, e.deltaY); }, false);
+      on(wrapper, 'wheel', function(e) { return wheel(cp.doc, this, e, options.scrollSpeed, e.deltaX, e.deltaY); });
     } else {
       var mousewheel = function(e) {
         var d = wheelDelta(e);
         return wheel(cp.doc, this, e, wheelUnit * options.scrollSpeed, d.x, d.y);
       }
-      wrapper.addEventListener('mousewheel', mousewheel);
-      gecko && wrapper.addEventListener('DOMMouseScroll', mousewheel);
+      on(wrapper, 'mousewheel', mousewheel);
+      gecko && on(wrapper, 'DOMMouseScroll', mousewheel);
     }
     
-    wrapper.addEventListener('scroll', function(e) {
+    on(wrapper, 'scroll', function(e) {
       if (!this._lockedScrolling) {
         cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop);
       } else {
@@ -3491,7 +3501,7 @@ var CodePrinter = (function() {
       }
       this._lockedScrolling = false;
     });
-    wrapper.addEventListener('dblclick', function() {
+    on(wrapper, 'dblclick', function() {
       var bf = cp.caret.textBefore()
       , af = cp.caret.textAfter()
       , line = cp.caret.line()
@@ -3501,11 +3511,11 @@ var CodePrinter = (function() {
       var tripleclick = function() {
         cp.doc.setSelectionRange(line, 0, line+1, 0);
         cp.caret.position(line+1, 0);
-        this.removeEventListener('click', tripleclick);
+        off(this, 'click', tripleclick);
         timeout = clearTimeout(timeout);
       }
-      this.addEventListener('click', tripleclick, false);
-      timeout = setTimeout(function() { wrapper.removeEventListener('click', tripleclick); }, 350);
+      on(this, 'click', tripleclick);
+      timeout = setTimeout(function() { off(wrapper, 'click', tripleclick); }, 350);
       
       rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
       
@@ -3516,15 +3526,15 @@ var CodePrinter = (function() {
         cp.doc.setSelectionRange(line, c-l+1, line, c+r);
       }
     });
-    wrapper.addEventListener('mousedown', mouseController);
-    wrapper.addEventListener('selectstart', function(e) { return eventCancel(e); });
+    on(wrapper, 'mousedown', mouseController);
+    on(wrapper, 'selectstart', function(e) { return eventCancel(e); });
     
-    input.addEventListener('focus', function() {
+    on(input, 'focus', function() {
       cp.caret.focus();
       removeClass(cp.mainNode, 'inactive');
       cp.emit('focus');
     });
-    input.addEventListener('blur', function() {
+    on(input, 'blur', function() {
       if (isMouseDown) {
         this.focus();
       } else {
@@ -3535,7 +3545,7 @@ var CodePrinter = (function() {
         cp.emit('blur');
       }
     });
-    input.addEventListener('keydown', function(e) {
+    on(input, 'keydown', function(e) {
       var code = e.keyCode, seq = keySequence(e);
       
       cp.caret.deactivate();
@@ -3555,7 +3565,7 @@ var CodePrinter = (function() {
       }
       if (!allowKeyup) return eventCancel(e);
     });
-    input.addEventListener('keypress', function(e) {
+    on(input, 'keypress', function(e) {
       if (options.readOnly) return;
       var a, code = e.keyCode
       , s = cp.getStateAt(cp.caret.dl(), cp.caret.column())
@@ -3585,7 +3595,7 @@ var CodePrinter = (function() {
         return eventCancel(e);
       }
     });
-    input.addEventListener('keyup', function(e) {
+    on(input, 'keyup', function(e) {
       if (options.readOnly) return;
       if (cp.caret.isVisible) cp.caret.activate();
       if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
@@ -3595,7 +3605,7 @@ var CodePrinter = (function() {
       this.value = '';
       cp.emit('keyup', e);
     });
-    input.addEventListener('input', function(e) {
+    on(input, 'input', function(e) {
       if (!options.readOnly && this.value.length) {
         cp.insertText(this.value);
         this.value = '';
@@ -3688,8 +3698,8 @@ var CodePrinter = (function() {
       }
     }
     function counterMouseup(e) {
-      this.removeEventListener('mousemove', counterMousemove);
-      this.removeEventListener('mouseup', counterMouseup);
+      off(this, 'mousemove', counterMousemove);
+      off(this, 'mouseup', counterMouseup);
       
       if (counterSelection.length === 1) {
         var range, min = counterSelection[0];
@@ -3699,7 +3709,7 @@ var CodePrinter = (function() {
       counterSelection.length = 0;
       isMouseDown = false;
     }
-    cp.counter.addEventListener('mousedown', function(e) {
+    on(cp.counter, 'mousedown', function(e) {
       if (e.target.tagName == 'LI') {
         var b = sizes.bounds = sizes.bounds || bounds(wrapper)
         , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
@@ -3707,8 +3717,8 @@ var CodePrinter = (function() {
           counterSelection[0] = dl.info().index;
           cp.input.focus();
           isMouseDown = true;
-          window.addEventListener('mousemove', counterMousemove, false);
-          window.addEventListener('mouseup', counterMouseup, false);
+          on(window, 'mousemove', counterMousemove);
+          on(window, 'mouseup', counterMouseup);
           return eventCancel(e);
         }
       }
@@ -3810,8 +3820,8 @@ var CodePrinter = (function() {
     return line.classes ? line.classes.join(' ') : '';
   }
   function init(dl, node, counter) {
-    dl.node = pre.cloneNode();
-    dl.counter = li.cloneNode();
+    dl.node = pre.cloneNode(false);
+    dl.counter = li.cloneNode(false);
     dl.counter.appendChild(document.createTextNode(''));
     dl.counter.style.height = dl.height + 'px';
   }
@@ -3883,7 +3893,7 @@ var CodePrinter = (function() {
     for (var i = 0; i < res.length; i++) {
       var node = res[i].node;
       if (!node) {
-        node = span.cloneNode();
+        node = span.cloneNode(false);
         node.appendChild(document.createTextNode(''));
       }
       node.className = 'cp-search-occurrence';
@@ -3941,6 +3951,8 @@ var CodePrinter = (function() {
   }
   function escape(str) { return str.replace(/[-\/\\^$*+?.()|[\]{}"']/g, '\\$&'); }
   function extend(base) { for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
+  function on(node, event, listener) { node.addEventListener(event, listener, false); }
+  function off(node, event, listener) { node.removeEventListener(event, listener, false); }
   function eventCancel(e) { e.preventDefault(); e.stopPropagation(); return e.returnValue = false; }
   function addClass(n, c) { if (n.classList) n.classList.add(c); else if (!hasClass(n, c)) n.className += ' '+c; return n; }
   function removeClass(n, c) { if (n.classList) n.classList.remove(c); else if (hasClass(n, c)) n.className = n.className.replace(new RegExp('(^|\\s+)'+c), ''); return n; }
@@ -3970,7 +3982,7 @@ var CodePrinter = (function() {
         window.postMessage('CodePrinter', '*');
       }
     }
-    window.addEventListener('message', function(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); }, false);
+    on(window, 'message', function(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); });
   } else {
     async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
   }

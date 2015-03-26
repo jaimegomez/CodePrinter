@@ -230,9 +230,9 @@ CodePrinter.defineAddon('hints', function() {
     });
     
     var stopprop = function(e) { e.stopPropagation(); };
-    ov.node.addEventListener('wheel', stopprop);
-    ov.node.addEventListener('mousewheel', stopprop);
-    ov.node.addEventListener('DOMMouseScroll', stopprop);
+    ov.node.addEventListener('wheel', stopprop, false);
+    ov.node.addEventListener('mousewheel', stopprop, false);
+    ov.node.addEventListener('DOMMouseScroll', stopprop, false);
     
     container.addEventListener('mousedown', function(e) {
       if (e.target.tagName == 'LI') {
@@ -241,13 +241,13 @@ CodePrinter.defineAddon('hints', function() {
         e.stopPropagation();
         return false;
       }
-    });
+    }, false);
     container.addEventListener('mouseover', function(e) {
       if (e.target.tagName == 'LI') setActive(e.target);
-    });
+    }, false);
     container.addEventListener('mouseout', function(e) {
       if (e.target.tagName == 'LI') setActive(null);
-    });
+    }, false);
     
     function refreshPosition() {
       var x = cp.caret.offsetX() - 4

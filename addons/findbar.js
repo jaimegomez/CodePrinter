@@ -45,7 +45,7 @@ CodePrinter.defineAddon('findbar', function() {
         that.hide();
         return cancel(e);
       }
-    });
+    }, false);
     
     cp.on('searchCompleted', function(find, length) {
       inf.innerHTML = (length || 'No')+' matches';
