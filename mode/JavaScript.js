@@ -13,9 +13,9 @@ CodePrinter.defineMode('JavaScript', function() {
     'void','with','const','of'
   ]
   , specials = [
-    'this','$','_','window','document','console','arguments','function','import','export',
-    'module','Object','Array','String','Number','Function','RegExp','Date','Boolean',
-    'Math','JSON','Proxy','Map','WeakMap','Set','WeakSet','Symbol',
+    'this','$','_','window','document','console','arguments','function','navigator',
+    'import','export','module','Object','Array','String','Number','Function','RegExp',
+    'Date','Boolean','Math','JSON','Proxy','Map','WeakMap','Set','WeakSet','Symbol',
     'Error','EvalError','InternalError','RangeError','ReferenceError',
     'StopIteration','SyntaxError','TypeError','URIError'
   ]
@@ -144,7 +144,7 @@ CodePrinter.defineMode('JavaScript', function() {
     blockCommentStart: '/*',
     blockCommentEnd: '*/',
     lineComment: '//',
-    indentTriggers: /[\}\]\)e]/,
+    indentTriggers: /[\}\]e]/,
     matching: 'brackets',
     
     initialState: function() {
@@ -167,8 +167,8 @@ CodePrinter.defineMode('JavaScript', function() {
         if (stream.eat('*')) {
           return comment(stream, state);
         }
-        if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'numeric'
-          || stream.lastStyle == 'constant' || stream.lastValue == ')') {
+        if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'variable'
+        || stream.lastStyle == 'numeric' || stream.lastStyle == 'constant' || stream.lastValue == ')') {
           return 'operator';
         }
         return regexp(stream, state);
@@ -246,7 +246,7 @@ CodePrinter.defineMode('JavaScript', function() {
       if (wordRgx.test(ch)) {
         var word = ch + stream.take(/^[\w$\xa1-\uffff]+/);
         if (word == 'function') {
-          state.fn = true;
+          if (!state.fn) state.fn = true;
           return 'special';
         }
         if (word == 'var') {
@@ -264,7 +264,7 @@ CodePrinter.defineMode('JavaScript', function() {
         if (word == 'true' || word == 'false') return 'builtin boolean';
         if (constants.indexOf(word) >= 0) return 'constant';
         if (controls.indexOf(word) >= 0) {
-          markControl(state, word);
+          if (stream.lastStyle != 'control') markControl(state, word);
           return 'control';
         }
         if (word == 'case' || word == 'default') {
@@ -273,7 +273,7 @@ CodePrinter.defineMode('JavaScript', function() {
         }
         if (specials.indexOf(word) >= 0) return 'special';
         if (keywords.indexOf(word) >= 0) return 'keyword';
-        
+        if (stream.isAfter(/^\s*([:=]\s*function)?\(/)) { if (RegExp.$1) state.fn = word; return 'function'; }
         if (state.context) {
           if (state.context.params[word] && !stream.isBefore(/\.\s*$/, -word.length)) {
             return 'variable';
@@ -281,7 +281,6 @@ CodePrinter.defineMode('JavaScript', function() {
           var isVar = isVariable(word, state);
           if (isVar && 'string' === typeof isVar) return isVar;
         }
-        if (stream.isAfter(/^\s*(:\s*function)?\(/)) return 'function';
         if (!stream.lastValue || (stream.lastStyle == 'keyword' && stream.lastValue != 'new') || stream.lastValue == ',') {
           if (state.vardef == 1) return state.context.vars[word] = 'variable';
           if (state.constdef == 1) return state.context.vars[word] = 'constant';
@@ -297,12 +296,12 @@ CodePrinter.defineMode('JavaScript', function() {
       }
     },
     indent: function(stream, state) {
-      var i = state.indent + (state.controlLevel || 0);
+      var i = state.indent + (state.controlLevel | 0);
       if (stream.lastStyle == 'bracket') {
         if (stream.isAfter(closeBrackets)) return [i, -1];
       }
       if (stream.isAfter(closeBrackets) || state.parser && stream.isAfter(/^\s*<\s*\/\s*script/i)) return i - 1;
-      if (stream.isAfter(/^e(lse)?\b/)) return RegExp.$1 ? i : stream.indentation;
+      if (stream.peek() == 'e') return stream.isAfter('else') && stream.lastStyle == 'control' ? i - 1 : null;
       return i;
     },
     completions: function(stream, state) {
