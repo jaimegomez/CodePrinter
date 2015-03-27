@@ -186,6 +186,7 @@ CodePrinter.defineMode('JavaScript', function() {
         else if (state.constdef == 2) --state.constdef;
         return 'punctuation';
       }
+      if (ch == ':') return 'punctuation';
       if (ch == ';') {
         if (state.vardef) state.vardef = null;
         if (state.constdef) state.constdef = null;
