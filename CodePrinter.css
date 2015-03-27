@@ -280,8 +280,7 @@
   left: 0;
   overflow: hidden;
 }
-.codeprinter .cp-selection-overlay,
-.codeprinter .cp-highlight-overlay {
+.codeprinter .cp-selection-overlay {
   z-index: -1;
 }
 .codeprinter .cp-selection {
