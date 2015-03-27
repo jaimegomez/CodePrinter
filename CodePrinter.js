@@ -263,9 +263,11 @@ var CodePrinter = (function() {
           var ind = parseIndentation(tmp.text, this.options.tabWidth)
           , stream = new Stream(ind.rest, { indentation: ind.indent });
           if (tmp == dl) {
-            var cache = parse(this, this.parser, stream, state, Math.max(0, Math.min(column - ind.length, ind.rest.length)));
+            var pos = Math.max(0, Math.min(column - ind.length, ind.rest.length))
+            , cache = parse(this, this.parser, stream, state, pos);
             cache = cache[cache.length-1];
             if (stream.eol()) tmp.state = state;
+            stream.pos = pos;
             return { stream: stream, state: state, style: cache && cache.style, parser: state.parser || this.parser };
           } else {
             state = copyState(this.parse(tmp, state).state);
@@ -431,7 +433,7 @@ var CodePrinter = (function() {
     },
     setIndentAtLine: function(line, indent, dl) {
       indent = Math.max(0, indent);
-      var old, diff;
+      var old, diff, col;
       if (line instanceof Line) {
         dl = line;
         line = dl.info().index;
@@ -441,16 +443,13 @@ var CodePrinter = (function() {
       if (dl) {
         old = this.getIndentAtLine(dl);
         diff = indent - old;
+        col = this.caret.line() == line ? this.caret.column() : -1;
         if (diff) {
           var tab = tabString(this);
           dl.setText(repeat(tab, indent) + dl.text.replace(/^\s*/g, ''));
           var sp = RegExp.lastMatch.length;
           this.parse(dl);
-          if (this.caret.line() == line) {
-            this.caret.moveX(tab.length * indent - sp);
-          } else {
-            this.caret.refresh();
-          }
+          if (col >= 0) this.caret.position(line, Math.max(0, col + diff * tab.length + sp % tab.length));
           this.emit('changed', { line: line, column: 0, text: repeat(tab, Math.abs(diff)), added: diff > 0 });
         }
       }
@@ -540,7 +539,8 @@ var CodePrinter = (function() {
           parser = s.state && s.state.parser || this.parser;
           oi = s.stream.indentation; s.stream.indentation = i;
           i = parser.indent(s.stream, s.state, oi);
-          this.setIndentAtLine(dl, i);
+          if ('number' == typeof i) this.setIndentAtLine(dl, i);
+          else i = oi;
         } else {
           break;
         }
@@ -721,7 +721,7 @@ var CodePrinter = (function() {
         
         this.caret.setTextAtCurrentLine(bf + s.shift(), '');
         this.doc.insert(line+1, s);
-        this.caret.position(line + s.length, -1);
+        this.caret.position(line + s.length, s[s.length-1].length);
         this.caret.setTextAfter(af);
       } else {
         this.caret.setTextBefore(bf + s[0]);
@@ -1323,7 +1323,7 @@ var CodePrinter = (function() {
       if (ind < minI) { best = tmp; minI = ind; }
       tmp = tmp.prev();
     }
-    return best && best.state ? { state: copyState(best.state), line: best.next() } : { state: parser.initialState(), line: best || dl };
+    return best && best.state ? { state: copyState(best.state), line: best.next() } : { state: extend(parser.initialState(), { indent: minI != Infinity ? minI : 0 }), line: best || dl };
   }
   function updateIndent(node, child, tabString, indent, spaces) {
     for (var i = 0; i < indent; i++) child = maybeSpanUpdate(node, child, 'cpx-tab', tabString);
@@ -1450,7 +1450,7 @@ var CodePrinter = (function() {
       s = cp.getStateAt(dl, offset | 0);
       oi = s.stream.indentation; s.stream.indentation = i;
       i = parser.indent(s.stream, s.state, oi);
-      cp.setIndentAtLine(dl, i);
+      if ('number' == typeof i) cp.setIndentAtLine(dl, i);
     }
   }
   function matchingHelper(cp, key, opt, line, start, end) {
@@ -2189,7 +2189,7 @@ var CodePrinter = (function() {
         }
       } else if (r.width) r.width = Math.round(r.width);
       if (child) r.height = child.offsetTop - r.offsetY + (r.charHeight = child.offsetHeight);
-      if (!r.charWidth) r.charWidth = calcCharWidth(dl.node);
+      if (!r.charWidth) r.charWidth = calcCharWidth(dl.node || cp.measure.firstChild);
       return r;
     }
     this.updateDefaultHeight = function() {
@@ -3038,7 +3038,9 @@ var CodePrinter = (function() {
     },
     '"': function(k) {
       if (this.options.insertClosingQuotes) {
-        this.textAfterCursor(1) !== ch ? this.caret.textAtCurrentLine().count(ch) % 2 ? this.insertText(ch, 0) : this.insertText(ch + ch, -1) : this.caret.moveX(1);
+        var txt = this.caret.textAtCurrentLine()
+        , count = (txt.length - txt.replace(new RegExp(k, "g"), '').length);
+        this.textAfterCursor(1) !== k ? count % 2 ? this.insertText(k, 0) : this.insertText(k + k, -1) : this.caret.moveX(1);
         return false;
       }
     },
