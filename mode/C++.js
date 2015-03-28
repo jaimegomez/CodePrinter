@@ -104,6 +104,34 @@ CodePrinter.defineMode('C++', function() {
     state.next = undefined;
     return 'string';
   }
+  function parameters(stream, state) {
+    var p = 0, ch;
+    while (ch = stream.next()) {
+      if (ch == '(') {
+        ++p;
+        return 'bracket';
+      }
+      if (ch == ')') {
+        --p;
+        if (p == 0) state.next = null;
+        return 'bracket'; 
+      }
+      if (ch == '{' || ch == ';') {
+        stream.undo(1);
+        state.next = null;
+        return;
+      }
+      if (ch == ',') return 'punctuation';
+      if (ch == '*' || ch == '&') return 'operator';
+      if (wordRgx.test(ch)) {
+        var word = ch + stream.eatWhile(wordRgx);
+        if (types.indexOf(word) >= 0) return 'keyword type';
+        state.context.params[word] = true;
+        return 'parameter';
+      }
+    }
+    return;
+  }
   
   function pushcontext(state) {
     state.context = { vars: {}, params: {}, indent: state.indent + 1, prev: state.context };
@@ -122,10 +150,10 @@ CodePrinter.defineMode('C++', function() {
     }
   }
   
-  function Definition(type, name, params) {
-    this.type = type;
-    this.name = name;
-    this.params = params;
+  function Definition(state) {
+    this.type = state.type;
+    this.name = state.fn;
+    this.params = state.context.params;
   }
   Definition.prototype = {
     toString: function() {
@@ -184,16 +212,12 @@ CodePrinter.defineMode('C++', function() {
         return 'numeric';
       }
       if (/[\[\]{}\(\)]/.test(ch)) {
-        if (state.fn) {
-          if (ch == ')') {
-            state.fn = null;
-          } else if (ch == '(') {
-            pushcontext(state);
-            if ('string' == typeof state.fn) stream.markDefinition(new Definition(state.type, state.fn, state.context.params));
-            if (state.type) state.type = null;
-          }
-        }
         if (ch == '{') {
+          if (state.fn && state.type) {
+            pushcontext(state);
+            if ('string' == typeof state.fn) stream.markDefinition(new Definition(state));
+            state.type = state.fn = null;
+          }
           ++state.indent;
         } else if (ch == '}') {
           if (state.indent == state.context.indent) {
@@ -219,27 +243,31 @@ CodePrinter.defineMode('C++', function() {
         }
         if (keywords.indexOf(word) >= 0) return 'keyword';
         if ('string' == typeof state.globals[word]) return state.globals[word];
-        if (state.fn && state.type) {
-          state.context.params[word] = true;
-          return 'parameter';
-        }
+        
         if (stream.isAfter(/^\s*\(/)) {
-          if (state.indent == state.context.indent && state.type) state.fn = word;
+          if (state.indent == state.context.indent && state.type && !state.vardef) {
+            state.fn = word;
+            state.next = parameters;
+          }
           return 'function';
         }
         if (state.type) {
-          state.context.vars[word] = true;
+          state.context.vars[word] = state.vardef = true;
           return 'variable';
         }
         return isVariable(word, state);
       }
       if (ch == ';') {
+        if (state.vardef) state.vardef = null;
         if (state.type) state.type = null;
         if (state.fn) state.fn = null;
       }
     },
     indent: function(stream, state) {
-      if (stream.lastStyle == 'bracket' && stream.isAfter(closeBrackets)) return [state.indent, -1];
+      if (stream.isAfter(closeBrackets)) {
+        if (stream.lastStyle == 'bracket') return [state.indent, -1];
+        return state.indent - 1;
+      }
       return state.indent;
     },
     completions: function(stream, state) {
