@@ -9,6 +9,7 @@ CodePrinter.defineMode('Markdown', function() {
     if (stream.skip('```', true)) {
       state.next = undefined;
     } else {
+      stream.skip();
       state.next = comment;
     }
     return 'comment';
@@ -168,42 +169,4 @@ CodePrinter.defineMode('Markdown', function() {
       return state.indent;
     }
   });
-  // afterEnterKey: function(bf, af) {
-  //   if (listsRegexp.test(bf)) {
-  //     var sign = RegExp.$1;
-  //     if (isNaN(sign)) {
-  //       this.insertText(sign+' ');
-  //     } else {
-  //       this.insertText(parseInt(sign)+1 + '. ');
-  //     }
-  //   }
-  // },
-  // fixIndent: function(dl, expectedIndent) {
-  //   var txt = dl.text, listType = typeOfList(txt);
-    
-  //   if (listType) {
-  //     var prev = dl.prev()
-  //     , bftype = prev && typeOfList(prev.text);
-      
-  //     if (bftype) {
-  //       if (prev.parentalListItem) {
-  //         if (listType !== bftype) {
-  //           var p = levelOfParentalItem(listType, prev.parentalListItem);
-  //           if (p >= 0) {
-  //             return expectedIndent - p - 1;
-  //           }
-  //           dl.parentalListItem = prev;
-  //           return expectedIndent + 1;
-  //         }
-  //         dl.parentalListItem = prev.parentalListItem;
-  //         return expectedIndent;
-  //       } else if (listType !== bftype) {
-  //         dl.parentalListItem = prev;
-  //         return expectedIndent + 1;
-  //       }
-  //     }
-  //   }
-  //   if (dl.parentalListItem) delete dl.parentalListItem;
-  //   return 0;
-  // }
 });
