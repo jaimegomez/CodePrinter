@@ -24,7 +24,7 @@ CodePrinter.defineAddon('css-colors', function() {
       }
     }, false);
     cp.wrapper.addEventListener('mouseout', function(e) {
-      if (e.target.tagName == 'SPAN' && (is(e.target, 'cpx-hex') || is(e.target, 'cpx-hex'))) {
+      if (e.target.tagName == 'SPAN' && (is(e.target, 'cpx-hex') || is(e.target, 'cpx-css-color'))) {
         e.target.style.removeProperty(prop);
       }
     }, false);
