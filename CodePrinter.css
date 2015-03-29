@@ -434,15 +434,22 @@
   color: #0487FA;
 }
 .cpx-variable {
-  color: #028ec4;
+  color: #529ed4;
 }
 .cpx-parameter {
-  color: #f66153;
+  color: #f5871f;
 }
-.cpx-keyword,
-.cpx-control,
+.cpx-keyword {
+  color: #004eac;
+}
+.cpx-control {
+  color: #025BB9;
+}
 .cpx-builtin {
   color: #004eac;
+}
+.cpx-boolean {
+  color: #8959a8;
 }
 .cpx-constant {
   color: #885d3b;
@@ -457,13 +464,13 @@
   color: #885D3B;
 }
 .cpx-numeric {
-  color: #E68D3F;
+  color: #f5871f;
 }
 .cpx-hex {
   color: #531B93;
 }
 .cpx-function {
-  color: #003f83;
+  color: #004499;
 }
 .cpx-property {
   color: #028ec4;
@@ -554,6 +561,7 @@
 .cps-default .cpx-external {
   font-weight: bold;
 }
+.cps-default .cpx-variable,
 .cps-default .cpx-special,
 .cps-default .cpx-hex,
 .cps-default .cpx-comment {
