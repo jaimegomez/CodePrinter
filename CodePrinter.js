@@ -2937,7 +2937,6 @@ var CodePrinter = (function() {
           this.hints.hide();
         }
       }
-      return false;
     },
     'Tab': function() {
       if (this.doc.issetSelection()) {
@@ -2953,7 +2952,6 @@ var CodePrinter = (function() {
         }
         this.insertText(this.options.indentByTabs ? '\t' : repeat(' ', this.options.tabWidth - this.caret.column() % this.options.tabWidth));
       }
-      return false;
     },
     'Enter': function() {
       var bf = this.caret.textBefore()
@@ -2992,7 +2990,6 @@ var CodePrinter = (function() {
       if (parser && parser.afterEnterKey) {
         parser.afterEnterKey.call(this, bf, af);
       }
-      return false;
     },
     'Shift Enter': function() {
       this.caret.position(this.caret.line(), -1);
@@ -3000,7 +2997,6 @@ var CodePrinter = (function() {
     },
     'Esc': function() {
       this.isFullscreen ? this.exitFullscreen() : this.searchEnd();
-      return false;
     },
     'PageUp': function() { this.caret.moveY(-50); },
     'PageDown': function() { this.caret.moveY(50); },
@@ -3009,7 +3005,6 @@ var CodePrinter = (function() {
     'Left': function(k, c) {
       c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
       this.doc.clearSelection();
-      return false;
     },
     'Delete': function() {
       if (this.doc.issetSelection()) {
@@ -3034,7 +3029,6 @@ var CodePrinter = (function() {
         }
         this.removeAfterCursor(r);
       }
-      return false;
     },
     '"': function(k) {
       if (this.options.insertClosingQuotes) {
@@ -3067,11 +3061,10 @@ var CodePrinter = (function() {
         this.doc.selectAll();
         this.emit('selectAll');
       }
-      return false;
     },
     'Cmd C': function() {
       if (this.doc.issetSelection()) this.emit('copy');
-      return false;
+      return -1;
     },
     'Cmd V': function() {
       this.doc.removeSelection();
@@ -3372,7 +3365,7 @@ var CodePrinter = (function() {
     , allowKeyup, activeLine
     , isMouseDown, isScrolling
     , moveevent, moveselection
-    , T, T2, T3, fn;
+    , T, T2, T3, fn, cmdPressed;
     
     function mouseController(e) {
       if (e.defaultPrevented) return false;
@@ -3557,7 +3550,12 @@ var CodePrinter = (function() {
         this.value = cp.doc.getSelection();
         this.setSelectionRange(0, this.value.length);
         allowKeyup = false;
-        return;
+        cmdPressed = true;
+        return eventCancel(e);
+      }
+      if (cmdPressed) {
+        if (!(macosx ? e.metaKey : e.ctrlKey) || code != 67 && code != 88) this.value = '';
+        cmdPressed = false;
       }
       if (options.readOnly && (code < 37 || code > 40)) return;
       cp.emit('['+seq+']', e); cp.emit('keydown', seq, e);
@@ -3581,7 +3579,7 @@ var CodePrinter = (function() {
         } else if (options.useParserKeyMap && parser.keyMap[ch]) {
           allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
         }
-        if (allowKeyup !== false) {
+        if (allowKeyup != false) {
           this.value = '';
           if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, ch, code) !== false) cp.insertText(ch);
           if (T2) T2 = clearTimeout(T2);
