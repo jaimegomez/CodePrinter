@@ -539,8 +539,8 @@ var CodePrinter = (function() {
           parser = s.state && s.state.parser || this.parser;
           oi = s.stream.indentation; s.stream.indentation = i;
           i = parser.indent(s.stream, s.state, oi);
-          if ('number' == typeof i) this.setIndentAtLine(dl, i);
-          else i = oi;
+          if ('number' != typeof i) i = oi;
+          this.setIndentAtLine(dl, i);
         } else {
           break;
         }
