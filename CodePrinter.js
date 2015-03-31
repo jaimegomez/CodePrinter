@@ -2514,11 +2514,14 @@ var CodePrinter = (function() {
       if (line !== dli.index || b) {
         this.emit('lineChange', dl, dli.index, c);
         line = dli.index;
+        b = true;
       }
       if (column !== c) {
         this.emit('columnChange', dl, dli.index, c);
         column = c;
+        b = true;
       }
+      if (b) this.emit('positionChange', dl, dli.index, c);
       lastdet = det;
       setPixelPosition.call(this, det.offsetX, det.offsetY + dli.offset);
       cp.select(dl);
