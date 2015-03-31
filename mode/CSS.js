@@ -329,6 +329,13 @@ CodePrinter.defineMode('CSS', function() {
     return m && m[3];
   }
   
+  function Definition(name) {
+    this.name = name;
+  }
+  Definition.prototype.toString = function() {
+    return this.name;
+  }
+  
   return new CodePrinter.Mode({
     name: 'CSS',
     blockCommentStart: '/*',
@@ -395,6 +402,7 @@ CodePrinter.defineMode('CSS', function() {
         }
       }
       if (ch == '{') {
+        if (stream.lastStyle) stream.markDefinition(new Definition(stream.value.substr(0, stream.pos - 1)));
         ++state.indent;
         return 'bracket';
       }
