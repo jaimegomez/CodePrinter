@@ -144,7 +144,7 @@ CodePrinter.defineMode('JavaScript', function() {
     blockCommentStart: '/*',
     blockCommentEnd: '*/',
     lineComment: '//',
-    indentTriggers: /[\}\]e]/,
+    indentTriggers: /[\}e]/,
     matching: 'brackets',
     
     initialState: function() {
