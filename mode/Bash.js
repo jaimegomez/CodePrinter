@@ -5,8 +5,9 @@ CodePrinter.defineMode('Bash', function() {
   var wordRgx = /\w/
   , closeBrackets = /^[}\]\)]/
   , operatorRgx = /[+\-*\/%!=<>&|~^]/
-  , controlsA = ['case','do','elif','else','if','then']
+  , controlsA = ['case','do','then']
   , controlsB = ['for','in','select','until','while','done','fi','esac']
+  , controlsC = ['if', 'else', 'elif']
   , keywords = ['break','continue','shift']
   , specials = ['$','echo','exit','print','printf','read'];
   
@@ -86,6 +87,7 @@ CodePrinter.defineMode('Bash', function() {
           state.control = word;
           return 'control';
         }
+        if (controlsC.indexOf(word) >= 0) return 'control';
         if (keywords.indexOf(word) >= 0) return 'keyword';
         if (specials.indexOf(word) >= 0) return 'special';
         
@@ -131,7 +133,7 @@ CodePrinter.defineMode('Bash', function() {
       if (stream.isAfter(closeBrackets)) {
         return stream.lastStyle == 'bracket' ? [i, -1] : i - 1;
       }
-      if (stream.isAfter(/^(done|esac|fi)\b/)) {
+      if (stream.isAfter(/^(done|esac|fi|else|elif)\b/)) {
         return i - 1;
       }
       return i;
