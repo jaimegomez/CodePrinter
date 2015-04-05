@@ -367,7 +367,6 @@
 .codeprinter .cp-screen span,
 .codeprinter .cp-overlay span {
   font-family: inherit;
-  font-size: inherit;
   word-wrap: inherit;
 }
 .codeprinter .cp-marked {
