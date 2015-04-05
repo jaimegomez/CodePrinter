@@ -1903,7 +1903,7 @@ var CodePrinter = (function() {
         } else if (at <= to + 1) {
           var sh = code.scrollHeight || heightOfLines(), dh = desiredHeight();
           if (sh >= dh) {
-            var m = Math.min(lines.length, to - at), rmdl;
+            var m = Math.min(lines.length, to - at + 1), rmdl;
             for (var i = 0; i < m; i++) {
               rmdl = view.pop();
               captureNode(lines[i], rmdl);
