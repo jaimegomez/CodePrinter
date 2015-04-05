@@ -3570,8 +3570,8 @@ var CodePrinter = (function() {
     });
     on(input, 'keypress', function(e) {
       if (options.readOnly) return;
-      var a, code = e.keyCode
-      , s = cp.getStateAt(cp.caret.dl(), cp.caret.column())
+      var a, col, code = e.keyCode
+      , s = cp.getStateAt(cp.caret.dl(), col = cp.caret.column())
       , parser = s && s.parser
       , ch = String.fromCharCode(code);
       
@@ -3593,7 +3593,7 @@ var CodePrinter = (function() {
           }
         }
         if (options.autoIndent && parser.isIndentTrigger(ch)) {
-          fixIndent(cp, parser, cp.caret.column() - ch.length);
+          fixIndent(cp, parser, col);
         }
         return eventCancel(e);
       }
