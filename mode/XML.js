@@ -141,7 +141,7 @@ CodePrinter.defineMode('XML', function() {
       if (stream.lastValue == '>' && stream.isAfter('<')) {
         return [state.indent, -1];
       }
-      if (stream.isAfter(/^\s*<\//)) {
+      if (stream.isAfter(/^\s*<\//) || stream.peek() == '/' && stream.lastValue == '</') {
         return state.indent - 1;
       }
       return state.indent;
