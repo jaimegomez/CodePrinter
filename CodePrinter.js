@@ -23,7 +23,8 @@ var CodePrinter = (function() {
   , webkit = /WebKit\//.test(navigator.userAgent)
   , gecko = /gecko\/\d/i.test(navigator.userAgent)
   , ie = /(MSIE \d|Trident\/)/.test(navigator.userAgent)
-  , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : null
+  , presto = /Opera\//.test(navigator.userAgent)
+  , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : presto ? -0.05 : -1
   , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
   , modes = {}, addons = {}, instances = [], keyCodes, async, asyncQueue = [];
   
