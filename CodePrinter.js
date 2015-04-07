@@ -45,7 +45,10 @@ var CodePrinter = (function() {
     checkOptions(this, options);
     attachEvents(this);
     
-    if (source && source.parentNode) source.parentNode.insertBefore(this.mainNode, source);
+    if (source && source.parentNode) {
+      source.parentNode.insertBefore(this.mainNode, source);
+      source.style.display = 'none';
+    }
     instances.push(this);
     return this.print();
   }
