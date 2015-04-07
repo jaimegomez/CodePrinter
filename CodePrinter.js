@@ -2148,6 +2148,7 @@ var CodePrinter = (function() {
           r.column += l;
         }
       }
+      if (child) r.charHeight = child.offsetHeight;
       if (!r.charWidth) { r.charWidth = Math.round(ow / l); r.offsetX = ol + ow; }
       return r;
     }
