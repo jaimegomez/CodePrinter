@@ -6,6 +6,7 @@
 .cps-abstraction .cp-selection { background:#2e2e2b; }
 .cps-abstraction.inactive .cp-selection { background:#222; }
 .cps-abstraction .cp-highlight { border-bottom:1px solid #d8d9da; }
+.cps-abstraction .cp-marked { background:#232322; }
 .cps-abstraction .cp-active-line { background:#2e2e2b; }
 .cps-abstraction .cp-search-occurrence { border-color:#888981; }
 .cps-abstraction .cp-search-occurrence.active { background:#6bcea5; color:#2e2e2b; border-color:transparent; }

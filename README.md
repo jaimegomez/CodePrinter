@@ -1,22 +1,48 @@
-CodePrinter
-===========
+# CodePrinter
 
-CodePrinter is a lightweight code editor written in JavaScript. At this moment it supports 13 programming languages and has 13 themes. It's a free and open-source project released under the MIT license.
+CodePrinter is a lightweight code editor written in JavaScript. At this moment it supports 16 programming languages and has 12 themes.
+This library was originally created only for my own purposes, but I'll be delighted if you want to use it.
+It's a free and open-source project released under the MIT license.
 
-Usage
------
-First you must to include a main script of CodePrinter in your HTML document.
+### Requirements
+
++ Chrome 21+
++ Firefox 22+
++ Opera 12.1+
++ Safari 6.1+
++ Internet Explorer 10+
+
+Older versions are not supported, because I think that they are
+still alive by the fact that developers support them :-)
+
+### Get Started
+`index.html`
 ```html
-<script type="text/javascript" src="CodePrinter.js"></script>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="CodePrinter.css">
+    <script type="text/javascript" src="CodePrinter.js"></script>
+  </head>
+  <body>
+    <textarea>function factorial(n) {
+  if (n === 0) {
+    return 1;
+  }
+  return n * factorial(n - 1);
+}
+console.log(factorial(7)); // 5040
+</textarea>
+    <script type="text/javascript">
+      var cp = new CodePrinter(document.getElementsByTagName('textarea')[0], {
+        theme: 'default',
+        mode: 'JavaScript',
+        lineNumbers: true,
+        fontSize: 12
+      });
+    </script>
+  </body>
+</html>
 ```
-
-And then create a CodePrinter object
-```javascript
-var cp = new CodePrinter();
-// and add a node to the DOM structure
-cp.appendTo(document.body);
-// is equals to document.body.appendChild(cp.mainElement)
-```
-
-The constructor allows you to enter the source code as a first argument. It could be a `String` or `HTMLElement` (like textarea). You can also specify custom options by providing the next argument (an object) which will overwrite the default settings. 
-More information will soon be found on the [Wiki](https://github.com/tsapeta/CodePrinter/wiki).
+The constructor allows you to enter the source code as a first argument. It could be a `String` or `HTMLElement` (like textarea).
+You can also specify custom options by providing the next argument (an object) which will overwrite the default settings.
