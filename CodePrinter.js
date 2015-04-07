@@ -2122,7 +2122,7 @@ var CodePrinter = (function() {
       , child, l, ow, ol, chl = ch.length
       , i = -1, r = { dl: dl, column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, charWidth: 0, charHeight: defHeight };
       y = offsetDiff;
-      if (chl === 1 && ch[0].nodeValue == zws) return r;
+      if (chl === 1 && ch[0].firstChild.nodeValue == zws) return r;
       while (++i < chl) {
         child = ch[i];
         l = child.firstChild.nodeValue.length;
@@ -2152,7 +2152,7 @@ var CodePrinter = (function() {
       var ch = maybeExternalMeasure(cp, dl).childNodes, child
       , l, ow, ol, chl = ch.length, tmp = 0, i = -1, bool
       , r = { column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, width: 0, height: defHeight, charWidth: 0, charHeight: defHeight };
-      if (chl === 1 && ch[0].nodeValue == zws) return r;
+      if (chl === 1 && ch[0].firstChild.nodeValue == zws) return r;
       while (++i < chl) {
         child = ch[i];
         l = child.firstChild.nodeValue.length;
@@ -2725,7 +2725,7 @@ var CodePrinter = (function() {
     remove: function() {
       var i = this.doc.overlays.indexOf(this);
       i != -1 && this.doc.overlays.splice(i, 1);
-      this.node.remove();
+      this.node.parentNode && this.node.parentNode.removeChild(this.node);
       this.emit('$removed');
     },
     removable: function(is) {
