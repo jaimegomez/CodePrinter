@@ -2586,7 +2586,7 @@ var CodePrinter = (function() {
       }
       
       if (abs <= t.length) {
-        return this.position(cl, Math.max(0, Math.min(t.length + mv, (bf + af).length)));
+        return this.position(cl, Math.max(0, Math.min(bf.length + mv, (bf + af).length)));
       }
       while (abs > t.length) {
         abs = abs - t.length - 1;
