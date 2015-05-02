@@ -667,7 +667,7 @@ var CodePrinter = (function() {
       }
       return false;
     },
-    insertText: function(text, mx) {
+    insertText: function(text, mx, autoIndent) {
       this.doc.removeSelection();
       var pos, s = text.split(eol)
       , bf = this.caret.textBefore()
@@ -687,6 +687,7 @@ var CodePrinter = (function() {
       }
       mx && this.caret.moveX(mx);
       text.length && this.emit('changed', { line: line, column: col, text: text, added: true });
+      autoIndent && this.fixIndents(line, line + s.length);
       return this;
     },
     insertSelectedText: function(text, mx) {
@@ -3596,7 +3597,7 @@ var CodePrinter = (function() {
     });
     on(input, 'input', function(e) {
       if (!options.readOnly && this.value.length) {
-        cp.insertText(this.value);
+        cp.insertText(this.value, 0, options.autoIndent && cp.doc.parser.name != 'plaintext');
         this.value = '';
       }
     });
