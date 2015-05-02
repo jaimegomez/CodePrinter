@@ -15,7 +15,7 @@ CodePrinter.defineAddon('hints', function() {
     this.options = options = {}.extend(defaults, options);
     cp.hints = this;
     
-    this.overlay = ov = cp.doc.createOverlay('cp-hint-overlay');
+    this.overlay = ov = cp.createOverlay('cp-hint-overlay');
     container = document.createElement('div');
     container.className = 'cp-hint-container';
     ov.node.appendChild(container);
