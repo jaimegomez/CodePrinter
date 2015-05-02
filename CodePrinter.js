@@ -3534,7 +3534,7 @@ var CodePrinter = (function() {
       if ((allowKeyup = !e.defaultPrevented) && seq.length > 1 && cp.keyMap[seq]) {
         allowKeyup = cp.keyMap[seq].call(cp, seq, code);
       }
-      if (!allowKeyup) return eventCancel(e);
+      if (!allowKeyup) return eventCancel(e, 1);
     });
     on(input, 'keypress', function(e) {
       if (options.readOnly) return;
@@ -3947,7 +3947,7 @@ var CodePrinter = (function() {
   function extend(base) { if (base) for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
   function on(node, event, listener) { node.addEventListener(event, listener, false); }
   function off(node, event, listener) { node.removeEventListener(event, listener, false); }
-  function eventCancel(e) { e.preventDefault(); e.stopPropagation(); return e.returnValue = false; }
+  function eventCancel(e, propagate) { e.preventDefault(); propagate || e.stopPropagation(); return e.returnValue = false; }
   function addClass(n, c) { if (n.classList) n.classList.add(c); else if (!hasClass(n, c)) n.className += ' '+c; return n; }
   function removeClass(n, c) { if (n.classList) n.classList.remove(c); else if (hasClass(n, c)) n.className = n.className.replace(new RegExp('(^|\\s+)'+c), ''); return n; }
   function hasClass(n, c) {
