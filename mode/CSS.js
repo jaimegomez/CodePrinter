@@ -433,6 +433,7 @@ CodePrinter.defineMode('CSS', function() {
       }
       if (/\d/.test(ch)) {
         stream.eatWhile(/\d/);
+        stream.eat('%');
         return 'numeric';
       }
       if (ch == '<' && state.parser && stream.isAfter(/^\s*\/\s*style/i)) {
