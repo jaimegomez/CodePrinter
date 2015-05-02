@@ -266,10 +266,8 @@ CodePrinter.defineMode('JavaScript', function() {
         if (specials.indexOf(word) >= 0) return 'special';
         if (keywords.indexOf(word) >= 0) return 'keyword';
         if (stream.isAfter(/^\s*([:=]\s*function)?\(/)) { if (RegExp.$1) state.fn = word; return 'function'; }
-        if (state.context) {
-          if (state.context.params[word] && !stream.isBefore(/\.\s*$/, -word.length)) {
-            return 'variable';
-          }
+        if (state.context && !stream.isBefore(/\.\s*$/, -word.length)) {
+          if (state.context.params[word]) return 'variable';
           var isVar = isVariable(word, state);
           if (isVar && 'string' === typeof isVar) return isVar;
         }
