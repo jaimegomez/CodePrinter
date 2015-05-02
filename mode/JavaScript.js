@@ -241,7 +241,7 @@ CodePrinter.defineMode('JavaScript', function() {
           if (!state.fn) state.fn = true;
           return 'special';
         }
-        if (word == 'var') {
+        if (word == 'var' || word == 'let') {
           state.vardef = state.indent;
           return 'keyword';
         }
