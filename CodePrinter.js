@@ -3052,7 +3052,7 @@ var CodePrinter = (function() {
       return -1;
     },
     'Cmd Z': function() { this.doc.undo(); },
-    'Shift Cmd Z': function() { this.doc.redo(); }
+    'Cmd Shift Z': function() { this.doc.redo(); }
   }
   keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
   keyMap.prototype['Shift Down'] = keyMap.prototype['Shift Right'] = keyMap.prototype['Shift Up'] = keyMap.prototype['Shift Left'];
