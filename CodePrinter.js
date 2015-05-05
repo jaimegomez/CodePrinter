@@ -1277,9 +1277,10 @@ var CodePrinter = (function() {
     }
     return best && best.state ? { state: copyState(best.state), line: best.next() } : { state: extend(parser.initialState(), { indent: minI != Infinity ? minI : 0 }), line: best || dl };
   }
-  function updateIndent(node, child, tabString, indent, spaces) {
-    for (var i = 0; i < indent; i++) child = maybeSpanUpdate(node, child, 'cpx-tab', tabString);
-    if (spaces) child = maybeSpanUpdate(node, child, '', repeat(' ', spaces));
+  function updateIndent(node, child, indent, tabString) {
+    var stack = indent.stack;
+    for (var i = 0; i < stack.length; i++) child = maybeSpanUpdate(node, child, 'cpx-tab', stack[i] ? '\t' : tabString);
+    if (indent.spaces) child = maybeSpanUpdate(node, child, '', repeat(' ', indent.spaces));
     return child;
   }
   function maybeSpanUpdate(node, child, className, content) {
@@ -1299,7 +1300,7 @@ var CodePrinter = (function() {
     while (child) child = rm(cp.doc, dl.node, child);
   }
   function updateInnerLine(node, cache, ind, tabString) {
-    var child = updateIndent(node, node.firstChild, tabString, ind.indent, ind.spaces)
+    var child = updateIndent(node, node.firstChild, ind, tabString)
     , i = -1, j = 0, l = cache.length, text = ind.rest, tmp;
     while (++i < l) {
       tmp = cache[i];
@@ -1320,22 +1321,22 @@ var CodePrinter = (function() {
     span.firstChild.nodeValue = content;
   }
   function parseIndentation(text, tabWidth) {
-    var p = '', i = -1, spaces = 0, ind = 0;
+    var p = '', i = -1, spaces = 0, ind = 0, stack = [];
     while (++i < text.length) {
       if (text[i] == ' ') {
         ++spaces;
         if (spaces == tabWidth) {
           spaces = 0;
-          ++ind;
+          stack[ind++] = 0;
         }
       } else if (text[i] == '\t') {
         spaces = 0;
-        ++ind;
+        stack[ind++] = 1;
       } else {
         break;
       }
     }
-    return { indent: ind, spaces: spaces, length: i, indentText: text.substring(0, i), rest: text.substr(i) };
+    return { indent: ind, spaces: spaces, length: i, stack: stack, indentText: text.substring(0, i), rest: text.substr(i) };
   }
   function readIteration(parser, stream, state) {
     for (var i = 0; i < 10; i++) {
