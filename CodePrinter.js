@@ -2893,7 +2893,7 @@ var CodePrinter = (function() {
       } else {
         var bf = this.caret.textBefore()
         , af = this.caret.textAfter()
-        , chbf = bf.slice(-1), m = bf.match(/ +$/)
+        , chbf = bf.slice(-1), m = bf.match(/^ +$/)
         , tw = this.options.tabWidth, parser = this.doc.parser
         , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
         
@@ -2988,7 +2988,7 @@ var CodePrinter = (function() {
       } else {
         var bf = this.caret.textBefore()
         , af = this.caret.textAfter()
-        , chaf = af.charAt(0), m = af.match(/^ +/)
+        , chaf = af.charAt(0), m = af.match(/^ +$/)
         , tw = this.options.tabWidth, parser = this.doc.parser
         , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
         
