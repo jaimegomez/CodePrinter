@@ -1764,6 +1764,7 @@ var CodePrinter = (function() {
     }
     this.attach = function(editor) {
       if (cp) cp.off('changed', changedListener);
+      else if (cp === undefined) runBackgroundParser(editor, this.parser, true);
       cp = editor;
       counter = cp.counterChild;
       code = cp.code;
@@ -1781,8 +1782,7 @@ var CodePrinter = (function() {
         this.updateScroll();
       }
       cp.on('changed', changedListener);
-      this.updateDefaultHeight();
-      this.showSelection().updateView();
+      this.print();
       this.attached = true;
       this.emit('attached');
       return this;
@@ -1934,12 +1934,14 @@ var CodePrinter = (function() {
       return b;
     }
     this.print = function() {
-      this.fill(); this.updateView();
+      this.fill();
+      this.updateDefaultHeight();
+      this.showSelection().updateView();
       runBackgroundParser(cp, this.parser, true);
       if (cp.options.autoFocus) {
+        if (caretPos) cp.caret.position(caretPos[0], caretPos[1]);
+        else cp.caret.position(0, 0);
         cp.input.focus();
-        if (caretPos) cp.caret.position(caretPos[0], caretPos[1]).activate();
-        else cp.caret.position(0, 0).activate();
       }
       cp.sizes.paddingTop = parseInt(code.style.paddingTop, 10) || 5;
       async(function() { cp && cp.emit('ready'); });
@@ -2610,7 +2612,7 @@ var CodePrinter = (function() {
       return line;
     }
     this.column = function() {
-      return Math.min(column, currentDL.text.length);
+      return currentDL ? Math.min(column, currentDL.text.length) : 0;
     }
     this.savePosition = function(onlycolumn) {
       return tmp = [onlycolumn ? null : line, column];
@@ -2631,7 +2633,7 @@ var CodePrinter = (function() {
     }
     this.focus = function() {
       if (!this.isVisible) {
-        this.isVisible = true;
+        this.isVisible = this.isActive = true;
         startBlinking(this, cp.options);
       } else if (currentDL && !cp.doc.isLineVisible(currentDL)) {
         cp.doc.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
