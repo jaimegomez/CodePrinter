@@ -190,13 +190,6 @@ var CodePrinter = (function() {
         async(fn);
       });
     },
-    defineParser: function(parser) {
-      if (parser instanceof CodePrinter.Mode && this.doc.parser !== parser) {
-        var dl = this.doc.get(0);
-        do dl.cache = dl.state = null; while (dl = dl.next());
-        this.doc.parser = parser;
-      }
-    },
     parse: function(dl, stateBefore) {
       if (dl != null) {
         var state = stateBefore, tmp = dl
