@@ -92,6 +92,7 @@ var CodePrinter = (function() {
     autoScroll: true,
     autoIndent: true,
     indentByTabs: false,
+    trimTrailingSpaces: false,
     insertClosingBrackets: true,
     insertClosingQuotes: true,
     useParserKeyMap: true,
@@ -2363,6 +2364,7 @@ var CodePrinter = (function() {
     }
     this.each = function() { return data.foreach.apply(data, arguments); }
     this.get = function(i) { return data.get(i); }
+    this.getOption = function(key) { return cp && cp.options[key]; }
     this.dispatch = function(dl, text) { dl.setText(text); return cp && cp.parse(dl); }
     this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
     this.getLineEnding = function() { return lineendings[lineEnding] || lineEnding || lineendings['LF']; }
@@ -2428,12 +2430,12 @@ var CodePrinter = (function() {
       return this.size() === 1 && !this.get(0).text;
     },
     getValue: function() {
-      var r = [];
-      this.each(function() { r.push(this.text); });
+      var r = [], i = 0, transform = this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter;
+      this.each(function() { r[i++] = transform(this.text); });
       return r.join(this.getLineEnding());
     },
     createReadStream: function() {
-      return new ReadStream(this);
+      return new ReadStream(this, this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter);
     }
   }
   
@@ -2799,7 +2801,7 @@ var CodePrinter = (function() {
     }
   }
   
-  ReadStream = function(doc) {
+  ReadStream = function(doc, transform) {
     var rs = this, stack = []
     , dl = doc.get(0), le = doc.getLineEnding(), fn;
     EventEmitter.call(this);
@@ -2808,7 +2810,7 @@ var CodePrinter = (function() {
       var r = 25 + 50 * Math.random(), i = -1;
       
       while (dl && ++i < r) {
-        stack.push(dl.text);
+        stack.push(transform(dl.text));
         dl = dl.next();
       }
       if (i >= 0) {
@@ -3867,6 +3869,9 @@ var CodePrinter = (function() {
   function functionSnippet(cp, snippet) {
     var s = cp.getStateAt(cp.caret.dl(), cp.caret.column());
     return snippet.call(s.parser, s.stream, s.state);
+  }
+  function trimSpaces(txt) {
+    return txt.replace(/\s+$/, '');
   }
   function searchOverLine(find, dl, line, offset) {
     var results = this.searches.results
