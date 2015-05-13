@@ -15,7 +15,7 @@ CodePrinter.defineAddon('hints', function() {
     this.options = options = {}.extend(defaults, options);
     cp.hints = this;
     
-    this.overlay = ov = cp.doc.createOverlay('cp-hint-overlay');
+    this.overlay = ov = cp.createOverlay('cp-hint-overlay');
     container = document.createElement('div');
     container.className = 'cp-hint-container';
     ov.node.appendChild(container);
@@ -24,7 +24,7 @@ CodePrinter.defineAddon('hints', function() {
     if (options.maxHeight != 100) container.style.maxHeight = options.maxHeight + 'px';
     
     function getWordRgx() {
-      return cp.parser.autoCompleteWord || options.word || defaults.word;
+      return cp.doc.parser.autoCompleteWord || options.word || defaults.word;
     }
     
     this.search = function() {
@@ -40,7 +40,7 @@ CodePrinter.defineAddon('hints', function() {
       , af = caret.textAfter()
       , text = curDL.text
       , s = cp.getStateAt(curDL, bf.length)
-      , parser = s && s.state && s.state.parser || cp.parser
+      , parser = s && s.state && s.state.parser || cp.doc.parser
       , dl, text, m
       , next, hOP, fn, ph;
       

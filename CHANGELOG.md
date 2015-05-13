@@ -1,5 +1,12 @@
 # CodePrinter Changelog
 
+## 0.8.1 / 2015-05-13
++ Improved attaching and detaching documents from the editor.
++ Fixed tabs rendering.
++ Fixed keyboard sequence of shortcut to redo command.
++ Making auto indent after pasting.
++ Some minor changes in CSS and JavaScript parsers.
+
 ## 0.8.0 / 2015-04-07
 + A completely new model of parsers, based on iterators instead of regular expressions.
 + All of the existing parsers had been rewritten.

@@ -5,7 +5,7 @@
  * Released under the MIT License.
  *
  * author:  Tomasz Sapeta
- * version: 0.8.0
+ * version: 0.8.1
  * source:  https://github.com/tsapeta/CodePrinter
  */
 
@@ -37,23 +37,21 @@ var CodePrinter = (function() {
     buildDOM(this);
     EventEmitter.call(this);
     
-    this.parser = new CodePrinter.Mode();
     this.caret = new Caret(this);
-    this.doc = new Document(this, valueOf(source));
     this.keyMap = new keyMap;
-    
     checkOptions(this, options);
     attachEvents(this);
+    this.setDocument(new Document(this, valueOf(source), options.mode));
     
     if (source && source.parentNode) {
       source.parentNode.insertBefore(this.mainNode, source);
       source.style.display = 'none';
     }
     instances.push(this);
-    return this.print();
+    return this;
   }
   
-  CodePrinter.version = '0.8.0';
+  CodePrinter.version = '0.8.1';
   
   CodePrinter.defaults = {
     mode: 'plaintext',
@@ -94,6 +92,7 @@ var CodePrinter = (function() {
     autoScroll: true,
     autoIndent: true,
     indentByTabs: false,
+    trimTrailingSpaces: false,
     insertClosingBrackets: true,
     insertClosingQuotes: true,
     useParserKeyMap: true,
@@ -144,44 +143,15 @@ var CodePrinter = (function() {
   EventEmitter.call(CodePrinter);
   
   CodePrinter.prototype = {
-    print: function(mode, source) {
-      var cp = this;
-      mode && cp.setMode(mode);
-      mode = cp.options.mode;
-      source && cp.doc.init(source);
-      
-      function callback(ModeObject) {
-        var b = !cp.parser;
-        cp.defineParser(ModeObject);
-        cp.doc.fill(); cp.doc.updateView();
-        runBackgroundParser(cp, ModeObject, true);
-        if (cp.options.autoFocus) {
-          cp.input.focus();
-          cp.caret.position(0, 0);
-        }
-        if (b) {
-          cp.sizes.paddingTop = parseInt(cp.code.getStyle('padding-top'), 10) || 5;
-          async(function() { cp.emit('ready'); });
-        }
-      }
-      if (cp.parser && cp.parser.name === mode) {
-        callback(cp.parser);
-      } else if (mode == 'plaintext' && !cp.parser) {
-        callback(new CodePrinter.Mode());
-      } else {
-        CodePrinter.requireMode(mode, callback);
-      }
-      return cp;
-    },
-    createDocument: function() {
-      return new Document(this);
+    createDocument: function(source, mode) {
+      return new Document(this, valueOf(source), mode);
     },
     setDocument: function(doc) {
       if (doc instanceof Document) {
         var old = this.doc && this.doc.detach();
-        this.doc = doc.attach(this);
+        (this.doc = doc).attach(this);
         this.emit('documentChanged');
-        this.print();
+        doc.print();
         return old;
       }
     },
@@ -220,18 +190,11 @@ var CodePrinter = (function() {
         async(fn);
       });
     },
-    defineParser: function(parser) {
-      if (parser instanceof CodePrinter.Mode && this.parser !== parser) {
-        var dl = this.doc.get(0);
-        do dl.cache = dl.state = null; while (dl = dl.next());
-        this.parser = parser;
-      }
-    },
     parse: function(dl, stateBefore) {
       if (dl != null) {
         var state = stateBefore, tmp = dl
         , tw = this.options.tabWidth
-        , parser = this.parser;
+        , parser = this.doc.parser;
         
         if (parser.initialState) {
           if (state === undefined) {
@@ -261,18 +224,18 @@ var CodePrinter = (function() {
     getStateAt: function(line, column) {
       var dl = 'number' === typeof line ? this.doc.get(line) : line;
       if (dl != null) {
-        var s = searchLineWithState(this.parser, dl, this.options.tabWidth)
+        var s = searchLineWithState(this.doc.parser, dl, this.options.tabWidth)
         , state = s.state, tmp = s.line;
         for (; tmp; tmp = tmp.next()) {
           var ind = parseIndentation(tmp.text, this.options.tabWidth)
           , stream = new Stream(ind.rest, { indentation: ind.indent });
           if (tmp == dl) {
             var pos = Math.max(0, Math.min(column - ind.length, ind.rest.length))
-            , cache = parse(this, this.parser, stream, state, pos);
+            , cache = parse(this, this.doc.parser, stream, state, pos);
             cache = cache[cache.length-1];
             if (stream.eol()) tmp.state = state;
             stream.pos = pos;
-            return { stream: stream, state: state, style: cache && cache.style, parser: state.parser || this.parser };
+            return { stream: stream, state: state, style: cache && cache.style, parser: state && state.parser || this.doc.parser };
           } else {
             state = copyState(this.parse(tmp, state).state);
           }
@@ -304,7 +267,7 @@ var CodePrinter = (function() {
       if ('number' == typeof tw && tw >= 0) {
         this.options.tabWidth = tw;
         this.tabString = repeat(' ', tw);
-        this.doc && this.doc.initialized && runBackgroundParser(this, this.parser);
+        this.doc && this.doc.initialized && runBackgroundParser(this, this.doc.parser);
       }
       return this;
     },
@@ -328,18 +291,7 @@ var CodePrinter = (function() {
       return this;
     },
     setMode: function(mode) {
-      mode = CodePrinter.aliases[mode] || mode || 'plaintext';
-      removeClass(this.mainNode, 'cp-'+this.options.mode.replace(/\+/g, 'p').toLowerCase());
-      addClass(this.mainNode, 'cp-'+mode.replace(/\+/g, 'p').toLowerCase());
-      this.options.mode = mode;
-      return this;
-    },
-    setSyntax: function(mode) {
-      var oldMode = this.options.mode;
-      this.setMode(mode);
-      if (oldMode != this.options.mode) {
-        this.print();
-      }
+      this.doc && this.doc.setMode(mode);
       return this;
     },
     setFontSize: function(size) {
@@ -349,7 +301,7 @@ var CodePrinter = (function() {
         
         if (doc) {
           doc.updateDefaultHeight().fill();
-          doc.updateHeight().updateView().showSelection();
+          doc.updateView().showSelection();
           doc.updateScroll();
         }
         this.caret.refresh();
@@ -386,9 +338,6 @@ var CodePrinter = (function() {
     hideIndentation: function() {
       this.options.drawIndentGuides = false;
       addClass(this.mainNode, 'cp-without-indentation');
-    },
-    getLineEnding: function() {
-      return lineendings[this.options.lineEndings] || this.options.lineEndings || lineendings['LF'];
     },
     getCurrentLine: function() {
       return this.caret.line();
@@ -437,7 +386,7 @@ var CodePrinter = (function() {
     },
     setIndentAtLine: function(line, indent, dl) {
       indent = Math.max(0, indent);
-      var old, diff, col;
+      var old, diff, col, tab, sp;
       if (line instanceof Line) {
         dl = line;
         line = dl.info().index;
@@ -449,15 +398,15 @@ var CodePrinter = (function() {
         diff = indent - old;
         col = this.caret.line() == line ? this.caret.column() : -1;
         if (diff) {
-          var tab = tabString(this);
+          tab = tabString(this);
           dl.setText(repeat(tab, indent) + dl.text.replace(/^\s*/g, ''));
-          var sp = RegExp.lastMatch.length;
+          sp = RegExp.lastMatch.length;
           this.parse(dl);
           if (col >= 0) this.caret.position(line, Math.max(0, col + diff * tab.length + sp % tab.length));
           this.emit('changed', { line: line, column: 0, text: repeat(tab, Math.abs(diff)), added: diff > 0 });
         }
       }
-      return indent;
+      return tab ? tab.length * diff : 0;
     },
     indent: function(line) {
       var range;
@@ -520,40 +469,50 @@ var CodePrinter = (function() {
       var indent = this.getIndentAtLine(line);
       return nextLineIndent(this, indent, line);
     },
-    fixIndents: function() {
-      var range = this.doc.getSelectionRange()
-      , dl = this.doc.get(0)
-      , parser = this.parser
-      , i = 0, end = null, s, oi;
+    fixIndents: function(from, to) {
+      var size = this.doc.size(), parser = this.doc.parser
+      , i = 0, range, dl, end, s, oi, diff;
       
-      if (range) {
-        dl = this.doc.get(Math.max(0, range.start.line - 1));
-        end = this.doc.get(range.end.line + 1);
-      } else {
-        this.setIndentAtLine(0, i, dl);
-      }
-      
-      for (;;) {
-        s = this.getStateAt(dl, dl.text.length);
-        parser = s.state && s.state.parser || this.parser;
-        i = parser.indent(s.stream, s.state);
-        dl = dl.next();
-        if (dl != end) {
-          s = this.getStateAt(dl, 0);
-          parser = s.state && s.state.parser || this.parser;
-          oi = s.stream.indentation; s.stream.indentation = i;
-          i = parser.indent(s.stream, s.state, oi);
-          if ('number' != typeof i) i = oi;
-          this.setIndentAtLine(dl, i);
+      if (arguments.length < 2) {
+        if (range = this.doc.getSelectionRange()) {
+          from = range.start.line;
+          to = range.end.line;
         } else {
-          break;
+          from = 0;
+          to = size - 1;
+        }
+      }
+      if ('number' == typeof from && 'number' == typeof to && from <= to) {
+        dl = this.doc.get(from = Math.max(0, from - 1));
+        end = this.doc.get(to = Math.min(to + 1, size));
+        
+        if (from == 0) diff = this.setIndentAtLine(0, 0, dl);
+        
+        for (var j = 0 ;; ++j) {
+          s = this.getStateAt(dl, dl.text.length);
+          parser = s.state && s.state.parser || parser;
+          i = parser.indent(s.stream, s.state);
+          dl = dl.next();
+          if (dl != end) {
+            s = this.getStateAt(dl, 0);
+            parser = s.state && s.state.parser || parser;
+            oi = s.stream.indentation; s.stream.indentation = i;
+            i = parser.indent(s.stream, s.state, oi);
+            if ('number' != typeof i) i = oi;
+            diff = this.setIndentAtLine(dl, i);
+            if (j == 0 && range && diff) this.doc.moveSelectionStart(diff);
+          } else {
+            if (range && diff) this.doc.moveSelectionEnd(diff);
+            if (range) this.doc.showSelection();
+            break;
+          }
         }
       }
     },
     toggleComment: function() {
-      if (this.parser && this.parser.lineComment) {
+      if (this.doc.parser && this.doc.parser.lineComment) {
         var start, end, line, sm, insert
-        , comment = this.parser.lineComment
+        , comment = this.doc.parser.lineComment
         , range = this.doc.getSelectionRange();
         
         if (range) {
@@ -585,7 +544,7 @@ var CodePrinter = (function() {
     },
     toggleBlockComment: function(lineComment) {
       var cs, ce;
-      if (this.parser && (cs = this.parser.blockCommentStart) && (ce = this.parser.blockCommentEnd)) {
+      if (this.doc.parser && (cs = this.doc.parser.blockCommentStart) && (ce = this.doc.parser.blockCommentEnd)) {
         var range = this.doc.getSelectionRange()
         , l = this.caret.line(), c = this.caret.column()
         , s = this.getStyleAt(l, c, true)
@@ -712,7 +671,7 @@ var CodePrinter = (function() {
       }
       return false;
     },
-    insertText: function(text, mx) {
+    insertText: function(text, mx, autoIndent) {
       this.doc.removeSelection();
       var pos, s = text.split(eol)
       , bf = this.caret.textBefore()
@@ -732,6 +691,7 @@ var CodePrinter = (function() {
       }
       mx && this.caret.moveX(mx);
       text.length && this.emit('changed', { line: line, column: col, text: text, added: true });
+      autoIndent && this.fixIndents(line, line + s.length);
       return this;
     },
     insertSelectedText: function(text, mx) {
@@ -772,27 +732,6 @@ var CodePrinter = (function() {
       this.caret.restorePosition();
       isa && this.caret.moveX(-(arg.length || arg));
       mx && this.caret.moveX(mx);
-      return this;
-    },
-    dispatch: function(dl, text) {
-      dl.setText(text);
-      return this.parse(dl);
-    },
-    appendText: function(text) {
-      text = text.split(eol);
-      var size = this.doc.size(), fi = text.shift();
-      if (fi) {
-        var last = this.doc.get(size - 1);
-        last && this.dispatch(last, last.text + fi);
-      }
-      this.doc.insert(size, text);
-      if (!this.doc.isFilled) this.doc.isFilled = this.doc.fill();
-      return this.doc.isFilled;
-    },
-    appendLine: function(text) {
-      var dl, size = this.doc.size();
-      (size == 1 && (dl = this.doc.get(0)).text.length == 0) ? dl.setText(text) : this.doc.insert(size, text);
-      if (!this.doc.isFilled) this.doc.isFilled = this.doc.fill();
       return this;
     },
     swapLineUp: function() {
@@ -956,23 +895,10 @@ var CodePrinter = (function() {
       this.removeAfterCursor(this.caret.textAfter());
       return this;
     },
-    isEmpty: function() {
-      return this.doc.size() === 1 && !this.doc.get(0).text;
-    },
-    getValue: function() {
-      var cp = this, r = [];
-      this.doc.each(function() {
-        r.push(this.text);
-      });
-      return r.join(this.getLineEnding());
-    },
-    createReadStream: function() {
-      return new ReadStream(this);
-    },
     createHighlightOverlay: function(/* arrays, ... */) {
       if (this.highlightOverlay) this.highlightOverlay.remove();
       var self = this, args = arguments
-      , overlay = this.highlightOverlay = this.doc.createOverlay('cp-highlight-overlay', ['blur', 'changed']);
+      , overlay = this.highlightOverlay = this.createOverlay('cp-highlight-overlay', ['blur', 'changed']);
       for (var i = 0; i < arguments.length; i++) {
         var dl = this.doc.get(arguments[i][0]), pos;
         if (dl) {
@@ -1009,7 +935,7 @@ var CodePrinter = (function() {
           }
           
           if (!(search.overlay instanceof CodePrinter.Overlay)) {
-            search.overlay = new CodePrinter.Overlay(this.doc, 'cp-search-overlay');
+            search.overlay = this.createOverlay('cp-search-overlay');
             search.mute = false;
             
             search.overlay.on({
@@ -1206,9 +1132,7 @@ var CodePrinter = (function() {
     getDefinitions: function() {
       var obj = {}, dl = this.doc.get(0), i = 0;
       for (; dl; dl = dl.next()) {
-        if (dl.definition) {
-          obj[i] = dl.definition;
-        }
+        if (dl.definition) obj[i] = dl.definition;
         ++i;
       }
       return obj;
@@ -1232,12 +1156,12 @@ var CodePrinter = (function() {
       }
     },
     getSnippets: function() {
-      return extend({}, this.options.snippets, this.parser && this.parser.snippets);
+      return extend({}, this.options.snippets, this.doc.parser && this.doc.parser.snippets);
     },
     findSnippet: function(snippetName) {
       var s = this.options.snippets, b;
       if (!(b = s && s.hasOwnProperty(snippetName))) {
-        s = this.parser && this.parser.snippets;
+        s = this.doc.parser && this.doc.parser.snippets;
         b = s && s.hasOwnProperty(snippetName);
       }
       s = b && s[snippetName];
@@ -1273,7 +1197,7 @@ var CodePrinter = (function() {
       }
     },
     broadcast: function(args) {
-      var ov = this.doc && this.doc.overlays;
+      var ov = this.overlays || [];
       for (var i = ov.length; i--; ) ov[i].emit.apply(ov[i], args);
       return this;
     },
@@ -1306,6 +1230,23 @@ var CodePrinter = (function() {
         this.emit('fullscreenLeaved');
       }
     },
+    createOverlay: function(classes, removeOn) {
+      if (!this.overlays) this.overlays = [];
+      return new CodePrinter.Overlay(this, classes, removeOn);
+    },
+    removeOverlays: function() {
+      var ov = this.overlays || [], args;
+      for (var i = ov.length; i--; ) {
+        if (ov[i].isRemovable) ov[i].remove();
+        else {
+          if (!args) {
+            args = ['refresh'];
+            args.push.apply(args, arguments);
+          }
+          ov[i].emit.apply(ov[i], args);
+        }
+      }
+    },
     openCounter: function() {
       removeClass(this.counter, 'hidden');
     },
@@ -1320,6 +1261,7 @@ var CodePrinter = (function() {
   }
   
   function searchLineWithState(parser, dl, tw) {
+    if (!parser.initialState) return { state: null, line: dl };
     var tmp = dl.prev(), minI = Infinity, best, ind;
     for (var i = 0; tmp && i < 300; i++) {
       if (tmp.state) { best = tmp; break; }
@@ -1329,9 +1271,10 @@ var CodePrinter = (function() {
     }
     return best && best.state ? { state: copyState(best.state), line: best.next() } : { state: extend(parser.initialState(), { indent: minI != Infinity ? minI : 0 }), line: best || dl };
   }
-  function updateIndent(node, child, tabString, indent, spaces) {
-    for (var i = 0; i < indent; i++) child = maybeSpanUpdate(node, child, 'cpx-tab', tabString);
-    if (spaces) child = maybeSpanUpdate(node, child, '', repeat(' ', spaces));
+  function updateIndent(node, child, indent, tabString) {
+    var stack = indent.stack;
+    for (var i = 0; i < stack.length; i++) child = maybeSpanUpdate(node, child, 'cpx-tab', stack[i] ? '\t' : tabString);
+    if (indent.spaces) child = maybeSpanUpdate(node, child, '', repeat(' ', indent.spaces));
     return child;
   }
   function maybeSpanUpdate(node, child, className, content) {
@@ -1351,7 +1294,7 @@ var CodePrinter = (function() {
     while (child) child = rm(cp.doc, dl.node, child);
   }
   function updateInnerLine(node, cache, ind, tabString) {
-    var child = updateIndent(node, node.firstChild, tabString, ind.indent, ind.spaces)
+    var child = updateIndent(node, node.firstChild, ind, tabString)
     , i = -1, j = 0, l = cache.length, text = ind.rest, tmp;
     while (++i < l) {
       tmp = cache[i];
@@ -1372,22 +1315,22 @@ var CodePrinter = (function() {
     span.firstChild.nodeValue = content;
   }
   function parseIndentation(text, tabWidth) {
-    var p = '', i = -1, spaces = 0, ind = 0;
+    var p = '', i = -1, spaces = 0, ind = 0, stack = [];
     while (++i < text.length) {
       if (text[i] == ' ') {
         ++spaces;
         if (spaces == tabWidth) {
           spaces = 0;
-          ++ind;
+          stack[ind++] = 0;
         }
       } else if (text[i] == '\t') {
         spaces = 0;
-        ++ind;
+        stack[ind++] = 1;
       } else {
         break;
       }
     }
-    return { indent: ind, spaces: spaces, length: i, indentText: text.substring(0, i), rest: text.substr(i) };
+    return { indent: ind, spaces: spaces, length: i, stack: stack, indentText: text.substring(0, i), rest: text.substr(i) };
   }
   function readIteration(parser, stream, state) {
     for (var i = 0; i < 10; i++) {
@@ -1748,21 +1691,13 @@ var CodePrinter = (function() {
     }
   }
   
-  Document = CodePrinter.Document = function(editor, source) {
+  Document = CodePrinter.Document = function(editor, source, mode) {
     var that = this, cp, counter, ol
-    , code, from = 0, to = -1
-    , defHeight = 14, firstNumber, formatter
+    , code, from = 0, to = -1, defHeight = 14
+    , caretPos, firstNumber, formatter, lineEnding
     , maxLine, maxLineLength = 0, maxLineChanged
-    , data, view, history, selection;
+    , data, view, selection;
     
-    function desiredHeight(half) {
-      return (cp.body.offsetHeight || cp.options.height) + cp.options.viewportMargin * (half ? 1 : 2);
-    }
-    function heightOfLines() {
-      var h = 0;
-      for (var i = 0; i < view.length; i++) h += view[i].height;
-      return h;
-    }
     function link(dl, index, withoutParsing) {
       if (dl.node && dl.counter) {
         dl.counter.firstChild.nodeValue = formatter(firstNumber + (dl.counter._index = index));
@@ -1800,83 +1735,63 @@ var CodePrinter = (function() {
         deleteCounter(view[i]);
       }
       that.clearSelection();
-      to = -1; from = 0;
-      view.length = 0;
+      to = -1; from = view.length = 0;
       code.innerHTML = ol.innerHTML = '';
       code.style.top = ol.style.top = (cp.sizes.scrollTop = 0) + 'px';
-    }
-    function scroll(delta) {
-      cp.sizes.scrollTop = Math.max(0, cp.sizes.scrollTop + delta);
-      code.style.top = cp.sizes.scrollTop + 'px';
-      ol.style.top = cp.sizes.scrollTop + 'px';
-    }
-    function scrollTo(st) {
-      cp.counter.scrollTop = st;
-      cp.wrapper.scrollTop = st;
-    }
-    function scrollBy(delta, s) {
-      cp.counter.scrollTop += delta;
-      cp.wrapper.scrollTop += delta;
-      s !== false && scroll(delta);
-    }
-    function updateCounters(dl, index) {
-      var tmp = dl.counter;
-      while (tmp) {
-        tmp.firstChild.nodeValue = formatter(firstNumber + (tmp._index = index++));
-        tmp = tmp.nextSibling;
-      }
     }
     function changedListener(e) {
       if (this.doc == that) {
         if (e.text != '\n') that.updateView();
-        if (cp.options.history) history.pushChanges(e.line, e.column, e.text, e.added);
+        if (cp.options.history) that.history.pushChanges(e.line, e.column, e.text, e.added);
+        that.emit('changed', e);
       }
     }
-    function defaultFormatter(i) {
-      return i;
-    }
     
-    this.init = function(source) {
+    this.init = function(source, mode) {
       source = source || '';
       this.initialized = true;
       data = new Data();
       if (to !== -1) clear();
       this.insert(0, source.split(eol));
+      this.setMode(mode);
       return this;
     }
     this.attach = function(editor) {
       if (cp) cp.off('changed', changedListener);
+      else if (cp === undefined) runBackgroundParser(editor, this.parser, true);
       cp = editor;
-      this.screen = cp.screen;
       counter = cp.counterChild;
       code = cp.code;
       ol = cp.counterOL;
       firstNumber = cp.options.firstLineNumber;
       formatter = cp.options.lineNumberFormatter || defaultFormatter;
+      lineEnding = cp.options.lineEnding;
       
       if (view.length) {
         for (var i = 0; i < view.length; i++) {
           code.appendChild(view[i].node);
           ol.appendChild(view[i].counter);
         }
+        this.scrollTo(this.scrollTop | 0);
+        this.updateScroll();
       }
       cp.on('changed', changedListener);
-      this.updateDefaultHeight();
-      if (data) this.updateHeight();
-      if (selection) selection.overlay.reveal();
+      this.print();
+      this.attached = true;
       this.emit('attached');
-      this.updateView();
       return this;
     }
     this.detach = function() {
+      this.scrollTop = cp.wrapper.scrollTop;
+      caretPos = cp.caret.getPosition();
       for (var i = 0; i < view.length; i++) {
         code.removeChild(view[i].node);
         ol.removeChild(view[i].counter);
       }
       cp.off('changed', changedListener);
-      selection.overlay.remove();
+      if (cp.selectionOverlay) cp.selectionOverlay.remove();
+      cp = cp.doc = counter = code = ol = this.attached = null;
       this.emit('detached');
-      cp = cp.doc = this.screen = counter = code = ol = null;
       return this;
     }
     this.insert = function(at, text) {
@@ -1899,13 +1814,12 @@ var CodePrinter = (function() {
         }
         data.insert(at, lines, defHeight * lines.length);
       }
-      this.updateHeight();
-      if (cp && cp.mainNode.parentNode) {
+      if (cp) {
         if (at < from) {
           from += lines.length;
-          updateCounters(view[0], from);
+          this.updateCounters();
         } else if (at <= to + 1) {
-          var sh = code.scrollHeight || heightOfLines(), dh = desiredHeight();
+          var sh = code.scrollHeight || heightOfLines(view), dh = desiredHeight(cp);
           if (sh >= dh) {
             var m = Math.min(lines.length, to - at + 1), rmdl;
             for (var i = 0; i < m; i++) {
@@ -1933,7 +1847,7 @@ var CodePrinter = (function() {
         if (at + n < from) {
           sd = data.height - h;
           from -= n; to -= n;
-          updateCounters(view[0], from);
+          this.updateCounters();
         } else if (at <= to) {
           var m, e, out, inv, next, prev, k = 0;
           
@@ -1975,26 +1889,29 @@ var CodePrinter = (function() {
             }
           }
           from -= out; to = from + view.length - 1;
-          updateCounters(view[0], from);
+          this.updateCounters();
         }
-        if (sd) scrollBy(sd);
+        if (sd) scroll(cp, sd);
         
         var last = rm[rm.length-1];
         if (last.stateAfter) {
           cp.parse(data.get(at));
         }
-        this.updateHeight();
         cp.wrapper.scrollTop = cp.counter.scrollTop;
         this.updateView();
         return rm;
       }
     }
     this.updateCounters = function() {
-      updateCounters(view[0], from);
+      var tmp = view.length && view[0].counter, index = from;
+      while (tmp) {
+        tmp.firstChild.nodeValue = formatter(firstNumber + (tmp._index = index++));
+        tmp = tmp.nextSibling;
+      }
     }
     this.fill = function() {
       var half, b, dl = (half = view.length === 0) ? data.get(0) : view[view.length-1].next()
-      , sh = code.scrollHeight || heightOfLines(), dh = desiredHeight(half);
+      , sh = code && code.scrollHeight || heightOfLines(view), dh = desiredHeight(cp, half);
       while (dl && !(b = sh > dh)) {
         insert(dl); sh += dl.height;
         dl = dl.next();
@@ -2004,11 +1921,24 @@ var CodePrinter = (function() {
         while (dl && !(b = sh > dh)) {
           prepend(dl);
           sh += dl.height;
-          scroll(-dl.height);
+          scroll(cp, -dl.height);
           dl = dl.prev();
         }
       }
       return b;
+    }
+    this.print = function() {
+      this.fill();
+      this.updateDefaultHeight();
+      this.showSelection().updateView();
+      runBackgroundParser(cp, this.parser, true);
+      if (cp.options.autoFocus) {
+        if (caretPos) cp.caret.position(caretPos[0], caretPos[1]);
+        else cp.caret.position(0, 0);
+        cp.input.focus();
+      }
+      cp.sizes.paddingTop = parseInt(code.style.paddingTop, 10) || 5;
+      async(function() { cp && cp.emit('ready'); });
     }
     this.rewind = function(dl, st) {
       var tmp = dl, dli = dl.info()
@@ -2051,7 +1981,7 @@ var CodePrinter = (function() {
       cp.sizes.scrollTop = Math.max(0, offset);
       ol.style.top = cp.sizes.scrollTop + 'px';
       code.style.top = cp.sizes.scrollTop + 'px';
-      if (st != null) scrollTo(this.scrollTop = st);
+      if (st != null) scrollTo(cp, st);
       ol.style.display = '';
       code.style.display = '';
       this.updateView();
@@ -2074,7 +2004,7 @@ var CodePrinter = (function() {
         if (from === 0 && d < 0) {
           h = view[0].height;
           dl = view[view.length-1];
-          var sh = code.scrollHeight, dh = desiredHeight();
+          var sh = code.scrollHeight, dh = desiredHeight(cp);
           while (h < x && sh < dh && (dl = dl.next())) {
             insert(dl);
             x -= dl.height;
@@ -2102,13 +2032,11 @@ var CodePrinter = (function() {
               d += dl.height;
             }
           }
-          if (tmpd != d) {
-            scroll(tmpd - d);
-          }
+          if (tmpd != d) scroll(cp, tmpd - d);
         }
       }
       if (disp) { ol.style.display = ''; code.style.display = ''; }
-      scrollTo(this.scrollTop = st);
+      scrollTo(cp, st);
       if (to != a) this.updateView(a - to);
     }
     this.isLineVisible = function(dl) {
@@ -2207,9 +2135,9 @@ var CodePrinter = (function() {
       return this;
     }
     this.updateHeight = function() {
-      var minHeight = data.height + cp.sizes.paddingTop * 2;
-      if (cp.sizes.minHeight != minHeight) {
-        this.screen.style.minHeight = minHeight + 'px';
+      var minHeight;
+      if (cp && cp.sizes.minHeight != (minHeight = data.height + cp.sizes.paddingTop * 2)) {
+        cp.screen.style.minHeight = minHeight + 'px';
         counter.style.minHeight = minHeight + 'px';
         cp.sizes.minHeight = minHeight;
       }
@@ -2245,10 +2173,11 @@ var CodePrinter = (function() {
         maxLineChanged = false;
         var minWidth = externalMeasure(cp, maxLine).offsetWidth;
         if (cp.sizes.minWidth != minWidth) {
-          this.screen.style.minWidth = minWidth + 'px';
+          cp.screen.style.minWidth = minWidth + 'px';
           cp.sizes.minWidth = minWidth;
         }
       }
+      this.updateHeight();
       this.emit('viewUpdated');
       return this;
     }
@@ -2258,7 +2187,7 @@ var CodePrinter = (function() {
         if (height = node.offsetHeight) {
           var diff = height - dl.height;
           if (diff) {
-            if (dl == view[0] && from != 0) scrollBy(-diff);
+            if (dl == view[0] && from != 0) scrollBy(cp, -diff);
             if (dl.counter) dl.counter.style.height = height + 'px';
             for (; dl; dl = dl.parent) dl.height += diff;
           }
@@ -2311,7 +2240,7 @@ var CodePrinter = (function() {
       var range = this.getSelectionRange();
       if (range) {
         if (this.isAllSelected(range)) {
-          return cp.getValue();
+          return this.getValue();
         }
         var s = range.start, e = range.end
         , dl = data.get(s.line);
@@ -2325,20 +2254,18 @@ var CodePrinter = (function() {
             t.push(dl.text);
           }
           if (dl) t.push(dl.text.substring(0, e.column));
-          return t.join(cp.getLineEnding());
+          return t.join(this.getLineEnding());
         }
       }
       return '';
     }
-    this.isAllSelected = function(s) {
-      s = s || this.getSelectionRange();
-      return s && s.start.line === 0 && s.start.column === 0 && s.end.line === data.size - 1 && s.end.column === cp.getTextAtLine(-1).length;
-    }
-    this.showSelection = function() {      
-      if (selection.isset()) {
+    this.showSelection = function() {
+      if (selection.isset() && cp) {
+        if (!cp.selectionOverlay) cp.selectionOverlay = cp.createOverlay('cp-selection-overlay');
+        
         var s = selection.start
         , e = selection.end
-        , ov = selection.overlay
+        , ov = cp.selectionOverlay
         , dl = data.get(s.line), dloffset = dl.getOffset()
         , lastdl = data.get(e.line), lastdloffset = lastdl.getOffset()
         , pos = this.measureRect(dl, s.column)
@@ -2363,6 +2290,7 @@ var CodePrinter = (function() {
         ov.reveal();
         cp.unselect();
       }
+      return this;
     }
     this.removeSelection = function() {
       var range = this.getSelectionRange();
@@ -2394,11 +2322,12 @@ var CodePrinter = (function() {
           t.push(x.slice(s.column, e.column));
           y = x;
         }
-        cp.dispatch(dl, x.substring(0, s.column) + y.substr(e.column));
+        this.dispatch(dl, x.substring(0, s.column) + y.substr(e.column));
         cp.caret.position(s.line, s.column);
         cp.emit('changed', { line: cp.caret.line(), column: cp.caret.column(true), text: t.join('\n'), added: false });
         this.clearSelection();
       }
+      return this;
     }
     
     this.moveSelection = function(start, end) { selection.move(start, end); }
@@ -2413,51 +2342,94 @@ var CodePrinter = (function() {
         this.showSelection();
       }
     }
-    this.selectAll = function() {
-      this.setSelectionRange(0, 0, data.size - 1, cp.getTextAtLine(-1).length);
-    }
     this.clearSelection = function() {
       selection.clear();
+      cp.selectionOverlay && cp.selectionOverlay.remove();
       cp.select(cp.caret.dl());
     }
-    this.createOverlay = function(classes, removeOn) {
-      return new CodePrinter.Overlay(this, classes, removeOn);
+    this._onUndo = function(a) {
+      cp.caret.position(a.line, a.column);
+      a.added ? cp.removeAfterCursor(a.text) : cp.insertText(a.text);
     }
-    this.removeOverlays = function() {
-      var ov = this.overlays, args;
-      for (var i = ov.length; i--; ) {
-        if (ov[i].isRemovable) {
-          ov[i].remove();
-        } else {
-          if (!args) {
-            args = ['refresh'];
-            args.push.apply(args, arguments);
-          }
-          ov[i].emit.apply(ov[i], args);
-        }
-      }
+    this._onRedo = function(a) {
+      cp.caret.position(a.line, a.column);
+      a.added ? cp.insertText(a.text) : cp.removeAfterCursor(a.text);
     }
-    this.undo = function() { history.undo(); }
-    this.redo = function() { history.redo(); }
-    this.getHistory = function(stringify) { return history.getStates(stringify); }
-    this.clearHistory = function() { history.clear(); }
     this.each = function() { return data.foreach.apply(data, arguments); }
     this.get = function(i) { return data.get(i); }
+    this.getOption = function(key) { return cp && cp.options[key]; }
+    this.dispatch = function(dl, text) { dl.setText(text); return cp && cp.parse(dl); }
     this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
+    this.getLineEnding = function() { return lineendings[lineEnding] || lineEnding || lineendings['LF']; }
+    this.getCursorPosition = function() { return cp ? cp.caret.getPosition() : caretPos; }
     this.from = function() { return from; }
     this.to = function() { return to; }
     this.size = function() { return data.size; }
     this.height = function() { return data.height; }
     
     EventEmitter.call(this);
-    this.overlays = [];
     this.view = view = [];
     this.scrollTop = 0;
-    this.attach(editor);
-    history = new History(cp, this, cp.options.historyStackSize, cp.options.historyDelay);
+    this.parser = modes.plaintext;
+    this.history = new History(this, editor.options.historyStackSize, editor.options.historyDelay);
     selection = new Selection(this);
     
-    return this.init(source);
+    return this.init(source, mode);
+  }
+  
+  Document.prototype = {
+    undo: function() { this.history.undo(); },
+    redo: function() { this.history.redo(); },
+    setMode: function(mode) {
+      var doc = this;
+      mode = CodePrinter.aliases[mode] || mode || 'plaintext';
+      if (this.mode != mode) {
+        CodePrinter.requireMode(mode, function(parser) {
+          if (parser instanceof CodePrinter.Mode) {
+            var dl = doc.get(0);
+            if (dl) do dl.cache = dl.state = null; while (dl = dl.next());
+            doc.mode = mode;
+            doc.parser = parser;
+            doc.attached && doc.print();
+          }
+        });
+      }
+    },
+    appendText: function(text) {
+      var t = text.split(eol), size = this.size(), fi = t.shift();
+      if (fi) {
+        var last = this.get(size - 1);
+        last && this.dispatch(last, last.text + fi);
+      }
+      this.insert(size, t);
+      if (this.attached && !this.isFilled) this.isFilled = this.fill();
+      return this.isFilled;
+    },
+    appendLine: function(text) {
+      var dl, size = this.doc.size();
+      (size == 1 && (dl = this.doc.get(0)).text.length == 0) ? dl.setText(text) : this.doc.insert(size, text);
+      if (!this.doc.isFilled) this.doc.isFilled = this.doc.fill();
+      return this;
+    },
+    selectAll: function() {
+      var size = this.size(), last = this.get(size - 1);
+      this.setSelectionRange(0, 0, size - 1, last.text.length);
+    },
+    isAllSelected: function(s) {
+      var r = s || this.getSelectionRange(), size = this.size(), last = this.get(size - 1);
+      return r && r.start.line === 0 && r.start.column === 0 && r.end.line === size - 1 && r.end.column === last.text.length;
+    },
+    isEmpty: function() {
+      return this.size() === 1 && !this.get(0).text;
+    },
+    getValue: function() {
+      var r = [], i = 0, transform = this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter;
+      this.each(function() { r[i++] = transform(this.text); });
+      return r.join(this.getLineEnding());
+    },
+    createReadStream: function() {
+      return new ReadStream(this, this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter);
+    }
   }
   
   Caret = function(cp) {
@@ -2543,18 +2515,11 @@ var CodePrinter = (function() {
       updateDL(bf + af);
       return this.position(line, bf.length);
     }
-    this.textBefore = function() {
-      return currentDL && currentDL.text.substring(0, column);
-    }
-    this.textAfter = function() {
-      return currentDL && currentDL.text.substr(column);
-    }
-    this.textAtCurrentLine = function() {
-      return currentDL && currentDL.text;
-    }
-    this.getPosition = function() {
-      return { line: line ? line + 1 : 1, column: this.column() + 1 };
-    }
+    this.textBefore = function() { return currentDL && currentDL.text.substring(0, column); }
+    this.textAfter = function() { return currentDL && currentDL.text.substr(column); }
+    this.textAtCurrentLine = function() { return currentDL && currentDL.text; }
+    this.getPosition = function() { return [line, this.column()]; }
+
     this.position = function(l, c) {
       var dl = cp.doc.get(l);
       if (dl) {
@@ -2586,7 +2551,7 @@ var CodePrinter = (function() {
       }
       
       if (abs <= t.length) {
-        return this.position(cl, Math.max(0, Math.min(column + mv, (bf + af).length)));
+        return this.position(cl, Math.max(0, Math.min(bf.length + mv, (bf + af).length)));
       }
       while (abs > t.length) {
         abs = abs - t.length - 1;
@@ -2642,7 +2607,7 @@ var CodePrinter = (function() {
       return line;
     }
     this.column = function() {
-      return Math.min(column, currentDL.text.length);
+      return currentDL ? Math.min(column, currentDL.text.length) : 0;
     }
     this.savePosition = function(onlycolumn) {
       return tmp = [onlycolumn ? null : line, column];
@@ -2663,7 +2628,7 @@ var CodePrinter = (function() {
     }
     this.focus = function() {
       if (!this.isVisible) {
-        this.isVisible = true;
+        this.isVisible = this.isActive = true;
         startBlinking(this, cp.options);
       } else if (currentDL && !cp.doc.isLineVisible(currentDL)) {
         cp.doc.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
@@ -2705,10 +2670,9 @@ var CodePrinter = (function() {
     }
   }
   
-  CodePrinter.Overlay = function(doc, className, removeOn) {
+  CodePrinter.Overlay = function(cp, className, removeOn) {
     EventEmitter.call(this);
     this.node = addClass(addClass(div.cloneNode(false), 'cp-overlay'), className);
-    this.doc = doc;
     if (removeOn instanceof Array) {
       var emit = this.emit;
       this.emit = function(event) {
@@ -2716,22 +2680,22 @@ var CodePrinter = (function() {
         if (removeOn.indexOf(event) >= 0) this.remove();
       }
     }
+    this.reveal = function() {
+      if (!this.node.parentNode) {
+        cp.overlays.push(this);
+        cp.screen.appendChild(this.node);
+        this.emit('$revealed');
+      }
+    }
+    this.remove = function() {
+      var i = cp.overlays.indexOf(this);
+      i != -1 && cp.overlays.splice(i, 1);
+      this.node.parentNode && this.node.parentNode.removeChild(this.node);
+      this.emit('$removed');
+    }
     return this;
   }
   CodePrinter.Overlay.prototype = {
-    reveal: function() {
-      if (!this.node.parentNode) {
-        this.doc.overlays.push(this);
-        this.doc.screen.appendChild(this.node);
-        this.emit('$revealed');
-      }
-    },
-    remove: function() {
-      var i = this.doc.overlays.indexOf(this);
-      i != -1 && this.doc.overlays.splice(i, 1);
-      this.node.parentNode && this.node.parentNode.removeChild(this.node);
-      this.emit('$removed');
-    },
     removable: function(is) {
       this.isRemovable = !!is;
     }
@@ -2830,17 +2794,16 @@ var CodePrinter = (function() {
     }
   }
   
-  ReadStream = function(cp) {
+  ReadStream = function(doc, transform) {
     var rs = this, stack = []
-    , dl = cp.doc.get(0)
-    , le = cp.getLineEnding(), fn;
+    , dl = doc.get(0), le = doc.getLineEnding(), fn;
     EventEmitter.call(this);
     
     async(fn = function() {
       var r = 25 + 50 * Math.random(), i = -1;
       
       while (dl && ++i < r) {
-        stack.push(dl.text);
+        stack.push(transform(dl.text));
         dl = dl.next();
       }
       if (i >= 0) {
@@ -2925,12 +2888,12 @@ var CodePrinter = (function() {
       } else {
         var bf = this.caret.textBefore()
         , af = this.caret.textAfter()
-        , chbf = bf.slice(-1), m = bf.match(/ +$/)
-        , tw = this.options.tabWidth
+        , chbf = bf.slice(-1), m = bf.match(/^ +$/)
+        , tw = this.options.tabWidth, parser = this.doc.parser
         , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
         
-        if (this.parser.onLeftRemoval && this.parser.onLeftRemoval[chbf]) {
-          var x = this.parser.onLeftRemoval[chbf];
+        if (parser.onLeftRemoval && parser.onLeftRemoval[chbf]) {
+          var x = this.doc.parser.onLeftRemoval[chbf];
           if (x instanceof Function) {
             x = x.call(this, chbf, bf, af);
             if (x === false) return false;
@@ -3020,12 +2983,12 @@ var CodePrinter = (function() {
       } else {
         var bf = this.caret.textBefore()
         , af = this.caret.textAfter()
-        , chaf = af.charAt(0), m = af.match(/^ +/)
-        , tw = this.options.tabWidth
+        , chaf = af.charAt(0), m = af.match(/^ +$/)
+        , tw = this.options.tabWidth, parser = this.doc.parser
         , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
         
-        if (this.parser.onRightRemoval && this.parser.onRightRemoval[chaf]) {
-          var x = this.parser.onRightRemoval[chaf];
+        if (parser.onRightRemoval && parser.onRightRemoval[chaf]) {
+          var x = parser.onRightRemoval[chaf];
           if (x instanceof Function) {
             x = x.call(this, chaf, bf, af);
             if (x === false) return false;
@@ -3087,7 +3050,7 @@ var CodePrinter = (function() {
       return -1;
     },
     'Cmd Z': function() { this.doc.undo(); },
-    'Shift Cmd Z': function() { this.doc.redo(); }
+    'Cmd Shift Z': function() { this.doc.redo(); }
   }
   keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
   keyMap.prototype['Shift Down'] = keyMap.prototype['Shift Right'] = keyMap.prototype['Shift Up'] = keyMap.prototype['Shift Left'];
@@ -3095,9 +3058,8 @@ var CodePrinter = (function() {
   keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
   keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
   
-  History = function(cp, doc, stackSize, delay) {
-    var states, initialState
-    , index, timeout, muted, performed;
+  History = function(doc, stackSize, delay) {
+    var states, initialState, index, timeout, muted, performed;
     
     this.undo = function() {
       if (0 <= index && index <= states.length && states.length) {
@@ -3113,8 +3075,7 @@ var CodePrinter = (function() {
         if (state) {
           for (var i = state.length - 1; i >= 0; i--) {
             var a = state[i];
-            cp.caret.position(a.line, a.column);
-            a.added ? cp.removeAfterCursor(a.text) : cp.insertText(a.text);
+            doc._onUndo(a);
           }
           this.emit('undo', state);
           muted = false;
@@ -3132,8 +3093,7 @@ var CodePrinter = (function() {
         if (state) {
           for (var i = 0; i < state.length; i++) {
             var a = state[i];
-            cp.caret.position(a.line, a.column);
-            a.added ? cp.insertText(a.text) : cp.removeAfterCursor(a.text);
+            doc._onRedo(a);
           }
           this.emit('redo', state);
           ++index;
@@ -3209,10 +3169,8 @@ var CodePrinter = (function() {
       this.emit('done', this.start, this.end);
     }
     EventEmitter.call(this);
-    this.overlay = new CodePrinter.Overlay(doc, 'cp-selection-overlay');
     
     this.clear = function() {
-      this.overlay.remove();
       coords = [];
       return this;
     }
@@ -3283,7 +3241,7 @@ var CodePrinter = (function() {
     if ('string' == typeof names) names = [names];
     if ('function' == typeof cb) {
       var m = getModes(names), fn;
-      if (m.indexOf(null) == -1) cb.apply(CodePrinter, m);
+      if (m.indexOf(null) == -1) async(function() { cb.apply(CodePrinter, m); });
       else {
         CodePrinter.on('modeLoaded', fn = function(modeName, mode) {
           var i = names.indexOf(modeName);
@@ -3302,7 +3260,7 @@ var CodePrinter = (function() {
   CodePrinter.defineMode = function(name, req, func) {
     if (arguments.length === 2) { func = req; req = null; }
     var fn = function() {
-      var mode = func.apply(CodePrinter, arguments);
+      var mode = 'function' == typeof func ? func.apply(CodePrinter, arguments) : func;
       mode.name = name;
       modes[name = name.toLowerCase()] = mode;
       CodePrinter.emit('modeLoaded', mode.name, mode);
@@ -3345,6 +3303,7 @@ var CodePrinter = (function() {
       cp.caret.refresh();
     }
   });
+  CodePrinter.defineMode('plaintext', new CodePrinter.Mode());
   
   function buildDOM(cp) {
     cp.mainNode = addClass(document.createElement('div'), 'codeprinter');
@@ -3490,7 +3449,9 @@ var CodePrinter = (function() {
     
     on(wrapper, 'scroll', function(e) {
       if (!this._lockedScrolling) {
-        cp.doc.scrollTo(cp.counter.scrollTop = this.scrollTop);
+        var st = this.scrollTop;
+        cp.counter.scrollTop = st;
+        if (cp.doc.scrollTop != st) cp.doc.scrollTo(st);
       } else {
         if (!isScrolling) addClass(wrapper, 'scrolling');
         isScrolling = true;
@@ -3571,7 +3532,7 @@ var CodePrinter = (function() {
       if ((allowKeyup = !e.defaultPrevented) && seq.length > 1 && cp.keyMap[seq]) {
         allowKeyup = cp.keyMap[seq].call(cp, seq, code);
       }
-      if (!allowKeyup) return eventCancel(e);
+      if (!allowKeyup) return eventCancel(e, 1);
     });
     on(input, 'keypress', function(e) {
       if (options.readOnly) return;
@@ -3608,14 +3569,14 @@ var CodePrinter = (function() {
       if (cp.caret.isVisible) cp.caret.activate();
       if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
         this.value.length && cp.insertText(this.value);
-        T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.parser); }, options.keyupInactivityTimeout);
+        T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.doc.parser); }, options.keyupInactivityTimeout);
       }
       this.value = '';
       cp.emit('keyup', e);
     });
     on(input, 'input', function(e) {
       if (!options.readOnly && this.value.length) {
-        cp.insertText(this.value);
+        cp.insertText(this.value, 0, options.autoIndent && cp.doc.parser.name != 'plaintext');
         this.value = '';
       }
     });
@@ -3669,7 +3630,7 @@ var CodePrinter = (function() {
           cp.counter.firstChild.scrollTop = st;
         }
         if (options.matching) {
-          var m = getMatchingObject(cp.parser.matching);
+          var m = getMatchingObject(cp.doc.parser.matching);
           if (m) {
             var a, b, cur, bf = this.textBefore(), af = this.textAfter();
             outer: for (var s in m) {
@@ -3735,7 +3696,6 @@ var CodePrinter = (function() {
   function checkOptions(cp, options) {
     var addons = options.addons;
     cp.setTheme(options.theme);
-    cp.setMode(options.mode);
     if (options.fontFamily !== CodePrinter.defaults.fontFamily) cp.container.style.fontFamily = options.fontFamily;
     options.lineNumbers ? cp.openCounter() : cp.closeCounter();
     options.drawIndentGuides || addClass(cp.mainNode, 'cp-without-indentation');
@@ -3818,6 +3778,30 @@ var CodePrinter = (function() {
         caret.node.style.opacity = '0';
     }
   }
+  function desiredHeight(cp, half) {
+    return (cp.body.offsetHeight || cp.options.height || 0) + cp.options.viewportMargin * (half ? 1 : 2);
+  }
+  function heightOfLines(view) {
+    var h = 0;
+    for (var i = 0; i < view.length; i++) h += view[i].height;
+    return h;
+  }
+  function scroll(cp, delta) {
+    cp.sizes.scrollTop = Math.max(0, cp.sizes.scrollTop + delta);
+    cp.code.style.top = cp.sizes.scrollTop + 'px';
+    cp.counterOL.style.top = cp.sizes.scrollTop + 'px';
+  }
+  function scrollTo(cp, st) {
+    cp.doc.scrollTop = st;
+    cp.counter.scrollTop = st;
+    cp.wrapper.scrollTop = st;
+  }
+  function scrollBy(cp, delta) {
+    cp.doc.scrollTop += delta;
+    cp.counter.scrollTop += delta;
+    cp.wrapper.scrollTop += delta;
+  }
+  function defaultFormatter(i) { return i; }
   function getLineClasses(line) {
     var isact = line.node && hasClass(line.node, activeClassName);
     if (isact) {
@@ -3878,6 +3862,9 @@ var CodePrinter = (function() {
   function functionSnippet(cp, snippet) {
     var s = cp.getStateAt(cp.caret.dl(), cp.caret.column());
     return snippet.call(s.parser, s.stream, s.state);
+  }
+  function trimSpaces(txt) {
+    return txt.replace(/\s+$/, '');
   }
   function searchOverLine(find, dl, line, offset) {
     var results = this.searches.results
@@ -3958,10 +3945,10 @@ var CodePrinter = (function() {
     return res;
   }
   function escape(str) { return str.replace(/[-\/\\^$*+?.()|[\]{}"']/g, '\\$&'); }
-  function extend(base) { for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
+  function extend(base) { if (base) for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
   function on(node, event, listener) { node.addEventListener(event, listener, false); }
   function off(node, event, listener) { node.removeEventListener(event, listener, false); }
-  function eventCancel(e) { e.preventDefault(); e.stopPropagation(); return e.returnValue = false; }
+  function eventCancel(e, propagate) { e.preventDefault(); propagate || e.stopPropagation(); return e.returnValue = false; }
   function addClass(n, c) { if (n.classList) n.classList.add(c); else if (!hasClass(n, c)) n.className += ' '+c; return n; }
   function removeClass(n, c) { if (n.classList) n.classList.remove(c); else if (hasClass(n, c)) n.className = n.className.replace(new RegExp('(^|\\s+)'+c), ''); return n; }
   function hasClass(n, c) {

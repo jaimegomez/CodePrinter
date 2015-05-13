@@ -181,15 +181,10 @@ CodePrinter.defineMode('JavaScript', function() {
         }
         return 'punctuation';
       }
-      if (ch == ',') {
-        if (state.vardef == 2) --state.vardef;
-        else if (state.constdef == 2) --state.constdef;
-        return 'punctuation';
-      }
-      if (ch == ':') return 'punctuation';
+      if (ch == ',' || ch == ':') return 'punctuation';
       if (ch == ';') {
-        if (state.vardef) state.vardef = null;
-        if (state.constdef) state.constdef = null;
+        if (state.vardef >= 0) state.vardef = null;
+        if (state.constdef >= 0) state.constdef = null;
         if (state.controlLevel) {
           if (['for','case','default'].indexOf(state.control) == -1) {
             state.controlLevel = state.control = null;
@@ -237,10 +232,6 @@ CodePrinter.defineMode('JavaScript', function() {
         return;
       }
       if (operatorRgx.test(ch)) {
-        if (ch == '=') {
-          if (state.vardef == 1) ++state.vardef;
-          else if (state.constdef == 1) ++state.constdef;
-        }
         stream.take(/^[+\-*&%=<>!?|~^]+/);
         return 'operator';
       }
@@ -250,12 +241,12 @@ CodePrinter.defineMode('JavaScript', function() {
           if (!state.fn) state.fn = true;
           return 'special';
         }
-        if (word == 'var') {
-          state.vardef = 1;
+        if (word == 'var' || word == 'let') {
+          state.vardef = state.indent;
           return 'keyword';
         }
         if (word == 'const') {
-          state.constdef = 1;
+          state.constdef = state.indent;
           return 'keyword';
         }
         if (stream.lastValue == 'function') {
@@ -275,16 +266,14 @@ CodePrinter.defineMode('JavaScript', function() {
         if (specials.indexOf(word) >= 0) return 'special';
         if (keywords.indexOf(word) >= 0) return 'keyword';
         if (stream.isAfter(/^\s*([:=]\s*function)?\(/)) { if (RegExp.$1) state.fn = word; return 'function'; }
-        if (state.context) {
-          if (state.context.params[word] && !stream.isBefore(/\.\s*$/, -word.length)) {
-            return 'variable';
-          }
+        if (state.context && !stream.isBefore(/\.\s*$/, -word.length)) {
+          if (state.context.params[word]) return 'variable';
           var isVar = isVariable(word, state);
           if (isVar && 'string' === typeof isVar) return isVar;
         }
-        if (!stream.lastValue || (stream.lastStyle == 'keyword' && stream.lastValue != 'new') || stream.lastValue == ',') {
-          if (state.vardef == 1) return state.context.vars[word] = 'variable';
-          if (state.constdef == 1) return state.context.vars[word] = 'constant';
+        if ((!stream.lastValue || (stream.lastStyle == 'keyword' && stream.lastValue != 'new') || stream.lastValue == ',') && stream.isAfter(/^\s*([=;,]|$)/)) {
+          if (state.vardef == state.indent) return state.context.vars[word] = 'variable';
+          if (state.constdef == state.indent) return state.context.vars[word] = 'constant';
         }
         return 'word';
       }
