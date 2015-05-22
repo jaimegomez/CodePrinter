@@ -2424,6 +2424,9 @@ var CodePrinter = (function() {
     isEmpty: function() {
       return this.size() === 1 && !this.get(0).text;
     },
+    clear: function() {
+      return this.init('');
+    },
     getValue: function() {
       var r = [], i = 0, transform = this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter;
       this.each(function() { r[i++] = transform(this.text); });
