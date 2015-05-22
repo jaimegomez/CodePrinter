@@ -510,7 +510,7 @@ var CodePrinter = (function() {
       }
     },
     toggleComment: function() {
-      if (this.doc.parser && this.doc.parser.lineComment) {
+      if (this.doc && this.doc.parser && this.doc.parser.lineComment) {
         var start, end, line, sm, insert
         , comment = this.doc.parser.lineComment
         , range = this.doc.getSelectionRange();
@@ -523,15 +523,15 @@ var CodePrinter = (function() {
         }
         for (var line = end; line >= start; line--) {
           var text = this.getTextAtLine(line)
-          , i = text.search(new RegExp('^(\\s*)'+escape(comment)))
-          , s = RegExp.$1.length;
+          , i = text.search(new RegExp('^(\\s*)('+escape(comment)+')?'))
+          , sl = RegExp.$1.length, cl = RegExp.$2.length;
           
-          if (insert !== false && i === -1) {
+          if (insert !== false && cl == 0) {
             insert = true;
-            this.put(comment, line, 0);
+            this.put(comment, line, sl);
           } else if (insert !== true) {
             insert = false;
-            this.erase(comment, line, s + comment.length);
+            this.erase(comment, line, sl + comment.length);
           }
         }
         if (range) {
@@ -544,7 +544,7 @@ var CodePrinter = (function() {
     },
     toggleBlockComment: function(lineComment) {
       var cs, ce;
-      if (this.doc.parser && (cs = this.doc.parser.blockCommentStart) && (ce = this.doc.parser.blockCommentEnd)) {
+      if (this.doc && this.doc.parser && (cs = this.doc.parser.blockCommentStart) && (ce = this.doc.parser.blockCommentEnd)) {
         var range = this.doc.getSelectionRange()
         , l = this.caret.line(), c = this.caret.column()
         , s = this.getStyleAt(l, c, true)
@@ -716,7 +716,7 @@ var CodePrinter = (function() {
             this.doc.insert(line+1, s[i]);
           }
         }
-        this.dispatch(dl, bf + s[0] + af);
+        this.doc.dispatch(dl, bf + s[0] + af);
         this.caret.refresh();
         isa && this.caret.moveX(text.length);
         mx && this.caret.moveX(mx);
