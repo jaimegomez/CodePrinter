@@ -2335,11 +2335,13 @@ var CodePrinter = (function() {
     this.moveSelectionEnd = function(mv) { selection.move(null, mv); }
     
     this.wrapSelection = function(before, after) {
-      var r = this.getSelectionRange();
+      var r = this.getSelectionRange(), sl;
       if (r) {
+        sl = r.start.line < r.end.line && this.get(r.start.line+1);
         after && cp.put(after, r.end.line, r.end.column);
         before && cp.put(before, r.start.line, r.start.column) && selection.move(before.length, r.start.line == r.end.line ? before.length : 0);
         this.showSelection();
+        sl && forwardParsing(cp, sl);
       }
     }
     this.clearSelection = function() {
