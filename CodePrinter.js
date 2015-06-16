@@ -251,7 +251,7 @@ var CodePrinter = (function() {
       return s && s.parser;
     },
     focus: function() {
-      async(this.input.focus.bind(this.input));
+      this.input.focus();
     },
     requireStyle: function(style) {
       load('theme/'+style+'.css', true);
