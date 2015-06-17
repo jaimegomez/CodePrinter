@@ -469,7 +469,7 @@ var CodePrinter = (function() {
       var indent = this.getIndentAtLine(line);
       return nextLineIndent(this, indent, line);
     },
-    fixIndents: function(from, to) {
+    reIndent: function(from, to) {
       var size = this.doc.size(), parser = this.doc.parser
       , i = 0, range, dl, end, s, oi, diff;
       
@@ -498,7 +498,7 @@ var CodePrinter = (function() {
             parser = s.state && s.state.parser || parser;
             oi = s.stream.indentation; s.stream.indentation = i;
             i = parser.indent(s.stream, s.state, oi);
-            if ('number' != typeof i) i = oi;
+            if ('number' != typeof i) i = s.stream.indentation;
             diff = this.setIndentAtLine(dl, i);
             if (j == 0 && range && diff) this.doc.moveSelectionStart(diff);
           } else {
@@ -691,7 +691,7 @@ var CodePrinter = (function() {
       }
       mx && this.caret.moveX(mx);
       text.length && this.emit('changed', { line: line, column: col, text: text, added: true });
-      autoIndent && this.fixIndents(line, line + s.length);
+      autoIndent && this.reIndent(line, line + s.length);
       return this;
     },
     insertSelectedText: function(text, mx) {
@@ -1389,7 +1389,7 @@ var CodePrinter = (function() {
     for (var k in state) if (state[k] != null) st[k] = state[k];
     return st;
   }
-  function fixIndent(cp, parser, offset) {
+  function reIndent(cp, parser, offset) {
     var dl = cp.caret.dl(), prev = dl.prev()
     , s = prev && cp.getStateAt(prev, prev.text.length);
     if (s) {
@@ -1397,7 +1397,8 @@ var CodePrinter = (function() {
       s = cp.getStateAt(dl, offset | 0);
       oi = s.stream.indentation; s.stream.indentation = i;
       i = parser.indent(s.stream, s.state, oi);
-      if ('number' == typeof i) cp.setIndentAtLine(dl, i);
+      if ('number' != typeof i) i = oi;
+      cp.setIndentAtLine(dl, i);
     }
   }
   function matchingHelper(cp, key, opt, line, start, end) {
@@ -2951,7 +2952,7 @@ var CodePrinter = (function() {
               rest += '\n' + repeat(tab, indent + i.shift());
             }
           } else {
-            indent = i >= 0 ? parseInt(i, 10) : indent;
+            indent = i >= 0 && 'number' == typeof i ? parseInt(i, 10) : indent;
           }
         }
         tmp = parseIndentation(af, tw);
@@ -3564,7 +3565,7 @@ var CodePrinter = (function() {
           }
         }
         if (options.autoIndent && parser.isIndentTrigger(ch)) {
-          fixIndent(cp, parser, col);
+          reIndent(cp, parser, col);
         }
         return eventCancel(e);
       }
