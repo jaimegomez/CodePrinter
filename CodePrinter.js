@@ -1791,6 +1791,8 @@ var CodePrinter = (function() {
       }
       cp.off('changed', changedListener);
       if (cp.selectionOverlay) cp.selectionOverlay.remove();
+      cp.screen.style.minWidth = '';
+      cp.measure.firstChild.innerHTML = '';
       cp = cp.doc = counter = code = ol = this.attached = null;
       this.emit('detached');
       return this;
