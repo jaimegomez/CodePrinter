@@ -2,7 +2,10 @@
 
 CodePrinter.defineMode('JavaScript', function() {
   
-  var wordRgx = /[\w$\xa1-\uffff]/
+  var FUNCTION_CONTEXT = 0
+  , ARRAY_CONTEXT = 1
+  , OBJECT_CONTEXT = 2
+  , wordRgx = /[\w$\xa1-\uffff]/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
   , closeBrackets = /^[}\]\)]/
   , controls = ['if','else','elseif','for','switch','while','do','try','catch','finally']
@@ -18,7 +21,7 @@ CodePrinter.defineMode('JavaScript', function() {
     'Date','Boolean','Math','JSON','Proxy','Map','WeakMap','Set','WeakSet','Symbol',
     'Error','EvalError','InternalError','RangeError','ReferenceError',
     'StopIteration','SyntaxError','TypeError','URIError'
-  ]
+  ];
   
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;
@@ -113,14 +116,17 @@ CodePrinter.defineMode('JavaScript', function() {
     return state.next = null;
   }
   
-  function pushcontext(state) {
-    state.context = { vars: {}, params: {}, indent: state.indent + 1, prev: state.context };
+  function pushcontext(state, type) {
+    state.context = { type: type, vars: {}, params: {}, indent: state.indent + 1, prev: state.context };
   }
   function popcontext(state) {
     if (state.context.prev) state.context = state.context.prev;
   }
   function isVariable(varname, state) {
-    for (var ctx = state.context; ctx; ctx = ctx.prev) if (ctx.vars[varname]) return ctx.vars[varname];
+    for (var ctx = state.context; ctx; ctx = ctx.prev) {
+      if (ctx.vars[varname]) return ctx.vars[varname];
+      if (ctx.params[varname]) return 'variable';
+    }
   }
   function markControl(state, word) {
     state.controlLevel = (state.controlLevel || 0) + 1;
@@ -202,7 +208,7 @@ CodePrinter.defineMode('JavaScript', function() {
       if (/[\[\]{}\(\)]/.test(ch)) {
         if (ch == '(' && state.fn && (stream.lastValue == 'function' || stream.lastStyle == 'function') && !stream.eol()) {
           state.next = parameters;
-          pushcontext(state);
+          pushcontext(state, FUNCTION_CONTEXT);
           if ('string' == typeof state.fn) {
             stream.markDefinition(new Definition(state.fn, state.context.params));
           }
@@ -213,12 +219,18 @@ CodePrinter.defineMode('JavaScript', function() {
             --state.controlLevel;
             if (!state.controlLevel) state.controlLevel = null;
           }
+          if (state.vardef || state.context.type != FUNCTION_CONTEXT) {
+            pushcontext(state, OBJECT_CONTEXT);
+          }
           ++state.indent;
-        } else if (ch == '}') {
+        } else if (ch == '}' || (ch == ']' && state.context && state.context.type == ARRAY_CONTEXT)) {
           if (state.indent == state.context.indent) {
             popcontext(state);
           }
           --state.indent;
+        } else if (ch == '[') {
+          pushcontext(state, ARRAY_CONTEXT);
+          ++state.indent;
         }
         return 'bracket';
       }
@@ -266,8 +278,7 @@ CodePrinter.defineMode('JavaScript', function() {
         if (specials.indexOf(word) >= 0) return 'special';
         if (keywords.indexOf(word) >= 0) return 'keyword';
         if (stream.isAfter(/^\s*([:=]\s*function)?\(/)) { if (RegExp.$1) state.fn = word; return 'function'; }
-        if (state.context && !stream.isBefore(/\.\s*$/, -word.length)) {
-          if (state.context.params[word]) return 'variable';
+        if (state.context && (state.context.type != OBJECT_CONTEXT || !stream.isAfter(/^\s*:/)) && !stream.isBefore(/\.\s*$/, -word.length)) {
           var isVar = isVariable(word, state);
           if (isVar && 'string' === typeof isVar) return isVar;
         }
