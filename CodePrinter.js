@@ -2636,6 +2636,7 @@ var CodePrinter = (function() {
       if (!this.isVisible) {
         this.isVisible = this.isActive = true;
         startBlinking(this, cp.options);
+        if ('number' != typeof line || line < 0) this.position(0, 0);
       } else if (currentDL && !cp.doc.isLineVisible(currentDL)) {
         cp.doc.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
       }
