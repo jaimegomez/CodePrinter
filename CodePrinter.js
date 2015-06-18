@@ -1791,8 +1791,8 @@ var CodePrinter = (function() {
       }
       cp.off('changed', changedListener);
       if (cp.selectionOverlay) cp.selectionOverlay.remove();
-      cp.screen.style.minWidth = '';
-      cp.measure.firstChild.innerHTML = '';
+      clearMeasures(cp);
+      maxLineChanged = true;
       cp = cp.doc = counter = code = ol = this.attached = null;
       this.emit('detached');
       return this;
@@ -3858,6 +3858,10 @@ var CodePrinter = (function() {
     var o = dl.node, n = dl.node = cp.measure.firstChild;
     cp.parse(dl); dl.node = o;
     return n;
+  }
+  function clearMeasures(cp) {
+    cp.screen.style.minWidth = '';
+    cp.measure.firstChild.innerHTML = '';
   }
   function calcCharWidth(node) {
     var s = cspan(null, 'A'), cw;
