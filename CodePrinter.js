@@ -1697,7 +1697,7 @@ var CodePrinter = (function() {
     , code, from = 0, to = -1, defHeight = 14
     , caretPos, firstNumber, formatter, lineEnding
     , maxLine, maxLineLength = 0, maxLineChanged
-    , data, view, selection;
+    , data, view, selection, sizes = this.sizes = { scrollTop: 0 };
     
     function link(dl, index, withoutParsing) {
       if (dl.node && dl.counter) {
@@ -1738,7 +1738,7 @@ var CodePrinter = (function() {
       that.clearSelection();
       to = -1; from = view.length = 0;
       code.innerHTML = ol.innerHTML = '';
-      code.style.top = ol.style.top = (cp.sizes.scrollTop = 0) + 'px';
+      code.style.top = ol.style.top = (sizes.scrollTop = 0) + 'px';
     }
     function changedListener(e) {
       if (this.doc == that) {
@@ -1777,6 +1777,8 @@ var CodePrinter = (function() {
         this.updateScroll();
       }
       cp.on('changed', changedListener);
+      this.applySizes();
+      if (caretPos) cp.caret.restorePosition(caretPos);
       this.print();
       this.attached = true;
       this.emit('attached');
@@ -1784,6 +1786,7 @@ var CodePrinter = (function() {
     }
     this.detach = function() {
       this.scrollTop = cp.wrapper.scrollTop;
+      this.scrollLeft = cp.wrapper.scrollLeft;
       caretPos = cp.caret.getPosition();
       for (var i = 0; i < view.length; i++) {
         code.removeChild(view[i].node);
@@ -1792,7 +1795,6 @@ var CodePrinter = (function() {
       cp.off('changed', changedListener);
       if (cp.selectionOverlay) cp.selectionOverlay.remove();
       clearMeasures(cp);
-      maxLineChanged = true;
       cp = cp.doc = counter = code = ol = this.attached = null;
       this.emit('detached');
       return this;
@@ -1894,7 +1896,7 @@ var CodePrinter = (function() {
           from -= out; to = from + view.length - 1;
           this.updateCounters();
         }
-        if (sd) scroll(cp, sd);
+        if (sd) scroll(cp, this, sd);
         
         var last = rm[rm.length-1];
         if (last.stateAfter) {
@@ -1912,6 +1914,13 @@ var CodePrinter = (function() {
         tmp = tmp.nextSibling;
       }
     }
+    this.applySizes = function() {
+      cp.screen.style.minWidth = sizes.minWidth + 'px';
+      cp.screen.style.minHeight = sizes.minHeight + 'px';
+      counter.style.minHeight = sizes.minHeight + 'px';
+      cp.wrapper.scrollTop = cp.counter.scrollTop = this.scrollTop | 0;
+      cp.wrapper.scrollLeft = this.scrollLeft | 0;
+    }
     this.fill = function() {
       var half, b, dl = (half = view.length === 0) ? data.get(0) : view[view.length-1].next()
       , sh = code && code.scrollHeight || heightOfLines(view), dh = desiredHeight(cp, half);
@@ -1924,7 +1933,7 @@ var CodePrinter = (function() {
         while (dl && !(b = sh > dh)) {
           prepend(dl);
           sh += dl.height;
-          scroll(cp, -dl.height);
+          scroll(cp, this, -dl.height);
           dl = dl.prev();
         }
       }
@@ -1936,9 +1945,8 @@ var CodePrinter = (function() {
       this.showSelection().updateView();
       runBackgroundParser(cp, this.parser, true);
       if (cp.options.autoFocus) {
-        if (caretPos) cp.caret.position(caretPos[0], caretPos[1]);
-        else cp.caret.position(0, 0);
         cp.input.focus();
+        cp.caret.refresh();
       }
       cp.sizes.paddingTop = parseInt(code.style.paddingTop, 10) || 5;
       async(function() { cp && cp.emit('ready'); });
@@ -1981,9 +1989,9 @@ var CodePrinter = (function() {
           tmp = tmp.prev();
         }
       }
-      cp.sizes.scrollTop = Math.max(0, offset);
-      ol.style.top = cp.sizes.scrollTop + 'px';
-      code.style.top = cp.sizes.scrollTop + 'px';
+      sizes.scrollTop = Math.max(0, offset);
+      ol.style.top = sizes.scrollTop + 'px';
+      code.style.top = sizes.scrollTop + 'px';
       if (st != null) scrollTo(cp, st);
       ol.style.display = '';
       code.style.display = '';
@@ -1992,7 +2000,7 @@ var CodePrinter = (function() {
     this.scrollTo = function(st) {
       cp.wrapper._lockedScrolling = true;
       
-      var x = st - cp.sizes.scrollTop
+      var x = st - sizes.scrollTop
       , limit = cp.options.viewportMargin
       , d = Math.round(x - limit)
       , abs = Math.abs(d)
@@ -2054,7 +2062,7 @@ var CodePrinter = (function() {
       var dl = this.lineWithOffset(y)
       , ch = maybeExternalMeasure(cp, dl).childNodes
       , child, l, ow, ol, chl = ch.length
-      , i = -1, r = { dl: dl, column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, charWidth: 0, charHeight: defHeight };
+      , i = -1, r = { dl: dl, column: 0, offsetX: sizes.paddingLeft, offsetY: 0, charWidth: 0, charHeight: defHeight };
       y = offsetDiff;
       if (chl === 1 && ch[0].firstChild.nodeValue == zws) return r;
       while (++i < chl) {
@@ -2139,10 +2147,10 @@ var CodePrinter = (function() {
     }
     this.updateHeight = function() {
       var minHeight;
-      if (cp && cp.sizes.minHeight != (minHeight = data.height + cp.sizes.paddingTop * 2)) {
+      if (cp && sizes.minHeight != (minHeight = data.height + cp.sizes.paddingTop * 2)) {
         cp.screen.style.minHeight = minHeight + 'px';
         counter.style.minHeight = minHeight + 'px';
-        cp.sizes.minHeight = minHeight;
+        sizes.minHeight = minHeight;
       }
       return this;
     }
@@ -2175,9 +2183,9 @@ var CodePrinter = (function() {
         }
         maxLineChanged = false;
         var minWidth = externalMeasure(cp, maxLine).offsetWidth;
-        if (cp.sizes.minWidth != minWidth) {
+        if (sizes.minWidth != minWidth) {
           cp.screen.style.minWidth = minWidth + 'px';
-          cp.sizes.minWidth = minWidth;
+          sizes.minWidth = minWidth;
         }
       }
       this.updateHeight();
@@ -2200,7 +2208,7 @@ var CodePrinter = (function() {
     this.updateScroll = function() {
       if (view.length) {
         var o = view[0].getOffset();
-        code.style.top = ol.style.top = (cp.sizes.scrollTop = o) + 'px';
+        code.style.top = ol.style.top = (sizes.scrollTop = o) + 'px';
       }
     }
     this.getDefaultLineHeight = function() {
@@ -2491,12 +2499,12 @@ var CodePrinter = (function() {
     this.dispatch = function(dl, det, c) {
       var t = dl.text, dli = dl.info(), b;
       
-      if (b = currentDL !== dl) {
+      if (currentDL !== dl) {
         if (currentDL) currentDL.active = undefined;
         currentDL = dl;
         dl.active = true;
       }
-      if (line !== dli.index || b) {
+      if (line !== dli.index) {
         this.emit('lineChange', dl, dli.index, c);
         line = dli.index;
         b = true;
@@ -2509,6 +2517,7 @@ var CodePrinter = (function() {
       if (b) this.emit('positionChange', dl, dli.index, c);
       lastdet = det;
       setPixelPosition.call(this, det.offsetX, det.offsetY + dli.offset);
+      if (b) this.emit('positionChanged', dl, dli.index, c, this.x, this.y);
       cp.select(dl);
     }
     this.setTextBefore = function(str) {
@@ -2601,8 +2610,10 @@ var CodePrinter = (function() {
       return o;
     }
     this.refresh = function() {
-      cp.emit('caretRefresh');
-      if (this.isVisible) this.position(line | 0, column | 0);
+      if (this.isVisible) {
+        cp.emit('caretRefresh');
+        this.position(line | 0, column | 0);
+      }
       return this;
     }
     this.dl = function() {
@@ -2620,13 +2631,16 @@ var CodePrinter = (function() {
     this.savePosition = function(onlycolumn) {
       return tmp = [onlycolumn ? null : line, column];
     }
-    this.restorePosition = function(save) {
+    this.restorePosition = function(save, fulfill) {
       if (save instanceof Array && save.length == 2) {
-        this.position(save[0], save[1]);
-      } else {
-        tmp != null && this.position(tmp[0], tmp[1]);
+        line = save[0];
+        column = save[1];
+      } else if (tmp != null) {
+        line = tmp[0];
+        column = tmp[1];
         tmp = null;
       }
+      if (fulfill || save === true) this.position(line, column);
     }
     this.setStyle = function(style) {
       this.style = style;
@@ -2639,7 +2653,7 @@ var CodePrinter = (function() {
         this.isVisible = this.isActive = true;
         startBlinking(this, cp.options);
         if ('number' != typeof line || line < 0) this.position(0, 0);
-      } else if (currentDL && !cp.doc.isLineVisible(currentDL)) {
+      } else if (currentDL && cp.doc && cp.doc.attached && !cp.doc.isLineVisible(currentDL)) {
         cp.doc.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
       }
       cp.select(currentDL);
@@ -3384,11 +3398,11 @@ var CodePrinter = (function() {
                   savedpos[0] -= sel.end.line - sel.start.line;
                 }
                 !e.altKey && doc.removeSelection();
-                cp.caret.restorePosition(savedpos);
+                cp.caret.restorePosition(savedpos, true);
                 cp.insertSelectedText(selection);
               } else {
                 doc.clearSelection();
-                mouseController(arguments[0]);
+                mouseController(e);
               }
             } else {
               isinactive || doc.clearSelection();
@@ -3615,7 +3629,7 @@ var CodePrinter = (function() {
     }
     
     cp.caret.on({
-      move: function(x, y, dl, line, column) {
+      positionChanged: function(dl, line, column, x, y) {
         if (options.autoScroll) {
           var pl = sizes.paddingLeft, pt = sizes.paddingTop
           , sl = wrapper.scrollLeft, st = wrapper.scrollTop
@@ -3644,6 +3658,8 @@ var CodePrinter = (function() {
           cp.doc.scrollTo(st);
           cp.counter.firstChild.scrollTop = st;
         }
+      },
+      move: function(x, y, dl, line, column) {
         if (options.matching) {
           var m = getMatchingObject(cp.doc.parser.matching);
           if (m) {
@@ -3801,10 +3817,10 @@ var CodePrinter = (function() {
     for (var i = 0; i < view.length; i++) h += view[i].height;
     return h;
   }
-  function scroll(cp, delta) {
-    cp.sizes.scrollTop = Math.max(0, cp.sizes.scrollTop + delta);
-    cp.code.style.top = cp.sizes.scrollTop + 'px';
-    cp.counterOL.style.top = cp.sizes.scrollTop + 'px';
+  function scroll(cp, doc, delta) {
+    doc.sizes.scrollTop = Math.max(0, doc.sizes.scrollTop + delta);
+    cp.code.style.top = doc.sizes.scrollTop + 'px';
+    cp.counterOL.style.top = doc.sizes.scrollTop + 'px';
   }
   function scrollTo(cp, st) {
     cp.doc.scrollTop = st;
