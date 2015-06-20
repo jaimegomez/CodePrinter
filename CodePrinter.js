@@ -3154,6 +3154,12 @@ var CodePrinter = (function() {
       var str  = JSON.stringify(states);
       return stringify ? str : JSON.parse(str);
     }
+    this.setStates = function(newStates) {
+      if (newStates && newStates.length > 0) {
+        states = newStates;
+        index = states.length;
+      }
+    }
     function shift() {
       var state = states.shift();
       if (state) {
