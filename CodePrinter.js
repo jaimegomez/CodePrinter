@@ -2043,7 +2043,7 @@ var CodePrinter = (function() {
               d += dl.height;
             }
           }
-          if (tmpd != d) scroll(cp, tmpd - d);
+          if (tmpd != d) scroll(cp, this, tmpd - d);
         }
       }
       if (disp) { ol.style.display = ''; code.style.display = ''; }
