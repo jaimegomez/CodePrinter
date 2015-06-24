@@ -3253,9 +3253,9 @@ var CodePrinter = (function() {
   }
   
   function checkScript(script) {
-    var src = script.getAttribute('src'), ex = /codeprinter([\d\-\.]+)js\/?$/i.exec(src);
+    var src = script.getAttribute('src'), ex = /\/?codeprinter[\d\-\.]*\.js\/?$/i.exec(src);
     if (ex) {
-      CodePrinter.src = src.slice(0, -ex[0].length);
+      CodePrinter.src = src.slice(0, -ex[0].length) + '/';
       return true;
     }
   }
