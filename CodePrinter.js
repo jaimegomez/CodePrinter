@@ -1722,6 +1722,7 @@ var CodePrinter = (function() {
           index = view.push(dl) + from;
         }
         dl.cache ? restoreFromCache(cp, dl) : cp.parse(dl);
+        touch(dl);
         cp.emit('link', dl, index);
       }
     }
@@ -1763,7 +1764,6 @@ var CodePrinter = (function() {
     }
     this.attach = function(editor) {
       if (cp) cp.off('changed', changedListener);
-      else if (cp === undefined) runBackgroundParser(editor, this.parser, true);
       cp = editor;
       counter = cp.counterChild;
       code = cp.code;
@@ -1783,7 +1783,6 @@ var CodePrinter = (function() {
       cp.on('changed', changedListener);
       this.applySizes();
       if (caretPos) cp.caret.restorePosition(caretPos);
-      this.print();
       this.attached = true;
       this.emit('attached');
       return this;
@@ -2066,7 +2065,7 @@ var CodePrinter = (function() {
       var dl = this.lineWithOffset(y)
       , ch = maybeExternalMeasure(cp, dl).childNodes
       , child, l, ow, ol, chl = ch.length
-      , i = -1, r = { dl: dl, column: 0, offsetX: sizes.paddingLeft, offsetY: 0, charWidth: 0, charHeight: defHeight };
+      , i = -1, r = { dl: dl, column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, charWidth: 0, charHeight: defHeight };
       y = offsetDiff;
       if (chl === 1 && ch[0].firstChild.nodeValue == zws) return r;
       while (++i < chl) {
