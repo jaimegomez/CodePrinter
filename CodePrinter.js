@@ -2022,7 +2022,7 @@ var CodePrinter = (function() {
             sh += dl.height;
           }
         } else {
-          if (disp = abs > defHeight) { ol.style.display = 'none'; code.style.display = 'none'; }
+          if (disp = abs > 4 * defHeight) { ol.style.display = 'none'; code.style.display = 'none'; }
           if (d > 0) {
             while (view.length && (h = view[0].height) <= d && (dl = view[view.length-1].next())) {
               var first = view.shift();
