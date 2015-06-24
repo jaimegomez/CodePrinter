@@ -277,7 +277,7 @@ CodePrinter.defineMode('JavaScript', function() {
         }
         if (specials.indexOf(word) >= 0) return 'special';
         if (keywords.indexOf(word) >= 0) return 'keyword';
-        if (stream.isAfter(/^\s*([:=]\s*function)?\(/)) { if (RegExp.$1) state.fn = word; return 'function'; }
+        if (stream.isAfter(/^\s*([:=]\s*function)?\s*\(/)) { if (RegExp.$1) state.fn = word; return 'function'; }
         if (state.context && (state.context.type != OBJECT_CONTEXT || !stream.isAfter(/^\s*:/)) && !stream.isBefore(/\.\s*$/, -word.length)) {
           var isVar = isVariable(word, state);
           if (isVar && 'string' === typeof isVar) return isVar;
