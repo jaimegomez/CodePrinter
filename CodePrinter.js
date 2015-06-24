@@ -589,6 +589,10 @@ var CodePrinter = (function() {
         this.toggleComment();
       }
     },
+    toggleMarkCurrentLine: function() {
+      var dl = this.caret.dl();
+      if (dl) dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
+    },
     textBeforeCursor: function(i) {
       var bf = this.caret.textBefore();
       return i > 0 ? bf.slice(-i) : bf;
