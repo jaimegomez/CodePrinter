@@ -20,7 +20,9 @@ CodePrinter.defineAddon('shortcuts', function() {
     'Cmd Shift F': function() {
       this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
     },
-    'Cmd I': CodePrinter.prototype.reIndent,
+    'Cmd I': function() {
+      this.reIndent();
+    },
     'Cmd J': function() {
       this.setCursorPosition(parseInt(prompt("Jump to line..."), 10) - 1, 0);
     },
