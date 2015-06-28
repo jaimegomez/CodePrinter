@@ -1353,6 +1353,7 @@ var CodePrinter = (function() {
       if (v != ' ' && v != '\t') stream.lastValue = v;
       if (style) cache.push({ from: stream.start, to: stream.pos, style: style });
     }
+    (state && state.parser || parser).finalize(stream, state);
     return cache;
   }
   function forwardParsing(cp, dl) {
@@ -2868,6 +2869,7 @@ var CodePrinter = (function() {
   }
   CodePrinter.Mode.prototype = {
     init: function() {},
+    finalize: function() {},
     iterator: function(stream, state) {
       var ch = stream.next();
       if (/\s/.test(ch)) {
