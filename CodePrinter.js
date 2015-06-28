@@ -2374,6 +2374,7 @@ var CodePrinter = (function() {
     }
     this.each = function() { return data.foreach.apply(data, arguments); }
     this.get = function(i) { return data.get(i); }
+    this.getEditor = function() { return cp; }
     this.getOption = function(key) { return cp && cp.options[key]; }
     this.dispatch = function(dl, text) { dl.setText(text); return cp && cp.parse(dl); }
     this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
@@ -2421,6 +2422,15 @@ var CodePrinter = (function() {
       this.insert(size, t);
       if (this.attached && !this.isFilled) this.isFilled = this.fill();
       return this.isFilled;
+    },
+    write: function(data) {
+      this.appendText(data);
+      return true;
+    },
+    end: function() {
+      var cp = this.getEditor();
+      this.updateHeight();
+      cp && runBackgroundParser(cp, this.parser, true);
     },
     appendLine: function(text) {
       var dl, size = this.doc.size();
