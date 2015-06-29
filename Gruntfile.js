@@ -8,7 +8,8 @@ module.exports = function(grunt) {
             'CodePrinter.js',
             'CodePrinter.css',
             'mode/JavaScript.js',
-            'tests/test.js'
+            'tests/test.js',
+            'tests/javascript.js'
           ],
           frameworks: ['jasmine'],
           reporters: ['progress'],
