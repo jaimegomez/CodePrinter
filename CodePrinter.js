@@ -147,7 +147,7 @@ var CodePrinter = (function() {
       return new Document(this, valueOf(source), mode);
     },
     setDocument: function(doc) {
-      if (doc instanceof Document) {
+      if (doc instanceof Document && this.doc != doc) {
         var old = this.doc && this.doc.detach();
         (this.doc = doc).attach(this);
         this.emit('documentChanged');
@@ -1337,12 +1337,12 @@ var CodePrinter = (function() {
     return { indent: ind, spaces: spaces, length: i, stack: stack, indentText: text.substring(0, i), rest: text.substr(i) };
   }
   function readIteration(parser, stream, state) {
-    for (var i = 0; i < 10; i++) {
+    for (var i = 0; i < 3; i++) {
       var style = (state && (state.next ? state.next : (state.parser || parser).iterator) || parser.iterator)(stream, state);
       if (style) stream.lastStyle = style;
       if (stream.pos > stream.start) return style;
     }
-    throw new Error();
+    throw new Error('Parser has reached an infinite loop!');
   }
   function parse(cp, parser, stream, state, col) {
     var style, v, l = col != null ? col : stream.length, cache = [];
@@ -1948,11 +1948,8 @@ var CodePrinter = (function() {
       this.updateDefaultHeight();
       this.showSelection().updateView();
       runBackgroundParser(cp, this.parser, true);
-      if (cp.options.autoFocus) {
-        cp.input.focus();
-        cp.caret.refresh();
-      }
       cp.sizes.paddingTop = parseInt(code.style.paddingTop, 10) || 5;
+      if (cp.options.autoFocus) cp.input.focus();
       async(function() { cp && cp.emit('ready'); });
     }
     this.rewind = function(dl, st) {
@@ -2076,14 +2073,13 @@ var CodePrinter = (function() {
         
         if (!cp.options.lineWrapping || y <= (r.offsetY = child.offsetTop) + (r.height = child.offsetHeight)) {
           ol = child.offsetLeft; ow = child.offsetWidth;
+          r.charWidth = Math.round(ow / l);
           if (x <= ol + ow) {
-            r.charWidth = Math.round(ow / l);
             var tmp = Math.round(Math.max(0, x - ol) * l / ow);
             r.column += tmp;
             r.offsetX = Math.round(ol + tmp * ow / l);
             break;
           } else {
-            r.charWidth = Math.round(ow / l);
             r.offsetX = ol + ow;
             r.column += l;
           }
@@ -2238,8 +2234,8 @@ var CodePrinter = (function() {
       if (sl != null && sc != null) selection.setStart(sl, sc);
       if (el != null && ec != null) selection.setEnd(el, ec);
     }
-    this.issetSelection = function() {
-      return selection.isset();
+    this.issetSelection = function(nonempty) {
+      return selection.isset(nonempty);
     }
     this.inSelection = function(line, column) {
       return selection.isset() && selection.inSelection(line, column);
@@ -2303,7 +2299,7 @@ var CodePrinter = (function() {
         }
         selnode.parentNode || ov.node.appendChild(selnode);
         ov.reveal();
-        cp.unselect();
+        s.line == e.line && s.column == e.column ? cp.select(dl) : cp.unselect();
       }
       return this;
     }
@@ -2666,11 +2662,11 @@ var CodePrinter = (function() {
       if (!this.isVisible) {
         this.isVisible = this.isActive = true;
         startBlinking(this, cp.options);
-        if ('number' != typeof line || line < 0) this.position(0, 0);
       } else if (currentDL && cp.doc && cp.doc.attached && !cp.doc.isLineVisible(currentDL)) {
         cp.doc.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
       }
-      cp.select(currentDL);
+      if ('number' != typeof line || line < 0) this.position(0, 0);
+      else this.position(line | 0, column | 0);
       return this;
     }
     this.blur = function() {
@@ -2746,7 +2742,8 @@ var CodePrinter = (function() {
   }
   Stream.prototype = {
     next: function() { if (this.pos < this.value.length) return this.value.charAt(this.pos++); },
-    peek: function() { return this.value.charAt(this.pos) || undefined; },
+    at: function(offset) { return this.value.charAt(this.pos + (offset | 0)); },
+    peek: function() { return this.at(0); },
     from: function(pos) { return this.value.substring(pos, this.pos); },
     rest: function() { return this.value.substr(this.pos); },
     sol: function() { return this.pos === 0; },
@@ -3041,19 +3038,13 @@ var CodePrinter = (function() {
     },
     '"': function(k) {
       if (this.options.insertClosingQuotes) {
-        var txt = this.caret.textAtCurrentLine()
-        , count = (txt.length - txt.replace(new RegExp(k, "g"), '').length);
-        this.textAfterCursor(1) !== k ? count % 2 ? this.insertText(k, 0) : this.insertText(k + k, -1) : this.caret.moveX(1);
-        return false;
+        return insertClosing(this, k, k);
       }
     },
     '(': function(k) {
       if (this.options.insertClosingBrackets) {
-        var af = this.caret.textAfter()[0], cb = complementBracket(k);
-        if (!af || af === cb || !/\w/.test(af)) k += cb;
+        return insertClosing(this, k, complementBracket(k));
       }
-      this.insertText(k, -k.length + 1);
-      return false;
     },
     ')': function(k) {
       if (this.options.insertClosingBrackets && this.textAfterCursor(1) == k) this.caret.moveX(1);
@@ -3228,8 +3219,8 @@ var CodePrinter = (function() {
         make.call(this);
       }
     }
-    this.isset = function() {
-      return coords && coords.length == 2;
+    this.isset = function(nonempty) {
+      return coords && coords.length == 2 && (!nonempty || coords[0][0] != coords[1][0] || coords[0][1] != coords[1][1]);
     }
     this.coords = function() {
       return [[this.start.line, this.start.column], [this.end.line, this.end.column]];
@@ -3629,7 +3620,7 @@ var CodePrinter = (function() {
     
     cp.select = function(dl) {
       this.unselect();
-      if (options.highlightCurrentLine && !moveselection && !cp.doc.issetSelection() && this.caret.isVisible && dl && dl.node && dl.counter) {
+      if (options.highlightCurrentLine && !moveselection && !cp.doc.issetSelection(true) && this.caret.isVisible && dl && dl.node && dl.counter) {
         addClass(dl.node, activeClassName);
         addClass(dl.counter, activeClassName);
         dl.active = true;
@@ -3825,6 +3816,11 @@ var CodePrinter = (function() {
       } else if (options.caretBlinkRate < 0)
         caret.node.style.opacity = '0';
     }
+  }
+  function insertClosing(cp, ch, comp) {
+    var s = cp.getStateAt(cp.caret.line(), cp.caret.column()), charAfter = s.stream.at(0);
+    /\b(string|invalid)\b/.test(s.style) || /\S/.test(charAfter) ? cp.insertText(ch, 0) : charAfter != ch ? cp.insertText(ch + comp, -1) : cp.caret.moveX(1);
+    return false;
   }
   function desiredHeight(cp, half) {
     return (cp.body.offsetHeight || cp.options.height || 0) + cp.options.viewportMargin * (half ? 1 : 2);
