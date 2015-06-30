@@ -14,6 +14,7 @@ CodePrinter.defineMode('JavaScript', function() {
   , closeBrackets = /^[}\]\)]/
   , controls = ['if','else','elseif','for','switch','while','do','try','catch','finally']
   , constants = ['null','undefined','NaN','Infinity']
+  , rules = {}
   , keywords = [
     'var','let','const','return','new','case','continue','break','instanceof','typeof',
     'class','export','import','extends','yield','super','debugger','default','delete',
@@ -144,11 +145,11 @@ CodePrinter.defineMode('JavaScript', function() {
     }
     if (stream.lastValue == 'function') {
       state.fn = word;
-      return state.context.vars[word] = 'function';
+      return saveVariable(state, word, 'function', 47);
     }
     if (stream.lastValue == 'class') {
       state.classdef = word;
-      return state.context.vars[word] = 'variable';
+      return saveVariable(state, word, 'variable', 47);
     }
     if (word == 'true' || word == 'false') return 'builtin boolean';
     if (constants.indexOf(word) >= 0) return 'constant';
@@ -166,7 +167,7 @@ CodePrinter.defineMode('JavaScript', function() {
     if (state.context.type == CLASS_CONTEXT) {
       if (stream.isAfter(/^\s*\(/)) {
         state.fn = word;
-        return state.context.vars[word] = 'function';
+        return saveVariable(state, word, 'function', CLASS_CONTEXT);
       } else if (word == 'get' || word == 'set') {
         return 'keyword';
       }
@@ -176,7 +177,7 @@ CodePrinter.defineMode('JavaScript', function() {
       if (rgx) {
         state.fn = word;
         if (state.context.type == OBJECT_CONTEXT && rgx[0] == ':') {
-          state.context.vars[word] = 'function';
+          saveVariable(state, word, 'function', OBJECT_CONTEXT);
         }
       }
       return 'function';
@@ -198,41 +199,43 @@ CodePrinter.defineMode('JavaScript', function() {
     stream.contexts = (stream.contexts | 0) + 1;
     if (stream.contexts == 1) ++state.indent;
     state.context = { type: type, prev: state.context };
-    if (type & BLOCK_CONTEXT) {
-      state.context.vars = {};
-      state.context.params = {};
-    }
+    if (type & FUNCTION_CONTEXT) state.context.params = {};
   }
   function popcontext(stream, state) {
     if (state.context.prev) {
-      stream.contexts = (stream.contexts | 0) - 1;
-      if (stream.contexts == 0 || stream.contexts == -1) --state.indent;
+      if (stream.contexts > 0 || stream.contexts == null) --state.indent;
+      stream.contexts = 0;
       state.context = state.context.prev;
     }
   }
   function isVariable(varname, state) {
     for (var ctx = state.context; ctx; ctx = ctx.prev) {
-      if (ctx.type & BLOCK_CONTEXT) {
-        if (ctx.vars[varname]) return ctx.vars[varname];
-        if (ctx.params[varname]) return 'variable';
-      }
+      if (ctx.vars && ctx.vars[varname]) return ctx.vars[varname];
+      if (ctx.params && ctx.params[varname]) return 'variable';
     }
   }
   function saveVariable(state, varname, vartype, type) {
     var ctx = state.context;
     while (ctx && ctx.prev && !(ctx.type & type)) ctx = ctx.prev;
-    if (ctx) ctx.vars[varname] = vartype;
+    if (ctx) {
+      if (!ctx.vars) ctx.vars = {};
+      ctx.vars[varname] = vartype;
+    }
     return vartype;
   }
   function markControl(state, word) {
-    state.controlLevel = (state.controlLevel || 0) + 1;
+    state.controlLevel = (state.controlLevel | 0) + 1;
     state.control = word;
   }
   function terminateControls(stream, state) {
-    for (var i = state.controlLevel; i > 0 && state.context.open; --i) {
-      popcontext(stream, state);
-    }
+    while (state.context.open && state.controlLevel--) popcontext(stream, state);
     if (state.controlLevel == 0) state.controlLevel = null;
+  }
+  function closeFatArrow(stream, state) {
+    if (state.fatArrow && state.context.type == ARROW_CONTEXT) {
+      popcontext(stream, state);
+      state.fatArrow = null;
+    }
   }
   
   function Definition(name, params) {
@@ -245,6 +248,119 @@ CodePrinter.defineMode('JavaScript', function() {
       for (var k in this.params) pstr += k + ', ';
       return this.name + '(' + pstr.slice(0, -2) + ')';
     }
+  }
+  
+  rules['"'] = rules["'"] = rules['`'] = function(stream, state, ch) {
+    state.quote = ch;
+    return string(stream, state);
+  }
+  rules['/'] = function(stream, state) {
+    if (stream.eat('/')) {
+      stream.skip();
+      return 'comment';
+    }
+    if (stream.eat('*')) {
+      return comment(stream, state);
+    }
+    if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'variable'
+      || stream.lastStyle == 'numeric' || stream.lastStyle == 'constant' || stream.lastValue == ')') {
+      return 'operator';
+    }
+    return regexp(stream, state);
+  }
+  rules['.'] = function(stream, state) {
+    if (stream.match(/^\d+(?:[eE][+\-]?\d+)?/, true)) return 'numeric';
+    else if (stream.eat('.') && stream.eat('.')) return 'operator';
+    return 'punctuation';
+  }
+  rules[','] = rules[':'] = function() { return 'punctuation'; }
+  rules[';'] = function(stream, state) {
+    if (state.vardef >= 0) state.vardef = null;
+    if (state.letdef >= 0) state.letdef = null;
+    if (state.constdef >= 0) state.constdef = null;
+    closeFatArrow(stream, state);
+    if (state.controlLevel) {
+      if (state.control != 'for' && state.control != 'case' && state.control != 'default') {
+        terminateControls(stream, state);
+      } else if (/\b(break|continue|return)\b/.test(stream.value.substring(0, stream.pos))) {
+        --state.controlLevel;
+        state.control = null;
+      }
+    }
+    return 'punctuation';
+  }
+  rules['('] = function(stream, state) {
+    if (state.control && stream.lastStyle == 'control') {
+      pushcontext(stream, state, BLOCK_CONTEXT);
+      state.context.open = true;
+    }
+    else if (state.fn && (stream.lastValue == 'function' || stream.lastStyle == 'function')) {
+      state.next = parameters;
+      pushcontext(stream, state, FUNCTION_CONTEXT);
+      if ('string' == typeof state.fn) stream.markDefinition(new Definition(state.fn, state.context.params));
+    }
+    else if (!state.fn && stream.lastStyle != 'function' && stream.isAfter(/^[^\)]*\)\s*=>/)) {
+      state.next = parameters;
+      pushcontext(stream, state, ARROW_CONTEXT);
+      state.fatArrow = true;
+    }
+    else {
+      pushcontext(stream, state, FAKE_CONTEXT);
+    }
+    return 'bracket';
+  }
+  rules['{'] = function(stream, state) {
+    if (state.control && state.context.type == BLOCK_CONTEXT && state.context.open && stream.lastValue == ')') {
+      state.control = null;
+      state.context.open = false;
+    }
+    else if (state.fn && state.context.type == FUNCTION_CONTEXT) {
+      state.fn = null;
+    }
+    else if (state.fatArrow && state.context.type == ARROW_CONTEXT && stream.lastValue == '=>') {
+      state.fatArrow = false;
+    }
+    else if (state.classdef) {
+      pushcontext(stream, state, CLASS_CONTEXT);
+      state.classdef = null;
+    }
+    else if (state.vardef == state.indent || state.letdef == state.indent) {
+      pushcontext(stream, state, OBJECT_CONTEXT);
+    }
+    else {
+      pushcontext(stream, state, BLOCK_CONTEXT);
+    }
+    return 'bracket';
+  }
+  rules['['] = function(stream, state) {
+    pushcontext(stream, state, ARRAY_CONTEXT);
+    return 'bracket';
+  }
+  rules[')'] = function(stream, state) {
+    closeFatArrow(stream, state);
+    if (state.context.type == FAKE_CONTEXT) popcontext(stream, state);
+    else if (!state.control) return 'invalid';
+    return 'bracket';
+  }
+  rules['}'] = function(stream, state) {
+    closeFatArrow(stream, state);
+    if (state.context.type == BLOCK_CONTEXT && !state.context.open || state.context.type & 47) popcontext(stream, state);
+    else return 'invalid';
+    if (state.controlLevel) terminateControls(stream, state);
+    return 'bracket';
+  }
+  rules[']'] = function(stream, state) {
+    closeFatArrow(stream, state);
+    if (state.context.type & ARROW_CONTEXT) popcontext(stream, state);
+    else return 'invalid';
+    return 'bracket';
+  }
+  rules['#'] = function(stream) {
+    if (stream.peek() == '!' && stream.pos == 1) {
+      stream.skip();
+      return 'directive';
+    }
+    return 'invalid';
   }
   
   return new CodePrinter.Mode({
@@ -263,124 +379,13 @@ CodePrinter.defineMode('JavaScript', function() {
     },
     iterator: function(stream, state) {
       if (stream.pos == 0) stream.brackets = 0;
-      var ch = stream.next();
-      if (ch == '"' || ch == "'" || ch == '`') {
-        state.quote = ch;
-        return string(stream, state);
-      }
-      if (ch == '/') {
-        if (stream.eat('/')) {
-          stream.skip();
-          return 'comment';
-        }
-        if (stream.eat('*')) {
-          return comment(stream, state);
-        }
-        if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'variable'
-        || stream.lastStyle == 'numeric' || stream.lastStyle == 'constant' || stream.lastValue == ')') {
-          return 'operator';
-        }
-        return regexp(stream, state);
-      }
-      if (ch == '.') {
-        if (stream.match(/^\d+(?:[eE][+\-]?\d+)?/, true)) {
-          return 'numeric';
-        } else if (stream.eat('.') && stream.eat('.')) {
-          return 'operator';
-        }
-        return 'punctuation';
-      }
-      if (ch == ',' || ch == ':') return 'punctuation';
-      if (ch == ';') {
-        if (state.vardef >= 0) state.vardef = null;
-        if (state.letdef >= 0) state.letdef = null;
-        if (state.constdef >= 0) state.constdef = null;
-        if (state.fatArrow && state.context.type & ARROW_CONTEXT) {
-          state.fatArrow = null;
-          popcontext(stream, state);
-        }
-        if (state.controlLevel) {
-          if (state.control == 'for' ? stream.isBefore() : state.control != 'case' && state.control != 'default') {
-            terminateControls(stream, state);
-          } else if (/\b(break|continue|return)\b/.test(stream.value.substring(0, stream.pos))) {
-            --state.controlLevel;
-            state.control = null;
-          }
-        }
-        return 'punctuation';
-      }
+      var ch = stream.next(), rule = rules[ch];
+      
+      if (rule) return rule(stream, state, ch);
+      
       if (ch == '0' && stream.eat(/x/i)) {
         stream.take(/^[\da-f]+/i);
         return 'numeric hex';
-      }
-      if (ch == '(' || ch == '{' || ch == '[') {
-        if (ch == '(') {
-          if (state.control && stream.lastStyle == 'control') {
-            pushcontext(stream, state, BLOCK_CONTEXT);
-            state.context.open = true;
-          }
-          else if (state.fn && (stream.lastValue == 'function' || stream.lastStyle == 'function')) {
-            state.next = parameters;
-            pushcontext(stream, state, FUNCTION_CONTEXT);
-            if ('string' == typeof state.fn) stream.markDefinition(new Definition(state.fn, state.context.params));
-          }
-          else if (!state.fn && stream.lastStyle != 'function' && stream.isAfter(/^[^\)]*\)\s*=>/)) {
-            state.next = parameters;
-            pushcontext(stream, state, ARROW_CONTEXT);
-            state.fatArrow = true;
-          }
-          else {
-            pushcontext(stream, state, FAKE_CONTEXT);
-          }
-        }
-        else if (ch == '{') {
-          if (state.control && state.context.type == BLOCK_CONTEXT && state.context.open && stream.lastValue == ')') {
-            state.control = null;
-            state.context.open = false;
-          }
-          else if (state.fn && state.context.type == FUNCTION_CONTEXT) {
-            state.fn = null;
-          }
-          else if (state.fatArrow && state.context.type == ARROW_CONTEXT && stream.lastValue == '=>') {
-            state.fatArrow = false;
-          }
-          else if (state.classdef) {
-            pushcontext(stream, state, CLASS_CONTEXT);
-            state.classdef = null;
-          }
-          else if (state.vardef == state.indent || state.letdef == state.indent) {
-            pushcontext(stream, state, OBJECT_CONTEXT);
-          }
-          else {
-            pushcontext(stream, state, BLOCK_CONTEXT);
-          }
-        }
-        else if (ch == '[') {
-          pushcontext(stream, state, ARROW_CONTEXT);
-        }
-        return 'bracket';
-      }
-      if (ch == ')' || ch == '}' || ch == ']') {
-        if (state.fatArrow && state.context.type == ARROW_CONTEXT) {
-          popcontext(stream, state);
-        }
-        if (ch == ')') {
-          if (state.context.type == FAKE_CONTEXT) {
-            popcontext(stream, state);
-          }
-        }
-        else if (ch == '}') {
-          if (state.context.type == BLOCK_CONTEXT && !state.context.open || state.context.type & FUNCTION_CONTEXT) {
-            popcontext(stream, state);
-          }
-          if (state.controlLevel) terminateControls(stream, state);
-        }
-        else if (ch == ']') {
-          if (state.context.type & ARROW_CONTEXT) {
-            popcontext(stream, state);
-          }
-        }
-        return 'bracket';
       }
       if (/\d/.test(ch)) {
         stream.match(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/, true);
@@ -398,13 +403,6 @@ CodePrinter.defineMode('JavaScript', function() {
       }
       if (wordRgx.test(ch)) {
         return words(stream, state, ch);
-      }
-      if (ch == '#') {
-        if (stream.peek() == '!' && stream.pos == 1) {
-          stream.skip();
-          return 'directive';
-        }
-        return 'invalid';
       }
     },
     indent: function(stream, state) {
