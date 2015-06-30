@@ -3,11 +3,8 @@
   "version": "0.8.2",
   "description": "Code editor library written in JavaScript",
   "main": "CodePrinter.js",
-  "directories": {
-    "test": "test"
-  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "grunt karma"
   },
   "repository": {
     "type": "git",
