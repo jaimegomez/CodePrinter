@@ -3285,8 +3285,10 @@ var CodePrinter = (function() {
     if ('string' == typeof names) names = [names];
     if ('function' == typeof cb) {
       var m = getModes(names), fn;
-      if (m.indexOf(null) == -1) async(function() { cb.apply(CodePrinter, m); });
-      else {
+      if (m.indexOf(null) == -1) {
+        var cbapply = function() { cb.apply(CodePrinter, m); }
+        CodePrinter.syncRequire ? cbapply() : async(cbapply);
+      } else {
         CodePrinter.on('modeLoaded', fn = function(modeName, mode) {
           var i = names.indexOf(modeName);
           if (i >= 0) {

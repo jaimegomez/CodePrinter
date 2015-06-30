@@ -1,4 +1,6 @@
 
+CodePrinter.syncRequire = true;
+
 var startContent = '$(function() {\n  console.log("hello!");\n});'
 , cp = new CodePrinter(startContent, {
   shortcuts: false
