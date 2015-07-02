@@ -339,7 +339,7 @@ CodePrinter.defineMode('JavaScript', function() {
   rules[')'] = function(stream, state) {
     closeFatArrow(stream, state);
     if (state.context.type == FAKE_CONTEXT) popcontext(stream, state);
-    else if (!state.control) return 'invalid';
+    else if (!state.control && !state.fn) return 'invalid';
     return 'bracket';
   }
   rules['}'] = function(stream, state) {
