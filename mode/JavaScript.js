@@ -351,7 +351,7 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   rules[']'] = function(stream, state) {
     closeFatArrow(stream, state);
-    if (state.context.type & ARROW_CONTEXT) popcontext(stream, state);
+    if (state.context.type & ARRAY_CONTEXT) popcontext(stream, state);
     else return 'invalid';
     return 'bracket';
   }
