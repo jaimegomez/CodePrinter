@@ -11,7 +11,15 @@
 
 "use strict";
 
-var CodePrinter = (function() {
+(function(root, factory) {
+  if (typeof define === 'function' && define.amd) {
+    define('CodePrinter', factory);
+  } else if (typeof exports === 'object') {
+    module.exports = factory();
+  } else {
+    root.CodePrinter = factory();
+  }
+}(this, function() {
   var CodePrinter, EventEmitter, Data, Branch
   , Line, Caret, Document, Stream, ReadStream
   , History, Selection, keyMap
@@ -4030,4 +4038,4 @@ var CodePrinter = (function() {
     async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
   }
   return CodePrinter;
-})();
+}));
