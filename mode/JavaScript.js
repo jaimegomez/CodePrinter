@@ -154,12 +154,8 @@ CodePrinter.defineMode('JavaScript', function() {
     if (word == 'true' || word == 'false') return 'builtin boolean';
     if (constants.indexOf(word) >= 0) return 'constant';
     if (controls.indexOf(word) >= 0) {
-      if (stream.lastStyle != 'control') markControl(state, word);
+      if (stream.lastStyle != 'control') state.control = word;
       return 'control';
-    }
-    if (word == 'case' || word == 'default') {
-      markControl(state, word);
-      return 'keyword';
     }
     if (specials.indexOf(word) >= 0) return 'special';
     if (keywords.indexOf(word) >= 0) return 'keyword';
@@ -195,16 +191,13 @@ CodePrinter.defineMode('JavaScript', function() {
     return 'word';
   }
   
-  function pushcontext(stream, state, type) {
-    stream.contexts = (stream.contexts | 0) + 1;
-    if (stream.contexts == 1) ++state.indent;
-    state.context = { type: type, prev: state.context };
+  function pushcontext(state, type) {
+    state.context = { type: type, prev: state.context, indent: state.indent + 1 };
     if (type & FUNCTION_CONTEXT) state.context.params = {};
   }
-  function popcontext(stream, state) {
+  function popcontext(state) {
     if (state.context.prev) {
-      if (stream.contexts > 0 || stream.contexts == null) --state.indent;
-      stream.contexts = 0;
+      state.indent = state.context.indent - 1;
       state.context = state.context.prev;
     }
   }
@@ -223,17 +216,9 @@ CodePrinter.defineMode('JavaScript', function() {
     }
     return vartype;
   }
-  function markControl(state, word) {
-    state.controlLevel = (state.controlLevel | 0) + 1;
-    state.control = word;
-  }
-  function terminateControls(stream, state) {
-    while (state.context.open && state.controlLevel--) popcontext(stream, state);
-    if (state.controlLevel == 0) state.controlLevel = null;
-  }
   function closeFatArrow(stream, state) {
     if (state.fatArrow && state.context.type == ARROW_CONTEXT) {
-      popcontext(stream, state);
+      popcontext(state);
       state.fatArrow = null;
     }
   }
@@ -279,11 +264,9 @@ CodePrinter.defineMode('JavaScript', function() {
     if (state.letdef >= 0) state.letdef = null;
     if (state.constdef >= 0) state.constdef = null;
     closeFatArrow(stream, state);
-    if (state.controlLevel) {
-      if (state.control != 'for' && state.control != 'case' && state.control != 'default') {
-        terminateControls(stream, state);
-      } else if (/\b(break|continue|return)\b/.test(stream.value.substring(0, stream.pos))) {
-        --state.controlLevel;
+    if (state.control && state.context.type == BLOCK_CONTEXT && state.context.open) {
+      if (state.controlParenthesisClosed || state.control == 'else' && state.controlParenthesisClosed == null) {
+        do popcontext(state); while (state.context.open);
         state.control = null;
       }
     }
@@ -291,67 +274,74 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   rules['('] = function(stream, state) {
     if (state.control && stream.lastStyle == 'control') {
-      pushcontext(stream, state, BLOCK_CONTEXT);
+      if (state.controlParenthesisClosed) state.controlParenthesisClosed = false;
+      pushcontext(state, BLOCK_CONTEXT);
       state.context.open = true;
     }
     else if (state.fn && (stream.lastValue == 'function' || stream.lastStyle == 'function')) {
       state.next = parameters;
-      pushcontext(stream, state, FUNCTION_CONTEXT);
+      pushcontext(state, FUNCTION_CONTEXT);
       if ('string' == typeof state.fn) stream.markDefinition(new Definition(state.fn, state.context.params));
     }
     else if (!state.fn && stream.lastStyle != 'function' && stream.isAfter(/^[^\)]*\)\s*=>/)) {
       state.next = parameters;
-      pushcontext(stream, state, ARROW_CONTEXT);
+      pushcontext(state, ARROW_CONTEXT);
       state.fatArrow = true;
     }
     else {
-      pushcontext(stream, state, FAKE_CONTEXT);
+      pushcontext(state, FAKE_CONTEXT);
     }
     return 'bracket';
   }
   rules['{'] = function(stream, state) {
-    if (state.control && state.context.type == BLOCK_CONTEXT && state.context.open && stream.lastValue == ')') {
+    var ctxType = state.context.type;
+    if (state.control && ctxType == BLOCK_CONTEXT && state.context.open && stream.lastValue == ')') {
+      if (state.controlParenthesisClosed) state.controlParenthesisClosed = null;
       state.control = null;
       state.context.open = false;
     }
-    else if (state.fn && state.context.type == FUNCTION_CONTEXT) {
+    else if (state.fn && ctxType == FUNCTION_CONTEXT) {
       state.fn = null;
     }
-    else if (state.fatArrow && state.context.type == ARROW_CONTEXT && stream.lastValue == '=>') {
+    else if (state.fatArrow && ctxType == ARROW_CONTEXT && stream.lastValue == '=>') {
       state.fatArrow = false;
     }
     else if (state.classdef) {
-      pushcontext(stream, state, CLASS_CONTEXT);
+      pushcontext(state, CLASS_CONTEXT);
       state.classdef = null;
     }
     else if (state.vardef == state.indent || state.letdef == state.indent) {
-      pushcontext(stream, state, OBJECT_CONTEXT);
+      pushcontext(state, OBJECT_CONTEXT);
     }
     else {
-      pushcontext(stream, state, BLOCK_CONTEXT);
+      pushcontext(state, BLOCK_CONTEXT);
     }
     return 'bracket';
   }
   rules['['] = function(stream, state) {
-    pushcontext(stream, state, ARRAY_CONTEXT);
+    pushcontext(state, ARRAY_CONTEXT);
     return 'bracket';
   }
   rules[')'] = function(stream, state) {
     closeFatArrow(stream, state);
-    if (state.context.type == FAKE_CONTEXT) popcontext(stream, state);
-    else if (!state.control && !state.fn) return 'invalid';
+    if (state.context.type == FAKE_CONTEXT) popcontext(state);
+    else if (state.control) {
+      if (state.vardef >= 0) state.vardef = null;
+      if (state.letdef >= 0) state.letdef = null;
+      state.controlParenthesisClosed = true;
+    }
+    else if (!state.fn) return 'invalid';
     return 'bracket';
   }
   rules['}'] = function(stream, state) {
     closeFatArrow(stream, state);
-    if (state.context.type == BLOCK_CONTEXT && !state.context.open || state.context.type & 47) popcontext(stream, state);
+    if (state.context.type == BLOCK_CONTEXT && !state.context.open || state.context.type & 47) popcontext(state);
     else return 'invalid';
-    if (state.controlLevel) terminateControls(stream, state);
     return 'bracket';
   }
   rules[']'] = function(stream, state) {
     closeFatArrow(stream, state);
-    if (state.context.type & ARRAY_CONTEXT) popcontext(stream, state);
+    if (state.context.type & ARRAY_CONTEXT) popcontext(state);
     else return 'invalid';
     return 'bracket';
   }
@@ -374,11 +364,10 @@ CodePrinter.defineMode('JavaScript', function() {
     initialState: function() {
       return {
         indent: 0,
-        context: { vars: {}, params: {}, indent: 0 }
+        context: { vars: {}, indent: 0 }
       }
     },
     iterator: function(stream, state) {
-      if (stream.pos == 0) stream.brackets = 0;
       var ch = stream.next(), rule = rules[ch];
       
       if (rule) return rule(stream, state, ch);
@@ -405,20 +394,28 @@ CodePrinter.defineMode('JavaScript', function() {
         return words(stream, state, ch);
       }
     },
-    indent: function(stream, state) {
+    onExit: function(stream, state) {
+      state.indent = state.context.indent;
+    },
+    indent: function(stream, state, nextIteration) {
       var i = state.indent, peek = stream.peek();
       
       if (stream.lastStyle == 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
-      if (peek == ')') return state.context.type == FAKE_CONTEXT && stream.pos == 1 ? i : null;
-      if (peek == 'e') return stream.isAfter('else') && stream.lastStyle == 'control' ? i - 1 : null;
-      if (stream.isAfter(closeBrackets) || state.parser && stream.isAfter(/^\s*<\s*\/\s*script/i)) return i - 1;
+      if (closeBrackets.test(peek)) {
+        if (!/\bbracket\b/.test(nextIteration()) || stream.lastValue != peek) return null;
+        if (peek == ')') return state.context.type == FAKE_CONTEXT ? i - 1 : null;
+        if (peek == ']') return state.context.type == ARRAY_CONTEXT ? i - 1 : null;
+        if (peek == '}') return state.context.type & 47 ? i - 1 : null;
+      }
+      if (peek == 'e') return stream.isBefore('els') && stream.lastStyle == 'control' ? i : null;
+      if (state.parser && stream.isAfter(/^\s*<\s*\/\s*script/i)) return i - 1;
       return i;
     },
     completions: function(stream, state) {
       var vars = [];
       for (var ctx = state.context; ctx; ctx = ctx.prev) {
-        vars.push.apply(vars, Object.keys(ctx.vars));
-        vars.push.apply(vars, Object.keys(ctx.params));
+        if (ctx.vars) vars.push.apply(vars, Object.keys(ctx.vars));
+        if (ctx.params) vars.push.apply(vars, Object.keys(ctx.params));
       }
       return {
         values: vars,
