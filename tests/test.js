@@ -1,17 +1,14 @@
 
-CodePrinter.syncRequire = true;
-
 var startContent = '$(function() {\n  console.log("hello!");\n});'
 , cp = new CodePrinter(startContent, {
   shortcuts: false
-})
-, doc = cp.doc;
+}), doc = cp.doc;
 
 document.body.appendChild(cp.mainNode);
 
 describe('CodePrinter', function() {
   it('successfully initiated', function() {
-    expect(doc.getValue()).toBe(startContent);
+    expect(cp.doc.getValue()).toBe(startContent);
   });
   it('should get focus', function() {
     cp.focus();
@@ -71,4 +68,10 @@ describe('CodePrinter', function() {
       expect(cp.doc.getValue()).toBe('');
     });
   });
+});
+
+afterEach(function(done) {
+  setTimeout(function() {
+    done();
+  }, 100);
 });

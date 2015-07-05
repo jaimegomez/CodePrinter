@@ -4,7 +4,7 @@ describe('JavaScript', function() {
   
   beforeEach(function() {
     cp.setDocument(doc);
-  })
+  });
   
   it('should reindent', function() {
     cp.reIndent();
@@ -21,7 +21,7 @@ describe('JavaScript', function() {
     expect(cp.getIndentAtLine(8)).toBe(0); // this line doesn't exist
   })
   
-  it('should has correct contexts', function() {
+  it('should have correct contexts', function() {
     var FAKE_CONTEXT = 0
     , BLOCK_CONTEXT = 1
     , FUNCTION_CONTEXT = 3
@@ -42,13 +42,13 @@ describe('JavaScript', function() {
     expect(cp.getStateAt(5, 1).state.context.type).not.toBeDefined();
   })
   
-  it('should recognizes variables', function() {
+  it('should recognize variables', function() {
     expect(cp.getStateAt(0, 20).style).toContain('parameter');
     expect(cp.getStateAt(1, 7).style).toContain('variable');
     expect(cp.getStateAt(4, 25).style).toContain('variable');
   })
   
-  it('should toggles comments', function() {
+  it('should toggle comments', function() {
     cp.caret.position(2, 4);
     cp.toggleComment();
     expect(cp.getTextAtLine(2)).toBe('    //return 1;');
@@ -56,7 +56,7 @@ describe('JavaScript', function() {
     expect(cp.getTextAtLine(2)).toBe('    return 1;');
   })  
   
-  it('should toggles block comments', function() {
+  it('should toggle block comments', function() {
     cp.doc.setSelectionRange(1, 2, 3, 3);
     cp.toggleBlockComment();
     expect(cp.getTextAtLine(1)).toBe('  /*if (n === 0) {');
