@@ -1,5 +1,13 @@
 # CodePrinter Changelog
 
+## 0.8.2 / 2015-07-05
++ Fixed toggling comments.
++ Invoke forward parsing after wrapping the selection.
++ Reduced flickering when scrolling.
++ Fixed restoring line's classes when the lines returned to the view.
++ Added support for EcmaScript 6 in the JavaScript mode.
++ Added launchers for CommonJS and AMD modules system.
+
 ## 0.8.1 / 2015-05-13
 + Improved attaching and detaching documents from the editor.
 + Fixed tabs rendering.

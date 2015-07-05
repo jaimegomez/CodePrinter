@@ -20,13 +20,14 @@ CodePrinter.defineAddon('shortcuts', function() {
     'Cmd Shift F': function() {
       this.isFullscreen ? this.exitFullscreen() : this.enterFullscreen();
     },
-    'Cmd I': CodePrinter.prototype.fixIndents,
+    'Cmd I': function() {
+      this.reIndent();
+    },
     'Cmd J': function() {
       this.setCursorPosition(parseInt(prompt("Jump to line..."), 10) - 1, 0);
     },
     'Cmd M': function() {
-      var dl = this.caret.dl();
-      if (dl) dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
+      this.toggleMarkCurrentLine();
     },
     'Cmd N': function() {
       this.counter.hasClass('hidden') ? this.openCounter() : this.closeCounter();

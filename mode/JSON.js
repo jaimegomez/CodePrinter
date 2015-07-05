@@ -53,11 +53,11 @@ CodePrinter.defineMode('JSON', function() {
       }
       if (ch == '{' || ch == '[') {
         ++state.indent;
-        return 'bracket bracket-open';
+        return 'bracket';
       }
       if (ch == '}' || ch == ']') {
         --state.indent;
-        return 'bracket bracket-close';
+        return 'bracket';
       }
       if (/\d/.test(ch)) {
         stream.eatUntil(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/);
@@ -80,7 +80,7 @@ CodePrinter.defineMode('JSON', function() {
     },
     indent: function(stream, state) {
       var caf = stream.isAfter(/^\s*[}\]]/);
-      if (stream.lastStyle == 'bracket bracket-open' && caf) return [state.indent, -1];
+      if (stream.lastStyle == 'bracket' && /[\(\[\{]/.test(stream.lastValue) && caf) return [state.indent, -1];
       if (caf) return state.indent - 1;
       return state.indent;
     },

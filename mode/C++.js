@@ -48,7 +48,12 @@ CodePrinter.defineMode('C++', function() {
     'unordered_set': ['unordered_set','unordered_multiset'],
     'vector': ['vector']
   }
-  includeMap.iostream.union(includeMap.istream).union(includeMap.ostream);
+  
+  function union(that, a) {
+    a.forEach(function(i) { if (that.indexOf(i) < 0) that.push(i); });
+    return that;
+  }
+  union(union(includeMap.iostream, includeMap.istream), includeMap.ostream);
   
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;

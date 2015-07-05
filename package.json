@@ -1,0 +1,35 @@
+{
+  "name": "codeprinter",
+  "version": "0.8.2",
+  "description": "Code editor library written in JavaScript",
+  "main": "CodePrinter.js",
+  "scripts": {
+    "test": "karma start"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tsapeta/CodePrinter.git"
+  },
+  "keywords": [
+    "codeprinter",
+    "code",
+    "editor",
+    "library",
+    "lib",
+    "js",
+    "javascript"
+  ],
+  "author": "Tomasz Sapeta (@tsapeta)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tsapeta/CodePrinter/issues"
+  },
+  "homepage": "https://github.com/tsapeta/CodePrinter",
+  "devDependencies": {
+    "jasmine-core": "^2.3.4",
+    "karma": "^0.12.37",
+    "karma-jasmine": "^0.3.6",
+    "karma-phantomjs-launcher": "^0.2.0",
+    "phantomjs": "^1.9.17"
+  }
+}
