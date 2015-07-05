@@ -78,7 +78,7 @@
     caretHeight: 1,
     caretBlinkRate: 500,
     viewportMargin: 80,
-    keyupInactivityTimeout: 1500,
+    keyupInactivityTimeout: 1000,
     scrollSpeed: 1,
     autoCompleteDelay: 200,
     historyStackSize: 100,
@@ -88,7 +88,7 @@
     lineNumberFormatter: false,
     lineWrapping: false,
     autoComplete: false,
-    autoFocus: false,
+    autoFocus: true,
     abortSelectionOnBlur: false,
     legacyScrollbars: false,
     readOnly: false,
@@ -232,18 +232,24 @@
     getStateAt: function(line, column) {
       var dl = 'number' === typeof line ? this.doc.get(line) : line;
       if (dl != null) {
-        var s = searchLineWithState(this.doc.parser, dl, this.options.tabWidth)
+        var parser = this.doc.parser
+        , s = searchLineWithState(parser, dl, this.options.tabWidth)
         , state = s.state, tmp = s.line;
+        
         for (; tmp; tmp = tmp.next()) {
           var ind = parseIndentation(tmp.text, this.options.tabWidth)
           , stream = new Stream(ind.rest, { indentation: ind.indent });
+          
           if (tmp == dl) {
             var pos = Math.max(0, Math.min(column - ind.length, ind.rest.length))
-            , cache = parse(this, this.doc.parser, stream, state, pos);
-            cache = cache[cache.length-1];
+            , cache = parse(this, parser, stream, state, pos)
+            , oldpos = stream.pos, lastCache = cache[cache.length-1];
             if (stream.eol()) tmp.state = state;
             stream.pos = pos;
-            return { stream: stream, state: state, style: cache && cache.style, parser: state && state.parser || this.doc.parser };
+            return { stream: stream, state: state, cache: cache, style: lastCache && lastCache.style, parser: state && state.parser || parser, nextIteration: function() {
+              if (stream.pos < oldpos) stream.pos = oldpos;
+              return readIteration(parser, stream, state, cache);
+            }};
           } else {
             state = copyState(this.parse(tmp, state).state);
           }
@@ -499,16 +505,17 @@
         for (var j = 0 ;; ++j) {
           s = this.getStateAt(dl, dl.text.length);
           parser = s.state && s.state.parser || parser;
-          i = parser.indent(s.stream, s.state);
+          i = parser.indent(s.stream, s.state, s.nextIteration);
           dl = dl.next();
           if (dl != end) {
             s = this.getStateAt(dl, 0);
             parser = s.state && s.state.parser || parser;
             oi = s.stream.indentation; s.stream.indentation = i;
-            i = parser.indent(s.stream, s.state, oi);
-            if ('number' != typeof i) i = s.stream.indentation;
-            diff = this.setIndentAtLine(dl, i);
-            if (j == 0 && range && diff) this.doc.moveSelectionStart(diff);
+            i = parser.indent(s.stream, s.state, s.nextIteration);
+            if ('number' == typeof i && i != oi) {
+              diff = this.setIndentAtLine(dl, i);
+              if (j == 0 && range && diff) this.doc.moveSelectionStart(diff);
+            }
           } else {
             if (range && diff) this.doc.moveSelectionEnd(diff);
             if (range) this.doc.showSelection();
@@ -552,49 +559,51 @@
     },
     toggleBlockComment: function(lineComment) {
       var cs, ce;
-      if (this.doc && this.doc.parser && (cs = this.doc.parser.blockCommentStart) && (ce = this.doc.parser.blockCommentEnd)) {
-        var range = this.doc.getSelectionRange()
-        , l = this.caret.line(), c = this.caret.column()
-        , s = this.getStyleAt(l, c, true)
-        , bc = 'comment';
-        
-        if (s && s.indexOf(bc) >= 0) {
-          var sl = this.searchLeft(cs, l, c, bc)
-          , sr = this.searchRight(ce, l, c, bc);
-          if (sl && sr) {
-            this.erase(ce, sr[0], sr[1] + ce.length);
-            this.erase(cs, sl[0], sl[1] + cs.length);
-            if (range && range.start.line === sl[0]) {
-              this.doc.moveSelectionStart(-cs.length);
-            }
-            if (sl[0] === l && sl[1] < c) this.caret.moveX(-cs.length);
-          }
-        } else {
-          if (range) {
-            var start = range.start, end = range.end
-            , sel = this.doc.getSelection();
-            
-            if (new RegExp('^'+escape(cs)).test(sel) && new RegExp(escape(ce)+'$').test(sel)) {
-              this.erase(ce, end.line, end.column);
-              this.erase(cs, start.line, start.column + ce.length);
-              if (l === start.line) this.caret.moveX(-cs.length);
-            } else {
-              this.doc.wrapSelection(cs, ce);
-              if (l === start.line) this.caret.moveX(cs.length);
+      if (this.doc && this.doc.parser) { 
+        if ((cs = this.doc.parser.blockCommentStart) && (ce = this.doc.parser.blockCommentEnd)) {
+          var range = this.doc.getSelectionRange()
+          , l = this.caret.line(), c = this.caret.column()
+          , s = this.getStyleAt(l, c, true)
+          , bc = 'comment';
+          
+          if (s && s.indexOf(bc) >= 0) {
+            var sl = this.searchLeft(cs, l, c, bc)
+            , sr = this.searchRight(ce, l, c, bc);
+            if (sl && sr) {
+              this.erase(ce, sr[0], sr[1] + ce.length);
+              this.erase(cs, sl[0], sl[1] + cs.length);
+              if (range && range.start.line === sl[0]) {
+                this.doc.moveSelectionStart(-cs.length);
+              }
+              if (sl[0] === l && sl[1] < c) this.caret.moveX(-cs.length);
             }
           } else {
-            if (lineComment) {
-              var txt = this.getTextAtLine(l);
-              this.put(ce, l, txt.length);
-              this.put(cs, l, 0);
-              this.caret.moveX(cs.length);
+            if (range) {
+              var start = range.start, end = range.end
+              , sel = this.doc.getSelection();
+              
+              if (new RegExp('^'+escape(cs)).test(sel) && new RegExp(escape(ce)+'$').test(sel)) {
+                this.erase(ce, end.line, end.column);
+                this.erase(cs, start.line, start.column + ce.length);
+                if (l === start.line) this.caret.moveX(-cs.length);
+              } else {
+                this.doc.wrapSelection(cs, ce);
+                if (l === start.line) this.caret.moveX(cs.length);
+              }
             } else {
-              this.insertText(cs + ce, -ce.length);
+              if (lineComment) {
+                var txt = this.getTextAtLine(l);
+                this.put(ce, l, txt.length);
+                this.put(cs, l, 0);
+                this.caret.moveX(cs.length);
+              } else {
+                this.insertText(cs + ce, -ce.length);
+              }
             }
           }
+        } else if (this.doc.parser.lineComment) {
+          this.toggleComment();
         }
-      } else {
-        this.toggleComment();
       }
     },
     toggleMarkCurrentLine: function() {
@@ -1344,24 +1353,25 @@
     }
     return { indent: ind, spaces: spaces, length: i, stack: stack, indentText: text.substring(0, i), rest: text.substr(i) };
   }
-  function readIteration(parser, stream, state) {
+  function readIteration(parser, stream, state, cache) {
+    stream.start = stream.pos;
     for (var i = 0; i < 3; i++) {
       var style = (state && (state.next ? state.next : (state.parser || parser).iterator) || parser.iterator)(stream, state);
       if (style) stream.lastStyle = style;
-      if (stream.pos > stream.start) return style;
+      if (stream.pos > stream.start) {
+        var v = stream.from(stream.start);
+        if (v != ' ' && v != '\t') stream.lastValue = v;
+        if (style) cache.push({ from: stream.start, to: stream.pos, style: style });
+        return style;
+      }
     }
     throw new Error('Parser has reached an infinite loop!');
   }
   function parse(cp, parser, stream, state, col) {
     var style, v, l = col != null ? col : stream.length, cache = [];
-    while (stream.pos < l) {
-      stream.start = stream.pos;
-      style = readIteration(parser, stream, state);
-      v = stream.from(stream.start);
-      if (v != ' ' && v != '\t') stream.lastValue = v;
-      if (style) cache.push({ from: stream.start, to: stream.pos, style: style });
-    }
-    (state && state.parser || parser).finalize(stream, state);
+    (state && state.parser || parser).onEntry(stream, state);
+    while (stream.pos < l) readIteration(parser, stream, state, cache);
+    (state && state.parser || parser).onExit(stream, state);
     return cache;
   }
   function forwardParsing(cp, dl) {
@@ -1403,15 +1413,13 @@
     return st;
   }
   function reIndent(cp, parser, offset) {
-    var dl = cp.caret.dl(), prev = dl.prev()
-    , s = prev && cp.getStateAt(prev, prev.text.length);
-    if (s) {
-      var i = parser.indent(s.stream, s.state), oi;
+    var dl = cp.caret.dl(), prev = dl.prev(), s;
+    if (s = prev && cp.getStateAt(prev, prev.text.length)) {
+      var i = parser.indent(s.stream, s.state, s.nextIteration);
       s = cp.getStateAt(dl, offset | 0);
-      oi = s.stream.indentation; s.stream.indentation = i;
-      i = parser.indent(s.stream, s.state, oi);
-      if ('number' != typeof i) i = oi;
-      cp.setIndentAtLine(dl, i);
+      s.stream.indentation = i;
+      i = parser.indent(s.stream, s.state, s.nextIteration);
+      if ('number' == typeof i) cp.setIndentAtLine(dl, i);
     }
   }
   function matchingHelper(cp, key, opt, line, start, end) {
@@ -2884,7 +2892,8 @@
   }
   CodePrinter.Mode.prototype = {
     init: function() {},
-    finalize: function() {},
+    onEntry: function() {},
+    onExit: function() {},
     iterator: function(stream, state) {
       var ch = stream.next();
       if (/\s/.test(ch)) {
@@ -2981,7 +2990,7 @@
         
         if (parser && parser.indent) {
           var tab = this.options.indentByTabs ? '\t' : repeat(' ', tw)
-          , i = parser.indent(s.stream, s.state);
+          , i = parser.indent(s.stream, s.state, s.nextIteration);
           
           if (i instanceof Array) {
             indent = i.shift();
@@ -3002,7 +3011,7 @@
         this.insertText('\n');
       }
       if (parser && parser.afterEnterKey) {
-        parser.afterEnterKey.call(this, bf, af);
+        parser.afterEnterKey.call(this, s.stream, s.state);
       }
     },
     'Shift Enter': function() {
@@ -3504,7 +3513,7 @@
         T3 = clearTimeout(T3) || setTimeout(function() {
           isScrolling = false;
           removeClass(wrapper, 'scrolling');
-          wheelTarget(cp.doc, null);
+          cp.doc && wheelTarget(cp.doc, null);
           cp.emit('scrollend');
         }, 200);
       }
@@ -3827,7 +3836,7 @@
   }
   function insertClosing(cp, ch, comp) {
     var s = cp.getStateAt(cp.caret.line(), cp.caret.column()), charAfter = s.stream.at(0);
-    /\b(string|invalid)\b/.test(s.style) || /\S/.test(charAfter) ? cp.insertText(ch, 0) : charAfter != ch ? cp.insertText(ch + comp, -1) : cp.caret.moveX(1);
+    charAfter == ch ? cp.caret.moveX(1) : /\b(string|invalid)\b/.test(s.style) || /[^\s\)\]\}]/.test(charAfter) ? cp.insertText(ch, 0) : cp.insertText(ch + comp, -1);
     return false;
   }
   function desiredHeight(cp, half) {
