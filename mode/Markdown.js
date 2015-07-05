@@ -2,7 +2,9 @@
 
 CodePrinter.defineMode('Markdown', function() {
   
-  var brackets = /^[\[\]\(\)]/
+  var OL_CONTEXT = 1
+  , UL_CONTEXT = 2
+  , brackets = /^[\[\]\(\)]/
   , listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/;
   
   function comment(stream, state) {
@@ -85,14 +87,37 @@ CodePrinter.defineMode('Markdown', function() {
     }
   }
   
+  function pushcontext(stream, state, type) {
+    if (state.context.indent == stream.indentation) {
+      popcontext(state);
+    }
+    state.context = {
+      type: type,
+      indent: stream.indentation,
+      prev: state.context
+    }
+  }
+  function popcontext(state) {
+    if (state.context.prev) {
+      state.context = state.context.prev;
+      return true;
+    }
+  }
+  
   return new CodePrinter.Mode({
     name: 'Markdown',
     matching: 'brackets',
     
     initialState: function() {
       return {
-        indent: 0
+        context: {
+          indent: 0
+        }
       }
+    },
+    onEntry: function(stream, state) {
+      while (stream.indentation < state.context.indent && popcontext(state));
+      if (!stream.value) popcontext(state);
     },
     iterator: function(stream, state) {
       var ch = stream.next();
@@ -117,7 +142,10 @@ CodePrinter.defineMode('Markdown', function() {
           stream.skip();
           return 'string';
         }
-        if (ch == '+' || ch == '-' && !stream.isAfter('-')) {
+        if (ch == '+' || ch == '*' || ch == '-' && !stream.isAfter('-')) {
+          if (state.context.type != UL_CONTEXT || stream.indentation > state.context.indent) {
+            pushcontext(stream, state, UL_CONTEXT);
+          }
           return 'numeric hex';
         }
         if (ch == '-' || ch == '=') {
@@ -125,7 +153,12 @@ CodePrinter.defineMode('Markdown', function() {
           return 'operator';
         }
         if (/\d/.test(ch)) {
-          stream.match(/^\d*\.?/, true);
+          stream.take(/^\d*/);
+          if (stream.eat('.')) {
+            if (state.context.type != OL_CONTEXT || stream.indentation > state.context.indent) {
+              pushcontext(stream, state, OL_CONTEXT);
+            }
+          }
           return 'numeric';
         }
       }
@@ -166,7 +199,18 @@ CodePrinter.defineMode('Markdown', function() {
       }
     },
     indent: function(stream, state) {
-      return state.indent;
+      return state.context.indent;
+    },
+    afterEnterKey: function(stream, state) {
+      var ctx = state.context, bf = stream.from(0);
+      if (ctx.type & OL_CONTEXT) {
+        if (/^(\d+)\./.test(bf)) {
+          this.insertText(parseInt(RegExp.$1, 10) + 1 + '. ');
+        }
+      }
+      else if (ctx.type & UL_CONTEXT) {
+        this.insertText(stream.value[0] + ' ');
+      }
     }
   });
 });
