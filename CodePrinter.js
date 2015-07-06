@@ -1361,11 +1361,16 @@
       if (stream.pos > stream.start) {
         var v = stream.from(stream.start);
         if (v != ' ' && v != '\t') stream.lastValue = v;
-        if (style) cache.push({ from: stream.start, to: stream.pos, style: style });
+        if (style) cachePush(cache, stream.start, stream.pos, style);
         return style;
       }
     }
     throw new Error('Parser has reached an infinite loop!');
+  }
+  function cachePush(cache, from, to, style) {
+    var length = cache.length, last = cache[length - 1];
+    if (last && last.style == style && last.to == from) last.to = to;
+    else cache[length] = { from: from, to: to, style: style };
   }
   function parse(cp, parser, stream, state, col) {
     var style, v, l = col != null ? col : stream.length, cache = [];
