@@ -789,7 +789,7 @@
           }
         }
         this.caret.setTextBefore(bf);
-        r = arg;
+        r = arg.join('\n');
       } else if ('number' === type) {
         if (arg <= bf.length) {
           this.caret.setTextBefore(bf.substring(0, bf.length - arg));
@@ -837,7 +837,7 @@
           }
         }
         this.caret.setTextAfter(af);
-        r = arg;
+        r = arg.join('\n');
       } else if ('number' === type) {
         if (arg <= af.length) {
           this.caret.setTextAfter(af.substr(arg));
@@ -3510,7 +3510,7 @@
       if (!this._lockedScrolling) {
         var st = this.scrollTop;
         cp.counter.scrollTop = st;
-        if (cp.doc.scrollTop != st) cp.doc.scrollTo(st);
+        if (cp.doc && cp.doc.scrollTop != st) cp.doc.scrollTo(st);
       } else {
         if (!isScrolling) addClass(wrapper, 'scrolling');
         isScrolling = true;
