@@ -2,6 +2,12 @@
 var cp = new CodePrinter('', { shortcuts: false, height: 1000 });
 document.body.appendChild(cp.mainNode);
 
+window.checkStyles = function(positions, style) {
+  for (var i = 0; i < positions.length; i++) {
+    expect(cp.getStateAt(positions[i][0], positions[i][1]).style).toBe(style);
+  }
+}
+
 describe('CodePrinter', function() {
   var lines = [
     "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod",
@@ -86,8 +92,8 @@ describe('CodePrinter', function() {
     it('should redo', function() {
       cp.doc.redo();
       expect(cp.getTextAtLine(3)).toBe(lines[3].substring(0, 58) + lines[3].substr(62));
-      //cp.insertText('esse');
-      //expect(cp.doc.getValue()).toBe(content);
+      cp.insertText('esse');
+      expect(cp.doc.getValue()).toBe(content);
     });
     it('should detach', function() {
       cp.doc.detach();
@@ -109,5 +115,5 @@ describe('CodePrinter', function() {
 afterEach(function(done) {
   setTimeout(function() {
     done();
-  }, 100);
+  }, 30);
 });

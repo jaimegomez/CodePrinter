@@ -43,7 +43,7 @@ describe('CSS', function() {
   });
   
   it('should recognize class names', function() {
-    expect(cp.getStateAt(6, 8).style).toBe('property');
+    checkStyles([[6, 8]], 'property');
   });
   
   it('should recognize css properties', function() {
@@ -51,21 +51,16 @@ describe('CSS', function() {
       [2, 18], [3, 13], [4, 11], [9, 8],
       [10, 9], [22, 9], [24, 7], [30, 14]
     ];
-    for (var i = 0; i < positions.length; i++) {
-      expect(cp.getStateAt(positions[i][0], positions[i][1]).style).toBe('special');
-    }
+    checkStyles(positions, 'special');
   });
   
   it('should recognize hex colors', function() {
     var positions = [[2, 24], [16, 24], [27, 24]];
-    for (var i = 0; i < positions.length; i++) {
-      expect(cp.getStateAt(positions[i][0], positions[i][1]).style).toBe('numeric hex');
-    }
+    checkStyles(positions, 'numeric hex');
   });
   
   it('should recognize comments', function() {
-    expect(cp.getStateAt(12, 12).style).toBe('comment');
-    expect(cp.getStateAt(18, 10).style).toBe('comment');
-    expect(cp.getStateAt(19, 15).style).toBe('comment');
+    var positions = [[12, 12], [18, 10], [19, 15]];
+    checkStyles(positions, 'comment');
   });
 });
