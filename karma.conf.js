@@ -7,6 +7,7 @@ module.exports = function(config) {
       'mode/*.js',
       'tests/test.js',
       'tests/css.js',
+      'tests/html.js',
       'tests/javascript.js',
       'tests/json.js',
       'tests/markdown.js'
