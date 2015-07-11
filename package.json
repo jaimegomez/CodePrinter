@@ -1,6 +1,6 @@
 {
   "name": "codeprinter",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Code editor library written in JavaScript",
   "main": "CodePrinter.js",
   "scripts": {

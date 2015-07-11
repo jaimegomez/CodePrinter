@@ -5,7 +5,7 @@
  * Released under the MIT License.
  *
  * author:  Tomasz Sapeta
- * version: 0.8.2
+ * version: 0.8.3
  * source:  https://github.com/tsapeta/CodePrinter
  */
 
@@ -59,7 +59,7 @@
     return this;
   }
   
-  CodePrinter.version = '0.8.2';
+  CodePrinter.version = '0.8.3';
   
   CodePrinter.defaults = {
     mode: 'plaintext',
