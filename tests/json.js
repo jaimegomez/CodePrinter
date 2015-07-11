@@ -23,24 +23,26 @@ describe('JSON', function() {
     cp.caret.position(3, 4);
     cp.removeAfterCursor('"value"');
     cp.insertText("'value'");
-    var cache = cp.getStateAt(3, 11).cache;
-    expect(cache[0].from).toBe(0);
-    expect(cache[0].style).toBe('invalid');
-    expect(cache[1].to).toBe(6);
-    expect(cache[1].style).toBe('invalid');
-    expect(cache[2].to).toBe(7);
-    expect(cache[2].style).toBe('invalid');
+    
+    var cache = cp.getStateAt(3, 11).cache[0];
+    expect(cache.from).toBe(0);
+    expect(cache.style).toBe('invalid');
+    expect(cache.to).toBe(7);
+    
     cp.removeBeforeCursor("'value'");
     cp.insertText('"value"');
   });
   
   it('should require double quotes in object keys', function() {
-    cp.caret.position(4, 4);
-    cp.removeAfterCursor('"');
-    var cache = cp.getStateAt(4, 13).cache[0];
+    cp.erase('"', 4, 5);
+    cp.erase('"', 4, 10);
+    
+    var cache = cp.getStateAt(4, 9).cache[0];
     expect(cache.from).toBe(0);
     expect(cache.to).toBe(5);
     expect(cache.style).toBe('invalid');
-    cp.insertText('"');
+    
+    cp.put('"', 4, 4);
+    cp.put('"', 4, 10);
   });
 });

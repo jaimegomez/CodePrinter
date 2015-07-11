@@ -5,7 +5,7 @@
  * Released under the MIT License.
  *
  * author:  Tomasz Sapeta
- * version: 0.8.2
+ * version: 0.8.3
  * source:  https://github.com/tsapeta/CodePrinter
  */
 
@@ -59,7 +59,7 @@
     return this;
   }
   
-  CodePrinter.version = '0.8.2';
+  CodePrinter.version = '0.8.3';
   
   CodePrinter.defaults = {
     mode: 'plaintext',
@@ -789,7 +789,7 @@
           }
         }
         this.caret.setTextBefore(bf);
-        r = arg;
+        r = arg.join('\n');
       } else if ('number' === type) {
         if (arg <= bf.length) {
           this.caret.setTextBefore(bf.substring(0, bf.length - arg));
@@ -837,7 +837,7 @@
           }
         }
         this.caret.setTextAfter(af);
-        r = arg;
+        r = arg.join('\n');
       } else if ('number' === type) {
         if (arg <= af.length) {
           this.caret.setTextAfter(af.substr(arg));
@@ -1361,11 +1361,16 @@
       if (stream.pos > stream.start) {
         var v = stream.from(stream.start);
         if (v != ' ' && v != '\t') stream.lastValue = v;
-        if (style) cache.push({ from: stream.start, to: stream.pos, style: style });
+        if (style) cachePush(cache, stream.start, stream.pos, style);
         return style;
       }
     }
     throw new Error('Parser has reached an infinite loop!');
+  }
+  function cachePush(cache, from, to, style) {
+    var length = cache.length, last = cache[length - 1];
+    if (last && last.style == style && last.to == from) last.to = to;
+    else cache[length] = { from: from, to: to, style: style };
   }
   function parse(cp, parser, stream, state, col) {
     var style, v, l = col != null ? col : stream.length, cache = [];
@@ -1815,6 +1820,7 @@
       cp.off('changed', changedListener);
       if (cp.selectionOverlay) cp.selectionOverlay.remove();
       clearMeasures(cp);
+      cp.input.blur();
       cp = cp.doc = counter = code = ol = this.attached = null;
       this.emit('detached');
       return this;
@@ -3426,13 +3432,15 @@
                 cp.caret.restorePosition(savedpos, true);
                 cp.insertSelectedText(selection);
               } else {
+                moveselection = null;
                 doc.clearSelection();
                 mouseController(e);
               }
-            } else {
-              isinactive || doc.clearSelection();
-              input.focus();
+            } else if (!isinactive) {
+              moveselection = null;
+              doc.clearSelection();
             }
+            input.focus();
             off(window, 'mouseup', msp);
             return isMouseDown = moveselection = eventCancel(e);
           });
@@ -3505,7 +3513,7 @@
       if (!this._lockedScrolling) {
         var st = this.scrollTop;
         cp.counter.scrollTop = st;
-        if (cp.doc.scrollTop != st) cp.doc.scrollTo(st);
+        if (cp.doc && cp.doc.scrollTop != st) cp.doc.scrollTo(st);
       } else {
         if (!isScrolling) addClass(wrapper, 'scrolling');
         isScrolling = true;

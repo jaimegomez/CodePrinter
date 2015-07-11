@@ -1,5 +1,11 @@
 # CodePrinter Changelog
 
+## 0.8.3 / 2015-07-11
++ Merging the results of parsing if possible.
++ Improved existing tests and added new for CSS and HTML parsers.
++ Fixed bug in removeBeforeCursor/removeAfterCursor which resulted in erroneous data in history.
++ Fixed line highlighting after breaking the selection.
+
 ## 0.8.2 / 2015-07-05
 + Fixed toggling comments.
 + Invoke forward parsing after wrapping the selection.
