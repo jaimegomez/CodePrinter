@@ -3432,13 +3432,15 @@
                 cp.caret.restorePosition(savedpos, true);
                 cp.insertSelectedText(selection);
               } else {
+                moveselection = null;
                 doc.clearSelection();
                 mouseController(e);
               }
-            } else {
-              isinactive || doc.clearSelection();
-              input.focus();
+            } else if (!isinactive) {
+              moveselection = null;
+              doc.clearSelection();
             }
+            input.focus();
             off(window, 'mouseup', msp);
             return isMouseDown = moveselection = eventCancel(e);
           });
