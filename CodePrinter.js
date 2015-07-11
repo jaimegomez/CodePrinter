@@ -1820,6 +1820,7 @@
       cp.off('changed', changedListener);
       if (cp.selectionOverlay) cp.selectionOverlay.remove();
       clearMeasures(cp);
+      cp.input.blur();
       cp = cp.doc = counter = code = ol = this.attached = null;
       this.emit('detached');
       return this;
