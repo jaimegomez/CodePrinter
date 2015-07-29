@@ -211,7 +211,7 @@
           if (tmp == dl) {
             var pos = Math.max(0, Math.min(column - ind.length, ind.rest.length))
             , cache = parse(this, parser, stream, state, pos)
-            , oldpos = stream.pos, lastCache = cache[cache.length-1];
+            , oldpos = stream.pos, lastCache = lastV(cache);
             if (stream.eol()) tmp.state = state;
             stream.pos = pos;
             return { stream: stream, state: state, cache: cache, style: lastCache && lastCache.style, parser: state && state.parser || parser, nextIteration: function() {
@@ -674,7 +674,7 @@
         
         this.caret.setTextAtCurrentLine(bf + s.shift(), '');
         this.doc.insert(line+1, s);
-        this.caret.position(line + s.length, s[s.length-1].length);
+        this.caret.position(line + s.length, lastV(s).length);
         this.caret.setTextAfter(af);
       } else {
         this.caret.setTextBefore(bf + s[0]);
@@ -744,7 +744,7 @@
         arg = arg.split(eol);
         var l = this.caret.line(), x
         , af = this.caret.textAfter()
-        , last = arg[arg.length-1];
+        , last = lastV(arg);
         
         if ((x = bf.length - last.length) == bf.lastIndexOf(last)) {
           bf = bf.substring(0, x);
@@ -798,8 +798,8 @@
         }
         if (arg.length > 1) {
           var rm = this.doc.remove(l + 1, arg.length - 1)
-          , lastline = rm && rm[rm.length-1].text
-          , lastarg = arg[arg.length-1];
+          , lastline = rm && lastV(rm).text
+          , lastarg = lastV(arg);
           
           if (lastline && lastline.indexOf(lastarg) == 0) {
             af += lastline.substr(lastarg.length);
@@ -1063,7 +1063,7 @@
             var keys = Object.keys(results)
             , j = keys.indexOf(''+activeLine)
             , cur = results[keys[j > 0 ? j-1 : keys.length - 1]];
-            newActive = cur[cur.length-1];
+            newActive = lastV(cur);
           }
           removeClass(search.active.node, 'active');
         } else {
@@ -1632,7 +1632,7 @@
       if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
         if (i > 0) return this.parent[i-1];
         var prev = this.parent.prev();
-        while (prev && !prev.isLeaf) prev = prev[prev.length-1];
+        while (prev && !prev.isLeaf) prev = lastV(prev);
         return prev;
       }
       return null;
@@ -1711,7 +1711,7 @@
             return this.parent[i-1];
           } else {
             var prev = this.parent.prev();
-            return prev && prev.length ? prev[prev.length-1] : null;
+            return prev && prev.length ? lastV(prev) : null;
           }
         }
       }
@@ -1964,7 +1964,7 @@
           }
           if (at + n < to + 1) {
             e = at + n;
-            next = view[view.length-1].next();
+            next = lastV(view).next();
           } else {
             e = to + 1;
             next = data.get(at);
@@ -2146,7 +2146,7 @@
         }
         if (from === 0 && d < 0) {
           h = view[0].height;
-          dl = view[view.length-1];
+          dl = lastV(view);
           var sh = dom.code.scrollHeight, dh = desiredHeight(cp);
           while (h < x && sh < dh && (dl = dl.next())) {
             insert(dl);
@@ -2156,7 +2156,7 @@
         } else {
           if (disp = abs > 4 * sizes.defaultHeight) { dom.counter.style.display = 'none'; dom.code.style.display = 'none'; }
           if (d > 0) {
-            while (view.length && (h = view[0].height) <= d && (dl = view[view.length-1].next())) {
+            while (view.length && (h = view[0].height) <= d && (dl = lastV(view).next())) {
               var first = view.shift();
               captureNode(dl, first);
               if (dl.active) cp.select(dl);
@@ -2166,7 +2166,7 @@
               d -= h;
             }
           } else if (d < 0) {
-            while (view.length && (h = view[view.length-1].height) <= -d && (dl = view[0].prev())) {
+            while (view.length && (h = lastV(view).height) <= -d && (dl = view[0].prev())) {
               var last = view.pop();
               captureNode(dl, last);
               if (dl.active) cp.select(dl);
@@ -4054,6 +4054,8 @@
   }
   function escape(str) { return str.replace(/[-\/\\^$*+?.()|[\]{}"']/g, '\\$&'); }
   function extend(base) { if (base) for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
+  function isArray(arr) { return Object.prototype.toString.call(arr) === '[object Array]'; }
+  function lastV(arr) { return arr[arr.length-1]; }
   function on(node, event, listener) { node.addEventListener(event, listener, false); }
   function off(node, event, listener) { node.removeEventListener(event, listener, false); }
   function eventCancel(e, propagate) { e.preventDefault(); propagate || e.stopPropagation(); return e.returnValue = false; }
