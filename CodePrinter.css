@@ -333,6 +333,11 @@
   background-color: #454545;
   color: #fafafa;
 }
+.codeprinter .cp-carets {
+  -webkit-transform: translate3d(0, 0, 0);
+  -webkit-transform-style: preserve-3d;
+  z-index: 11;
+}
 .codeprinter .cp-caret {
   -webkit-transition: opacity 0.3s ease-in-out;
   -moz-transition: opacity 0.3s ease-in-out;
@@ -345,9 +350,6 @@
   position: absolute;
   top: -50px;
   left: -50px;
-  z-index: 11;
-  -webkit-transform: translate3d(0, 0, 0);
-  -webkit-transform-style: preserve-3d;
 }
 .codeprinter .cp-caret-block {
   -webkit-transition: all 0 ease-in-out;
