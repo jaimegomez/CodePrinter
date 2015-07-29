@@ -21,9 +21,9 @@
   }
 }(this, function() {
   var CodePrinter, EventEmitter, Data, Branch
-  , Line, Caret, Document, Stream, ReadStream
-  , History, Selection, keyMap
-  , commands, lineendings
+  , Line, CaretStyles, Caret, Document, Stream
+  , ReadStream, historyActions, History, keyMap
+  , Measure, commands, lineendings
   , div, li, pre, span
   , BRANCH_OPTIMAL_SIZE = 50
   , BRANCH_HALF_SIZE = 25
@@ -45,7 +45,6 @@
     buildDOM(this);
     EventEmitter.call(this);
     
-    this.caret = new Caret(this);
     this.keyMap = new keyMap;
     checkOptions(this, options);
     attachEvents(this);
@@ -2480,237 +2479,293 @@
     }
   }
   
-  Caret = function(cp) {
-    var line, column, currentDL, lastdet, tmp
-    , styles = {
-      vertical: function(css) {
-        css.width = 1;
-        css.height = cp.options.caretHeight * lastdet.charHeight;
-        css.left -= 1;
-        return css;
-      },
-      underline: function(css) {
-        css.width = lastdet.charWidth || currentDL.height/2;
-        css.height = 1;
-        css.top += currentDL.height - 1;
-        return css;
-      },
-      block: function(css) {
-        css.width = lastdet.charWidth || currentDL.height/2;
-        css.height = cp.options.caretHeight * lastdet.charHeight;
-        return css;
+  CaretStyles = {
+    vertical: function(css, measure, options) {
+      css.width = 1;
+      css.height = options.caretHeight * measure.charHeight;
+      css.left -= 1;
+    },
+    underline: function(css, measure, options) {
+      css.width = measure.charWidth || measure.dl.height / 2;
+      css.height = 1;
+      css.top += measure.dl.height - 1;
+    },
+    block: function(css, measure, options) {
+      css.width = measure.charWidth || measure.dl.height / 2;
+      css.height = options.caretHeight * measure.charHeight;
+    }
+  }
+  
+  function maybeReverseSelection(caret, anchor, head, mv) {
+    if (!caret.hasSelection() || Flags.shift) return mv;
+    var cmp = comparePos(anchor, head);
+    if (cmp < 0 && mv < 0 || cmp > 0 && mv > 0) {
+      caret.reverse();
+      return mv - cmp;
+    }
+    return mv;
+  }
+  function positionAfterMove(doc, pos, move) {
+    var mv = move, line = pos.line, column = pos.column
+    , dl = doc.get(line), size = doc.size();
+    
+    if (mv <= 0) {
+      while (dl) {
+        if (-mv <= column) return position(line, column + mv);
+        mv += column + 1;
+        if (dl = dl.prev()) { column = dl.text.length; --line; }
+      }
+    } else {
+      while (dl) {
+        if (column + mv <= dl.text.length) return position(line, column + mv);
+        mv -= dl.text.length - column + 1;
+        if (dl = dl.next()) { column = 0; ++line; }
       }
     }
+    return position(line, column);
+  }
+  function rangeWithMove(doc, pos, move) {
+    var afterMove = positionAfterMove(doc, pos, move);
+    return move <= 0 ? range(afterMove, pos) : range(pos, afterMove);
+  }
+  
+  Caret = CodePrinter.Caret = function(doc) {
+    var head = position(0, 0), currentLine, anchor, selOverlay, lastMeasure;
     
     EventEmitter.call(this);
-    this.node = create(cp.caretsContainer, 'div', 'cp-caret');
+    this.node = addClass(div.cloneNode(false), 'cp-caret');
     
     function setPixelPosition(x, y) {
       if (!this.isDisabled) {
-        var css = {}, stl = this.style || cp.options.caretStyle;
+        var css = {}, stl = doc.getOption('caretStyle');
         
-        x >= 0 && (css.left = this.x = x = Math.floor(Math.max(cp.sizes.paddingLeft, x)));
-        y >= 0 && (css.top = this.y = y = Math.floor(y + cp.sizes.paddingTop));
+        x >= 0 && (css.left = this.x = Math.floor(Math.max(doc.sizes.paddingLeft, x)));
+        y >= 0 && (css.top = this.y = Math.floor(y + doc.sizes.paddingTop));
         
         stl != this.style && this.setStyle(stl);
-        css = this.drawer(css);
-        this.emit('beforeMove', x, y, currentDL, line, this.column());
-        for (var k in css) this.node.style[k] = css[k] + 'px';
-        this.emit('move', x, y, currentDL, line, this.column());
+        (CaretStyles[this.style] || CaretStyles['vertical']).call(this, css, lastMeasure, doc.getOptions());
+        
+        this.emit('beforeMove', this.x, this.y, currentLine, head.line, this.column());
+        for (var k in css) this.node.style[k] = css[k] + ('number' == typeof css[k] ? 'px' : '');
+        this.emit('move', this.x, this.y, currentLine, head.line, this.column());
       }
       return this;
     }
     function updateDL(text) {
-      if (currentDL) {
-        currentDL.setText(text);
-        forwardParsing(cp, currentDL);
-        cp.doc.updateView();
+      if (currentLine) {
+        currentLine.setText(text);
+        forwardParsing(doc, currentLine);
+        doc.updateView();
+      }
+    }
+    function select(dl) {
+      if (dl && !dl.active && doc.isFocused) {
+        if (doc.getOption('highlightCurrentLine')) dl.addClass(activeClassName);
+        dl.active = true;
+      }
+    }
+    function unselect() {
+      if (currentLine && currentLine.active) {
+        currentLine.removeClass(activeClassName);
+        currentLine.active = undefined;
       }
     }
     
-    this.dispatch = function(dl, det, c) {
-      var t = dl.text, dli = dl.info(), b;
+    this.dispatch = function(measure) {
+      var dl = measure.dl
+      , column = measure.column
+      , line = measure.line
+      , t = dl.text, b;
       
-      if (currentDL !== dl) {
-        if (currentDL) currentDL.active = undefined;
-        currentDL = dl;
-        dl.active = true;
+      if (currentLine !== dl) {
+        unselect();
+        select(currentLine = dl);
       }
-      if (line !== dli.index) {
-        this.emit('lineChange', dl, dli.index, c);
-        line = dli.index;
+      if (head.line !== line) {
+        this.emit('lineChange', dl, line, column);
+        head.line = line;
         b = true;
       }
-      if (column !== c) {
-        this.emit('columnChange', dl, dli.index, c);
-        column = c;
+      if (head.column !== column) {
+        this.emit('columnChange', dl, line, column);
+        head.column = column;
         b = true;
       }
-      if (b) this.emit('positionChange', dl, dli.index, c);
-      lastdet = det;
-      setPixelPosition.call(this, det.offsetX, det.offsetY + dli.offset);
-      if (b) this.emit('positionChanged', dl, dli.index, c, this.x, this.y);
-      cp.select(dl);
+      if (b) doc.emit('caretWillMove', this);
+      lastMeasure = measure;
+      setPixelPosition.call(this, measure.offsetX, measure.offsetY + measure.lineOffset);
+      if (b) doc.emit('caretMoved', this);
+      this.showSelection();
+      return this;
     }
-    this.setTextBefore = function(str) {
-      updateDL(str + this.textAfter());
-      return this.position(line, str.length);
+    this.beginSelection = function() {
+      this.clearSelection();
+      anchor = position(head.line, head.column);
+      if (!selOverlay) selOverlay = doc.getEditor().createOverlay('cp-selection-overlay');
     }
-    this.setTextAfter = function(str) {
-      updateDL(this.textBefore() + str);
-      return this.position(line, this.column());
+    this.hasSelection = function() {
+      return anchor && comparePos(anchor, head) !== 0;
     }
-    this.setTextAtCurrentLine = function(bf, af) {
-      updateDL(bf + af);
-      return this.position(line, bf.length);
+    this.inSelection = function(line, column) {
+      var pos = position(line, column);
+      return anchor && comparePos(anchor, pos) * comparePos(pos, head) >= 0;
     }
-    this.textBefore = function() { return currentDL && currentDL.text.substring(0, column); }
-    this.textAfter = function() { return currentDL && currentDL.text.substr(column); }
-    this.textAtCurrentLine = function() { return currentDL && currentDL.text; }
-    this.getPosition = function() { return [line, this.column()]; }
-
+    this.getSelectionRange = function() {
+      if (this.hasSelection()) {
+        return getRangeOf(anchor, head);
+      }
+    }
+    this.setSelection = function(newAnchor, newHead) {
+      if (!isPos(newHead)) return;
+      if (newAnchor == null || isPos(newAnchor)) anchor = newAnchor;
+      return this.position(newHead.line, newHead.column);
+    }
+    this.showSelection = function() {
+      if (Flags.movingSelection) return;
+      var range = this.getSelectionRange();
+      if (range) {
+        if (!selOverlay) selOverlay = doc.getEditor().createOverlay('cp-selection-overlay');
+        doc.drawSelection(selOverlay, range);
+        unselect();
+      } else {
+        if (selOverlay) selOverlay.remove();
+        select(currentLine);
+      }
+    }
+    this.removeSelection = function() {
+      var range = this.getSelectionRange();
+      if (range) {
+        this.clearSelection();
+        doc.removeRange(range.from, range.to);
+      }
+    }
+    this.clearSelection = function() {
+      if (!anchor) return;
+      if (selOverlay) selOverlay.remove();
+      anchor = null;
+      select(currentLine);
+    }
+    this.reverse = function() {
+      if (!anchor) return;
+      var oldAnchor = anchor;
+      anchor = head;
+      this.position(oldAnchor.line, oldAnchor.column);
+    }
+    this.insert = function(text, movement) {
+      var range = getRangeOf(anchor, head);
+      doc.replaceRange(text, range.from, range.to);
+      if ('number' === typeof movement) this.moveX(movement);
+    }
+    this.removeBefore = function(n) {
+      var range = this.hasSelection() ? getRangeOf(anchor, head) : rangeWithMove(doc, position(head.line, this.column()), -n);
+      if (range) return doc.removeRange(range.from, range.to);
+    }
+    this.removeAfter = function(n) {
+      var range = this.hasSelection() ? getRangeOf(anchor, head) : rangeWithMove(doc, position(head.line, this.column()), n);
+      if (range) return doc.removeRange(range.from, range.to);
+    }
+    this.textBefore = function() { return currentLine && currentLine.text.substring(0, head.column); }
+    this.textAfter = function() { return currentLine && currentLine.text.substr(head.column); }
+    this.textAtCurrentLine = function() { return currentLine && currentLine.text; }
+    this.getPosition = function() { return position(head.line, this.column()); }
+    
     this.position = function(l, c) {
-      var dl = cp.doc.get(l);
+      var dl = doc.get(l);
       if (dl) {
         if (c < 0) {
           var t = dl.text;
           c = t.length + c % t.length + 1;
         }
-        this.dispatch(dl, cp.doc.measureRect(dl, c), c);
+        this.dispatch(doc.measureRect(dl, c));
       }
-      return this;
-    }
-    this.target = function(x, y) {
-      var m = cp.doc.measurePosition(x, y);
-      this.dispatch(m.dl, m, m.column);
       return this;
     }
     this.moveX = function(mv) {
-      var abs, t = '', cl = line
-      , size = cp.doc.size()
-      , bf = this.textBefore()
-      , af = this.textAfter();
-      
-      if (mv >= 0 || cl === 0) {
-        abs = mv;
-        t = af;
-      } else {
-        abs = Math.abs(mv);
-        t = bf;
-      }
-      
-      if (abs <= t.length) {
-        return this.position(cl, Math.max(0, Math.min(bf.length + mv, (bf + af).length)));
-      }
-      while (abs > t.length) {
-        abs = abs - t.length - 1;
-        cl = cl + (mv > 0) - (mv < 0);
-        if (cl < size) {
-          t = cp.getTextAtLine(cl);
-        } else {
-          if (mv >= 0) {
-            --cl;
-            abs = -1;
-          } else {
-            mv = cl = abs = 0;
-          }
-          break;
-        }
-      }
-      return this.position(cl, mv >= 0 ? abs : t.length - abs);
-    }
-    this.moveY = function(mv) {
-      var l;
-      mv = line + mv;
-      if (mv < 0) {
-        mv = column = 0;
-      } else if (mv >= (l = cp.doc.size())) {
-        column = -1;
-        mv = l-1;
-      }
-      return this.position(mv, column);
-    }
-    this.offsetX = function() {
-      return lastdet ? lastdet.offsetX : 0;
-    }
-    this.offsetY = function() {
-      return lastdet ? lastdet.offsetY : 0;
-    }
-    this.totalOffsetY = function(withLine) {
-      var o = currentDL.getOffset() + this.offsetY();
-      if (withLine && lastdet) o += lastdet.charHeight;
-      return o;
-    }
-    this.refresh = function() {
-      if (this.isVisible) {
-        cp.emit('caretRefresh');
-        this.position(line | 0, column | 0);
+      if ('number' === typeof mv) {
+        mv = maybeReverseSelection(this, anchor, head, mv);
+        var pos = positionAfterMove(doc, position(head.line, this.column()), mv);
+        return this.position(pos.line, pos.column);
       }
       return this;
     }
+    this.moveY = function(mv) {
+      if ('number' === typeof mv) {
+        mv = maybeReverseSelection(this, anchor, head, mv);
+        var size = doc.size();
+        mv = head.line + mv;
+        if (mv < 0) {
+          mv = head.column = 0;
+        } else if (mv >= size) {
+          head.column = -1;
+          mv = size - 1;
+        }
+        this.position(mv, head.column);
+      }
+      return this;
+    }
+    this.offsetX = function() {
+      return lastMeasure ? lastMeasure.offsetX : 0;
+    }
+    this.offsetY = function() {
+      return lastMeasure ? lastMeasure.offsetY : 0;
+    }
+    this.totalOffsetY = function(withLine) {
+      var o = currentLine.getOffset() + this.offsetY();
+      if (withLine && lastMeasure) o += lastMeasure.charHeight;
+      return o;
+    }
+    this.head = function() {
+      return position(head.line, this.column());
+    }
+    this.anchor = function() {
+      return anchor && position(anchor.line, anchor.column);
+    }
+    this.leftEdge = function() {
+      return anchor && comparePos(anchor, head) < 0 ? anchor : head;
+    }
+    this.rightEdge = function() {
+      return anchor && comparePos(anchor, head) > 0 ? anchor : head;
+    }
     this.dl = function() {
-      return currentDL;
+      return currentLine;
     }
     this.isCurrentLine = function(dl) {
-      return currentDL === dl;
+      return currentLine === dl;
     }
     this.line = function() {
-      return line;
+      return head.line;
     }
     this.column = function() {
-      return currentDL ? Math.min(column, currentDL.text.length) : 0;
+      return currentLine ? Math.min(head.column, currentLine.text.length) : 0;
     }
     this.savePosition = function(onlycolumn) {
-      return tmp = [onlycolumn ? null : line, column];
+      return tmp = [onlycolumn ? null : head.line, head.column];
     }
     this.restorePosition = function(save, fulfill) {
       if (save instanceof Array && save.length == 2) {
-        line = save[0];
-        column = save[1];
+        head.line = save[0];
+        head.column = save[1];
       } else if (tmp != null) {
-        line = tmp[0];
-        column = tmp[1];
+        head.line = tmp[0];
+        head.column = tmp[1];
         tmp = null;
       }
-      if (fulfill || save === true) this.position(line, column);
+      if (fulfill || save === true) this.position(head.line, head.column);
     }
     this.setStyle = function(style) {
       this.style = style;
       this.node.className = 'cp-caret cp-caret-'+style;
-      this.drawer = styles[styles[style] ? style : 'vertical'];
-      this.refresh();
     }
     this.focus = function() {
-      if (!this.isVisible) {
-        this.isVisible = this.isActive = true;
-        startBlinking(this, cp.options);
-      } else if (currentDL && cp.doc && cp.doc.attached && !cp.doc.isLineVisible(currentDL)) {
-        cp.doc.scrollTo(currentDL.getOffset() - cp.wrapper.offsetHeight/2);
-      }
-      if ('number' != typeof line || line < 0) this.position(0, 0);
-      else this.position(line | 0, column | 0);
-      return this;
+      select(currentLine);
     }
     this.blur = function() {
-      clearInterval(this.interval);
-      this.isVisible = false;
-      this.node.style.opacity = '0';
-      cp.unselect();
-      this.emit('blur');
-      return this;
+      unselect();
     }
+    return this;
   }
   Caret.prototype = {
-    isActive: false,
-    isVisible: false,
     isDisabled: false,
-    activate: function() {
-      this.isActive = true;
-    },
-    deactivate: function() {
-      this.isActive = false;
-      this.node.style.opacity = '1';
-    },
     enable: function() {
       this.isDisabled = false;
     },
@@ -3827,19 +3882,6 @@
     if (doc.wheelTarget != wt) {
       if (wt && wt.style.display == 'none') wt.parentNode.removeChild(wt);
       doc.wheelTarget = wt;
-    }
-  }
-  function startBlinking(caret, options) {
-    clearInterval(caret.interval);
-    if (options.blinkCaret) {
-      var v = true;
-      if (options.caretBlinkRate > 0) {
-        caret.node.style.opacity = '1';
-        caret.interval = setInterval(function() {
-          caret.node.style.opacity = !caret.isActive || (v = !v) ? '1' : '0';
-        }, options.caretBlinkRate);
-      } else if (options.caretBlinkRate < 0)
-        caret.node.style.opacity = '0';
     }
   }
   function insertClosing(cp, ch, comp) {
