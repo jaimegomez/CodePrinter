@@ -51,7 +51,7 @@
     this.setDocument(new Document(this, valueOf(source), options.mode));
     
     if (source && source.parentNode) {
-      source.parentNode.insertBefore(this.mainNode, source);
+      source.parentNode.insertBefore(this.dom.mainNode, source);
       source.style.display = 'none';
     }
     instances.push(this);
@@ -233,7 +233,7 @@
       return s && s.parser;
     },
     focus: function() {
-      this.input.focus();
+      return this.dom.input.focus();
     },
     requireStyle: function(style) {
       load('theme/'+style+'.css', true);
@@ -260,14 +260,14 @@
     },
     setLineWrapping: function(lw) {
       this.options.lineWrapping = !!lw;
-      lw ? addClass(this.mainNode, 'cp-line-wrapping') : removeClass(this.mainNode, 'cp-line-wrapping');
+      lw ? addClass(this.dom.mainNode, 'cp-line-wrapping') : removeClass(this.dom.mainNode, 'cp-line-wrapping');
       this.doc.updateView();
     },
     setTheme: function(name, dontrequire) {
       typeof name === 'string' && name !== 'default' ? dontrequire != true && this.requireStyle(name) : name = 'default';
       if (!this.options.disableThemeClassName) {
-        removeClass(this.mainNode, 'cps-'+this.options.theme.replace(' ', '-').toLowerCase());
-        addClass(this.mainNode, 'cps-'+name.replace(' ', '-').toLowerCase());
+        removeClass(this.dom.mainNode, 'cps-'+this.options.theme.replace(' ', '-').toLowerCase());
+        addClass(this.dom.mainNode, 'cps-'+name.replace(' ', '-').toLowerCase());
       }
       this.options.theme = name;
       return this;
@@ -279,7 +279,7 @@
     setFontSize: function(size) {
       if ('number' === typeof size && this.options.minFontSize <= size && size <= this.options.maxFontSize) {
         var i = 0, doc = this.doc;
-        this.container.style.fontSize = (this.options.fontSize = size) + 'px';
+        this.dom.container.style.fontSize = (this.options.fontSize = size) + 'px';
         
         if (doc) {
           doc.sizes.defaultHeight = getFontHeight(this.options);
@@ -296,31 +296,31 @@
     decreaseFontSize: function() { this.setFontSize(this.options.fontSize-1); },
     setWidth: function(size) {
       if (size == 'auto') {
-        this.mainNode.style.removeProperty('width');
+        this.dom.mainNode.style.removeProperty('width');
       } else {
-        this.mainNode.style.width = (this.options.width = parseInt(size)) + 'px';
+        this.dom.mainNode.style.width = (this.options.width = parseInt(size)) + 'px';
       }
       this.emit('widthChanged');
       return this;
     },
     setHeight: function(size) {
       if (size == 'auto') {
-        this.body.style.removeProperty('height');
-        addClass(this.mainNode, 'cp-auto-height');
+        this.dom.body.style.removeProperty('height');
+        addClass(this.dom.mainNode, 'cp-auto-height');
       } else {
-        this.body.style.height = (this.options.height = parseInt(size, 10)) + 'px';
-        removeClass(this.mainNode, 'cp-auto-height');
+        this.dom.body.style.height = (this.options.height = parseInt(size, 10)) + 'px';
+        removeClass(this.dom.mainNode, 'cp-auto-height');
       }
       this.emit('heightChanged');
       return this;
     },
     showIndentation: function() {
       this.options.drawIndentGuides = true;
-      removeClass(this.mainNode, 'cp-without-indentation');
+      removeClass(this.dom.mainNode, 'cp-without-indentation');
     },
     hideIndentation: function() {
       this.options.drawIndentGuides = false;
-      addClass(this.mainNode, 'cp-without-indentation');
+      addClass(this.dom.mainNode, 'cp-without-indentation');
     },
     getCurrentLine: function() {
       return this.caret.line();
@@ -947,7 +947,7 @@
               if (res && e.target.tagName == 'SPAN') {
                 clearSelected();
                 search.mute = true;
-                cp.input.focus();
+                cp.dom.input.focus();
                 cp.doc.setSelectionRange(res.line, res.startColumn, res.line, res.startColumn + res.length);
                 cp.caret.position(res.line, res.startColumn + res.length);
                 e.target.style.opacity = '0';
@@ -1193,7 +1193,7 @@
     },
     enterFullscreen: function() {
       if (!this.isFullscreen) {
-        var main = this.mainNode, b = document.body;
+        var main = this.dom.mainNode, b = document.body;
         this._ = document.createTextNode('');
         addClass(main, 'cp-fullscreen');
         main.style.margin = [-b.style.paddingTop, -b.style.paddingRight, -b.style.paddingBottom, -b.style.paddingLeft, ''].join('px ');
@@ -1209,8 +1209,8 @@
     exitFullscreen: function() {
       if (this.isFullscreen && this._) {
         var tmp = this._;
-        removeClass(this.mainNode, 'cp-fullscreen').style.removeProperty('margin');
-        tmp.parentNode.insertBefore(this.mainNode, tmp);
+        removeClass(this.dom.mainNode, 'cp-fullscreen').style.removeProperty('margin');
+        tmp.parentNode.insertBefore(this.dom.mainNode, tmp);
         tmp.parentNode.removeChild(tmp);
         delete this._;
         this.isFullscreen = false;
@@ -1238,14 +1238,14 @@
       }
     },
     openCounter: function() {
-      removeClass(this.counter, 'hidden');
+      removeClass(this.dom.counterContainer, 'hidden');
     },
     closeCounter: function() {
-      addClass(this.counter, 'hidden');
+      addClass(this.dom.counterContainer, 'hidden');
     },
     destroy: function() {
-      var p = this.mainNode.parentNode, i = instances.indexOf(this);
-      if (p) p.removeChild(this.mainNode);
+      var p = this.dom.mainNode.parentNode, i = instances.indexOf(this);
+      if (p) p.removeChild(this.dom.mainNode);
       if (i >= 0) instances.splice(i, 1);
     }
   }
@@ -1806,8 +1806,8 @@
         dl.counter.firstChild.nodeValue = formatter(firstNumber + index);
         if (index < to) {
           var q = index - from, bef = view[q];
-          code.insertBefore(dl.node, bef.node);
-          ol.insertBefore(dl.counter, bef.counter);
+          dom.code.insertBefore(dl.node, bef.node);
+          dom.counter.insertBefore(dl.counter, bef.counter);
           view.splice(q, 0, dl);
           var tmp = dl.counter.nextSibling;
           while (tmp) {
@@ -1815,8 +1815,8 @@
             tmp = tmp.nextSibling;
           }
         } else {
-          code.appendChild(dl.node);
-          ol.appendChild(dl.counter);
+          dom.code.appendChild(dl.node);
+          dom.counter.appendChild(dl.counter);
           index = view.push(dl) + from;
         }
         withoutParsing || process(that, dl);
@@ -1827,8 +1827,8 @@
     function insert(dl) { init(dl); link(dl, to + 1); ++to; }
     function prepend(dl) { init(dl); link(dl, --from); }
     function remove(dl, index) {
-      code.removeChild(deleteNode(dl));
-      ol.removeChild(deleteCounter(dl));
+      dom.code.removeChild(deleteNode(dl));
+      dom.counter.removeChild(deleteCounter(dl));
       var i = view.indexOf(dl);
       if (i >= 0) view.splice(i, 1);
       --to; cp.emit('unlink', dl, index);
@@ -1840,8 +1840,8 @@
       }
       that.clearSelection();
       to = -1; from = view.length = 0;
-      code.innerHTML = ol.innerHTML = '';
-      code.style.top = ol.style.top = (sizes.scrollTop = 0) + 'px';
+      dom.code.innerHTML = dom.counter.innerHTML = '';
+      dom.code.style.top = dom.counter.style.top = (sizes.scrollTop = 0) + 'px';
     }
     function changedListener(e) {
       if (this.doc == that) {
@@ -1923,7 +1923,7 @@
           from += lines.length;
           updateCounters(this, firstNumber, formatter);
         } else if (at <= to + 1) {
-          var sh = code.scrollHeight || heightOfLines(view), dh = desiredHeight(cp);
+          var sh = dom.code.scrollHeight || heightOfLines(view), dh = desiredHeight(cp);
           if (sh >= dh) {
             var m = Math.min(lines.length, to - at + 1), rmdl;
             for (var i = 0; i < m; i++) {
@@ -2078,8 +2078,9 @@
       this.fill();
       this.updateView();
       runBackgroundParser(cp, this.parser, true);
-      cp.sizes.paddingTop = parseInt(code.style.paddingTop, 10) || 5;
-      if (cp.options.autoFocus) cp.input.focus();
+      this.sizes.paddingTop = parseInt(dom.code.style.paddingTop, 10) || 5;
+      this.sizes.paddingLeft = parseInt(dom.code.style.paddingLeft, 10) || 10;
+      if (cp.options.autoFocus) dom.input.focus();
       async(function() { cp && cp.emit('ready'); });
     }
     this.rewind = function(dl, st) {
@@ -2121,11 +2122,11 @@
         }
       }
       sizes.scrollTop = Math.max(0, offset);
-      ol.style.top = sizes.scrollTop + 'px';
-      code.style.top = sizes.scrollTop + 'px';
-      if (st != null) scrollTo(cp, st);
-      ol.style.display = '';
-      code.style.display = '';
+      dom.counter.style.top = sizes.scrollTop + 'px';
+      dom.code.style.top = sizes.scrollTop + 'px';
+      if (st != null) scrollTo(this, st);
+      dom.counter.style.display = '';
+      dom.code.style.display = '';
       this.updateView();
     }
     this.scrollTo = function(st) {
@@ -2139,21 +2140,21 @@
       , h, dl, disp;
       
       if (d) {
-        if (abs > 700 && abs > 2 * code.offsetHeight && 0 <= st && st <= cp.wrapper.scrollHeight - cp.wrapper.clientHeight) {
+        if (abs > 700 && abs > 2 * dom.code.offsetHeight && 0 <= st && st <= dom.wrapper.scrollHeight - dom.wrapper.clientHeight) {
           dl = data.getLineWithOffset(Math.max(0, st - limit));
           if (this.rewind(dl, st) !== false) return;
         }
         if (from === 0 && d < 0) {
           h = view[0].height;
           dl = view[view.length-1];
-          var sh = code.scrollHeight, dh = desiredHeight(cp);
+          var sh = dom.code.scrollHeight, dh = desiredHeight(cp);
           while (h < x && sh < dh && (dl = dl.next())) {
             insert(dl);
             x -= dl.height;
             sh += dl.height;
           }
         } else {
-          if (disp = abs > 4 * defHeight) { ol.style.display = 'none'; code.style.display = 'none'; }
+          if (disp = abs > 4 * sizes.defaultHeight) { dom.counter.style.display = 'none'; dom.code.style.display = 'none'; }
           if (d > 0) {
             while (view.length && (h = view[0].height) <= d && (dl = view[view.length-1].next())) {
               var first = view.shift();
@@ -2174,11 +2175,11 @@
               d += dl.height;
             }
           }
-          if (tmpd != d) scroll(cp, this, tmpd - d);
+          if (tmpd != d) scroll(this, tmpd - d);
         }
       }
-      if (disp) { ol.style.display = ''; code.style.display = ''; }
-      scrollTo(cp, st);
+      if (disp) { dom.counter.style.display = ''; dom.code.style.display = ''; }
+      scrollTo(this, st);
       if (to != a) this.updateView(a - to);
     }
     this.isLineVisible = function(dl) {
@@ -2264,7 +2265,7 @@
         }
       } else if (r.width) r.width = Math.round(r.width);
       if (child) r.height = child.offsetTop - r.offsetY + (r.charHeight = child.offsetHeight);
-      if (!r.charWidth) r.charWidth = calcCharWidth(dl.node || cp.measure.firstChild);
+      if (!r.charWidth) r.charWidth = calcCharWidth(dl.node || dom.measure.firstChild);
       return r;
     }
     this.updateView = function(det) {
@@ -2854,7 +2855,7 @@
     this.reveal = function() {
       if (!this.node.parentNode) {
         cp.overlays.push(this);
-        cp.screen.appendChild(this.node);
+        cp.dom.screen.appendChild(this.node);
         this.emit('$revealed');
       }
     }
@@ -3415,26 +3416,32 @@
   CodePrinter.defineMode('plaintext', new CodePrinter.Mode());
   
   function buildDOM(cp) {
-    cp.mainNode = addClass(document.createElement('div'), 'codeprinter');
-    cp.body = create(cp.mainNode, 'div', 'cp-body');
-    cp.container = create(cp.body, 'div', 'cp-container');
-    cp.input = create(cp.container, 'textarea', 'cp-input');
-    cp.counter = create(cp.container, 'div', 'cp-counter');
-    cp.counterChild = create(cp.counter, 'div', 'cp-counter-child');
-    cp.counterOL = create(cp.counterChild, 'ol', 'cp-counter-ol');
-    cp.wrapper = create(cp.container, 'div', 'cp-wrapper');
-    cp.caretsContainer = create(cp.wrapper, 'div', 'cp-carets');
-    cp.screen = create(cp.wrapper, 'div', 'cp-screen');
-    cp.code = create(cp.screen, 'div', 'cp-code');
-    cp.measure = create(cp.screen, 'div', 'cp-measure');
-    cp.measure.appendChild(pre.cloneNode(false));
-    cp.input.tabIndex = cp.options.tabIndex;
-    cp.input.autofocus = cp.options.autoFocus;
-    cp.sizes = { scrollTop: 0, paddingTop: 5, paddingLeft: 10 };
+    var dom = cp.dom = {};
+    dom.mainNode = addClass(document.createElement('div'), 'codeprinter');
+    dom.body = create(dom.mainNode, 'div', 'cp-body');
+    dom.container = create(dom.body, 'div', 'cp-container');
+    dom.input = create(dom.container, 'textarea', 'cp-input');
+    dom.counterContainer = create(dom.container, 'div', 'cp-counter');
+    dom.counterParent = create(dom.counterContainer, 'div', 'cp-counter-child');
+    dom.counter = create(dom.counterParent, 'ol', 'cp-counter-ol');
+    dom.wrapper = create(dom.container, 'div', 'cp-wrapper');
+    dom.caretsContainer = create(dom.wrapper, 'div', 'cp-carets');
+    dom.screen = create(dom.wrapper, 'div', 'cp-screen');
+    dom.code = create(dom.screen, 'div', 'cp-code');
+    dom.measure = create(dom.screen, 'div', 'cp-measure');
+    dom.measure.appendChild(pre.cloneNode(false));
+    dom.input.tabIndex = cp.options.tabIndex;
+    dom.input.autofocus = cp.options.autoFocus;
+  }
+  
+  function issetSelectionAt(carets, line, column) {
+    for (var i = 0; i < carets.length; i++)
+      if (carets[i].inSelection(line, column))
+        return carets[i];
   }
   function attachEvents(cp) {
-    var wrapper = cp.wrapper
-    , input = cp.input
+    var wrapper = cp.dom.wrapper
+    , input = cp.dom.input
     , options = cp.options
     , sizes = cp.doc.sizes
     , counterSelection = []
@@ -3447,8 +3454,8 @@
       if (e.defaultPrevented) return false;
       
       var doc = cp.doc
-      , sl = cp.wrapper.scrollLeft
-      , st = cp.wrapper.scrollTop
+      , sl = cp.dom.wrapper.scrollLeft
+      , st = cp.dom.wrapper.scrollTop
       , o = sizes.bounds = sizes.bounds || bounds(wrapper)
       , x = Math.max(0, sl + e.pageX - o.x)
       , y = e.pageY < o.y ? 0 : e.pageY <= o.y + wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : wrapper.scrollHeight
@@ -3561,7 +3568,7 @@
     on(wrapper, 'scroll', function(e) {
       if (!this._lockedScrolling) {
         var st = this.scrollTop;
-        cp.counter.scrollTop = st;
+        cp.dom.counterContainer.scrollTop = st;
         if (cp.doc && cp.doc.scrollTop != st) cp.doc.scrollTo(st);
       } else {
         if (!isScrolling) addClass(wrapper, 'scrolling');
@@ -3718,7 +3725,7 @@
             }
           }
           cp.doc.scrollTo(st);
-          cp.counter.firstChild.scrollTop = st;
+          cp.dom.counterContainer.scrollTop = st;
         }
       },
       move: function(x, y, dl, line, column) {
@@ -3771,13 +3778,13 @@
       counterSelection.length = 0;
       isMouseDown = false;
     }
-    on(cp.counter, 'mousedown', function(e) {
+    on(cp.dom.counter, 'mousedown', function(e) {
       if (e.target.tagName == 'LI') {
         var b = sizes.bounds = sizes.bounds || bounds(wrapper)
         , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
         if (dl) {
           counterSelection[0] = dl.info().index;
-          cp.input.focus();
+          cp.dom.input.focus();
           isMouseDown = true;
           on(window, 'mousemove', counterMousemove);
           on(window, 'mouseup', counterMouseup);
@@ -3787,12 +3794,12 @@
     });
   }
   function checkOptions(cp, options) {
-    var addons = options.addons;
+    var addons = options.addons, dom = cp.dom;
     cp.setTheme(options.theme);
-    if (options.fontFamily !== CodePrinter.defaults.fontFamily) cp.container.style.fontFamily = options.fontFamily;
+    if (options.fontFamily !== CodePrinter.defaults.fontFamily) dom.container.style.fontFamily = options.fontFamily;
     options.lineNumbers ? cp.openCounter() : cp.closeCounter();
-    options.drawIndentGuides || addClass(cp.mainNode, 'cp-without-indentation');
-    options.legacyScrollbars && addClass(cp.wrapper, 'cp-legacy-scrollbars');
+    options.drawIndentGuides || addClass(dom.mainNode, 'cp-without-indentation');
+    options.legacyScrollbars && addClass(dom.wrapper, 'cp-legacy-scrollbars');
     options.tabWidth && cp.setTabWidth(options.tabWidth);
     options.lineWrapping && cp.setLineWrapping(true);
     options.width !== 'auto' && cp.setWidth(options.width);
@@ -3884,7 +3891,7 @@
     return false;
   }
   function desiredHeight(cp, half) {
-    return (cp.body.offsetHeight || cp.options.height || 0) + cp.options.viewportMargin * (half ? 1 : 2);
+    return (cp.dom.body.offsetHeight || cp.options.height || 0) + cp.options.viewportMargin * (half ? 1 : 2);
   }
   function heightOfLines(view) {
     var h = 0;
@@ -3893,8 +3900,8 @@
   }
   function scroll(doc, delta) {
     doc.sizes.scrollTop = Math.max(0, doc.sizes.scrollTop + delta);
-    cp.code.style.top = doc.sizes.scrollTop + 'px';
-    cp.counterOL.style.top = doc.sizes.scrollTop + 'px';
+    doc.dom.code.style.top = doc.sizes.scrollTop + 'px';
+    doc.dom.counterList.style.top = doc.sizes.scrollTop + 'px';
   }
   function scrollTo(doc, st) {
     doc.scrollTop = st;
