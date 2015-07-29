@@ -197,37 +197,6 @@
         async(fn);
       });
     },
-    parse: function(dl, stateBefore) {
-      if (dl != null) {
-        var state = stateBefore, tmp = dl
-        , tw = this.options.tabWidth
-        , parser = this.doc.parser;
-        
-        if (parser.initialState) {
-          if (state === undefined) {
-            var s = searchLineWithState(parser, tmp, tw);
-            state = s.state;
-            tmp = s.line;
-          } else {
-            state = state ? copyState(state) : parser.initialState();
-          }
-        }
-        
-        for (; tmp; tmp = tmp.next()) {
-          var ind = parseIndentation(tmp.text, tw)
-          , stream = new Stream(ind.rest, { indentation: ind.indent });
-          tmp.cache = parse(this, parser, stream, state);
-          
-          if (tmp.node) updateLine(this, tmp, ind, this.tabString, tmp.cache);
-          if (stream.definition) tmp.definition = stream.definition;
-          else if (tmp.definition) tmp.definition = undefined;
-          tmp.state = state;
-          if (tmp == dl) break;
-          state = copyState(state);
-        }
-      }
-      return dl;
-    },
     getStateAt: function(line, column) {
       var dl = 'number' === typeof line ? this.doc.get(line) : line;
       if (dl != null) {
@@ -250,7 +219,7 @@
               return readIteration(parser, stream, state, cache);
             }};
           } else {
-            state = copyState(this.parse(tmp, state).state);
+            state = copyState(parse(this.doc, tmp, state).state);
           }
         }
       }
@@ -313,9 +282,10 @@
         this.container.style.fontSize = (this.options.fontSize = size) + 'px';
         
         if (doc) {
-          doc.updateDefaultHeight().fill();
+          doc.sizes.defaultHeight = getFontHeight(this.options);
+          doc.fill();
           doc.updateView().showSelection();
-          doc.updateScroll();
+          updateScroll(doc);
         }
         this.caret.refresh();
         this.emit('fontSizeChanged', size);
@@ -414,7 +384,7 @@
           tab = tabString(this);
           dl.setText(repeat(tab, indent) + dl.text.replace(/^\s*/g, ''));
           sp = RegExp.lastMatch.length;
-          this.parse(dl);
+          parse(this.doc, dl);
           if (col >= 0) this.caret.position(line, Math.max(0, col + diff * tab.length + sp % tab.length));
           this.emit('changed', { line: line, column: 0, text: repeat(tab, Math.abs(diff)), added: diff > 0 });
         }
@@ -429,7 +399,7 @@
         if (dl) {
           var i = tab == '\t' ? 1 : tab.length;
           dl.text = tab + dl.text;
-          this.parse(dl);
+          parse(this.doc, dl);
           this.caret.line() == line && this.caret.moveX(i);
           this.emit('changed', { line: line, column: 0, text: tab, added: true });
           return i;
@@ -459,7 +429,7 @@
             change = repeat(' ', i);
           }
           if (change) {
-            this.parse(dl);
+            parse(this.doc, dl);
             if (this.caret.line() == line) {
               var col = this.caret.column();
               this.caret.moveX(-Math.min(col, i));
@@ -874,8 +844,8 @@
           this.emit('changed', { line: b, column: 0, text: second.text, added: false });
           second.setText(tmp);
           this.emit('changed', { line: b, column: 0, text: second.text, added: true });
-          this.parse(first);
-          this.parse(second);
+          parse(this.doc, first);
+          parse(this.doc, second);
         }
       }
     },
@@ -1304,14 +1274,14 @@
     }
     node.appendChild(cspan(className, content));
   }
-  function updateLine(cp, dl, ind, tabString, cache) {
+  function updateLine(doc, dl, ind, tabString, cache) {
     if (dl.text.length == 0) {
       var child = maybeSpanUpdate(dl.node, dl.node.firstChild, '', zws);
-      while (child) child = rm(cp.doc, dl.node, child);
+      while (child) child = rm(doc, dl.node, child);
       return;
     }
     var child = updateInnerLine(dl.node, cache, ind, tabString);
-    while (child) child = rm(cp.doc, dl.node, child);
+    while (child) child = rm(doc, dl.node, child);
   }
   function updateInnerLine(node, cache, ind, tabString) {
     var child = updateIndent(node, node.firstChild, ind, tabString)
@@ -1371,22 +1341,53 @@
     if (last && last.style == style && last.to == from) last.to = to;
     else cache[length] = { from: from, to: to, style: style };
   }
-  function parse(cp, parser, stream, state, col) {
+  function parse(doc, dl, stateBefore) {
+    if (dl != null) {
+      var state = stateBefore, tmp = dl
+      , tw = doc.getOption('tabWidth')
+      , parser = doc.parser;
+      
+      if (parser.initialState) {
+        if (state === undefined) {
+          var s = searchLineWithState(parser, tmp, tw);
+          state = s.state;
+          tmp = s.line;
+        } else {
+          state = state ? copyState(state) : parser.initialState();
+        }
+      }
+      
+      for (; tmp; tmp = tmp.next()) {
+        var ind = parseIndentation(tmp.text, tw)
+        , stream = new Stream(ind.rest, { indentation: ind.indent });
+        tmp.cache = parseStream(parser, stream, state);
+        
+        if (tmp.node) updateLine(doc, tmp, ind, doc.getEditor().tabString, tmp.cache);
+        if (stream.definition) tmp.definition = stream.definition;
+        else if (tmp.definition) tmp.definition = undefined;
+        tmp.state = state;
+        if (tmp == dl) break;
+        state = copyState(state);
+      }
+    }
+    return dl;
+  }
+  function parseStream(parser, stream, state, col) {
     var style, v, l = col != null ? col : stream.length, cache = [];
     (state && state.parser || parser).onEntry(stream, state);
     while (stream.pos < l) readIteration(parser, stream, state, cache);
     (state && state.parser || parser).onExit(stream, state);
     return cache;
   }
-  function forwardParsing(cp, dl) {
+  function forwardParsing(doc, dl) {
     var a = dl.state && dl.state.next, b, state;
-    cp.parse(dl);
+    parse(doc, dl);
     b = (state = dl.state) && state.next;
     
     while ((!a && b || a && a !== b) && (dl = dl.next())) {
       if (dl.cache) dl.cache = undefined;
       a = dl.state && dl.state.next;
-      cp.parse(dl, state);
+      parse(doc, dl, state);
       b = (state = dl.state) && state.next;
     }
     return dl;
@@ -1397,13 +1398,14 @@
     
     cp.intervalIterate(function(dl, index) {
       if (index > to) return false;
-      this.parse(dl, state);
+      parse(cp.doc, dl, state);
       state = dl.state;
     });
   }
-  function restoreFromCache(cp, dl) {
-    var ind = parseIndentation(dl.text, cp.options.tabWidth), stream = new Stream(ind.rest, { indentation: ind.indent });
-    updateLine(cp, dl, ind, cp.tabString, dl.cache);
+  function process(doc, dl) {
+    if (!dl.cache) return parse(doc, dl);
+    var ind = parseIndentation(dl.text, doc.getOption('tabWidth')), stream = new Stream(ind.rest, { indentation: ind.indent });
+    updateLine(doc, dl, ind, doc.getEditor().tabString, dl.cache);
   }
   function cspan(style, content) {
     var node = span.cloneNode(false);
@@ -1717,24 +1719,99 @@
     }
   }
   
+  function updateLineHeight(doc, dl) {
+    if (dl) {
+      var height, node = dl.node;
+      if (height = node.offsetHeight) {
+        var diff = height - dl.height;
+        if (diff) {
+          if (dl == doc.view[0] && doc.from() != 0) scrollBy(doc, -diff);
+          if (dl.counter) dl.counter.style.height = height + 'px';
+          for (; dl; dl = dl.parent) dl.height += diff;
+        }
+      }
+    }
+  }
+  function updateHeight(doc) {
+    var minHeight, dom = doc.dom, sizes = doc.sizes;
+    if (dom && sizes.minHeight != (minHeight = doc.height() + sizes.paddingTop * 2)) {
+      dom.screen.style.minHeight = minHeight + 'px';
+      dom.counterContainer.style.minHeight = minHeight + 'px';
+      sizes.minHeight = minHeight;
+    }
+  }
+  function updateScroll(doc) {
+    if (doc.view.length) {
+      var o = doc.view[0].getOffset();
+      doc.dom.code.style.top = doc.dom.counter.style.top = (doc.sizes.scrollTop = o) + 'px';
+    }
+  }
+  function updateCounters(doc, firstNumber, formatter) {
+    var tmp = doc.view.length && doc.view[0].counter, index = doc.from();
+    do tmp.firstChild.nodeValue = formatter(firstNumber + index++); while (tmp = tmp.nextSibling);
+  }
+  function changeEnd(change) {
+    if (!change.text) return change.to;
+    return position(change.from.line + change.text.length - 1, lastV(change.text).length + (change.text.length === 1 ? change.from.column : 0));
+  }
+  function adjustCaretsPos(doc, change) {
+    doc.eachCaret(function(caret) {
+      caret.setSelection(adjustPosForChange(caret.anchor(), change), adjustPosForChange(caret.head(), change));
+    });
+  }
+  function adjustPosForChange(pos, change) {
+    if (!pos) return null;
+    if (comparePos(pos, change.from) < 0) return pos;
+    if (comparePos(pos, change.to) <= 0) return changeEnd(change);
+    var line = pos.line - change.to.line + change.from.line + change.text.length - 1, col = pos.column;
+    if (pos.line === change.to.line) col += changeEnd(change).column - change.to.column;
+    return position(line, col);
+  }
+  function getFontHeight(options) {
+    var pr = pre.cloneNode(false), height;
+    pr.setAttribute('style', 'position:absolute;font:normal normal '+options.fontSize+'px/'+options.lineHeight+' '+options.fontFamily+';');
+    pr.appendChild(document.createTextNode('CP'));
+    document.documentElement.appendChild(pr);
+    height = pr.offsetHeight;
+    document.documentElement.removeChild(pr);
+    return height;
+  }
+  function applySizes(doc) {
+    var dom = doc.dom, sizes = doc.sizes;
+    dom.screen.style.minWidth = sizes.minWidth + 'px';
+    dom.screen.style.minHeight = sizes.minHeight + 'px';
+    dom.counter.style.minHeight = sizes.minHeight + 'px';
+    dom.wrapper.scrollTop = dom.counterContainer.scrollTop = doc.scrollTop | 0;
+    dom.wrapper.scrollLeft = doc.scrollLeft | 0;
+  }
+  
+  Measure = function(dl, sizes) {
+    var inf = dl.info();
+    this.dl = dl;
+    this.line = inf.index;
+    this.lineOffset = inf.offset;
+    this.column = this.offsetY = this.width = this.charWidth = 0;
+    this.offsetX = sizes.paddingLeft;
+    this.height = this.charHeight = sizes.defaultHeight;
+  }
+  
   Document = CodePrinter.Document = function(editor, source, mode) {
-    var that = this, cp, counter, ol
-    , code, from = 0, to = -1, defHeight = 14
-    , caretPos, firstNumber, formatter, lineEnding
-    , maxLine, maxLineLength = 0, maxLineChanged
-    , data, view, selection, sizes = this.sizes = { scrollTop: 0 };
+    var that = this, cp, dom, from = 0, to = -1, caretPos
+    , firstNumber, formatter, lineEnding, maxLine
+    , maxLineLength = 0, maxLineChanged, data, view, selection
+    , sizes = this.sizes = { scrollTop: 0, defaultHeight: 14 };
     
     function link(dl, index, withoutParsing) {
       if (dl.node && dl.counter) {
-        dl.counter.firstChild.nodeValue = formatter(firstNumber + (dl.counter._index = index));
+        dl.counter.firstChild.nodeValue = formatter(firstNumber + index);
         if (index < to) {
           var q = index - from, bef = view[q];
           code.insertBefore(dl.node, bef.node);
           ol.insertBefore(dl.counter, bef.counter);
           view.splice(q, 0, dl);
           var tmp = dl.counter.nextSibling;
-          while (tmp && tmp._index !== index + 1) {
-            tmp.firstChild.nodeValue = formatter(firstNumber + (tmp._index = ++index));
+          while (tmp) {
+            tmp.firstChild.nodeValue = formatter(firstNumber + ++index);
             tmp = tmp.nextSibling;
           }
         } else {
@@ -1742,7 +1819,7 @@
           ol.appendChild(dl.counter);
           index = view.push(dl) + from;
         }
-        dl.cache ? restoreFromCache(cp, dl) : cp.parse(dl);
+        withoutParsing || process(that, dl);
         touch(dl);
         cp.emit('link', dl, index);
       }
@@ -1785,49 +1862,46 @@
     }
     this.attach = function(editor) {
       if (cp) cp.off('changed', changedListener);
+      dom = this.dom = editor.dom;
       cp = editor;
-      counter = cp.counterChild;
-      code = cp.code;
-      ol = cp.counterOL;
       firstNumber = cp.options.firstLineNumber;
       formatter = cp.options.lineNumberFormatter || defaultFormatter;
       lineEnding = cp.options.lineEnding;
       
       if (view.length) {
         for (var i = 0; i < view.length; i++) {
-          code.appendChild(view[i].node);
-          ol.appendChild(view[i].counter);
+          dom.code.appendChild(view[i].node);
+          dom.counter.appendChild(view[i].counter);
         }
         this.scrollTo(this.scrollTop | 0);
-        this.updateScroll();
+        updateScroll(this);
       }
       cp.on('changed', changedListener);
-      this.applySizes();
-      if (caretPos) cp.caret.restorePosition(caretPos);
+      sizes.defaultHeight = getFontHeight(cp.options);
+      applySizes(this);
       this.attached = true;
       this.emit('attached');
       return this;
     }
     this.detach = function() {
-      this.scrollTop = cp.wrapper.scrollTop;
-      this.scrollLeft = cp.wrapper.scrollLeft;
-      caretPos = cp.caret.getPosition();
+      this.scrollTop = dom.wrapper.scrollTop;
+      this.scrollLeft = dom.wrapper.scrollLeft;
       for (var i = 0; i < view.length; i++) {
-        code.removeChild(view[i].node);
-        ol.removeChild(view[i].counter);
+        dom.code.removeChild(view[i].node);
+        dom.counter.removeChild(view[i].counter);
       }
       cp.off('changed', changedListener);
       if (cp.selectionOverlay) cp.selectionOverlay.remove();
-      clearMeasures(cp);
-      cp.input.blur();
-      cp = cp.doc = counter = code = ol = this.attached = null;
+      clearMeasures(dom);
+      cp.dom.input.blur();
+      cp = cp.doc = this.attached = null;
       this.emit('detached');
       return this;
     }
     this.insert = function(at, text) {
       var lines = [];
       if ('string' === typeof text) {
-        lines[0] = new Line(text, defHeight);
+        lines[0] = new Line(text, sizes.defaultHeight);
         if (text.length > maxLineLength) {
           maxLine = lines[0];
           maxLineLength = text.length;
@@ -1835,19 +1909,19 @@
         }
       } else {
         for (var i = 0; i < text.length; i++) {
-          lines[i] = new Line(text[i], defHeight);
+          lines[i] = new Line(text[i], sizes.defaultHeight);
           if (text[i].length > maxLineLength) {
             maxLine = lines[i];
             maxLineLength = text[i].length;
             maxLineChanged = true;
           }
         }
-        data.insert(at, lines, defHeight * lines.length);
       }
+      data.insert(at, lines, sizes.defaultHeight * lines.length);
       if (cp) {
         if (at < from) {
           from += lines.length;
-          this.updateCounters();
+          updateCounters(this, firstNumber, formatter);
         } else if (at <= to + 1) {
           var sh = code.scrollHeight || heightOfLines(view), dh = desiredHeight(cp);
           if (sh >= dh) {
@@ -1856,19 +1930,20 @@
               rmdl = view.pop();
               captureNode(lines[i], rmdl);
               cp.emit('unlink', rmdl, to + m - i);
-              link(lines[i], at + i);
+              link(lines[i], at + i, true);
             }
           } else {
             var i = -1;
             while (++i < lines.length && sh < dh) {
               init(lines[i]); ++to;
               sh += lines[i].height;
-              link(lines[i], at + i);
+              link(lines[i], at + i, true);
             }
           }
         }
         this.updateView();
       }
+      return lines;
     }
     this.remove = function(at, n) {
       if ('number' === typeof n && n > 0 && at >= 0 && at + n <= data.size) {
@@ -1877,7 +1952,6 @@
         if (at + n < from) {
           sd = data.height - h;
           from -= n; to -= n;
-          this.updateCounters();
         } else if (at <= to) {
           var m, e, out, inv, next, prev, k = 0;
           
@@ -1919,36 +1993,72 @@
             }
           }
           from -= out; to = from + view.length - 1;
-          this.updateCounters();
         }
-        if (sd) scroll(cp, this, sd);
+        updateCounters(this, firstNumber, formatter);
+        if (sd) scroll(this, sd);
         
-        var last = rm[rm.length-1];
+        var last = lastV(rm);
         if (last.stateAfter) {
-          cp.parse(data.get(at));
+          parse(this, data.get(at));
         }
-        cp.wrapper.scrollTop = cp.counter.scrollTop;
+        dom.wrapper.scrollTop = dom.counterContainer.scrollTop;
         this.updateView();
         return rm;
       }
     }
-    this.updateCounters = function() {
-      var tmp = view.length && view[0].counter, index = from;
-      while (tmp) {
-        tmp.firstChild.nodeValue = formatter(firstNumber + (tmp._index = index++));
-        tmp = tmp.nextSibling;
+    this.substring = function(from, to) {
+      var parts = [];
+      if (isPos(from) && isPos(to) && comparePos(from, to) <= 0) {
+        var dl = data.get(from.line);
+        if (from.line === to.line) return dl.text.substring(from.column, to.column);
+        parts[0] = dl.text.substr(from.column);
+        var i = from.line;
+        while ((dl = dl.next()) && ++i < to.line) parts[parts.length] = dl.text;
+        if (dl) parts[parts.length] = dl.text.substring(0, to.column);
+      }
+      return parts.join(this.getLineEnding());
+    }
+    this.insertText = this.replaceRange = function(text, from, to) {
+      if (!isPos(to)) to = from;
+      var splitted = 'string' === typeof text ? text.split(eol) : text;
+      if (isArray(splitted) && isPos(from)) {
+        var removed = [], first = data.get(from.line)
+        , delta = to.line - from.line, dl = first, i = 0
+        , after = delta ? data.get(to.line).text.substr(to.column) : first.text.substr(to.column);
+        
+        removed[0] = delta ? first.text.substr(from.column) : first.text.substring(from.column, to.column);
+        first.setText(first.text.substring(0, from.column) + splitted[0]);
+        while (++i < delta && i < splitted.length && (dl = dl.next())) {
+          removed[i] = dl.text;
+          dl.setText(splitted[i]);
+        }
+        if (i < delta || i === delta && i === splitted.length) {
+          var removedLines = this.remove(from.line + i, delta - i + 1);
+          for (var j = 0; j < removedLines.length - 1; j++) removed[removed.length] = removedLines[j].text;
+          removed[removed.length] = removedLines[j].text.substring(0, to.column);
+        } else if (i < splitted.length) {
+          if (delta) {
+            removed[removed.length] = (dl = dl.next()).text.substring(0, to.column);
+            var inserted = this.insert(from.line + i, splitted.slice(i, -1));
+            dl.setText(lastV(splitted));
+          } else {
+            var inserted = this.insert(from.line + i, splitted.slice(i));
+            dl = lastV(inserted) || dl;
+          }
+        }
+        dl.setText(dl.text + after);
+        forwardParsing(this, first);
+        var change = { type: 'replace', text: splitted, removed: removed, from: from, to: to };
+        adjustCaretsPos(this, change);
+        this.history.push(change);
       }
     }
-    this.applySizes = function() {
-      cp.screen.style.minWidth = sizes.minWidth + 'px';
-      cp.screen.style.minHeight = sizes.minHeight + 'px';
-      counter.style.minHeight = sizes.minHeight + 'px';
-      cp.wrapper.scrollTop = cp.counter.scrollTop = this.scrollTop | 0;
-      cp.wrapper.scrollLeft = this.scrollLeft | 0;
+    this.removeRange = function(from, to) {
+      return this.replaceRange('', from, to);
     }
     this.fill = function() {
-      var half, b, dl = (half = view.length === 0) ? data.get(0) : view[view.length-1].next()
-      , sh = code && code.scrollHeight || heightOfLines(view), dh = desiredHeight(cp, half);
+      var half, b, dl = (half = view.length === 0) ? data.get(0) : lastV(view).next()
+      , sh = dom.code && dom.code.scrollHeight || heightOfLines(view), dh = desiredHeight(cp, half);
       while (dl && !(b = sh > dh)) {
         insert(dl); sh += dl.height;
         dl = dl.next();
@@ -1958,7 +2068,7 @@
         while (dl && !(b = sh > dh)) {
           prepend(dl);
           sh += dl.height;
-          scroll(cp, this, -dl.height);
+          scroll(this, -dl.height);
           dl = dl.prev();
         }
       }
@@ -1966,8 +2076,7 @@
     }
     this.print = function() {
       this.fill();
-      this.updateDefaultHeight();
-      this.showSelection().updateView();
+      this.updateView();
       runBackgroundParser(cp, this.parser, true);
       cp.sizes.paddingTop = parseInt(code.style.paddingTop, 10) || 5;
       if (cp.options.autoFocus) cp.input.focus();
@@ -1983,14 +2092,14 @@
       from = dli.index;
       to = from - 1;
       
-      ol.style.display = 'none';
-      code.style.display = 'none';
+      dom.counter.style.display = 'none';
+      dom.code.style.display = 'none';
       
       while (tmp && ++i < view.length) {
         cp.emit('unlink', view[i], oldfrom + i);
         captureNode(tmp, view[i]);
-        tmp.cache ? restoreFromCache(cp, tmp) : cp.parse(tmp);
-        tmp.counter.firstChild.nodeValue = formatter(firstNumber + (tmp.counter._index = to = from + i));
+        process(this, tmp);
+        tmp.counter.firstChild.nodeValue = formatter(firstNumber + (to = from + i));
         view[i] = tmp;
         cp.emit('link', tmp, from + i);
         tmp = tmp.next();
@@ -2001,10 +2110,10 @@
         while (tmp && spliced.length) {
           cp.emit('unlink', spliced[0], oldfrom + i++);
           captureNode(tmp, spliced.shift());
-          tmp.cache ? restoreFromCache(cp, tmp) : cp.parse(tmp);
-          tmp.counter.firstChild.nodeValue = formatter(firstNumber + (tmp.counter._index = --from));
-          code.insertBefore(tmp.node, view[0].node);
-          ol.insertBefore(tmp.counter, view[0].counter);
+          process(this, tmp);
+          tmp.counter.firstChild.nodeValue = formatter(firstNumber + --from);
+          dom.code.insertBefore(tmp.node, view[0].node);
+          dom.counter.insertBefore(tmp.counter, view[0].counter);
           view.unshift(tmp);
           cp.emit('link', tmp, from);
           offset -= tmp.height;
@@ -2082,9 +2191,10 @@
     }
     this.measurePosition = function(x, y) {
       var dl = this.lineWithOffset(y)
-      , ch = maybeExternalMeasure(cp, dl).childNodes
+      , ch = maybeExternalMeasure(this, dl).childNodes
       , child, l, ow, ol, chl = ch.length
-      , i = -1, r = { dl: dl, column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, charWidth: 0, charHeight: defHeight };
+      , i = -1, r = new Measure(dl, sizes);
+      
       y = offsetDiff;
       if (chl === 1 && ch[0].firstChild.nodeValue == zws) return r;
       while (++i < chl) {
@@ -2113,9 +2223,9 @@
       return r;
     }
     this.measureRect = function(dl, offset, to) {
-      var ch = maybeExternalMeasure(cp, dl).childNodes, child
-      , l, ow, ol, chl = ch.length, tmp = 0, i = -1, bool
-      , r = { column: 0, offsetX: cp.sizes.paddingLeft, offsetY: 0, width: 0, height: defHeight, charWidth: 0, charHeight: defHeight };
+      var ch = maybeExternalMeasure(this, dl).childNodes, child
+      , l, ow, ol, chl = ch.length, tmp = 0, i = -1, bool, r = new Measure(dl, sizes);
+      
       if (chl === 1 && ch[0].firstChild.nodeValue == zws) return r;
       while (++i < chl) {
         child = ch[i];
@@ -2157,36 +2267,18 @@
       if (!r.charWidth) r.charWidth = calcCharWidth(dl.node || cp.measure.firstChild);
       return r;
     }
-    this.updateDefaultHeight = function() {
-      var pr = pre.cloneNode(false);
-      pr.setAttribute('style', 'position:absolute;font:normal normal '+cp.options.fontSize+'px/'+cp.options.lineHeight+' '+cp.options.fontFamily+';');
-      pr.appendChild(document.createTextNode('CP'));
-      document.documentElement.appendChild(pr);
-      defHeight = pr.offsetHeight;
-      document.documentElement.removeChild(pr);
-      return this;
-    }
-    this.updateHeight = function() {
-      var minHeight;
-      if (cp && sizes.minHeight != (minHeight = data.height + cp.sizes.paddingTop * 2)) {
-        cp.screen.style.minHeight = minHeight + 'px';
-        counter.style.minHeight = minHeight + 'px';
-        sizes.minHeight = minHeight;
-      }
-      return this;
-    }
     this.updateView = function(det) {
       var i = 0, l = view.length, dl, c;
       if (det > 0 && det < l) l = det;
       if (det < 0 && -det < view.length) i = view.length + det;
       for (; i < l; i++) {
         dl = view[i];
-        if (defHeight != dl.height || cp.options.lineWrapping) {
-          this.updateLineHeight(dl);
+        if (sizes.defaultHeight != dl.height || cp.options.lineWrapping) {
+          updateLineHeight(this, dl);
         } else if (c = dl.cache) {
           for (var j = 0, cl = c.length; j < cl; j++) {
             if (c[j].style.indexOf('font-') >= 0) {
-              this.updateLineHeight(dl);
+              updateLineHeight(this, dl);
             }
           }
         }
@@ -2203,169 +2295,60 @@
           }
         }
         maxLineChanged = false;
-        var minWidth = externalMeasure(cp, maxLine).offsetWidth;
+        var minWidth = externalMeasure(this, maxLine).offsetWidth;
         if (sizes.minWidth != minWidth) {
-          cp.screen.style.minWidth = minWidth + 'px';
+          dom.screen.style.minWidth = minWidth + 'px';
           sizes.minWidth = minWidth;
         }
       }
-      this.updateHeight();
+      updateHeight(this);
       this.emit('viewUpdated');
       return this;
     }
-    this.updateLineHeight = function(dl) {
-      if (dl) {
-        var height, node = dl.node;
-        if (height = node.offsetHeight) {
-          var diff = height - dl.height;
-          if (diff) {
-            if (dl == view[0] && from != 0) scrollBy(cp, -diff);
-            if (dl.counter) dl.counter.style.height = height + 'px';
-            for (; dl; dl = dl.parent) dl.height += diff;
-          }
-        }
-      }
-    }
-    this.updateScroll = function() {
-      if (view.length) {
-        var o = view[0].getOffset();
-        code.style.top = ol.style.top = (sizes.scrollTop = o) + 'px';
-      }
-    }
-    this.getDefaultLineHeight = function() {
-      return defHeight;
-    }
-    this.getSelectionRange = function() {
-      return selection.isset() && { start: selection.start, end: selection.end }
-    }
-    this.setSelectionRange = function(sl, sc, el, ec) {
-      if (arguments.length === 1 && sl instanceof Object) {
-        ec = sl.end.column;
-        el = sl.end.line;
-        sc = sl.start.column;
-        sl = sl.start.line;
-      }
-      if (sl < 0) {
-        sl = sc = 0;   
-      }
-      if (el >= data.size) {
-        el = data.size - 1;
-        ec = data.get(el).text.length;
-      }
-      if (sl != null && sc != null) selection.setStart(sl, sc);
-      if (el != null && ec != null) selection.setEnd(el, ec);
-    }
-    this.issetSelection = function(nonempty) {
-      return selection.isset(nonempty);
-    }
-    this.inSelection = function(line, column) {
-      return selection.isset() && selection.inSelection(line, column);
-    }
-    this.beginSelection = function() {
-      selection.clear();
-      selection.setStart(cp.caret.line(), cp.caret.column());
-    }
-    this.endSelection = function() {
-      selection.setEnd(cp.caret.line(), cp.caret.column());
+    this.somethingSelected = function() {
+      for (var i = 0; i < this.carets.length; i++)
+        if (this.carets[i].hasSelection())
+          return true;
+      return false;
     }
     this.getSelection = function() {
-      var range = this.getSelectionRange();
-      if (range) {
-        if (this.isAllSelected(range)) {
-          return this.getValue();
-        }
-        var s = range.start, e = range.end
-        , dl = data.get(s.line);
-        
-        if (s.line == e.line) {
-          return dl.text.substring(s.column, e.column);
-        } else {
-          var t = [], i = s.line;
-          t.push(dl.text.substr(s.column));
-          while ((dl = dl.next()) && ++i < e.line) {
-            t.push(dl.text);
-          }
-          if (dl) t.push(dl.text.substring(0, e.column));
-          return t.join(this.getLineEnding());
-        }
-      }
-      return '';
+      var carets = this.carets.sort(function(a, b) { return comparePos(a.head(), b.head()); }), parts = [];
+      this.eachCaret(function(caret) {
+        var range = caret.getSelectionRange(), sel = range && this.substring(range.from, range.to);
+        if (sel) parts[parts.length] = sel;
+      });
+      return parts.join('');
     }
-    this.showSelection = function() {
-      if (selection.isset() && cp) {
-        if (!cp.selectionOverlay) cp.selectionOverlay = cp.createOverlay('cp-selection-overlay');
+    this.drawSelection = function(overlay, range) {
+      if (overlay instanceof CodePrinter.Overlay && range) {
+        var from = range.from, to = range.to
+        , firstLine = data.get(from.line)
+        , lastLine = data.get(to.line)
+        , fromOffset = firstLine.getOffset()
+        , toOffset = lastLine.getOffset()
+        , fromMeasure = this.measureRect(firstLine, from.column)
+        , toMeasure = this.measureRect(lastLine, to.column)
+        , pl = sizes.paddingLeft, pt = sizes.paddingTop
+        , equal = from.line === to.line, fh = fromMeasure.offsetY + fromMeasure.height;
         
-        var s = selection.start
-        , e = selection.end
-        , ov = cp.selectionOverlay
-        , dl = data.get(s.line), dloffset = dl.getOffset()
-        , lastdl = data.get(e.line), lastdloffset = lastdl.getOffset()
-        , pos = this.measureRect(dl, s.column)
-        , endPos = this.measureRect(lastdl, e.column)
-        , equal = s.line == e.line, fh = pos.offsetY + pos.height, selnode;
+        if (comparePos(from, to) > 0) return;
         
-        selnode = ov.top = createSelectionNode.call(cp, ov.top || div.cloneNode(false)
-          , dloffset + pos.offsetY, pos.offsetX, equal && pos.offsetY == endPos.offsetY ? 0 : null, pos.height, 0);
-        selnode.parentNode || ov.node.appendChild(selnode);
-        selnode = ov.middle = createSelectionNode.call(cp, ov.middle || div.cloneNode(false)
-          , dloffset + fh, cp.sizes.paddingLeft, null, lastdloffset - dloffset - pos.height + endPos.offsetY, 0);
-        selnode.parentNode || ov.node.appendChild(selnode);
+        overlay.top = prepareSelNode(overlay, overlay.top || div.cloneNode(false)
+          , fromOffset + fromMeasure.offsetY + pt, fromMeasure.offsetX, equal && fromMeasure.offsetY === toMeasure.offsetY ? 0 : null, fromMeasure.height, pl);
         
-        if (equal && pos.offsetY == endPos.offsetY) {
-          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode(false)
-            , dloffset + endPos.offsetY, pos.offsetX, endPos.offsetX - pos.offsetX, pos.height);
+        overlay.middle = prepareSelNode(overlay, overlay.middle || div.cloneNode(false)
+          , fromOffset + fh + pt, pl, null, toOffset - fromOffset - fromMeasure.height + toMeasure.offsetY, pl);
+        
+        if (equal && fromMeasure.offsetY === toMeasure.offsetY) {
+          overlay.bottom = prepareSelNode(overlay, overlay.bottom || div.cloneNode(false)
+            , fromOffset + toMeasure.offsetY + pt, fromMeasure.offsetX, toMeasure.offsetX - fromMeasure.offsetX, fromMeasure.height, null);
         } else {
-          selnode = ov.bottom = createSelectionNode.call(cp, ov.bottom || div.cloneNode(false)
-            , lastdloffset + endPos.offsetY, cp.sizes.paddingLeft, endPos.offsetX - cp.sizes.paddingLeft, endPos.charHeight);
+          overlay.bottom = prepareSelNode(overlay, overlay.bottom || div.cloneNode(false)
+            , toOffset + fromMeasure.offsetY + pt, pl, toMeasure.offsetX - pl, toMeasure.charHeight, null);
         }
-        selnode.parentNode || ov.node.appendChild(selnode);
-        ov.reveal();
-        s.line == e.line && s.column == e.column ? cp.select(dl) : cp.unselect();
+        overlay.reveal();
       }
-      return this;
     }
-    this.removeSelection = function() {
-      var range = this.getSelectionRange();
-      if (range) {
-        var s = range.start
-        , e = range.end
-        , delta = e.line - s.line
-        , dl = data.get(s.line)
-        , next = dl.next()
-        , t = [], x, y = '';
-        x = dl.text;
-        
-        if (delta && next) {
-          t.push(x.substr(s.column));
-          
-          if (delta > 1) {
-            var r = this.remove(s.line + 1, delta - 1);
-            for (var i = 0; i < r.length; i++) {
-              t.push(r[i].text);
-            }
-            next = dl.next();
-          }
-          if (next) {
-            y = next.text;
-            t.push(y.substring(0, e.column));
-            this.remove(s.line + 1, 1);
-          }
-        } else {
-          t.push(x.slice(s.column, e.column));
-          y = x;
-        }
-        this.dispatch(dl, x.substring(0, s.column) + y.substr(e.column));
-        cp.caret.position(s.line, s.column);
-        cp.emit('changed', { line: cp.caret.line(), column: cp.caret.column(true), text: t.join('\n'), added: false });
-        this.clearSelection();
-      }
-      return this;
-    }
-    
-    this.moveSelection = function(start, end) { selection.move(start, end); }
-    this.moveSelectionStart = function(mv) { selection.move(mv, null); }
-    this.moveSelectionEnd = function(mv) { selection.move(null, mv); }
-    
     this.wrapSelection = function(before, after) {
       var r = this.getSelectionRange(), sl;
       if (r) {
@@ -2373,30 +2356,16 @@
         after && cp.put(after, r.end.line, r.end.column);
         before && cp.put(before, r.start.line, r.start.column) && selection.move(before.length, r.start.line == r.end.line ? before.length : 0);
         this.showSelection();
-        sl && forwardParsing(cp, sl);
+        sl && forwardParsing(this, sl);
       }
     }
-    this.clearSelection = function() {
-      selection.clear();
-      cp.selectionOverlay && cp.selectionOverlay.remove();
-      cp.select(cp.caret.dl());
-    }
-    this._onUndo = function(a) {
-      cp.caret.position(a.line, a.column);
-      a.added ? cp.removeAfterCursor(a.text) : cp.insertText(a.text);
-    }
-    this._onRedo = function(a) {
-      cp.caret.position(a.line, a.column);
-      a.added ? cp.insertText(a.text) : cp.removeAfterCursor(a.text);
-    }
-    this.each = function() { return data.foreach.apply(data, arguments); }
+    this.each = function(func) { data.foreach(func); }
     this.get = function(i) { return data.get(i); }
     this.getEditor = function() { return cp; }
+    this.getOptions = function() { return cp.options; }
     this.getOption = function(key) { return cp && cp.options[key]; }
-    this.dispatch = function(dl, text) { dl.setText(text); return cp && cp.parse(dl); }
     this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
     this.getLineEnding = function() { return lineendings[lineEnding] || lineEnding || lineendings['LF']; }
-    this.getCursorPosition = function() { return cp ? cp.caret.getPosition() : caretPos; }
     this.from = function() { return from; }
     this.to = function() { return to; }
     this.size = function() { return data.size; }
@@ -2404,17 +2373,92 @@
     
     EventEmitter.call(this);
     this.view = view = [];
+    this.carets = [new Caret(this)];
     this.scrollTop = 0;
     this.parser = modes.plaintext;
     this.history = new History(this, editor.options.historyStackSize, editor.options.historyDelay);
-    selection = new Selection(this);
     
     return this.init(source, mode);
   }
   
+  function activateCarets() { Flags.caretsAreActive = true; }
+  function deactivateCarets() { Flags.caretsAreActive = false; }
+  function startBlinking(doc, options) {
+    clearInterval(doc.caretsBlinkingInterval);
+    if (options.blinkCaret) {
+      var v = true;
+      if (options.caretBlinkRate > 0) {
+        doc.eachCaret(function(caret) { caret.node.style.opacity = '1'; });
+        doc.caretsBlinkingInterval = setInterval(function() {
+          var tick = !Flags.caretsAreActive || (v = !v) ? '1' : '0';
+          doc.eachCaret(function(caret) { caret.node.style.opacity = tick; });
+        }, options.caretBlinkRate);
+      } else if (options.caretBlinkRate < 0)
+        doc.eachCaret(function(caret) { caret.node.style.opacity = '0'; });
+    }
+  }
+  function mergeCarets(first, second) {
+    var h1 = first.head(), h2 = second.head()
+    , a1 = first.anchor(), a2 = second.anchor()
+    , pos = [h1, h2];
+    if (a1) pos.push(a1);
+    if (a2) pos.push(a2);
+    pos = pos.sort(comparePos);
+    if (comparePos(h1, h2) < 0) first.setSelection(pos[0], lastV(pos));
+    else first.setSelection(lastV(pos), pos[0]);
+  }
+  
   Document.prototype = {
-    undo: function() { this.history.undo(); },
-    redo: function() { this.history.redo(); },
+    undo: function() { return this.history.operation(this, 'undo', this.history.back()); },
+    redo: function() { return this.history.operation(this, 'redo', this.history.forward()); },
+    undoAll: function() { while (this.undo()); },
+    redoAll: function() { while (this.redo()); },
+    focus: function() {
+      if (!this.isFocused) {
+        this.isFocused = true;
+        activateCarets();
+        startBlinking(this, this.getOptions());
+        this.eachCaret(function(caret) {
+          this.dom.caretsContainer.appendChild(caret.node);
+          caret.focus();
+        });
+        this.emit('focus');
+      }
+    },
+    blur: function() {
+      if (this.isFocused) {
+        clearInterval(this.caretsBlinkingInterval);
+        this.isFocused = false;
+        this.eachCaret(function(caret) {
+          caret.blur();
+          this.dom.caretsContainer.removeChild(caret.node);
+        });
+        this.emit('blur');
+      }
+    },
+    createCaret: function() {
+      var caret = new Caret(this);
+      this.carets.push(caret);
+      if (this.isFocused) {
+        this.dom.caretsContainer.appendChild(caret.node);
+      }
+      return caret;
+    },
+    resetCarets: function() {
+      this.eachCaret(function(caret) {
+        caret.clearSelection();
+        caret.blur();
+        this.dom.caretsContainer.removeChild(caret.node);
+      }, 1);
+      this.carets.length = 1;
+      return this.carets[0];
+    },
+    eachCaret: function(func, startIndex) {
+      var carets = this.carets;
+      for (var i = startIndex | 0; i < carets.length; i++) {
+        func.call(this, carets[i]);
+      }
+    },
     setMode: function(mode) {
       var doc = this;
       mode = CodePrinter.aliases[mode] || mode || 'plaintext';
@@ -2446,7 +2490,6 @@
     },
     end: function() {
       var cp = this.getEditor();
-      this.updateHeight();
       cp && runBackgroundParser(cp, this.parser, true);
     },
     appendLine: function(text) {
@@ -2454,6 +2497,24 @@
       (size == 1 && (dl = this.doc.get(0)).text.length == 0) ? dl.setText(text) : this.doc.insert(size, text);
       if (!this.doc.isFilled) this.doc.isFilled = this.doc.fill();
       return this;
+    },
+    call: function(command) {
+      var args = new Array(arguments.length - 1);
+      for (var i = 0; i < args.length; i++) args[i] = arguments[i+1];
+      this.eachCaret(function(caret) {
+        var func = caret[command];
+        if ('function' === typeof func) func.apply(caret, args);
+      });
+    },
+    exec: function(command) {
+      var cmd = commands[command], args = new Array(arguments.length);
+      if ('function' === typeof cmd) {
+        for (var i = 1; i < args.length; i++) args[i] = arguments[i+1];
+        this.eachCaret(function(caret) {
+          args[0] = caret;
+          cmd.apply(this, args);
+        });
+      }
     },
     selectAll: function() {
       var size = this.size(), last = this.get(size - 1);
@@ -2974,7 +3035,7 @@
         
         for (var i = 0; i < lines.length; i++) {
           var ind = parseIndentation(lines[i], tabWidth), stream = new Stream(ind.rest, { indentation: ind.indent })
-          , cache = parse(null, this, stream, state);
+          , cache = parseStream(this, stream, state);
           node.innerHTML = '';
           updateInnerLine(node, cache, ind, tabString);
           lines[i] = '<pre>'+(node.innerHTML || zws)+'</pre>';
@@ -3165,157 +3226,76 @@
   keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
   keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
   
-  History = function(doc, stackSize, delay) {
-    var states, initialState, index, timeout, muted, performed;
-    
-    this.undo = function() {
-      if (0 <= index && index <= states.length && states.length) {
-        var state;
-        muted = true;
-        if (timeout == null) {
-          state = states[--index];
-        } else {
-          timeout = clearTimeout(timeout);
-          state = states[index];
-        }
-        doc.clearSelection();
-        if (state) {
-          for (var i = state.length - 1; i >= 0; i--) {
-            var a = state[i];
-            doc._onUndo(a);
-          }
-          this.emit('undo', state);
-          muted = false;
-          performed = true;
-        }
+  var historyActions = {
+    'replace': {
+      undo: function(state) {
+        this.replaceRange(state.removed, state.from, changeEnd(state));
+      },
+      redo: function(state) {
+        this.replaceRange(state.text, state.from, state.to);
       }
     }
-    this.redo = function() {
-      if (index < 0) index = 0;
-      if (index < states.length) {
-        timeout = clearTimeout(timeout);
-        muted = true;
-        var state = states[index];
-        doc.clearSelection();
-        if (state) {
-          for (var i = 0; i < state.length; i++) {
-            var a = state[i];
-            doc._onRedo(a);
-          }
-          this.emit('redo', state);
-          ++index;
-          muted = false;
-          performed = true;
-        }
-      }
-    }
-    this.pushChanges = function(line, column, text, added) {
-      if (!muted && arguments.length == 4) {
-        if (performed && index < states.length) {
-          states.splice(index, states.length - index);
-        }
-        performed = false;
-        if (!states[index]) {
-          states[index] = [{ line: line, column: column, text: text, added: added }];
-        } else {
-          var last = states[index], b = false;
-          last = last[last.length-1];
-          if (last.line == line && added == last.added) {
-            if (b = (last.column + (added ? last.text.length : '') == column)) {
-              last.text += text;
-            } else if (b = (column + text.length == last.column)) {
-              last.text = text + last.text;
-              last.column = column;
-            }
-          }
-          !b && states[index].push({ line: line, column: column, text: text, added: added });
-        }
-        timeout = clearTimeout(timeout) || setTimeout(this.save, delay);
-      }
-      return this;
-    }
-    this.save = function() {
-      timeout = null;
-      ++index;
-      while (states.length >= stackSize) {
-        shift();
-      }
-    }
-    this.clear = function() {
-      states = [];
-      initialState = [];
-      index = 0;
-      timeout = null;
-      muted = performed = false;
-    }
-    this.getStates = function(stringify) {
-      var str  = JSON.stringify(states);
-      return stringify ? str : JSON.parse(str);
-    }
-    this.setStates = function(newStates) {
-      if (newStates && newStates.length > 0) {
-        states = newStates;
-        index = states.length;
-      }
-    }
-    function shift() {
-      var state = states.shift();
-      if (state) {
-        initialState.push.apply(initialState, state);
-        --index;
-      }
-    }
-    EventEmitter.call(this);
-    this.clear();
   }
   
-  Selection = function(doc) {
-    var coords = [], make = function() {
-      if (coords.length == 2 && (coords[1][0] < coords[0][0] || coords[0][0] === coords[1][0] && coords[1][1] < coords[0][1])) {
-        this.start = { line: coords[1][0], column: coords[1][1] }
-        this.end = { line: coords[0][0], column: coords[0][1] }
-      } else {
-        this.start = { line: coords[0][0], column: coords[0][1] }
-        this.end = { line: coords[1][0], column: coords[1][1] }
+  function checkHistorySupport(stack) {
+    for (var i = 0; i < stack.length; i++) {
+      var change = stack[i];
+      if (!change.type) {
+        throw new Error('Some of the changes in the history are incorrect');
       }
-      doc.showSelection();
-      this.emit('done', this.start, this.end);
-    }
-    EventEmitter.call(this);
-    
-    this.clear = function() {
-      coords = [];
-      return this;
-    }
-    this.setStart = function(line, column) {
-      coords[0] = [line, column];
-      this.emit('started', { line: line, column: column });
-    }
-    this.setEnd = function(line, column) {
-      if (coords[0]) {
-        coords[1] = [line, column];
-        make.call(this);
+      if (!historyActions[change.type]) {
+        throw new Error('Some of the changes in the history contain unsupported actions (like ' + change.type + ' ).');
       }
     }
-    this.isset = function(nonempty) {
-      return coords && coords.length == 2 && (!nonempty || coords[0][0] != coords[1][0] || coords[0][1] != coords[1][1]);
-    }
-    this.coords = function() {
-      return [[this.start.line, this.start.column], [this.end.line, this.end.column]];
-    }
-    return this;
   }
-  Selection.prototype = {
-    inSelection: function(line, column) {
-      var c = this.coords();
-      return line == Math.max(c[0][0], Math.min(line, c[1][0]))
-      && (line != c[0][0] || column >= c[0][1])
-      && (line != c[1][0] || column <= c[1][1]);
+  
+  History = function(doc, stackSize, delay) {
+    this.lock = false;
+    this.done = [];
+    this.undone = [];
+  }
+  
+  History.prototype = {
+    push: function(state) {
+      if (!this.lock && state && historyActions[state.type]) {
+        if (this.undone.length) this.undone.length = 0;
+        this.done.push(state);
+      }
     },
-    move: function(start, end) {
-      if (start != null) this.start.column += start;
-      if (end != null) this.end.column += end;
-      this.emit('done', this.start, this.end);
+    back: function() {
+      if (!this.lock && this.done.length) {
+        var pop = this.done.pop();
+        this.undone.push(pop);
+        return pop;
+      }
+    },
+    forward: function() {
+      if (!this.lock && this.undone.length) {
+        var pop = this.undone.pop();
+        this.done.push(pop);
+        return pop;
+      }
+    },
+    operation: function(doc, op, state) {
+      if (state && historyActions[state.type]) {
+        this.lock = true;
+        historyActions[state.type][op].call(doc, state);
+        return !(this.lock = false);
+      }
+    },
+    getChanges: function(stringify) {
+      var str = JSON.stringify({ done: this.done, undone: this.undone });
+      return stringify ? str : JSON.parse(str);
+    },
+    setChanges: function(data) {
+      if (data && data.done && data.undone) {
+        try {
+          checkHistorySupport(data.done);
+          checkHistorySupport(data.undone);
+        } catch (e) { throw e; }
+        this.done = data.done;
+        this.undone = data.undone;
+      }
     }
   }
   
@@ -3410,12 +3390,26 @@
     }
     return false;
   }
+  CodePrinter.registerCommand = function(name, func) {
+    if (commands[name]) throw new Error('CodePrinter: Command called "' + name + '" is already defined!');
+    commands[name] = func;
+  }
+  CodePrinter.unregisterCommand = function(name) {
+    if (commands[name]) commands[name] = undefined;
+  }
+  CodePrinter.registerHistoryAction = function(action, face) {
+    if (action && face && 'function' === typeof face.undo && 'function' === typeof face.redo) {
+      historyActions[action] = face;
+    }
+  }
+  CodePrinter.getFlag = function(key) {
+    return Flags[key];
+  }
   
   on(window, 'resize', function() {
     for (var i = 0; i < instances.length; i++) {
       var cp = instances[i];
       cp.doc && cp.doc.updateView();
-      cp.caret.refresh();
     }
   });
   CodePrinter.defineMode('plaintext', new CodePrinter.Mode());
@@ -3442,7 +3436,7 @@
     var wrapper = cp.wrapper
     , input = cp.input
     , options = cp.options
-    , sizes = cp.sizes
+    , sizes = cp.doc.sizes
     , counterSelection = []
     , allowKeyup, activeLine
     , isMouseDown, isScrolling
@@ -3501,7 +3495,7 @@
           });
         } else {
           input.value = '';
-          cp.caret.deactivate();
+          deactivateCarets();
           if (y > ry) cp.caret.position(l, -1);
           else if (y < 0) cp.caret.position(l, 0);
           
@@ -3611,16 +3605,16 @@
     on(wrapper, 'selectstart', function(e) { return eventCancel(e); });
     
     on(input, 'focus', function() {
-      cp.caret.focus();
-      removeClass(cp.mainNode, 'inactive');
+      cp.doc.focus();
+      removeClass(cp.dom.mainNode, 'inactive');
       cp.emit('focus');
     });
     on(input, 'blur', function() {
       if (isMouseDown) {
         this.focus();
       } else {
-        cp.caret.blur();
-        addClass(cp.mainNode, 'inactive');
+        cp.doc.blur();
+        addClass(cp.dom.mainNode, 'inactive');
         if (options.abortSelectionOnBlur) cp.doc.clearSelection();
         if (cp.highlightOverlay) cp.highlightOverlay.remove();
         cp.emit('blur');
@@ -3628,11 +3622,9 @@
     });
     on(input, 'keydown', function(e) {
       var code = e.keyCode, seq = keySequence(e);
-      
-      cp.caret.deactivate();
       allowKeyup = true;
       
-      if (seq == (macosx ? 'Cmd' : 'Ctrl')) {
+      if (seq === (macosx ? 'Cmd' : 'Ctrl')) {
         this.value = cp.doc.getSelection();
         this.setSelectionRange(0, this.value.length);
         allowKeyup = false;
@@ -3698,25 +3690,7 @@
       }
     });
     
-    cp.select = function(dl) {
-      this.unselect();
-      if (options.highlightCurrentLine && !moveselection && !cp.doc.issetSelection(true) && this.caret.isVisible && dl && dl.node && dl.counter) {
-        addClass(dl.node, activeClassName);
-        addClass(dl.counter, activeClassName);
-        dl.active = true;
-        activeLine = dl;
-      }
-    }
-    cp.unselect = function() {
-      if (activeLine && activeLine.node) {
-        removeClass(activeLine.node, activeClassName);
-        removeClass(activeLine.counter, activeClassName);
-        activeLine.active = undefined;
-      }
-      activeLine = null;
-    }
-    
-    cp.caret.on({
+    /*cp.caret.on({
       positionChanged: function(dl, line, column, x, y) {
         if (options.autoScroll) {
           var pl = sizes.paddingLeft, pt = sizes.paddingTop
@@ -3768,7 +3742,7 @@
         }
         cp.emit('caretMoved', line, column);
       }
-    });
+    });*/
     
     function counterMousemove(e) {
       var min, max, range
@@ -3844,12 +3818,13 @@
     parent.appendChild(d);
     return d;
   }
-  function createSelectionNode(node, top, left, width, height, right) {
-    var style = 'top:'+(top+this.sizes.paddingTop)+'px;left:'+left+'px;height:'+height+'px;';
+  function prepareSelNode(overlay, node, top, left, width, height, right) {
+    var style = 'top:'+top+'px;left:'+left+'px;height:'+height+'px;';
     addClass(node, 'cp-selection');
-    if (width != null) style += 'width:'+width+'px;';
-    if (right != null) style += 'right:'+(right+this.sizes.paddingLeft)+'px;';
+    if ('number' === typeof width) style += 'width:'+width+'px;';
+    if ('number' === typeof right) style += 'right:'+right+'px;';
     node.setAttribute('style', style);
+    node.parentNode || overlay.node.appendChild(node);
     return node;
   }
   function getMatchingObject(m) {
@@ -3859,6 +3834,25 @@
   function valueOf(source) {
     if (source && source.nodeType) return source.value || '';
     return 'string' == typeof source ? source : '';
+  }
+  function range(from, to) {
+    return { from: from, to: to };
+  }
+  function position(line, column) {
+    return { line: line, column: column };
+  }
+  function isPos(pos) {
+    return pos && 'number' == typeof pos.line && 'number' == typeof pos.column;
+  }
+  function comparePos(a, b) {
+    return Math.min(Math.max(-1, a.line - b.line || a.column - b.column), 1);
+  }
+  function getRangeOf(a, b) {
+    return a ? comparePos(a, b) < 0 ? range(a, b) : range(b, a) : range(b, b);
+  }
+  function updateFlags(event) {
+    Flags.ctrl = event.ctrlKey; Flags.shift = event.shiftKey;
+    Flags.meta = event.metaKey; Flags.alt = event.altKey;
   }
   function cpx(style) {
     return style.replace(/\S+/g, 'cpx-$&');
@@ -3897,31 +3891,23 @@
     for (var i = 0; i < view.length; i++) h += view[i].height;
     return h;
   }
-  function scroll(cp, doc, delta) {
+  function scroll(doc, delta) {
     doc.sizes.scrollTop = Math.max(0, doc.sizes.scrollTop + delta);
     cp.code.style.top = doc.sizes.scrollTop + 'px';
     cp.counterOL.style.top = doc.sizes.scrollTop + 'px';
   }
-  function scrollTo(cp, st) {
-    cp.doc.scrollTop = st;
-    cp.counter.scrollTop = st;
-    cp.wrapper.scrollTop = st;
+  function scrollTo(doc, st) {
+    doc.scrollTop = st;
+    doc.dom.counter.scrollTop = st;
+    doc.dom.wrapper.scrollTop = st;
   }
-  function scrollBy(cp, delta) {
-    cp.doc.scrollTop += delta;
-    cp.counter.scrollTop += delta;
-    cp.wrapper.scrollTop += delta;
+  function scrollBy(doc, delta) {
+    doc.scrollTop += delta;
+    doc.dom.counter.scrollTop += delta;
+    doc.dom.wrapper.scrollTop += delta;
   }
   function defaultFormatter(i) { return i; }
-  function getLineClasses(line) {
-    var isact = line.node && hasClass(line.node, activeClassName);
-    if (isact) {
-      var cls = activeClassName;
-      if (line.classes && line.classes.length) cls += ' '+line.classes.join(' ');
-      return cls;
-    }
-    return line.classes ? line.classes.join(' ') : '';
-  }
+  function getLineClasses(line) { return line.classes ? line.classes.join(' ') : ''; }
   function init(dl, node, counter) {
     dl.node = pre.cloneNode(false);
     dl.counter = li.cloneNode(false);
@@ -3953,17 +3939,17 @@
     dl.counter = undefined;
     return counter;
   }
-  function maybeExternalMeasure(cp, dl) {
-    return dl.node || externalMeasure(cp, dl);
+  function maybeExternalMeasure(doc, dl) {
+    return dl.node || externalMeasure(doc, dl);
   }
-  function externalMeasure(cp, dl) {
-    var o = dl.node, n = dl.node = cp.measure.firstChild;
-    cp.parse(dl); dl.node = o;
+  function externalMeasure(doc, dl) {
+    var o = dl.node, n = dl.node = doc.dom.measure.firstChild;
+    parse(doc, dl); dl.node = o;
     return n;
   }
-  function clearMeasures(cp) {
-    cp.screen.style.minWidth = '';
-    cp.measure.firstChild.innerHTML = '';
+  function clearMeasures(dom) {
+    dom.screen.style.minWidth = '';
+    dom.measure.firstChild.innerHTML = '';
   }
   function calcCharWidth(node) {
     var s = cspan(null, 'A'), cw;
