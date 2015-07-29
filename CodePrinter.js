@@ -3015,13 +3015,8 @@
     onEntry: function() {},
     onExit: function() {},
     iterator: function(stream, state) {
-      var ch = stream.next();
-      if (/\s/.test(ch)) {
-        stream.take(/^\s+/);
-        return;
-      }
-      stream.take(/^\S+/);
-      return 'word';
+      stream.skip();
+      return '';
     },
     compile: function(string, tabWidth) {
       if ('string' == typeof string) {
