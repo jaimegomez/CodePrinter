@@ -34,7 +34,8 @@
   , presto = /Opera\//.test(navigator.userAgent)
   , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : presto ? -0.05 : -1
   , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
-  , modes = {}, addons = {}, instances = [], keyCodes, async, asyncQueue = [];
+  , modes = {}, addons = {}, instances = [], keyCodes, async, asyncQueue = []
+  , Flags = { ctrl: 0, shift: 0, meta: 0, alt: 0, caretsAreActive: false, mouseDown: false };
   
   CodePrinter = function(source, options) {
     if (arguments.length === 1 && source == '[object Object]') {
@@ -47,8 +48,8 @@
     
     this.keyMap = new keyMap;
     checkOptions(this, options);
-    attachEvents(this);
     this.setDocument(new Document(this, valueOf(source), options.mode));
+    attachEvents(this);
     
     if (source && source.parentNode) {
       source.parentNode.insertBefore(this.dom.mainNode, source);
@@ -116,7 +117,8 @@
   EventEmitter = function() {
     var events = {};
     this.emit = function(event) {
-      var args = arguments.length > 1 ? Array.prototype.slice.call(arguments, 1) : null, ev;
+      var args = new Array(arguments.length - 1), ev;
+      for (var i = 0; i < args.length; i++) args[i] = arguments[i+1];
       if (ev = events[event]) for (var i = ev.length; i-- && ev[i];) ev[i].apply(this, args);
       if (this.broadcast) this.broadcast.call(this, arguments);
       return this;
@@ -210,7 +212,7 @@
           
           if (tmp == dl) {
             var pos = Math.max(0, Math.min(column - ind.length, ind.rest.length))
-            , cache = parse(this, parser, stream, state, pos)
+            , cache = parseStream(parser, stream, state, pos)
             , oldpos = stream.pos, lastCache = lastV(cache);
             if (stream.eol()) tmp.state = state;
             stream.pos = pos;
@@ -1384,8 +1386,8 @@
     parse(doc, dl);
     b = (state = dl.state) && state.next;
     
-    while ((!a && b || a && a !== b) && (dl = dl.next())) {
-      if (dl.cache) dl.cache = undefined;
+    while ((dl = dl.next()) && (!a && b || a && a !== b || dl.cache === null)) {
+      dl.cache = undefined;
       a = dl.state && dl.state.next;
       parse(doc, dl, state);
       b = (state = dl.state) && state.next;
@@ -1591,9 +1593,9 @@
     },
     getOffset: function() {
       if (this.parent) {
-        var of = 0, i = this.parent.indexOf(this);
-        while (--i >= 0) of += this.parent[i].height;
-        return of + this.parent.getOffset();
+        var off = 0, i = this.parent.indexOf(this);
+        while (--i >= 0) off += this.parent[i].height;
+        return off + this.parent.getOffset();
       }
       return 0;
     },
@@ -2127,7 +2129,7 @@
       this.updateView();
     }
     this.scrollTo = function(st) {
-      cp.wrapper._lockedScrolling = true;
+      this._lockedScrolling = true;
       
       var x = st - sizes.scrollTop
       , limit = cp.options.viewportMargin
@@ -2156,7 +2158,6 @@
             while (view.length && (h = view[0].height) <= d && (dl = lastV(view).next())) {
               var first = view.shift();
               captureNode(dl, first);
-              if (dl.active) cp.select(dl);
               cp.emit('unlink', first, from);
               link(dl, to + 1);
               ++from; ++to;
@@ -2166,7 +2167,6 @@
             while (view.length && (h = lastV(view).height) <= -d && (dl = view[0].prev())) {
               var last = view.pop();
               captureNode(dl, last);
-              if (dl.active) cp.select(dl);
               cp.emit('unlink', last, to);
               --to; link(dl, --from);
               d += dl.height;
@@ -3563,7 +3563,7 @@
     }
     
     on(wrapper, 'scroll', function(e) {
-      if (!this._lockedScrolling) {
+      if (!cp.doc._lockedScrolling) {
         var st = this.scrollTop;
         cp.dom.counterContainer.scrollTop = st;
         if (cp.doc && cp.doc.scrollTop != st) cp.doc.scrollTo(st);
@@ -3578,7 +3578,7 @@
           cp.emit('scrollend');
         }, 200);
       }
-      this._lockedScrolling = false;
+      cp.doc._lockedScrolling = false;
     });
     on(wrapper, 'dblclick', function() {
       var bf = cp.caret.textBefore()
@@ -3625,6 +3625,7 @@
       }
     });
     on(input, 'keydown', function(e) {
+      updateFlags(e);
       var code = e.keyCode, seq = keySequence(e);
       allowKeyup = true;
       
@@ -3643,8 +3644,9 @@
       cp.emit('['+seq+']', e); cp.emit('keydown', seq, e);
       if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
       if ((allowKeyup = !e.defaultPrevented) && seq.length > 1 && cp.keyMap[seq]) {
-        allowKeyup = cp.keyMap[seq].call(cp, seq, code);
+        allowKeyup = cp.keyMap[seq].call(cp, seq, code, e);
       }
+      deactivateCarets();
       if (!allowKeyup) return eventCancel(e, 1);
     });
     on(input, 'keypress', function(e) {
@@ -3678,10 +3680,11 @@
       }
     });
     on(input, 'keyup', function(e) {
+      updateFlags(e);
       if (options.readOnly) return;
-      if (cp.caret.isVisible) cp.caret.activate();
+      activateCarets();
       if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
-        this.value.length && cp.insertText(this.value);
+        if (this.value.length) cp.doc.call('insert', this.value);
         T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.doc.parser); }, options.keyupInactivityTimeout);
       }
       this.value = '';
@@ -3689,7 +3692,7 @@
     });
     on(input, 'input', function(e) {
       if (!options.readOnly && this.value.length) {
-        cp.insertText(this.value, 0, options.autoIndent && cp.doc.parser.name != 'plaintext');
+        cp.doc.call('insert', this.value, 0, options.autoIndent && cp.doc.parser.name !== 'plaintext');
         this.value = '';
       }
     });
@@ -3873,7 +3876,7 @@
   function wheel(doc, node, e, speed, x, y) {
     if (webkit && macosx) wheelTarget(doc, e.target);
     if (y) doc.scrollTo(node.scrollTop + speed * y);
-    if (x) { node._lockedScrolling = true; node.scrollLeft += speed * x; }
+    if (x) { doc._lockedScrolling = true; node.scrollLeft += speed * x; }
     return eventCancel(e);
   }
   function wheelTarget(doc, wt) {
