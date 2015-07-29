@@ -1672,22 +1672,19 @@
       this.text = str;
       this.cache = null;
     },
-    addClass: function() {
-      if (!this.classes) this.classes = Array.apply(null, arguments);
-      else
-        for (var i = 0; i < arguments.length; i++)
-          if (this.classes.indexOf(arguments[i]) == -1)
-            this.classes.push(arguments[i]);
+    addClass: function(className) {
+      if (!this.classes) this.classes = [className];
+      else if (this.classes.indexOf(className) == -1)
+        this.classes.push(className);
       touch(this);
     },
-    removeClass: function() {
+    removeClass: function(className) {
       if (this.classes) {
-        for (var i = arguments.length - 1, j; i >= 0; i--)
-          if ((j = this.classes.indexOf(arguments[i])) >= 0)
-            this.classes.splice(j, 1);
+        var j = this.classes.indexOf(className);
+        if (j >= 0) this.classes.splice(j, 1);
         if (this.classes.length == 0) this.classes = undefined;
+        touch(this);
       }
-      touch(this);
     },
     next: function() {
       if (this.parent) {
