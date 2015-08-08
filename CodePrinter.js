@@ -1750,6 +1750,7 @@
     do tmp.firstChild.nodeValue = formatter(firstNumber + index++); while (tmp = tmp.nextSibling);
   }
   function changeEnd(change) {
+    if (change.end) return change.end;
     if (!change.text) return change.to;
     return position(change.from.line + change.text.length - 1, lastV(change.text).length + (change.text.length === 1 ? change.from.column : 0));
   }
@@ -1765,6 +1766,22 @@
     var line = pos.line - change.to.line + change.from.line + change.text.length - 1, col = pos.column;
     if (pos.line === change.to.line) col += changeEnd(change).column - change.to.column;
     return position(line, col);
+  }
+  function singleInsert(doc, line, lineIndex, insert, at) {
+    var text = line.text, change = { text: [insert] };
+    line.setText(text.substring(0, at) + insert + text.substr(at));
+    line.node && parse(doc, line);
+    change.from = change.to = position(lineIndex, at);
+    change.end = position(lineIndex, at + insert.length);
+    adjustCaretsPos(doc, change);
+  }
+  function singleRemove(doc, line, lineIndex, from, to) {
+    var text = line.text, change = { from: position(lineIndex, from), to: position(lineIndex, to) };
+    line.setText(text.substring(0, from) + text.substr(to));
+    line.node && parse(doc, line);
+    change.text = [text.substring(from, to)];
+    change.end = change.from;
+    adjustCaretsPos(doc, change);
   }
   function getFontHeight(options) {
     var pr = pre.cloneNode(false), height;
@@ -2362,6 +2379,7 @@
     this.getEditor = function() { return cp; }
     this.getOptions = function() { return cp.options; }
     this.getOption = function(key) { return cp && cp.options[key]; }
+    this.getTabString = function() { return cp.options.indentByTabs ? '\t' : repeat(' ', cp.options.tabWidth); }
     this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
     this.getLineEnding = function() { return lineendings[lineEnding] || lineEnding || lineendings['LF']; }
     this.from = function() { return from; }
@@ -2512,14 +2530,7 @@
           cmd.apply(this, args);
         });
       }
-    },
-    selectAll: function() {
-      var size = this.size(), last = this.get(size - 1);
-      this.setSelectionRange(0, 0, size - 1, last.text.length);
-    },
-    isAllSelected: function(s) {
-      var r = s || this.getSelectionRange(), size = this.size(), last = this.get(size - 1);
-      return r && r.start.line === 0 && r.start.column === 0 && r.end.line === size - 1 && r.end.column === last.text.length;
+      return this;
     },
     isEmpty: function() {
       return this.size() === 1 && !this.get(0).text;
@@ -2709,19 +2720,54 @@
       anchor = head;
       this.position(oldAnchor.line, oldAnchor.column);
     }
+    this.match = function(pattern, dir) {
+      if (pattern) {
+        var text = currentLine.text, left = head.column, right = head.column
+        , test = function(ch) {
+          return 'function' === typeof pattern ? pattern(ch) : pattern.test ? pattern.test(ch) : false;
+        }
+        
+        while (true) {
+          if (!dir || dir === 1) {
+            var ch = text.charAt(right);
+            if (ch && test(ch)) {
+              ++right;
+            } else {
+              if (!dir) dir = -1;
+              else break;
+            }
+          }
+          if (!dir || dir === -1) {
+            var ch = text.charAt(left - 1);
+            if (ch && test(ch)) {
+              --left;
+            } else {
+              if (!dir) dir = 1;
+              else break;
+            }
+          }
+        }
+        var str = text.substring(left, right);
+        this.setSelection(position(head.line, left), position(head.line, right));
+        return str;
+      }
+    }
     this.insert = function(text, movement) {
       var range = getRangeOf(anchor, head);
       doc.replaceRange(text, range.from, range.to);
       if ('number' === typeof movement) this.moveX(movement);
     }
-    this.removeBefore = function(n) {
-      var range = this.hasSelection() ? getRangeOf(anchor, head) : rangeWithMove(doc, position(head.line, this.column()), -n);
-      if (range) return doc.removeRange(range.from, range.to);
+    
+    function docRemove(rangeHandler) {
+      return function(n) {
+        var range = this.hasSelection() ? getRangeOf(anchor, head) : rangeHandler.call(this, n);
+        if (range) return doc.removeRange(range.from, range.to);
+      }
     }
-    this.removeAfter = function(n) {
-      var range = this.hasSelection() ? getRangeOf(anchor, head) : rangeWithMove(doc, position(head.line, this.column()), n);
-      if (range) return doc.removeRange(range.from, range.to);
-    }
+    this.removeBefore = docRemove(function(n) { return rangeWithMove(doc, position(head.line, this.column()), -n); });
+    this.removeAfter = docRemove(function(n) { return rangeWithMove(doc, position(head.line, this.column()), n); });
+    this.removeLine = docRemove(function() { return range(position(head.line, 0), position(head.line, currentLine.text.length)); });
+    
     this.textBefore = function() { return currentLine && currentLine.text.substring(0, head.column); }
     this.textAfter = function() { return currentLine && currentLine.text.substr(head.column); }
     this.textAtCurrentLine = function() { return currentLine && currentLine.text; }
@@ -2796,19 +2842,19 @@
     this.column = function() {
       return currentLine ? Math.min(head.column, currentLine.text.length) : 0;
     }
-    this.savePosition = function(onlycolumn) {
-      return tmp = [onlycolumn ? null : head.line, head.column];
-    }
-    this.restorePosition = function(save, fulfill) {
-      if (save instanceof Array && save.length == 2) {
-        head.line = save[0];
-        head.column = save[1];
-      } else if (tmp != null) {
-        head.line = tmp[0];
-        head.column = tmp[1];
-        tmp = null;
+    this.eachLine = function(fn) {
+      if ('function' === typeof fn) {
+        var sel = this.getSelectionRange();
+        if (sel) {
+          for (var i = sel.from.line; i <= sel.to.line; i++) {
+            fn.call(this, doc.get(i), i, i - sel.from.line);
+          }
+          return sel;
+        } else {
+          fn.call(this, currentLine, head.line, 0);
+          return range(head, head);
+        }
       }
-      if (fulfill || save === true) this.position(head.line, head.column);
     }
     this.setStyle = function(style) {
       this.style = style;
@@ -3048,33 +3094,14 @@
   
   keyMap = function() {}
   keyMap.prototype = {
-    'Backspace': function() {
-      if (this.doc.issetSelection()) {
-        this.doc.removeSelection();
-      } else {
-        var bf = this.caret.textBefore()
-        , af = this.caret.textAfter()
-        , chbf = bf.slice(-1), m = bf.match(/^ +$/)
-        , tw = this.options.tabWidth, parser = this.doc.parser
-        , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
-        
-        if (parser.onLeftRemoval && parser.onLeftRemoval[chbf]) {
-          var x = this.doc.parser.onLeftRemoval[chbf];
-          if (x instanceof Function) {
-            x = x.call(this, chbf, bf, af);
-            if (x === false) return false;
-          }
-          if ('string' === typeof x && af.indexOf(x) === 0) {
-            this.caret.moveX(x.length);
-            r = chbf + x;
-          }
-        }
-        r = this.removeBeforeCursor(r);
-        if (r && this.options.autoComplete && this.hints && !this.hints.match(r)) {
-          this.hints.hide();
-        }
-      }
-    },
+    'Backspace': 'delCharLeft',
+    'Delete': 'delCharRight',
+    'Alt Backspace': 'delWordLeft',
+    'Alt Delete': 'delWordRight',
+    'Shift Backspace': 'delToLeft',
+    'Shift Delete': 'delToRight',
+    'Alt Shift Backspace': 'delLine',
+    'Alt Shift Delete': 'delLine',
     'Tab': function() {
       if (this.doc.issetSelection()) {
         this.indent();
@@ -3090,8 +3117,139 @@
         this.insertText(this.options.indentByTabs ? '\t' : repeat(' ', this.options.tabWidth - this.caret.column() % this.options.tabWidth));
       }
     },
-    'Enter': function() {
-      var bf = this.caret.textBefore()
+    'Enter': 'insertNewLine',
+    'Esc': 'esc',
+    'PageUp': 'pageUp',
+    'PageDown': 'pageDown',
+    'End': 'moveToEnd',
+    'Home': 'moveToStart',
+    'Left': 'moveCaretLeft',
+    'Right': 'moveCaretRight',
+    'Up': 'moveCaretUp',
+    'Down': 'moveCaretDown',
+    'Shift Left': 'moveSelLeft',
+    'Shift Right': 'moveSelRight',
+    'Shift Up': 'moveSelUp',
+    'Shift Down': 'moveSelDown',
+    'Ctrl Shift W': 'selWord',
+    '"': function(k) {
+      if (this.options.insertClosingQuotes) {
+        return insertClosing(this, k, k);
+      }
+    },
+    '(': function(k) {
+      if (this.options.insertClosingBrackets) {
+        return insertClosing(this, k, complementBracket(k));
+      }
+    },
+    ')': function(k) {
+      if (this.options.insertClosingBrackets && this.textAfterCursor(1) == k) this.caret.moveX(1);
+      else this.insertText(k);
+      return false;
+    },
+    'Cmd A': 'selectAll',
+    'Cmd V': 'removeSelection',
+    'Cmd X': 'removeSelection',
+    'Cmd Z': 'undo',
+    'Cmd Shift Z': 'redo'
+  }
+  keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
+  keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
+  keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
+  
+  function moveCaret(fn, mv) {
+    return function() {
+      this.doc.call('clearSelection').call(fn, mv);
+    }
+  }
+  function moveSel(fn, mv) {
+    return function() {
+      this.doc.eachCaret(function(caret) { caret.hasSelection() || caret.beginSelection(); }).call(fn, mv);
+    }
+  }
+  function caretCmd(fn) {
+    return function() { this.doc.eachCaret(fn); };
+  }
+  
+  commands = {
+    'moveCaretLeft': moveCaret('moveX', -1),
+    'moveCaretRight': moveCaret('moveX', 1),
+    'moveCaretUp': moveCaret('moveY', -1),
+    'moveCaretDown': moveCaret('moveY', 1),
+    'moveSelLeft': moveSel('moveX', -1),
+    'moveSelRight': moveSel('moveX', 1),
+    'moveSelUp': moveSel('moveY', -1),
+    'moveSelDown': moveSel('moveY', 1),
+    'moveToStart': function() { this.doc.resetCarets().position(0, 0); },
+    'moveToEnd': function() { this.doc.resetCarets().position(this.doc.size() - 1, -1); },
+    'moveWordLeft': function() {},
+    'moveWordRight': function() {},
+    'selWord': function() { this.doc.call('match', /\w/); },
+    'pageUp': function() { this.doc.call('moveY', -50); },
+    'pageDown': function() { this.doc.call('moveY', 50); },
+    'scrollToTop': function() { this.dom.wrapper.scrollTop = 0; },
+    'scrollToBottom': function() { this.dom.wrapper.scrollTop = this.dom.wrapper.scrollHeight; },
+    'scrollToLeft': function() { this.dom.wrapper.scrollLeft = 0; },
+    'scrollToRight': function() { this.dom.wrapper.scrollLeft = this.dom.wrapper.scrollWidth; },
+    'selectAll': function() {
+      var size = this.doc.size(), lastLength = this.doc.get(size - 1).text.length;
+      this.doc.resetCarets().setSelection(position(size - 1, lastLength), position(0, 0));
+    },
+    'removeSelection': function() { this.doc.call('removeSelection'); },
+    'indent': caretCmd(function(caret) {
+      var doc = this
+      , tabString = this.getTabString()
+      , range = caret.eachLine(function(line, index) {
+        singleInsert(doc, line, index, tabString, 0);
+      });
+      this.history.push({ type: 'indent', from: range.from, to: range.to, in: true });
+    }),
+    'outdent': caretCmd(function(caret) {
+      var doc = this, tw = this.getOption('tabWidth');
+      var range = caret.eachLine(function(line, index) {
+        var text = line.text, min = Math.min(tw, text.length);
+        for (var i = 0; i < min && text.charAt(i) === ' '; i++);
+        if (i === 0 && text.charAt(0) === '\t') i++;
+        if (i > 0) singleRemove(doc, line, index, 0, i);
+      });
+      this.history.push({ type: 'indent', from: range.from, to: range.to, in: false });
+    }),
+    'autoIndent': function() {},
+    'undo': function() { this.doc.undo(); },
+    'redo': function() { this.doc.redo(); },
+    'toNextDef': function() {},
+    'toPrevDef': function() {},
+    'swapLineUp': function() {},
+    'swapLineDown': function() {},
+    'duplicateLine': function() {},
+    'delCharLeft': function() {
+      var tw = this.options.tabWidth;
+      this.doc.eachCaret(function(caret) {
+        if (caret.hasSelection()) return caret.removeSelection();
+        var bf = caret.textBefore(), af = caret.textAfter()
+        , chbf = bf.slice(-1), m = bf.match(/^ +$/)
+        , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
+        caret.removeBefore(r);
+      });
+    },
+    'delCharRight': function() {
+      var tw = this.options.tabWidth;
+      this.doc.eachCaret(function(caret) {
+        if (caret.hasSelection()) return caret.removeSelection();
+        var bf = caret.textBefore(), af = caret.textAfter()
+        , chaf = af.charAt(0), m = af.match(/^ +$/)
+        , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
+        caret.removeAfter(r);
+      });
+    },
+    'delWordLeft': function() { this.doc.call('match', /\w/, -1); this.doc.call('removeSelection'); },
+    'delWordRight': function() { this.doc.call('match', /\w/, 1); this.doc.call('removeSelection'); },
+    'delToLeft': caretCmd(function(caret) { caret.removeBefore(caret.column()); }),
+    'delToRight': caretCmd(function(caret) { caret.removeAfter(caret.dl().text.length - caret.column()); }),
+    'delLine': caretCmd(function(caret) { caret.removeLine(); }),
+    'insertNewLine': function() {
+      return this.doc.call('insert', '\n');
+      /*var bf = this.caret.textBefore()
       , af = this.caret.textAfter()
       , dl = this.caret.dl()
       , s = this.getStateAt(dl, this.caret.column())
@@ -3126,99 +3284,14 @@
       }
       if (parser && parser.afterEnterKey) {
         parser.afterEnterKey.call(this, s.stream, s.state);
-      }
+      }*/
     },
-    'Shift Enter': function() {
-      this.caret.position(this.caret.line(), -1);
-      return this.call('Enter');
-    },
-    'Esc': function() {
+    'esc': function() {
       this.isFullscreen ? this.exitFullscreen() : this.searchEnd();
-    },
-    'PageUp': function() { this.caret.moveY(-50); },
-    'PageDown': function() { this.caret.moveY(50); },
-    'End': function() { this.caret.position(this.doc.size() - 1, -1); },
-    'Home': function() { this.caret.position(0, 0); },
-    'Left': function(k, c) {
-      c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
-      this.doc.clearSelection();
-    },
-    'Delete': function() {
-      if (this.doc.issetSelection()) {
-        this.doc.removeSelection();
-      } else {
-        var bf = this.caret.textBefore()
-        , af = this.caret.textAfter()
-        , chaf = af.charAt(0), m = af.match(/^ +$/)
-        , tw = this.options.tabWidth, parser = this.doc.parser
-        , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
-        
-        if (parser.onRightRemoval && parser.onRightRemoval[chaf]) {
-          var x = parser.onRightRemoval[chaf];
-          if (x instanceof Function) {
-            x = x.call(this, chaf, bf, af);
-            if (x === false) return false;
-          }
-          if ('string' === typeof x && bf.slice(-x.length) === x) {
-            this.caret.moveX(-x.length);
-            r = x + chaf;
-          }
-        }
-        this.removeAfterCursor(r);
-      }
-    },
-    '"': function(k) {
-      if (this.options.insertClosingQuotes) {
-        return insertClosing(this, k, k);
-      }
-    },
-    '(': function(k) {
-      if (this.options.insertClosingBrackets) {
-        return insertClosing(this, k, complementBracket(k));
-      }
-    },
-    ')': function(k) {
-      if (this.options.insertClosingBrackets && this.textAfterCursor(1) == k) this.caret.moveX(1);
-      else this.insertText(k);
-      return false;
-    },
-    'Shift Left': function(k, c) {
-      if (!this.doc.issetSelection()) this.doc.beginSelection();
-      c % 2 ? this.caret.move(c - 38, 0) : this.caret.move(0, c - 39);
-      this.doc.endSelection();
-    },
-    'Cmd A': function() {
-      if (!this.doc.isAllSelected()) {
-        this.doc.selectAll();
-        this.emit('selectAll');
-      }
-    },
-    'Cmd C': function() {
-      if (this.doc.issetSelection()) this.emit('copy');
-      return -1;
-    },
-    'Cmd V': function() {
-      this.doc.removeSelection();
-      this.emit('paste');
-      return true;
-    },
-    'Cmd X': function() {
-      if (this.doc.issetSelection()) {
-        this.doc.removeSelection();
-        this.emit('cut');
-      }
-      return -1;
-    },
-    'Cmd Z': function() { this.doc.undo(); },
-    'Cmd Shift Z': function() { this.doc.redo(); }
+    }
   }
-  keyMap.prototype['Down'] = keyMap.prototype['Right'] = keyMap.prototype['Up'] = keyMap.prototype['Left'];
-  keyMap.prototype['Shift Down'] = keyMap.prototype['Shift Right'] = keyMap.prototype['Shift Up'] = keyMap.prototype['Shift Left'];
-  keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
-  keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
-  keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
   
-  var historyActions = {
+  historyActions = {
     'replace': {
       undo: function(state) {
         this.replaceRange(state.removed, state.from, changeEnd(state));
@@ -3226,6 +3299,10 @@
       redo: function(state) {
         this.replaceRange(state.text, state.from, state.to);
       }
+    },
+    'indent': {
+      undo: function(state) {},
+      redo: function(state) {}
     }
   }
   
@@ -3429,6 +3506,11 @@
     for (var i = 0; i < carets.length; i++)
       if (carets[i].inSelection(line, column))
         return carets[i];
+  }
+  function callKeyBinding(cp, keyMap, key) {
+    var binding = keyMap[key];
+    if ('string' === typeof binding) binding = commands[binding];
+    if ('function' === typeof binding) return binding.call(cp, key);
   }
   function attachEvents(cp) {
     var wrapper = cp.dom.wrapper
