@@ -35,7 +35,7 @@
   , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : presto ? -0.05 : -1
   , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
   , modes = {}, addons = {}, instances = [], keyCodes, async, asyncQueue = []
-  , Flags = { ctrl: 0, shift: 0, meta: 0, alt: 0, caretsAreActive: false, mouseDown: false };
+  , Flags = {};
   
   CodePrinter = function(source, options) {
     if (arguments.length === 1 && source == '[object Object]') {
@@ -2379,8 +2379,6 @@
     return this.init(source, mode);
   }
   
-  function activateCarets() { Flags.caretsAreActive = true; }
-  function deactivateCarets() { Flags.caretsAreActive = false; }
   function startBlinking(doc, options) {
     clearInterval(doc.caretsBlinkingInterval);
     if (options.blinkCaret) {
@@ -2388,7 +2386,7 @@
       if (options.caretBlinkRate > 0) {
         doc.eachCaret(function(caret) { caret.node.style.opacity = '1'; });
         doc.caretsBlinkingInterval = setInterval(function() {
-          var tick = !Flags.caretsAreActive || (v = !v) ? '1' : '0';
+          var tick = Flags.isKeyDown | Flags.isMouseDown | (v = !v) ? '1' : '0';
           doc.eachCaret(function(caret) { caret.node.style.opacity = tick; });
         }, options.caretBlinkRate);
       } else if (options.caretBlinkRate < 0)
@@ -2414,7 +2412,6 @@
     focus: function() {
       if (!this.isFocused) {
         this.isFocused = true;
-        activateCarets();
         startBlinking(this, this.getOptions());
         this.eachCaret(function(caret) {
           this.dom.caretsContainer.appendChild(caret.node);
@@ -2456,6 +2453,7 @@
       for (var i = startIndex | 0; i < carets.length; i++) {
         func.call(this, carets[i]);
       }
+      return this;
     },
     setMode: function(mode) {
       var doc = this;
@@ -2503,6 +2501,7 @@
         var func = caret[command];
         if ('function' === typeof func) func.apply(caret, args);
       });
+      return this;
     },
     exec: function(command) {
       var cmd = commands[command], args = new Array(arguments.length);
@@ -2556,7 +2555,7 @@
   }
   
   function maybeReverseSelection(caret, anchor, head, mv) {
-    if (!caret.hasSelection() || Flags.shift) return mv;
+    if (!caret.hasSelection() || Flags.shiftKey) return mv;
     var cmp = comparePos(anchor, head);
     if (cmp < 0 && mv < 0 || cmp > 0 && mv > 0) {
       caret.reverse();
@@ -3494,7 +3493,6 @@
           });
         } else {
           input.value = '';
-          deactivateCarets();
           if (y > ry) cp.caret.position(l, -1);
           else if (y < 0) cp.caret.position(l, 0);
           
@@ -3620,65 +3618,61 @@
       }
     });
     on(input, 'keydown', function(e) {
-      updateFlags(e);
+      updateFlags(e, true);
       var code = e.keyCode, seq = keySequence(e);
-      allowKeyup = true;
       
       if (seq === (macosx ? 'Cmd' : 'Ctrl')) {
         this.value = cp.doc.getSelection();
         this.setSelectionRange(0, this.value.length);
-        allowKeyup = false;
-        cmdPressed = true;
         return eventCancel(e);
       }
-      if (cmdPressed) {
-        if (!(macosx ? e.metaKey : e.ctrlKey) || code != 67 && code != 88) this.value = '';
-        cmdPressed = false;
+      if (Flags.cmdKey) {
+        if (code !== 67 && code !== 88) this.value = '';
+        else return;
       }
       if (options.readOnly && (code < 37 || code > 40)) return;
       cp.emit('['+seq+']', e); cp.emit('keydown', seq, e);
       if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
-      if ((allowKeyup = !e.defaultPrevented) && seq.length > 1 && cp.keyMap[seq]) {
-        allowKeyup = cp.keyMap[seq].call(cp, seq, code, e);
+      if (seq.length > 1 && cp.keyMap[seq]) {
+        if (!callKeyBinding(cp, cp.keyMap, seq)) return eventCancel(e, 1);
       }
-      deactivateCarets();
-      if (!allowKeyup) return eventCancel(e, 1);
     });
     on(input, 'keypress', function(e) {
       if (options.readOnly) return;
-      var a, col, code = e.keyCode
-      , s = cp.getStateAt(cp.caret.dl(), col = cp.caret.column())
-      , parser = s && s.parser
-      , ch = String.fromCharCode(code);
+      var code = e.keyCode, ch = String.fromCharCode(code);
       
-      if (allowKeyup > 0 && e.ctrlKey != true && e.metaKey != true) {
-        if (cp.doc.issetSelection() && (a = parser.selectionWrappers[ch])) {
-          'string' === typeof a ? cp.doc.wrapSelection(a, a) : cp.doc.wrapSelection(a[0], a[1]);
-          allowKeyup = false;
-        } else if (options.useParserKeyMap && parser.keyMap[ch]) {
-          allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
-        }
-        if (allowKeyup != false) {
-          this.value = '';
-          if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, ch, code) !== false) cp.insertText(ch);
-          if (T2) T2 = clearTimeout(T2);
-          if (options.autoComplete && cp.hints) {
-            var isdigit = /^\d+$/.test(ch);
-            if (parser.autoCompleteTriggers ? parser.autoCompleteTriggers.test(ch) : !isdigit && cp.hints.match(ch)) T2 = setTimeout(function() { cp.hints.show(false); }, options.autoCompleteDelay);
-            else if (!isdigit) cp.hints.hide();
+      if (e.ctrlKey !== true && e.metaKey !== true) {
+        cp.doc.eachCaret(function(caret) {
+          var a, col, s = cp.getStateAt(caret.dl(), col = caret.column())
+          , parser = s && s.parser;
+          
+          if (caret.hasSelection() && (a = parser.selectionWrappers[ch])) {
+            'string' === typeof a ? cp.doc.wrapSelection(a, a) : cp.doc.wrapSelection(a[0], a[1]);
+            allowKeyup = false;
+          } else if (options.useParserKeyMap && parser.keyMap[ch]) {
+            allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
           }
-        }
-        if (options.autoIndent && parser.isIndentTrigger(ch)) {
-          reIndent(cp, parser, col);
-        }
+          if (allowKeyup !== false) {
+            input.value = '';
+            if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, ch, code) !== false) caret.insert(ch);
+            if (T2) T2 = clearTimeout(T2);
+            if (options.autoComplete && cp.hints) {
+              var isdigit = /^\d+$/.test(ch);
+              if (parser.autoCompleteTriggers ? parser.autoCompleteTriggers.test(ch) : !isdigit && cp.hints.match(ch)) T2 = setTimeout(function() { cp.hints.show(false); }, options.autoCompleteDelay);
+              else if (!isdigit) cp.hints.hide();
+            }
+          }
+          if (options.autoIndent && parser.isIndentTrigger(ch)) {
+            reIndent(cp, parser, col);
+          }
+        });
         return eventCancel(e);
       }
     });
     on(input, 'keyup', function(e) {
-      updateFlags(e);
+      updateFlags(e, false);
       if (options.readOnly) return;
-      activateCarets();
-      if ((e.keyCode == 8 || allowKeyup > 0) && e.ctrlKey != true && e.metaKey != true) {
+      if (e.keyCode === 8 && e.ctrlKey !== true && e.metaKey !== true) {
         if (this.value.length) cp.doc.call('insert', this.value);
         T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.doc.parser); }, options.keyupInactivityTimeout);
       }
@@ -3852,9 +3846,15 @@
   function getRangeOf(a, b) {
     return a ? comparePos(a, b) < 0 ? range(a, b) : range(b, a) : range(b, b);
   }
-  function updateFlags(event) {
-    Flags.ctrl = event.ctrlKey; Flags.shift = event.shiftKey;
-    Flags.meta = event.metaKey; Flags.alt = event.altKey;
+  function updateFlags(event, down) {
+    var code = event.keyCode;
+    Flags.keyCode = down ? code : 0;
+    Flags.ctrlKey = code === 18 | event.ctrlKey;
+    Flags.shiftKey = code === 16 | event.shiftKey;
+    Flags.metaKey = [91,92,93,224].indexOf(code) >= 0 | event.metaKey;
+    Flags.altKey = code === 19 | event.altKey;
+    Flags.cmdKey = macosx ? Flags.metaKey : Flags.ctrlKey;
+    Flags.isKeyDown = Flags.ctrlKey | Flags.shiftKey | Flags.metaKey | Flags.altKey | Flags.keyCode > 0;
   }
   function cpx(style) {
     return style.replace(/\S+/g, 'cpx-$&');
