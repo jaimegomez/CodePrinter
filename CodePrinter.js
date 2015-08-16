@@ -2719,30 +2719,11 @@
     this.match = function(pattern, dir) {
       if (pattern) {
         var text = currentLine.text, left = head.column, right = head.column
-        , test = function(ch) {
+        , ch, test = function(ch) {
           return 'function' === typeof pattern ? pattern(ch) : pattern.test ? pattern.test(ch) : false;
         }
-        
-        while (true) {
-          if (!dir || dir === 1) {
-            var ch = text.charAt(right);
-            if (ch && test(ch)) {
-              ++right;
-            } else {
-              if (!dir) dir = -1;
-              else break;
-            }
-          }
-          if (!dir || dir === -1) {
-            var ch = text.charAt(left - 1);
-            if (ch && test(ch)) {
-              --left;
-            } else {
-              if (!dir) dir = 1;
-              else break;
-            }
-          }
-        }
+        if (!dir || dir === 1) for (; (ch = text.charAt(right)) && test(ch); ++right);
+        if (!dir || dir === -1) for (; (ch = text.charAt(left - 1)) && test(ch); --left);
         var str = text.substring(left, right);
         this.setSelection(position(head.line, left), position(head.line, right));
         return str;
@@ -2846,16 +2827,11 @@
     }
     this.eachLine = function(fn) {
       if ('function' === typeof fn) {
-        var sel = this.getSelectionRange();
-        if (sel) {
-          for (var i = sel.from.line; i <= sel.to.line; i++) {
-            fn.call(this, doc.get(i), i, i - sel.from.line);
-          }
-          return sel;
-        } else {
-          fn.call(this, currentLine, head.line, 0);
-          return range(head, head);
+        var sel = this.getRange();
+        for (var i = sel.from.line; i <= sel.to.line; i++) {
+          fn.call(this, doc.get(i), i, i - sel.from.line);
         }
+        return sel;
       }
     }
     this.setStyle = function(style) {
@@ -3735,20 +3711,9 @@
           , parser = s && s.parser;
           
           if (caret.hasSelection() && (a = parser.selectionWrappers[ch])) {
-            'string' === typeof a ? cp.doc.wrapSelection(a, a) : cp.doc.wrapSelection(a[0], a[1]);
-            allowKeyup = false;
+            'string' === typeof a ? caret.wrapSelection(a, a) : caret.wrapSelection(a[0], a[1]);
           } else if (options.useParserKeyMap && parser.keyMap[ch]) {
-            allowKeyup = parser.keyMap[ch].call(cp, s.stream, s.state);
-          }
-          if (allowKeyup !== false) {
-            input.value = '';
-            if (!cp.keyMap[ch] || cp.keyMap[ch].call(cp, ch, code) !== false) caret.insert(ch);
-            if (T2) T2 = clearTimeout(T2);
-            if (options.autoComplete && cp.hints) {
-              var isdigit = /^\d+$/.test(ch);
-              if (parser.autoCompleteTriggers ? parser.autoCompleteTriggers.test(ch) : !isdigit && cp.hints.match(ch)) T2 = setTimeout(function() { cp.hints.show(false); }, options.autoCompleteDelay);
-              else if (!isdigit) cp.hints.hide();
-            }
+            parser.keyMap[ch].call(cp, s.stream, s.state);
           }
           if (options.autoIndent && parser.isIndentTrigger(ch)) {
             reIndent(cp, parser, col);
@@ -3762,7 +3727,10 @@
       if (options.readOnly) return;
       if (e.keyCode === 8 && e.ctrlKey !== true && e.metaKey !== true) {
         if (this.value.length) cp.doc.call('insert', this.value);
-        T = clearTimeout(T) || setTimeout(function() { runBackgroundParser(cp, cp.doc.parser); }, options.keyupInactivityTimeout);
+        T = clearTimeout(T) || setTimeout(function() {
+          cp.emit('pause');
+          runBackgroundParser(cp, cp.doc.parser);
+        }, options.keyupInactivityTimeout);
       }
       this.value = '';
       cp.emit('keyup', e);
@@ -3937,10 +3905,10 @@
   function updateFlags(event, down) {
     var code = event.keyCode;
     Flags.keyCode = down ? code : 0;
-    Flags.ctrlKey = code === 18 | event.ctrlKey;
-    Flags.shiftKey = code === 16 | event.shiftKey;
-    Flags.metaKey = [91,92,93,224].indexOf(code) >= 0 | event.metaKey;
-    Flags.altKey = code === 19 | event.altKey;
+    Flags.ctrlKey = code === 18 ? down : event.ctrlKey;
+    Flags.shiftKey = code === 16 ? down : event.shiftKey;
+    Flags.metaKey = [91,92,93,224].indexOf(code) >= 0 ? down : event.metaKey;
+    Flags.altKey = code === 19 ? down : event.altKey;
     Flags.cmdKey = macosx ? Flags.metaKey : Flags.ctrlKey;
     Flags.isKeyDown = Flags.ctrlKey | Flags.shiftKey | Flags.metaKey | Flags.altKey | Flags.keyCode > 0;
   }
