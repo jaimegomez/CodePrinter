@@ -2360,16 +2360,6 @@
         overlay.reveal();
       }
     }
-    this.wrapSelection = function(before, after) {
-      var r = this.getSelectionRange(), sl;
-      if (r) {
-        sl = r.start.line < r.end.line && this.get(r.start.line+1);
-        after && cp.put(after, r.end.line, r.end.column);
-        before && cp.put(before, r.start.line, r.start.column) && selection.move(before.length, r.start.line == r.end.line ? before.length : 0);
-        this.showSelection();
-        sl && forwardParsing(this, sl);
-      }
-    }
     this.each = function(func) { data.foreach(func); }
     this.get = function(i) { return data.get(i); }
     this.getEditor = function() { return cp; }
@@ -2680,6 +2670,9 @@
         return getRangeOf(anchor, head);
       }
     }
+    this.getRange = function() {
+      return this.getSelectionRange() || range(head, head);
+    }
     this.setSelection = function(newAnchor, newHead) {
       if (!isPos(newHead)) return;
       if (newAnchor == null || isPos(newAnchor)) anchor = newAnchor;
@@ -2709,6 +2702,13 @@
       if (selOverlay) selOverlay.remove();
       anchor = null;
       select(currentLine);
+    }
+    this.wrapSelection = function(before, after) {
+      var range = this.getRange();
+      replaceRange(doc, after, range.to, range.to);
+      replaceRange(doc, before, range.from, range.from);
+      comparePos(range.from, range.to) < 0 ? this.moveX(-after.length) : this.moveAnchor(-after.length);
+      doc.history.push({ type: 'wrap', from: range.from, to: range.to, before: before, after: after });
     }
     this.reverse = function() {
       if (!anchor) return;
@@ -2802,6 +2802,12 @@
         this.position(mv, head.column);
       }
       return this;
+    }
+    this.moveAnchor = function(mv) {
+      if ('number' === typeof mv) {
+        anchor = positionAfterMove(doc, anchor, mv);
+        this.showSelection();
+      }
     }
     this.offsetX = function() {
       return lastMeasure ? lastMeasure.offsetX : 0;
@@ -3297,6 +3303,10 @@
       }
     },
     'indent': {
+      undo: function(state) {},
+      redo: function(state) {}
+    },
+    'wrap': {
       undo: function(state) {},
       redo: function(state) {}
     }
