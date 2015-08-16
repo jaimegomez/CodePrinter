@@ -11,15 +11,7 @@
 
 "use strict";
 
-(function(root, factory) {
-  if (typeof define === 'function' && define.amd) {
-    define('CodePrinter', factory);
-  } else if (typeof exports === 'object') {
-    module.exports = factory();
-  } else {
-    root.CodePrinter = factory();
-  }
-}(this, function() {
+(function() {
   var CodePrinter, EventEmitter, Data, Branch
   , Line, CaretStyles, Caret, Document, Stream
   , ReadStream, historyActions, History, keyMap
@@ -4172,5 +4164,11 @@
   } else {
     async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
   }
-  return CodePrinter;
-}));
+
+  if ('function' === typeof this.define) {
+    this.define('CodePrinter', function() { return CodePrinter; });
+  } else if ('object' === typeof this.exports) {
+    module.exports = CodePrinter;
+  }
+  return this.CodePrinter = CodePrinter;
+}.call(this));
