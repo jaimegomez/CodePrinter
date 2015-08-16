@@ -1800,6 +1800,37 @@
     dom.wrapper.scrollTop = dom.counterContainer.scrollTop = doc.scrollTop | 0;
     dom.wrapper.scrollLeft = doc.scrollLeft | 0;
   }
+  function replaceRange(doc, text, from, to) {
+    var removed = [], first = doc.get(from.line)
+    , delta = to.line - from.line, dl = first, i = 0
+    , after = delta ? doc.get(to.line).text.substr(to.column) : first.text.substr(to.column);
+    
+    removed[0] = delta ? first.text.substr(from.column) : first.text.substring(from.column, to.column);
+    first.setText(first.text.substring(0, from.column) + text[0]);
+    while (++i < delta && i < text.length && (dl = dl.next())) {
+      removed[i] = dl.text;
+      dl.setText(text[i]);
+    }
+    if (i < delta || i === delta && i === text.length) {
+      var removedLines = doc.remove(from.line + i, delta - i + 1);
+      for (var j = 0; j < removedLines.length - 1; j++) removed[removed.length] = removedLines[j].text;
+      removed[removed.length] = removedLines[j].text.substring(0, to.column);
+    } else if (i < text.length) {
+      if (delta) {
+        removed[removed.length] = (dl = dl.next()).text.substring(0, to.column);
+        var inserted = doc.insert(from.line + i, text.slice(i, -1));
+        dl.setText(lastV(text));
+      } else {
+        var inserted = doc.insert(from.line + i, text.slice(i));
+        dl = lastV(inserted) || dl;
+      }
+    }
+    dl.setText(dl.text + after);
+    forwardParsing(doc, first);
+    var change = { type: 'replace', text: text, removed: removed, from: from, to: to };
+    adjustCaretsPos(doc, change);
+    return change;
+  }
   
   Measure = function(dl, sizes) {
     var inf = dl.info();
@@ -2038,34 +2069,7 @@
       if (!isPos(to)) to = from;
       var splitted = 'string' === typeof text ? text.split(eol) : text;
       if (isArray(splitted) && isPos(from)) {
-        var removed = [], first = data.get(from.line)
-        , delta = to.line - from.line, dl = first, i = 0
-        , after = delta ? data.get(to.line).text.substr(to.column) : first.text.substr(to.column);
-        
-        removed[0] = delta ? first.text.substr(from.column) : first.text.substring(from.column, to.column);
-        first.setText(first.text.substring(0, from.column) + splitted[0]);
-        while (++i < delta && i < splitted.length && (dl = dl.next())) {
-          removed[i] = dl.text;
-          dl.setText(splitted[i]);
-        }
-        if (i < delta || i === delta && i === splitted.length) {
-          var removedLines = this.remove(from.line + i, delta - i + 1);
-          for (var j = 0; j < removedLines.length - 1; j++) removed[removed.length] = removedLines[j].text;
-          removed[removed.length] = removedLines[j].text.substring(0, to.column);
-        } else if (i < splitted.length) {
-          if (delta) {
-            removed[removed.length] = (dl = dl.next()).text.substring(0, to.column);
-            var inserted = this.insert(from.line + i, splitted.slice(i, -1));
-            dl.setText(lastV(splitted));
-          } else {
-            var inserted = this.insert(from.line + i, splitted.slice(i));
-            dl = lastV(inserted) || dl;
-          }
-        }
-        dl.setText(dl.text + after);
-        forwardParsing(this, first);
-        var change = { type: 'replace', text: splitted, removed: removed, from: from, to: to };
-        adjustCaretsPos(this, change);
+        var change = replaceRange(this, splitted, from, to);
         this.history.push(change);
       }
     }
