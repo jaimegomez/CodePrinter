@@ -522,7 +522,7 @@
     },
     toggleBlockComment: function(lineComment) {
       var cs, ce;
-      if (this.doc && this.doc.parser) { 
+      if (this.doc && this.doc.parser) {
         if ((cs = this.doc.parser.blockCommentStart) && (ce = this.doc.parser.blockCommentEnd)) {
           var range = this.doc.getSelectionRange()
           , l = this.caret.line(), c = this.caret.column()
@@ -2245,7 +2245,7 @@
         
         if (bool) {
           if (to <= tmp + l) {
-            r.width = child.offsetLeft - r.offsetX + (to - tmp) * child.offsetWidth / l; 
+            r.width = child.offsetLeft - r.offsetX + (to - tmp) * child.offsetWidth / l;
             break;
           }
         } else if (offset < tmp + l) {
