@@ -2725,8 +2725,28 @@
       var range = this.getRange();
       replaceRange(doc, after, range.to, range.to);
       replaceRange(doc, before, range.from, range.from);
-      comparePos(range.from, range.to) < 0 ? this.moveX(-after.length) : this.moveAnchor(-after.length);
-      doc.history.push({ type: 'wrap', from: range.from, to: range.to, before: before, after: after });
+      if (comparePos(anchor, head) < 0) this.moveX(-after.length, true) && this.moveAnchor(before.length);
+      doc.history.push({ type: 'wrap', range: this.getRange(), before: before, after: after });
+    }
+    this.unwrapSelection = function(before, after) {
+      var range = this.getRange()
+      , from = positionAfterMove(doc, range.from, -before.length)
+      , to = positionAfterMove(doc, range.to, after.length);
+      if (doc.substring(from, range.from) !== before || doc.substring(range.to, to) !== after) return false;
+      removeRange(doc, range.to, to);
+      removeRange(doc, from, range.from);
+      doc.history.push({ type: 'wrap', range: this.getRange(), before: before, after: after, unwrap: true });
+    }
+    this.moveSelectionTo = function(pos) {
+      var range = JSON.parse(JSON.stringify(this.getSelectionRange()));
+      this.clearSelection();
+      this.position(pos);
+      if (range) {
+        var removed = removeRange(doc, range.from, range.to).removed;
+        this.beginSelection();
+        insertText(doc, removed, head);
+        doc.history.push({ type: 'moveSelection', text: removed, from: range.from, into: pos });
+      }
     }
     this.reverse = function() {
       if (!anchor) return;
