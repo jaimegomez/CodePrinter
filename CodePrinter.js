@@ -1174,6 +1174,17 @@
       }
       return this;
     },
+    exec: function(command) {
+      var cmd = commands[command], args = new Array(arguments.length), cp = this;
+      if ('function' === typeof cmd) {
+        for (var i = 1; i < args.length; i++) args[i] = arguments[i+1];
+        this.doc.eachCaret(function(caret) {
+          args[0] = caret;
+          cmd.apply(cp, args);
+        });
+      }
+      return this;
+    },
     call: function(keySequence) {
       if (keySequence) {
         var c = this.keyMap[keySequence];
@@ -1747,13 +1758,14 @@
     return position(change.from.line + change.text.length - 1, lastV(change.text).length + (change.text.length === 1 ? change.from.column : 0));
   }
   function adjustCaretsPos(doc, change) {
-    doc.eachCaret(function(caret) {
-      caret.setSelection(adjustPosForChange(caret.anchor(), change), adjustPosForChange(caret.head(), change));
+    eachCaret(doc, function(caret) {
+      caret.setSelection(adjustPosForChange(caret.anchor(), change, true), adjustPosForChange(caret.head(), change));
     });
   }
-  function adjustPosForChange(pos, change) {
+  function adjustPosForChange(pos, change, anchor) {
     if (!pos) return null;
-    if (comparePos(pos, change.from) < 0) return pos;
+    var cmp = comparePos(pos, change.from);
+    if (anchor ? cmp <= 0 : cmp < 0) return pos;
     if (comparePos(pos, change.to) <= 0) return changeEnd(change);
     var line = pos.line - change.to.line + change.from.line + change.text.length - 1, col = pos.column;
     if (pos.line === change.to.line) col += changeEnd(change).column - change.to.column;
@@ -1792,7 +1804,10 @@
     dom.wrapper.scrollTop = dom.counterContainer.scrollTop = doc.scrollTop | 0;
     dom.wrapper.scrollLeft = doc.scrollLeft | 0;
   }
-  function replaceRange(doc, text, from, to) {
+  function replaceRange(doc, txt, from, to) {
+    from = nPos(doc, from); to = nPos(doc, to) || from;
+    var text = 'string' === typeof txt ? txt.split(eol) : isArray(txt) ? txt : [''];
+    if (!from) return;
     var removed = [], first = doc.get(from.line)
     , delta = to.line - from.line, dl = first, i = 0
     , after = delta ? doc.get(to.line).text.substr(to.column) : first.text.substr(to.column);
@@ -1822,6 +1837,12 @@
     var change = { type: 'replace', text: text, removed: removed, from: from, to: to };
     adjustCaretsPos(doc, change);
     return change;
+  }
+  function removeRange(doc, from, to) {
+    return replaceRange(doc, '', from, to);
+  }
+  function insertText(doc, text, at) {
+    return replaceRange(doc, text, at, at);
   }
   
   Measure = function(dl, sizes) {
@@ -2058,11 +2079,10 @@
       return parts.join(this.getLineEnding());
     }
     this.insertText = this.replaceRange = function(text, from, to) {
-      if (!isPos(to)) to = from;
-      var splitted = 'string' === typeof text ? text.split(eol) : text;
-      if (isArray(splitted) && isPos(from)) {
-        var change = replaceRange(this, splitted, from, to);
+      var change = replaceRange(this, text, from, to);
+      if (change) {
         this.history.push(change);
+        return change.removed;
       }
     }
     this.removeRange = function(from, to) {
@@ -2323,8 +2343,9 @@
       return false;
     }
     this.getSelection = function() {
-      var carets = this.carets.sort(function(a, b) { return comparePos(a.head(), b.head()); }), parts = [];
-      this.eachCaret(function(caret) {
+      var parts = [];
+      this.carets.sort(function(a, b) { return comparePos(a.head(), b.head()); });
+      eachCaret(this, function(caret) {
         var range = caret.getSelectionRange(), sel = range && this.substring(range.from, range.to);
         if (sel) parts[parts.length] = sel;
       });
@@ -2388,13 +2409,13 @@
     if (options.blinkCaret) {
       var v = true;
       if (options.caretBlinkRate > 0) {
-        doc.eachCaret(function(caret) { caret.node.style.opacity = '1'; });
+        for (var i = 0; i < doc.carets.length; i++) doc.carets[i].node.style.opacity = '1';
         doc.caretsBlinkingInterval = setInterval(function() {
           var tick = Flags.isKeyDown | Flags.isMouseDown | (v = !v) ? '1' : '0';
-          doc.eachCaret(function(caret) { caret.node.style.opacity = tick; });
+          for (var i = 0; i < doc.carets.length; i++) doc.carets[i].node.style.opacity = tick;
         }, options.caretBlinkRate);
       } else if (options.caretBlinkRate < 0)
-        doc.eachCaret(function(caret) { caret.node.style.opacity = '0'; });
+        for (var i = 0; i < doc.carets.length; i++) doc.carets[i].node.style.opacity = '0';
     }
   }
   function mergeCarets(first, second) {
@@ -2407,6 +2428,9 @@
     if (comparePos(h1, h2) < 0) first.setSelection(pos[0], lastV(pos));
     else first.setSelection(lastV(pos), pos[0]);
   }
+  function eachCaret(doc, func, start) {
+    return each(doc.carets, func, doc, start);
+  }
   
   Document.prototype = {
     undo: function() { return this.history.operation(this, 'undo', this.history.back()); },
@@ -2417,7 +2441,7 @@
       if (!this.isFocused) {
         this.isFocused = true;
         startBlinking(this, this.getOptions());
-        this.eachCaret(function(caret) {
+        eachCaret(this, function(caret) {
           this.dom.caretsContainer.appendChild(caret.node);
           caret.focus();
         });
@@ -2428,7 +2452,7 @@
       if (this.isFocused) {
         clearInterval(this.caretsBlinkingInterval);
         this.isFocused = false;
-        this.eachCaret(function(caret) {
+        eachCaret(this, function(caret) {
           caret.blur();
           this.dom.caretsContainer.removeChild(caret.node);
         });
@@ -2444,7 +2468,7 @@
       return caret;
     },
     resetCarets: function() {
-      this.eachCaret(function(caret) {
+      eachCaret(this, function(caret) {
         caret.clearSelection();
         caret.blur();
         this.dom.caretsContainer.removeChild(caret.node);
@@ -2452,11 +2476,17 @@
       this.carets.length = 1;
       return this.carets[0];
     },
+    makeCarets: function(n) {
+      if ('number' === typeof n) {
+        if (n > this.carets.length) this.carets.length = n;
+        else for (; this.carets.length < n;) this.createCaret();
+      }
+    },
     eachCaret: function(func, startIndex) {
       var carets = this.carets;
-      for (var i = startIndex | 0; i < carets.length; i++) {
-        func.call(this, carets[i]);
-      }
+      this.history.stage();
+      each(this.carets, func, this, startIndex);
+      this.history.commit();
       return this;
     },
     setMode: function(mode) {
@@ -2507,27 +2537,16 @@
       });
       return this;
     },
-    exec: function(command) {
-      var cmd = commands[command], args = new Array(arguments.length);
-      if ('function' === typeof cmd) {
-        for (var i = 1; i < args.length; i++) args[i] = arguments[i+1];
-        this.eachCaret(function(caret) {
-          args[0] = caret;
-          cmd.apply(this, args);
-        });
-      }
-      return this;
-    },
     isEmpty: function() {
       return this.size() === 1 && !this.get(0).text;
     },
     clear: function() {
       return this.init('');
     },
-    getValue: function() {
+    getValue: function(lineEnding) {
       var r = [], i = 0, transform = this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter;
       this.each(function() { r[i++] = transform(this.text); });
-      return r.join(this.getLineEnding());
+      return r.join(lineEnding || this.getLineEnding());
     },
     createReadStream: function() {
       return new ReadStream(this, this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter);
@@ -2674,12 +2693,11 @@
       return this.getSelectionRange() || range(head, head);
     }
     this.setSelection = function(newAnchor, newHead) {
-      if (!isPos(newHead)) return;
-      if (newAnchor == null || isPos(newAnchor)) anchor = newAnchor;
-      return this.position(newHead.line, newHead.column);
+      if (!newHead) return;
+      if (newAnchor == null || isPos(newAnchor)) anchor = nPos(doc, newAnchor);
+      return this.position(newHead);
     }
     this.showSelection = function() {
-      if (Flags.movingSelection) return;
       var range = this.getSelectionRange();
       if (range) {
         if (!selOverlay) selOverlay = doc.getEditor().createOverlay('cp-selection-overlay');
@@ -2730,7 +2748,7 @@
       }
     }
     this.insert = function(text, movement) {
-      var range = getRangeOf(anchor, head);
+      var range = this.getRange();
       doc.replaceRange(text, range.from, range.to);
       if ('number' === typeof movement) this.moveX(movement);
     }
@@ -2750,20 +2768,17 @@
     this.textAtCurrentLine = function() { return currentLine && currentLine.text; }
     this.getPosition = function() { return position(head.line, this.column()); }
     
-    this.position = function(l, c) {
-      var dl = doc.get(l);
-      if (dl) {
-        if (c < 0) {
-          var t = dl.text;
-          c = t.length + c % t.length + 1;
-        }
-        this.dispatch(doc.measureRect(dl, c));
+    this.position = function(line, column) {
+      var nHead = nPos(doc, line, column);
+      if (nHead) {
+        var dl = doc.get(nHead.line);
+        this.dispatch(doc.measureRect(doc.get(nHead.line), nHead.column));
       }
       return this;
     }
-    this.moveX = function(mv) {
+    this.moveX = function(mv, dontReverse) {
       if ('number' === typeof mv) {
-        mv = maybeReverseSelection(this, anchor, head, mv);
+        if (!dontReverse) mv = maybeReverseSelection(this, anchor, head, mv);
         var pos = positionAfterMove(doc, position(head.line, this.column()), mv);
         return this.position(pos.line, pos.column);
       }
@@ -3109,7 +3124,7 @@
     'Shift Right': 'moveSelRight',
     'Shift Up': 'moveSelUp',
     'Shift Down': 'moveSelDown',
-    'Ctrl Shift W': 'selWord',
+    'Ctrl Shift W': 'selectWord',
     '"': function(k) {
       if (this.options.insertClosingQuotes) {
         return insertClosing(this, k, k);
@@ -3162,17 +3177,18 @@
     'moveToEnd': function() { this.doc.resetCarets().position(this.doc.size() - 1, -1); },
     'moveWordLeft': function() {},
     'moveWordRight': function() {},
-    'selWord': function() { this.doc.call('match', /\w/); },
+    'selectWord': function() { this.doc.call('match', /\w/); },
+    'selectLine': caretCmd(function(caret) {
+      var head = caret.head();
+      caret.setSelection(position(head.line, 0), position(head.line + 1, 0));
+    }),
+    'selectAll': function() { this.doc.resetCarets().setSelection(position(this.doc.size(), -1), position(0, 0)); },
     'pageUp': function() { this.doc.call('moveY', -50); },
     'pageDown': function() { this.doc.call('moveY', 50); },
     'scrollToTop': function() { this.dom.wrapper.scrollTop = 0; },
     'scrollToBottom': function() { this.dom.wrapper.scrollTop = this.dom.wrapper.scrollHeight; },
     'scrollToLeft': function() { this.dom.wrapper.scrollLeft = 0; },
     'scrollToRight': function() { this.dom.wrapper.scrollLeft = this.dom.wrapper.scrollWidth; },
-    'selectAll': function() {
-      var size = this.doc.size(), lastLength = this.doc.get(size - 1).text.length;
-      this.doc.resetCarets().setSelection(position(size - 1, lastLength), position(0, 0));
-    },
     'removeSelection': function() { this.doc.call('removeSelection'); },
     'indent': caretCmd(function(caret) {
       var doc = this
@@ -3271,20 +3287,33 @@
   
   historyActions = {
     'replace': {
-      undo: function(state) {
-        this.replaceRange(state.removed, state.from, changeEnd(state));
+      undo: function(caret, change) {
+        this.replaceRange(change.removed, change.from, changeEnd(change));
       },
-      redo: function(state) {
-        this.replaceRange(state.text, state.from, state.to);
+      redo: function(caret, change) {
+        this.replaceRange(change.text, change.from, change.to);
       }
     },
     'indent': {
-      undo: function(state) {},
-      redo: function(state) {}
+      undo: function(caret, change) {},
+      redo: function(caret, change) {}
     },
     'wrap': {
-      undo: function(state) {},
-      redo: function(state) {}
+      undo: function(caret, change) {
+        caret.setSelection(change.range.from, change.range.to);
+        caret.unwrapSelection(change.before, change.after);
+      },
+      redo: function(caret, change) {}
+    },
+    'moveSelection': {
+      undo: function(caret, change) {
+        var end = changeEnd({ text: change.text, from: change.into });
+        caret.setSelection(change.into, end);
+        caret.moveSelectionTo(change.from);
+      },
+      redo: function(caret, change) {
+        
+      }
     }
   }
   
@@ -3304,13 +3333,15 @@
     this.lock = false;
     this.done = [];
     this.undone = [];
+    this.staged = null;
   }
   
   History.prototype = {
     push: function(state) {
       if (!this.lock && state && historyActions[state.type]) {
+        if (this.staged) return this.staged.push(copy(state));
         if (this.undone.length) this.undone.length = 0;
-        this.done.push(state);
+        return this.done.push(copy(state));
       }
     },
     back: function() {
@@ -3327,10 +3358,25 @@
         return pop;
       }
     },
+    stage: function() {
+      this.staged = [];
+    },
+    commit: function() {
+      if (this.staged && this.staged.length) {
+        if (this.undone.length) this.undone.length = 0;
+        this.done.push(this.staged);
+      }
+      this.staged = null;
+    },
     operation: function(doc, op, state) {
-      if (state && historyActions[state.type]) {
+      if (state) {
+        var arr = isArray(state) ? state : [state];
+        doc.makeCarets(arr.length);
         this.lock = true;
-        historyActions[state.type][op].call(doc, state);
+        for (var i = arr.length - 1, change; i >= 0; i--) {
+          change = arr[i];
+          if (historyActions[change.type]) historyActions[change.type][op].call(doc, doc.carets[i], change);
+        }
         return !(this.lock = false);
       }
     },
@@ -3638,31 +3684,18 @@
       cp.doc._lockedScrolling = false;
     });
     on(wrapper, 'dblclick', function() {
-      var bf = cp.caret.textBefore()
-      , af = cp.caret.textAfter()
-      , line = cp.caret.line()
-      , c = cp.caret.column()
-      , l = 1, r = 0, rgx, timeout;
+      caret.match(/\w/);
       
       var tripleclick = function() {
-        cp.doc.setSelectionRange(line, 0, line+1, 0);
-        cp.caret.position(line+1, 0);
+        var head = caret.head();
+        caret.setSelection(position(head.line, 0), position(head.line + 1, 0));
         off(this, 'click', tripleclick);
-        timeout = clearTimeout(timeout);
+        dblClickTimeout = clearTimeout(dblClickTimeout);
       }
       on(this, 'click', tripleclick);
-      timeout = setTimeout(function() { off(wrapper, 'click', tripleclick); }, 350);
-      
-      rgx = bf[c-l] == ' ' || af[r] == ' ' ? /\s/ : !isNaN(bf[c-l]) || !isNaN(af[r]) ? /\d/ : /^\w$/.test(bf[c-l]) || /^\w$/.test(af[r]) ? /\w/ : /[^\w\s]/;
-      
-      while (l <= c && rgx.test(bf[c-l])) l++;
-      while (r < af.length && rgx.test(af[r])) r++;
-      
-      if (c-l+1 != c+r) {
-        cp.doc.setSelectionRange(line, c-l+1, line, c+r);
-      }
+      dblClickTimeout = setTimeout(function() { off(wrapper, 'click', tripleclick); }, 350);
     });
-    on(wrapper, 'mousedown', mouseController);
+    on(wrapper, 'mousedown', onMouse);
     on(wrapper, 'selectstart', function(e) { return eventCancel(e); });
     
     on(input, 'focus', function() {
@@ -3714,6 +3747,8 @@
             'string' === typeof a ? caret.wrapSelection(a, a) : caret.wrapSelection(a[0], a[1]);
           } else if (options.useParserKeyMap && parser.keyMap[ch]) {
             parser.keyMap[ch].call(cp, s.stream, s.state);
+          } else {
+            caret.insert(ch);
           }
           if (options.autoIndent && parser.isIndentTrigger(ch)) {
             reIndent(cp, parser, col);
@@ -3797,44 +3832,31 @@
     });*/
     
     function counterMousemove(e) {
-      var min, max, range
-      , b = sizes.bounds
-      , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
-      if (dl) {
-        counterSelection[1] = dl.info().index;
-        min = Math.min.apply(Math, counterSelection);
-        max = Math.max.apply(Math, counterSelection);
-        cp.doc.setSelectionRange(min, 0, max + 1, 0);
-        if (range = cp.doc.getSelectionRange()) {
-          var tmp = min === counterSelection[0] ? range.end : range.start;
-          cp.caret.position(tmp.line, tmp.column);
-        }
-      }
+      var dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - sizes.bounds.y - sizes.paddingTop);
+      if (!dl) return null;
+      counterSelection[1] = dl.info().index;
+      counterSelDispatch();
     }
     function counterMouseup(e) {
       off(this, 'mousemove', counterMousemove);
       off(this, 'mouseup', counterMouseup);
-      
-      if (counterSelection.length === 1) {
-        var range, min = counterSelection[0];
-        cp.doc.setSelectionRange(min, 0, min + 1, 0);
-        if (range = cp.doc.getSelectionRange()) cp.caret.position(range.end.line, range.end.column);
-      }
+      counterSelDispatch();
       counterSelection.length = 0;
-      isMouseDown = false;
+    }
+    function counterSelDispatch() {
+      var last = lastV(counterSelection);
+      cp.doc.carets[0].setSelection(position(counterSelection[0], 0), position(last + (counterSelection[0] <= last ? 1 : 0), 0));
     }
     on(cp.dom.counter, 'mousedown', function(e) {
-      if (e.target.tagName == 'LI') {
-        var b = sizes.bounds = sizes.bounds || bounds(wrapper)
-        , dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop);
-        if (dl) {
-          counterSelection[0] = dl.info().index;
-          cp.dom.input.focus();
-          isMouseDown = true;
-          on(window, 'mousemove', counterMousemove);
-          on(window, 'mouseup', counterMouseup);
-          return eventCancel(e);
-        }
+      if (e.target.tagName === 'LI') {
+        var dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - (sizes.bounds = sizes.bounds || bounds(wrapper)).y - sizes.paddingTop);
+        if (!dl) return null;
+        counterSelection[0] = dl.info().index;
+        counterSelDispatch();
+        cp.dom.input.focus();
+        on(window, 'mousemove', counterMousemove);
+        on(window, 'mouseup', counterMouseup);
+        return eventCancel(e);
       }
     });
   }
@@ -3897,7 +3919,21 @@
     return pos && 'number' == typeof pos.line && 'number' == typeof pos.column;
   }
   function comparePos(a, b) {
-    return Math.min(Math.max(-1, a.line - b.line || a.column - b.column), 1);
+    return a.line - b.line || a.column - b.column;
+  }
+  function nPos(doc, line, column) {
+    var pos = column !== undefined ? position(line, column) : line, size = doc.size();
+    if (!pos) return null;
+    if (pos.line < 0) pos.line = pos.column = 0;
+    else if (pos.line >= size) {
+      pos.line = size - 1;
+      pos.column = doc.get(size - 1).text.length;
+    }
+    else if (pos.column < 0) {
+      var l = doc.get(pos.line).text.length;
+      pos.column = l ? l + pos.column % l + 1 : 0;
+    }
+    return isPos(pos) ? copy(pos) : null;
   }
   function getRangeOf(a, b) {
     return a ? comparePos(a, b) < 0 ? range(a, b) : range(b, a) : range(b, b);
@@ -4105,7 +4141,9 @@
   }
   function escape(str) { return str.replace(/[-\/\\^$*+?.()|[\]{}"']/g, '\\$&'); }
   function extend(base) { if (base) for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
+  function copy(obj) { var cp = isArray(obj) ? [] : {}; for (var k in obj) cp[k] = 'object' === typeof obj[k] ? copy(obj[k]) : obj[k]; return cp; }
   function isArray(arr) { return Object.prototype.toString.call(arr) === '[object Array]'; }
+  function each(arr, func, owner, start) { for (var i = start | 0; i < arr.length; i++) func.call(owner, arr[i], i); }
   function lastV(arr) { return arr[arr.length-1]; }
   function on(node, event, listener) { node.addEventListener(event, listener, false); }
   function off(node, event, listener) { node.removeEventListener(event, listener, false); }
