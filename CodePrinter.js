@@ -718,20 +718,6 @@
       mx && this.caret.moveX(mx);
       return this;
     },
-    swapLineUp: function() {
-      var cur, up, l = this.caret.line();
-      if (l) {
-        this.replaceLines(l - 1, l);
-        this.caret.moveY(-1);
-      }
-    },
-    swapLineDown: function() {
-      var cur, down, l = this.caret.line();
-      if (l < this.doc.size() - 1) {
-        this.replaceLines(l, l + 1);
-        this.caret.moveY(1);
-      }
-    },
     removeBeforeCursor: function(arg) {
       var r = '', type = typeof arg, bf = this.caret.textBefore();
       if ('string' === type) {
@@ -3183,6 +3169,15 @@
   function caretCmd(fn) {
     return function() { this.doc.eachCaret(fn); };
   }
+  function swap(doc, caret, up) {
+    var range = caret.getRange(), next = doc.get(up ? range.from.line - 1 : range.to.line + 1);
+    if (next) {
+      var text = next.text;
+      if (up) removeRange(doc, position(range.from.line - 1, 0), position(range.from.line, 0)) && insertText(doc, '\n' + text, position(range.to.line - 1, -1));
+      else removeRange(doc, position(range.to.line, -1), position(range.to.line + 1, -1)) && insertText(doc, text + '\n', position(range.from.line, 0));
+      doc.history.push({ type: 'swap', range: caret.getRange(), up: up });
+    }
+  }
   
   commands = {
     'moveCaretLeft': moveCaret('moveX', -1),
@@ -3233,9 +3228,9 @@
     'redo': function() { this.doc.redo(); },
     'toNextDef': function() {},
     'toPrevDef': function() {},
-    'swapLineUp': function() {},
-    'swapLineDown': function() {},
-    'duplicateLine': function() {},
+    'swapUp': caretCmd(function(caret) { swap(this, caret, true); }),
+    'swapDown': caretCmd(function(caret) { swap(this, caret, false); }),
+    'duplicate': function() {},
     'delCharLeft': function() {
       var tw = this.options.tabWidth;
       this.doc.eachCaret(function(caret) {
@@ -3332,6 +3327,22 @@
         caret.moveSelectionTo(change.from);
       },
       redo: function(caret, change) {
+        
+      }
+    },
+    'swap': {
+      undo: function(caret, change) {
+        caret.setSelectionRange(change.range);
+        swap(this, caret, !change.up);
+      },
+      redo: function(caret, change) {
+        caret.setSelectionRange(change.range);
+        swap(this, caret, change.up);
+      },
+      canBeMerged: function(a, b) {
+        
+      },
+      merge: function(a, b, code) {
         
       }
     }
