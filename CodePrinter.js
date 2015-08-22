@@ -1740,12 +1740,13 @@
   }
   function changeEnd(change) {
     if (change.end) return change.end;
-    if (!change.text) return change.to;
+    if (!change.text) return change.from;
     return position(change.from.line + change.text.length - 1, lastV(change.text).length + (change.text.length === 1 ? change.from.column : 0));
   }
   function adjustCaretsPos(doc, change) {
     eachCaret(doc, function(caret) {
-      caret.setSelection(adjustPosForChange(caret.anchor(), change, true), adjustPosForChange(caret.head(), change));
+      var ind = caret.indicators();
+      caret.setSelection(adjustPosForChange(ind.anchor, change, true), adjustPosForChange(ind.head, change));
     });
   }
   function adjustPosForChange(pos, change, anchor) {
@@ -2257,7 +2258,6 @@
         } else if (offset < tmp + l) {
           ow = child.offsetWidth;
           ol = child.offsetLeft;
-          r.column = offset;
           r.offsetX = Math.round(ol + (offset - tmp) * ow / l);
           r.offsetY = child.offsetTop;
           r.charWidth = Math.round(ow / l);
@@ -2271,17 +2271,16 @@
         }
         tmp += l;
       }
-      if (!bool) {
-        r.column = tmp;
-        if (child) {
-          ow = child.offsetWidth;
-          r.charWidth = Math.round(ow / l);
-          r.offsetX = child.offsetLeft + ow;
-          r.offsetY = child.offsetTop;
-        }
-      } else if (r.width) r.width = Math.round(r.width);
+      if (!bool && child) {
+        ow = child.offsetWidth;
+        r.charWidth = Math.round(ow / l);
+        r.offsetX = child.offsetLeft + ow;
+        r.offsetY = child.offsetTop;
+      }
+      if (r.width) r.width = Math.round(r.width);
       if (child) r.height = child.offsetTop - r.offsetY + (r.charHeight = child.offsetHeight);
       if (!r.charWidth) r.charWidth = calcCharWidth(dl.node || dom.measure.firstChild);
+      r.column = offset;
       return r;
     }
     this.updateView = function(det) {
@@ -2329,12 +2328,12 @@
       return false;
     }
     this.getSelection = function() {
-      var parts = [];
-      this.carets.sort(function(a, b) { return comparePos(a.head(), b.head()); });
-      eachCaret(this, function(caret) {
+      var parts = [], carets = [].concat(this.carets);
+      carets.sort(function(a, b) { return comparePos(a.head(), b.head()); });
+      each(carets, function(caret) {
         var range = caret.getSelectionRange(), sel = range && this.substring(range.from, range.to);
         if (sel) parts[parts.length] = sel;
-      });
+      }, this);
       return parts.join('');
     }
     this.drawSelection = function(overlay, range) {
@@ -2651,11 +2650,11 @@
         head.column = column;
         b = true;
       }
+      this.showSelection();
       if (b) doc.emit('caretWillMove', this);
       lastMeasure = measure;
       setPixelPosition.call(this, measure.offsetX, measure.offsetY + measure.lineOffset);
       if (b) doc.emit('caretMoved', this);
-      this.showSelection();
       return this;
     }
     this.beginSelection = function() {
@@ -2664,11 +2663,11 @@
       if (!selOverlay) selOverlay = doc.getEditor().createOverlay('cp-selection-overlay');
     }
     this.hasSelection = function() {
-      return anchor && comparePos(anchor, head) !== 0;
+      return anchor && comparePos(anchor, this.head()) !== 0;
     }
     this.inSelection = function(line, column) {
       var pos = position(line, column);
-      return anchor && comparePos(anchor, pos) * comparePos(pos, head) >= 0;
+      return anchor && comparePos(anchor, pos) * comparePos(pos, head) > 0;
     }
     this.getSelectionRange = function() {
       if (this.hasSelection()) {
@@ -2682,6 +2681,9 @@
       if (!newHead) return;
       if (newAnchor == null || isPos(newAnchor)) anchor = nPos(doc, newAnchor);
       return this.position(newHead);
+    }
+    this.setSelectionRange = function(range) {
+      return range && this.setSelection(range.from, range.to);
     }
     this.showSelection = function() {
       var range = this.getSelectionRange();
@@ -2724,15 +2726,14 @@
       doc.history.push({ type: 'wrap', range: this.getRange(), before: before, after: after, unwrap: true });
     }
     this.moveSelectionTo = function(pos) {
-      var range = JSON.parse(JSON.stringify(this.getSelectionRange()));
+      var range = this.getSelectionRange();
+      if (!pos || !range || comparePos(range.from, pos) <= 0 && comparePos(pos, range.to) <= 0) return false;
       this.clearSelection();
       this.position(pos);
-      if (range) {
-        var removed = removeRange(doc, range.from, range.to).removed;
-        this.beginSelection();
-        insertText(doc, removed, head);
-        doc.history.push({ type: 'moveSelection', text: removed, from: range.from, into: pos });
-      }
+      var removed = removeRange(doc, range.from, range.to).removed;
+      this.beginSelection();
+      insertText(doc, removed, head);
+      doc.history.push({ type: 'moveSelection', text: removed, from: range.from, into: this.anchor() });
     }
     this.reverse = function() {
       if (!anchor) return;
@@ -2765,14 +2766,13 @@
         if (range) return doc.removeRange(range.from, range.to);
       }
     }
-    this.removeBefore = docRemove(function(n) { return rangeWithMove(doc, position(head.line, this.column()), -n); });
-    this.removeAfter = docRemove(function(n) { return rangeWithMove(doc, position(head.line, this.column()), n); });
+    this.removeBefore = docRemove(function(n) { return rangeWithMove(doc, this.head(), -n); });
+    this.removeAfter = docRemove(function(n) { return rangeWithMove(doc, this.head(), n); });
     this.removeLine = docRemove(function() { return range(position(head.line, 0), position(head.line, currentLine.text.length)); });
     
     this.textBefore = function() { return currentLine && currentLine.text.substring(0, head.column); }
     this.textAfter = function() { return currentLine && currentLine.text.substr(head.column); }
     this.textAtCurrentLine = function() { return currentLine && currentLine.text; }
-    this.getPosition = function() { return position(head.line, this.column()); }
     
     this.position = function(line, column) {
       var nHead = nPos(doc, line, column);
@@ -2785,7 +2785,7 @@
     this.moveX = function(mv, dontReverse) {
       if ('number' === typeof mv) {
         if (!dontReverse) mv = maybeReverseSelection(this, anchor, head, mv);
-        var pos = positionAfterMove(doc, position(head.line, this.column()), mv);
+        var pos = positionAfterMove(doc, this.head(), mv);
         return this.position(pos.line, pos.column);
       }
       return this;
@@ -2826,13 +2826,10 @@
       return position(head.line, this.column());
     }
     this.anchor = function() {
-      return anchor && position(anchor.line, anchor.column);
+      return anchor && comparePos(anchor, this.head()) !== 0 && copy(anchor);
     }
-    this.leftEdge = function() {
-      return anchor && comparePos(anchor, head) < 0 ? anchor : head;
-    }
-    this.rightEdge = function() {
-      return anchor && comparePos(anchor, head) > 0 ? anchor : head;
+    this.indicators = function() {
+      return { anchor: copy(anchor), head: copy(head) };
     }
     this.dl = function() {
       return currentLine;
@@ -2860,7 +2857,7 @@
       this.node.className = 'cp-caret cp-caret-'+style;
     }
     this.focus = function() {
-      select(currentLine);
+      if (!this.hasSelection()) select(currentLine);
     }
     this.blur = function() {
       unselect();
@@ -3412,17 +3409,19 @@
       }
     },
     getChanges: function(stringify) {
-      var str = JSON.stringify({ done: this.done, undone: this.undone });
-      return stringify ? str : JSON.parse(str);
+      var obj = { done: this.done, undone: this.undone, staged: this.staged };
+      return stringify ? JSON.stringify(obj) : copy(obj);
     },
     setChanges: function(data) {
       if (data && data.done && data.undone) {
         try {
           checkHistorySupport(data.done);
           checkHistorySupport(data.undone);
+          data.staged && checkHistorySupport(data.staged);
         } catch (e) { throw e; }
         this.done = data.done;
         this.undone = data.undone;
+        this.staged = data.staged;
       }
     }
   }
@@ -3941,13 +3940,13 @@
     return 'string' == typeof source ? source : '';
   }
   function range(from, to) {
-    return { from: from, to: to };
+    return { from: copy(from), to: copy(to) };
   }
   function position(line, column) {
     return { line: line, column: column };
   }
   function isPos(pos) {
-    return pos && 'number' == typeof pos.line && 'number' == typeof pos.column;
+    return pos && 'number' === typeof pos.line && 'number' === typeof pos.column;
   }
   function comparePos(a, b) {
     return a.line - b.line || a.column - b.column;
