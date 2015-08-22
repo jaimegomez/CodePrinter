@@ -3187,6 +3187,8 @@
     'moveSelDown': moveSel('moveY', 1),
     'moveToStart': function() { this.doc.resetCarets().position(0, 0); },
     'moveToEnd': function() { this.doc.resetCarets().position(this.doc.size() - 1, -1); },
+    'moveToLineStart': caretCmd(function(caret) { caret.position(caret.line(), 0); }),
+    'moveToLineEnd': caretCmd(function(caret) { caret.position(caret.line(), -1); }),
     'moveWordLeft': function() {},
     'moveWordRight': function() {},
     'selectWord': function() { this.doc.call('match', /\w/); },
