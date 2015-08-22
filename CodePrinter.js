@@ -3297,6 +3297,11 @@
     }
   }
   
+  function mergeStringArrays(a, b) {
+    a[a.length-1] += b.shift();
+    return a.concat(b);
+  }
+  
   historyActions = {
     'replace': {
       undo: function(caret, change) {
@@ -3304,6 +3309,20 @@
       },
       redo: function(caret, change) {
         this.replaceRange(change.text, change.from, change.to);
+      },
+      canBeMerged: function(a, b) {
+        return comparePos(changeEnd(a), b.from) === 0 ? 1 : comparePos(a.from, changeEnd(b)) === 0 ? 2 : 0;
+      },
+      merge: function(a, b, code) {
+        var x = a, y = b;
+        if (code === 2) {
+          x = b; y = a;
+          a.from = b.from;
+        }
+        a.text = mergeStringArrays(x.text, y.text);
+        a.removed = mergeStringArrays(x.removed, y.removed);
+        a.to = changeEnd({ text: x.removed, from: x.from });
+        a.chunks = (a.chunks || 1) + 1;
       }
     },
     'indent': {
@@ -3392,6 +3411,23 @@
     commit: function() {
       if (this.staged && this.staged.length) {
         if (this.undone.length) this.undone.length = 0;
+        var lastStage = lastV(this.done);
+        if (isArray(lastStage)) {
+          var codes = [], min = Math.min(lastStage.length, this.staged.length);
+          for (var i = 0; i < min; i++) {
+            var ch = lastStage[i], cur = this.staged[i], hist = historyActions[ch.type];
+            if (ch.type === cur.type && hist.merge && hist.canBeMerged) codes[i] = hist.canBeMerged(ch, cur);
+            if (!codes[i]) break;
+          }
+          if (i === min) {
+            for (var i = 0; i < min; i++) {
+              var hist = historyActions[lastStage[i].type];
+              hist.merge(lastStage[i], this.staged[i], codes[i]);
+            }
+            for (; i < this.staged.length; i++) lastStage.push(this.staged[i]);
+            return this.staged = null;
+          }
+        }
         this.done.push(this.staged);
       }
       this.staged = null;
