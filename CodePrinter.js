@@ -2379,6 +2379,21 @@
     this.height = function() { return data.height; }
     
     EventEmitter.call(this);
+    
+    this.on('caretMoved', function(caret) {
+      var head = caret.head();
+      for (var i = 0; i < this.carets.length; i++) {
+        var cc = this.carets[i];
+        if (caret !== cc && cc.inSelection(head.line, head.column)) {
+          this.carets.splice(i, 1);
+          this.dom.caretsContainer.removeChild(cc.node);
+          cc.clearSelection();
+          mergeCarets(caret, cc);
+          break;
+        }
+      }
+    });
+    
     this.view = view = [];
     this.carets = [new Caret(this)];
     this.scrollTop = 0;
