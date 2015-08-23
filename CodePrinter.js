@@ -1745,8 +1745,7 @@
   }
   function adjustCaretsPos(doc, change) {
     eachCaret(doc, function(caret) {
-      var ind = caret.indicators();
-      caret.setSelection(adjustPosForChange(ind.anchor, change, true), adjustPosForChange(ind.head, change));
+      caret.setSelection(adjustPosForChange(caret.anchor(true), change, true), adjustPosForChange(caret.head(true), change));
     });
   }
   function adjustPosForChange(pos, change, anchor) {
@@ -2418,8 +2417,8 @@
   }
   
   Document.prototype = {
-    undo: function() { return this.history.operation(this, 'undo', this.history.back()); },
-    redo: function() { return this.history.operation(this, 'redo', this.history.forward()); },
+    undo: function() { return this.history.operation(this, 'undo', historyBack(this.history)); },
+    redo: function() { return this.history.operation(this, 'redo', historyForward(this.history)); },
     undoAll: function() { while (this.undo()); },
     redoAll: function() { while (this.redo()); },
     focus: function() {
@@ -2679,7 +2678,8 @@
     }
     this.setSelection = function(newAnchor, newHead) {
       if (!newHead) return;
-      if (newAnchor == null || isPos(newAnchor)) anchor = nPos(doc, newAnchor);
+      if (isPos(newAnchor) && comparePos(newAnchor, newHead)) anchor = nPos(doc, newAnchor);
+      else anchor = null;
       return this.position(newHead);
     }
     this.setSelectionRange = function(range) {
@@ -2714,7 +2714,7 @@
       replaceRange(doc, after, range.to, range.to);
       replaceRange(doc, before, range.from, range.from);
       if (comparePos(anchor, head) < 0) this.moveX(-after.length, true) && this.moveAnchor(before.length);
-      doc.history.push({ type: 'wrap', range: this.getRange(), before: before, after: after });
+      doc.history.push({ type: 'wrap', range: range, before: before, after: after, wrap: true });
     }
     this.unwrapSelection = function(before, after) {
       var range = this.getRange()
@@ -2723,7 +2723,7 @@
       if (doc.substring(from, range.from) !== before || doc.substring(range.to, to) !== after) return false;
       removeRange(doc, range.to, to);
       removeRange(doc, from, range.from);
-      doc.history.push({ type: 'wrap', range: this.getRange(), before: before, after: after, unwrap: true });
+      doc.history.push({ type: 'wrap', range: range, before: before, after: after, wrap: false });
     }
     this.moveSelectionTo = function(pos) {
       var range = this.getSelectionRange();
@@ -2758,6 +2758,7 @@
       var range = this.getRange();
       doc.replaceRange(text, range.from, range.to);
       if ('number' === typeof movement) this.moveX(movement);
+      return this;
     }
     
     function docRemove(rangeHandler) {
@@ -2822,14 +2823,11 @@
       if (withLine && lastMeasure) o += lastMeasure.charHeight;
       return o;
     }
-    this.head = function() {
-      return position(head.line, this.column());
+    this.head = function(real) {
+      return real ? copy(head) : position(head.line, this.column());
     }
-    this.anchor = function() {
-      return anchor && comparePos(anchor, this.head()) !== 0 && copy(anchor);
-    }
-    this.indicators = function() {
-      return { anchor: copy(anchor), head: copy(head) };
+    this.anchor = function(real) {
+      return anchor && (real || comparePos(anchor, this.head())) && copy(anchor);
     }
     this.dl = function() {
       return currentLine;
@@ -3172,7 +3170,7 @@
       var text = next.text;
       if (up) removeRange(doc, position(range.from.line - 1, 0), position(range.from.line, 0)) && insertText(doc, '\n' + text, position(range.to.line - 1, -1));
       else removeRange(doc, position(range.to.line, -1), position(range.to.line + 1, -1)) && insertText(doc, text + '\n', position(range.from.line, 0));
-      doc.history.push({ type: 'swap', range: caret.getRange(), up: up });
+      doc.history.push({ type: 'swap', range: range, offset: up ? -1 : 1 });
     }
   }
   
@@ -3303,17 +3301,22 @@
     a[a.length-1] += b.shift();
     return a.concat(b);
   }
+  function moveRangeBy(range, line, col) {
+    if (line) { range.from.line += line; range.to.line += line; }
+    if (col) { range.from.column += col; range.to.column += col; }
+    return range;
+  }
   
   historyActions = {
     'replace': {
-      undo: function(caret, change) {
-        this.replaceRange(change.removed, change.from, changeEnd(change));
+      make: function(caret, change) {
+        caret.setSelection(change.from, change.to).insert(change.text).clearSelection();
       },
-      redo: function(caret, change) {
-        this.replaceRange(change.text, change.from, change.to);
+      reverse: function(change) {
+        return { type: 'replace', text: change.removed, removed: change.text, from: change.from, to: changeEnd(change) };
       },
       canBeMerged: function(a, b) {
-        return comparePos(changeEnd(a), b.from) === 0 ? 1 : comparePos(a.from, changeEnd(b)) === 0 ? 2 : 0;
+        return comparePos(changeEnd(a), b.from) === 0 ? 1 : comparePos(a.from, changeEnd({ text: b.removed, from: b.from })) === 0 ? 2 : 0;
       },
       merge: function(a, b, code) {
         var x = a, y = b;
@@ -3324,44 +3327,62 @@
         a.text = mergeStringArrays(x.text, y.text);
         a.removed = mergeStringArrays(x.removed, y.removed);
         a.to = changeEnd({ text: x.removed, from: x.from });
-        a.chunks = (a.chunks || 1) + 1;
       }
     },
     'indent': {
-      undo: function(caret, change) {},
-      redo: function(caret, change) {}
-    },
-    'wrap': {
-      undo: function(caret, change) {
-        caret.setSelection(change.range.from, change.range.to);
-        caret.unwrapSelection(change.before, change.after);
+      make: function(caret, change) {
+        
       },
-      redo: function(caret, change) {}
-    },
-    'moveSelection': {
-      undo: function(caret, change) {
-        var end = changeEnd({ text: change.text, from: change.into });
-        caret.setSelection(change.into, end);
-        caret.moveSelectionTo(change.from);
-      },
-      redo: function(caret, change) {
+      reverse: function(change) {
         
       }
     },
-    'swap': {
-      undo: function(caret, change) {
-        caret.setSelectionRange(change.range);
-        swap(this, caret, !change.up);
+    'wrap': {
+      make: function(caret, change) {
+        var method = change.wrap ? 'wrapSelection' : 'unwrapSelection';
+        caret.setSelection(change.range.from, change.range.to)[method](change.before, change.after);
       },
-      redo: function(caret, change) {
+      reverse: function(change) {
+        if (change.wrap) {
+          var ch = { text: [change.before], from: change.range.from, to: change.range.from };
+        } else {
+          var ch = { text: [''], from: moveRangeBy(copy(change.range), 0, -change.before.length).from, to: change.range.from };
+        }
+        change.range = range(adjustPosForChange(change.range.from, ch), adjustPosForChange(change.range.to, ch));
+        return extend(change, { wrap: !change.wrap });
+      }
+    },
+    'moveSelection': {
+      make: function(caret, change) {
+        caret.setSelection(change.from, changeEnd(change)).moveSelectionTo(change.into);
+      },
+      reverse: function(change) {
+        return extend(change, { from: change.into, into: change.from });
+      }
+    },
+    'swap': {
+      make: function(caret, change) {
         caret.setSelectionRange(change.range);
-        swap(this, caret, change.up);
+        swap(this, caret, change.offset < 0);
+      },
+      reverse: function(change) {
+        moveRangeBy(change.range, change.offset);
+        return extend(change, { offset: -change.offset });
       },
       canBeMerged: function(a, b) {
-        
+        var off = a.offset;
+        return a.range.from.column === b.range.from.column && a.range.to.column === b.range.to.column
+        && a.range.from.line + off === b.range.from.line && a.range.to.line + off === b.range.to.line;
       },
-      merge: function(a, b, code) {
-        
+      merge: function(a, b) {
+        a.offset += b.offset;
+      },
+      split: function(a) {
+        if (a.offset === 1 || a.offset === -1) return a;
+        var r = copy(a.range);
+        moveRangeBy(r, a.offset > 1 ? a.offset-- : a.offset++);
+        console.log(a.range, r);
+        return { type: 'swap', range: r, offset: a.offset > 0 ? -1 : 1 };
       }
     }
   }
@@ -3369,20 +3390,46 @@
   function checkHistorySupport(stack) {
     for (var i = 0; i < stack.length; i++) {
       var change = stack[i];
-      if (!change.type) {
-        throw new Error('Some of the changes in the history are incorrect');
-      }
-      if (!historyActions[change.type]) {
-        throw new Error('Some of the changes in the history contain unsupported actions (like ' + change.type + ' ).');
-      }
+      if (!change.type || !change.make || !change.reverse) throw new Error('Some of the changes in the history are incorrect');
+      if (!historyActions[change.type]) throw new Error('Some of the changes in the history contain unsupported actions (like "' + change.type + '" ).');
     }
   }
+  function reverseChange(change) {
+    return historyActions[change.type].reverse(change);
+  }
+  function reverseChanges(state) {
+    return isArray(state) ? map(state, reverseChange) : reverseChange(state);
+  }
+  function splitChange(change) {
+    var act = historyActions[change.type];
+    return act && act.split && act.split(change);
+  }
+  function maybeSplitChanges(state) {
+    if (!isArray(state)) return splitChange(state) || state;
+    var split = [];
+    for (var i = 0; i < state.length; i++) {
+      var s = splitChange(state[i]);
+      if (s === state[i]) split.push(state.splice(i--, 1)[0]);
+      else if (s) split.push(s);
+    }
+    return split.length ? split : state;
+  }
+  function historyMove(hist, from, into) {
+    if (!hist.lock && from.length) {
+      var last = lastV(from), split = maybeSplitChanges(last);
+      if (last === split || last.length === 0) from.pop();
+      into.push(split = reverseChanges(split));
+      return split;
+    }
+  }
+  function historyBack(hist) { return historyMove(hist, hist.done, hist.undone); }
+  function historyForward(hist) { return historyMove(hist, hist.undone, hist.done); }
   
   History = function(doc, stackSize, delay) {
     this.lock = false;
     this.done = [];
     this.undone = [];
-    this.staged = null;
+    this.staged = undefined;
   }
   
   History.prototype = {
@@ -3391,20 +3438,6 @@
         if (this.staged) return this.staged.push(copy(state));
         if (this.undone.length) this.undone.length = 0;
         return this.done.push(copy(state));
-      }
-    },
-    back: function() {
-      if (!this.lock && this.done.length) {
-        var pop = this.done.pop();
-        this.undone.push(pop);
-        return pop;
-      }
-    },
-    forward: function() {
-      if (!this.lock && this.undone.length) {
-        var pop = this.undone.pop();
-        this.done.push(pop);
-        return pop;
       }
     },
     stage: function() {
@@ -3427,12 +3460,12 @@
               hist.merge(lastStage[i], this.staged[i], codes[i]);
             }
             for (; i < this.staged.length; i++) lastStage.push(this.staged[i]);
-            return this.staged = null;
+            return this.staged = undefined;
           }
         }
         this.done.push(this.staged);
       }
-      this.staged = null;
+      this.staged = undefined;
     },
     operation: function(doc, op, state) {
       if (state) {
@@ -3441,7 +3474,7 @@
         this.lock = true;
         for (var i = arr.length - 1, change; i >= 0; i--) {
           change = arr[i];
-          if (historyActions[change.type]) historyActions[change.type][op].call(doc, doc.carets[i], change);
+          if (historyActions[change.type]) historyActions[change.type].make.call(doc, doc.carets[i], change, op);
         }
         return !(this.lock = false);
       }
@@ -4212,6 +4245,7 @@
   function copy(obj) { var cp = isArray(obj) ? [] : {}; for (var k in obj) cp[k] = 'object' === typeof obj[k] ? copy(obj[k]) : obj[k]; return cp; }
   function isArray(arr) { return Object.prototype.toString.call(arr) === '[object Array]'; }
   function each(arr, func, owner, start) { for (var i = start | 0; i < arr.length; i++) func.call(owner, arr[i], i); }
+  function map(arr, func) { var m = []; for (var i = 0; i < arr.length; i++) m[i] = func.call(this, arr[i], i); return m; }
   function lastV(arr) { return arr[arr.length-1]; }
   function on(node, event, listener) { node.addEventListener(event, listener, false); }
   function off(node, event, listener) { node.removeEventListener(event, listener, false); }
