@@ -3672,94 +3672,67 @@
     , counterSelection = []
     , allowKeyup, activeLine
     , isMouseDown, isScrolling
-    , moveevent, moveselection
-    , T, T2, T3, fn, cmdPressed;
+    , moveEvent, moveselection
+    , dblClickTimeout
+    , T, T2, T3, fn, cmdPressed, caret;
     
-    function mouseController(e) {
-      if (e.defaultPrevented) return false;
+    function onMouse(e) {
+      if (e.defaultPrevented || e.which === 3) return false;
       
       var doc = cp.doc
-      , sl = cp.dom.wrapper.scrollLeft
-      , st = cp.dom.wrapper.scrollTop
-      , o = sizes.bounds = sizes.bounds || bounds(wrapper)
-      , x = Math.max(0, sl + e.pageX - o.x)
-      , y = e.pageY < o.y ? 0 : e.pageY <= o.y + wrapper.clientHeight ? st + e.pageY - o.y - sizes.paddingTop : wrapper.scrollHeight
-      , ry = Math.max(0, Math.min(y, doc.height()))
-      , isinactive = document.activeElement !== input, msp;
+      , wrapper = cp.dom.wrapper
+      , b = bounds(wrapper)
+      , x = Math.max(0, wrapper.scrollLeft + e.pageX - b.x)
+      , y = e.pageY < b.y ? 0 : e.pageY <= b.y + wrapper.offsetHeight ? wrapper.scrollTop + e.pageY - b.y - sizes.paddingTop : wrapper.scrollHeight
+      , realY = Math.max(0, Math.min(y, doc.height()))
+      , isinactive = document.activeElement !== input
+      , measure = doc.measurePosition(x, realY);
       
-      input.focus();
-      cp.caret.target(x, ry);
-      var l = cp.caret.line(), c = cp.caret.column();
+      cp.focus();
       
       if (e.type === 'mousedown') {
-        isMouseDown = true;
-        if (doc.inSelection(l, c) && ry === y && (x - 3 <= cp.caret.offsetX() || doc.inSelection(l, c+1))) {
-          moveselection = true;
-          on(window, 'mousemove', mouseController);
-          on(window, 'mouseup', msp = function(e) {
-            off(window, 'mousemove', mouseController);
-            if (moveselection > 1) {
-              var savedpos = cp.caret.savePosition();
-              if (moveselection && doc.issetSelection() && !doc.inSelection(savedpos[0], savedpos[1])) {
-                var selection = doc.getSelection()
-                , sel = doc.getSelectionRange()
-                , isbf = cp.cursorIsBeforePosition(sel.start.line, sel.start.column);
-                
-                cp.caret.position(sel.end.line, sel.end.column);
-                if (!isbf) {
-                  savedpos[0] -= sel.end.line - sel.start.line;
-                }
-                !e.altKey && doc.removeSelection();
-                cp.caret.restorePosition(savedpos, true);
-                cp.insertSelectedText(selection);
-              } else {
-                moveselection = null;
-                doc.clearSelection();
-                mouseController(e);
-              }
-            } else if (!isinactive) {
-              moveselection = null;
-              doc.clearSelection();
-            }
-            input.focus();
-            off(window, 'mouseup', msp);
-            return isMouseDown = moveselection = eventCancel(e);
-          });
-        } else {
-          input.value = '';
-          if (y > ry) cp.caret.position(l, -1);
-          else if (y < 0) cp.caret.position(l, 0);
-          
-          doc.beginSelection();
-          on(window, 'mousemove', mouseController);
-          on(window, 'mouseup', msp = function(e) {
-            !doc.issetSelection() && doc.clearSelection();
-            off(window, 'mousemove', mouseController);
-            cp.caret.activate();
-            sizes.bounds = moveevent = null;
-            document.activeElement != input && (gecko ? async(function() { input.focus() }) : input.focus());
-            off(window, 'mouseup', msp);
-            return isMouseDown = eventCancel(e);
-          });
-        }
-        cp.emit('click');
-      } else if (!moveselection) {
-        moveevent = e;
-        doc.endSelection();
+        isMouseDown = Flags.isMouseDown = true;
         
-        if (e.pageY > o.y && e.pageY < o.y + wrapper.clientHeight) {
-          var oH = wrapper.offsetHeight
-          , i = (e.pageY <= o.y + 25 ? e.pageY - o.y - 25 : e.pageY >= o.y + oH - 25 ? e.pageY - o.y - oH + 25 : 0);
+        if (caret = issetSelectionAt(doc.carets, measure.line, measure.column)) {
+          Flags.movingSelection = true;
+        } else {
+          caret = e.metaKey || e.ctrlKey ? doc.createCaret() : doc.resetCarets();
+          caret.dispatch(measure);
+          if (!Flags.shiftKey || !caret.hasSelection()) caret.beginSelection();
+        }
+        on(window, 'mousemove', onMouse);
+        on(window, 'mouseup', onMouse);
+      }
+      else if (e.type === 'mousemove') {
+        if (Flags.movingSelection) {
+          ++Flags.movingSelection;
+        } else {
+          caret.dispatch(measure);
+        }
+        moveEvent = e;
+        if (e.pageY > b.y && e.pageY < b.y + wrapper.clientHeight) {
+          var oH = wrapper.offsetHeight, dh = doc.sizes.defaultHeight
+          , i = e.pageY <= b.y + dh ? e.pageY - b.y - dh : e.pageY >= b.y + oH - dh ? e.pageY - b.y - oH + dh : 0;
           
           i && setTimeout(function() {
-            if (i && !moveselection && isMouseDown && moveevent === e) {
+            if (i && Flags.isMouseDown && moveEvent === e) {
               doc.scrollTo(wrapper.scrollTop + i);
-              mouseController.call(wrapper, moveevent);
+              onMouse.call(wrapper, moveEvent);
             }
-          }, 50);
+          }, 100);
         }
-      } else {
-        ++moveselection;
+      }
+      else if (e.type === 'mouseup') {
+        if (Flags.movingSelection > 1) {
+          caret.moveSelectionTo(position(measure.line, measure.column));
+        } else {
+          if (Flags.movingSelection === true) caret.clearSelection();
+          caret.dispatch(measure);
+        }
+        isMouseDown = Flags.isMouseDown = Flags.movingSelection = false;
+        
+        off(window, 'mousemove', onMouse);
+        off(window, 'mouseup', onMouse);
       }
     }
     
