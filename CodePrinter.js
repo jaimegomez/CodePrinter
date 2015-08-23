@@ -2330,7 +2330,7 @@
       var parts = [], carets = [].concat(this.carets);
       carets.sort(function(a, b) { return comparePos(a.head(), b.head()); });
       each(carets, function(caret) {
-        var range = caret.getSelectionRange(), sel = range && this.substring(range.from, range.to);
+        var sel = caret.getSelection();
         if (sel) parts[parts.length] = sel;
       }, this);
       return parts.join('');
@@ -2658,7 +2658,7 @@
     }
     this.beginSelection = function() {
       this.clearSelection();
-      anchor = position(head.line, head.column);
+      anchor = this.head();
       if (!selOverlay) selOverlay = doc.getEditor().createOverlay('cp-selection-overlay');
     }
     this.hasSelection = function() {
@@ -2667,6 +2667,10 @@
     this.inSelection = function(line, column) {
       var pos = position(line, column);
       return anchor && comparePos(anchor, pos) * comparePos(pos, head) > 0;
+    }
+    this.getSelection = function() {
+      var r = this.getSelectionRange();
+      return r ? doc.substring(r.from, r.to) : '';
     }
     this.getSelectionRange = function() {
       if (this.hasSelection()) {
