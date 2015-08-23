@@ -1724,7 +1724,7 @@
     var minHeight, dom = doc.dom, sizes = doc.sizes;
     if (dom && sizes.minHeight != (minHeight = doc.height() + sizes.paddingTop * 2)) {
       dom.screen.style.minHeight = minHeight + 'px';
-      dom.counterContainer.style.minHeight = minHeight + 'px';
+      dom.counterWrapper.style.minHeight = minHeight + 'px';
       sizes.minHeight = minHeight;
     }
   }
@@ -3619,8 +3619,8 @@
     dom.container = create(dom.body, 'div', 'cp-container');
     dom.input = create(dom.container, 'textarea', 'cp-input');
     dom.counterContainer = create(dom.container, 'div', 'cp-counter');
-    dom.counterParent = create(dom.counterContainer, 'div', 'cp-counter-child');
-    dom.counter = create(dom.counterParent, 'ol', 'cp-counter-ol');
+    dom.counterWrapper = create(dom.counterContainer, 'div', 'cp-counter-wrapper');
+    dom.counter = create(dom.counterWrapper, 'ol', 'cp-counter-ol');
     dom.wrapper = create(dom.container, 'div', 'cp-wrapper');
     dom.caretsContainer = create(dom.wrapper, 'div', 'cp-carets');
     dom.screen = create(dom.wrapper, 'div', 'cp-screen');
@@ -4093,12 +4093,12 @@
   }
   function scrollTo(doc, st) {
     doc.scrollTop = st;
-    doc.dom.counter.scrollTop = st;
+    doc.dom.counterContainer.scrollTop = st;
     doc.dom.wrapper.scrollTop = st;
   }
   function scrollBy(doc, delta) {
     doc.scrollTop += delta;
-    doc.dom.counter.scrollTop += delta;
+    doc.dom.counterContainer.scrollTop += delta;
     doc.dom.wrapper.scrollTop += delta;
   }
   function defaultFormatter(i) { return i; }
