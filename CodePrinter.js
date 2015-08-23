@@ -2052,9 +2052,9 @@
         return rm;
       }
     }
-    this.substring = function(from, to) {
-      var parts = [];
-      if (isPos(from) && isPos(to) && comparePos(from, to) <= 0) {
+    this.substring = function(a, b) {
+      var parts = [], from = nPos(this, a), to = nPos(this, b);
+      if (from && to && comparePos(from, to) <= 0) {
         var dl = data.get(from.line);
         if (from.line === to.line) return dl.text.substring(from.column, to.column);
         parts[0] = dl.text.substr(from.column);
