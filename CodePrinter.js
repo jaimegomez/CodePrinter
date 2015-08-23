@@ -3246,7 +3246,11 @@
     'toPrevDef': function() {},
     'swapUp': caretCmd(function(caret) { swap(this, caret, true); }),
     'swapDown': caretCmd(function(caret) { swap(this, caret, false); }),
-    'duplicate': function() {},
+    'duplicate': caretCmd(function(caret) {
+      var range = caret.getRange(), text = this.substring(position(range.from.line, 0), position(range.to.line, -1));
+      caret.clearSelection();
+      caret.position(range.to.line, -1).insert('\n' + text);
+    }),
     'delCharLeft': function() {
       var tw = this.options.tabWidth;
       this.doc.eachCaret(function(caret) {
