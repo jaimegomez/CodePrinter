@@ -1741,7 +1741,7 @@
   function changeEnd(change) {
     if (change.end) return change.end;
     if (!change.text) return change.from;
-    return position(change.from.line + change.text.length - 1, lastV(change.text).length + (change.text.length === 1 ? change.from.column : 0));
+    return p(change.from.line + change.text.length - 1, lastV(change.text).length + (change.text.length === 1 ? change.from.column : 0));
   }
   function adjustCaretsPos(doc, change) {
     eachCaret(doc, function(caret) {
@@ -1755,18 +1755,18 @@
     if (comparePos(pos, change.to) <= 0) return changeEnd(change);
     var line = pos.line - change.to.line + change.from.line + change.text.length - 1, col = pos.column;
     if (pos.line === change.to.line) col += changeEnd(change).column - change.to.column;
-    return position(line, col);
+    return p(line, col);
   }
   function singleInsert(doc, line, lineIndex, insert, at) {
     var text = line.text, change = { text: [insert] };
     line.setText(text.substring(0, at) + insert + text.substr(at));
     line.node && parse(doc, line);
-    change.from = change.to = position(lineIndex, at);
-    change.end = position(lineIndex, at + insert.length);
+    change.from = change.to = p(lineIndex, at);
+    change.end = p(lineIndex, at + insert.length);
     adjustCaretsPos(doc, change);
   }
   function singleRemove(doc, line, lineIndex, from, to) {
-    var text = line.text, change = { from: position(lineIndex, from), to: position(lineIndex, to) };
+    var text = line.text, change = { from: p(lineIndex, from), to: p(lineIndex, to) };
     line.setText(text.substring(0, from) + text.substr(to));
     line.node && parse(doc, line);
     change.text = [text.substring(from, to)];
@@ -2588,26 +2588,26 @@
     
     if (mv <= 0) {
       while (dl) {
-        if (-mv <= column) return position(line, column + mv);
+        if (-mv <= column) return p(line, column + mv);
         mv += column + 1;
         if (dl = dl.prev()) { column = dl.text.length; --line; }
       }
     } else {
       while (dl) {
-        if (column + mv <= dl.text.length) return position(line, column + mv);
+        if (column + mv <= dl.text.length) return p(line, column + mv);
         mv -= dl.text.length - column + 1;
         if (dl = dl.next()) { column = 0; ++line; }
       }
     }
-    return position(line, column);
+    return p(line, column);
   }
   function rangeWithMove(doc, pos, move) {
     var afterMove = positionAfterMove(doc, pos, move);
-    return move <= 0 ? range(afterMove, pos) : range(pos, afterMove);
+    return move <= 0 ? r(afterMove, pos) : r(pos, afterMove);
   }
   
   Caret = CodePrinter.Caret = function(doc) {
-    var head = position(0, 0), currentLine, anchor, selOverlay, lastMeasure;
+    var head = p(0, 0), currentLine, anchor, selOverlay, lastMeasure;
     
     EventEmitter.call(this);
     this.node = addClass(div.cloneNode(false), 'cp-caret');
@@ -2684,7 +2684,7 @@
       return anchor && comparePos(anchor, this.head()) !== 0;
     }
     this.inSelection = function(line, column) {
-      var pos = position(line, column);
+      var pos = p(line, column);
       return anchor && comparePos(anchor, pos) * comparePos(pos, head) > 0;
     }
     this.getSelection = function() {
@@ -2697,11 +2697,12 @@
       }
     }
     this.getRange = function() {
-      return this.getSelectionRange() || range(head, head);
+      return this.getSelectionRange() || r(head, head);
     }
-    this.setSelection = function(newAnchor, newHead) {
+    this.setSelection = function(a, b) {
+      var newAnchor = nPos(doc, a), newHead = nPos(doc, b);
       if (!newHead) return;
-      if (isPos(newAnchor) && comparePos(newAnchor, newHead)) anchor = nPos(doc, newAnchor);
+      if (newAnchor && comparePos(newAnchor, newHead)) anchor = newAnchor;
       else anchor = null;
       return this.position(newHead);
     }
@@ -2773,7 +2774,7 @@
         if (!dir || dir === 1) for (; (ch = text.charAt(right)) && test(ch); ++right);
         if (!dir || dir === -1) for (; (ch = text.charAt(left - 1)) && test(ch); --left);
         var str = text.substring(left, right);
-        this.setSelection(position(head.line, left), position(head.line, right));
+        this.setSelection(p(head.line, left), p(head.line, right));
         return str;
       }
     }
@@ -2792,7 +2793,7 @@
     }
     this.removeBefore = docRemove(function(n) { return rangeWithMove(doc, this.head(), -n); });
     this.removeAfter = docRemove(function(n) { return rangeWithMove(doc, this.head(), n); });
-    this.removeLine = docRemove(function() { return range(position(head.line, 0), position(head.line, currentLine.text.length)); });
+    this.removeLine = docRemove(function() { return r(p(head.line, 0), p(head.line, currentLine.text.length)); });
     
     this.textBefore = function() { return currentLine && currentLine.text.substring(0, head.column); }
     this.textAfter = function() { return currentLine && currentLine.text.substr(head.column); }
@@ -2847,7 +2848,7 @@
       return o;
     }
     this.head = function(real) {
-      return real ? copy(head) : position(head.line, this.column());
+      return real ? copy(head) : p(head.line, this.column());
     }
     this.anchor = function(real) {
       return anchor && (real || comparePos(anchor, this.head())) && copy(anchor);
@@ -3191,8 +3192,8 @@
     var range = caret.getRange(), next = doc.get(up ? range.from.line - 1 : range.to.line + 1);
     if (next) {
       var text = next.text;
-      if (up) removeRange(doc, position(range.from.line - 1, 0), position(range.from.line, 0)) && insertText(doc, '\n' + text, position(range.to.line - 1, -1));
-      else removeRange(doc, position(range.to.line, -1), position(range.to.line + 1, -1)) && insertText(doc, text + '\n', position(range.from.line, 0));
+      if (up) removeRange(doc, p(range.from.line - 1, 0), p(range.from.line, 0)) && insertText(doc, '\n' + text, p(range.to.line - 1, -1));
+      else removeRange(doc, p(range.to.line, -1), p(range.to.line + 1, -1)) && insertText(doc, text + '\n', p(range.from.line, 0));
       doc.history.push({ type: 'swap', range: range, offset: up ? -1 : 1 });
     }
   }
@@ -3215,9 +3216,9 @@
     'selectWord': function() { this.doc.call('match', /\w/); },
     'selectLine': caretCmd(function(caret) {
       var head = caret.head();
-      caret.setSelection(position(head.line, 0), position(head.line + 1, 0));
+      caret.setSelection(p(head.line, 0), p(head.line + 1, 0));
     }),
-    'selectAll': function() { this.doc.resetCarets().setSelection(position(this.doc.size(), -1), position(0, 0)); },
+    'selectAll': function() { this.doc.resetCarets().setSelection(p(this.doc.size(), -1), p(0, 0)); },
     'pageUp': function() { this.doc.call('moveY', -50); },
     'pageDown': function() { this.doc.call('moveY', 50); },
     'scrollToTop': function() { this.dom.wrapper.scrollTop = 0; },
@@ -3251,7 +3252,7 @@
     'swapUp': caretCmd(function(caret) { swap(this, caret, true); }),
     'swapDown': caretCmd(function(caret) { swap(this, caret, false); }),
     'duplicate': caretCmd(function(caret) {
-      var range = caret.getRange(), text = this.substring(position(range.from.line, 0), position(range.to.line, -1));
+      var range = caret.getRange(), text = this.substring(p(range.from.line, 0), p(range.to.line, -1));
       caret.clearSelection();
       caret.position(range.to.line, -1).insert('\n' + text);
     }),
@@ -3375,7 +3376,7 @@
         } else {
           var ch = { text: [''], from: moveRangeBy(copy(change.range), 0, -change.before.length).from, to: change.range.from };
         }
-        change.range = range(adjustPosForChange(change.range.from, ch), adjustPosForChange(change.range.to, ch));
+        change.range = r(adjustPosForChange(change.range.from, ch), adjustPosForChange(change.range.to, ch));
         return extend(change, { wrap: !change.wrap });
       }
     },
@@ -3408,7 +3409,6 @@
         if (a.offset === 1 || a.offset === -1) return a;
         var r = copy(a.range);
         moveRangeBy(r, a.offset > 1 ? a.offset-- : a.offset++);
-        console.log(a.range, r);
         return { type: 'swap', range: r, offset: a.offset > 0 ? -1 : 1 };
       }
     }
@@ -3728,7 +3728,7 @@
       }
       else if (e.type === 'mouseup') {
         if (Flags.movingSelection > 1) {
-          caret.moveSelectionTo(position(measure.line, measure.column));
+          caret.moveSelectionTo(p(measure.line, measure.column));
         } else {
           if (Flags.movingSelection === true) caret.clearSelection();
           caret.dispatch(measure);
@@ -3789,7 +3789,7 @@
       
       var tripleclick = function() {
         var head = caret.head();
-        caret.setSelection(position(head.line, 0), position(head.line + 1, 0));
+        caret.setSelection(p(head.line, 0), p(head.line + 1, 0));
         off(this, 'click', tripleclick);
         dblClickTimeout = clearTimeout(dblClickTimeout);
       }
@@ -3946,7 +3946,7 @@
     }
     function counterSelDispatch() {
       var last = lastV(counterSelection);
-      cp.doc.carets[0].setSelection(position(counterSelection[0], 0), position(last + (counterSelection[0] <= last ? 1 : 0), 0));
+      cp.doc.carets[0].setSelection(p(counterSelection[0], 0), p(last + (counterSelection[0] <= last ? 1 : 0), 0));
     }
     on(cp.dom.counter, 'mousedown', function(e) {
       if (e.target.tagName === 'LI') {
@@ -4010,10 +4010,10 @@
     if (source && source.nodeType) return source.value || '';
     return 'string' == typeof source ? source : '';
   }
-  function range(from, to) {
+  function r(from, to) {
     return { from: copy(from), to: copy(to) };
   }
-  function position(line, column) {
+  function p(line, column) {
     return { line: line, column: column };
   }
   function isPos(pos) {
@@ -4023,7 +4023,7 @@
     return a.line - b.line || a.column - b.column;
   }
   function nPos(doc, line, column) {
-    var pos = column !== undefined ? position(line, column) : line, size = doc.size();
+    var pos = column !== undefined ? p(line, column) : copy(line), size = doc.size();
     if (!pos) return null;
     if (pos.line < 0) pos.line = pos.column = 0;
     else if (pos.line >= size) {
@@ -4034,10 +4034,10 @@
       var l = doc.get(pos.line).text.length;
       pos.column = l ? l + pos.column % l + 1 : 0;
     }
-    return isPos(pos) ? copy(pos) : null;
+    return isPos(pos) ? pos : null;
   }
   function getRangeOf(a, b) {
-    return a ? comparePos(a, b) < 0 ? range(a, b) : range(b, a) : range(b, b);
+    return a ? comparePos(a, b) < 0 ? r(a, b) : r(b, a) : r(b, b);
   }
   function updateFlags(event, down) {
     var code = event.keyCode;
