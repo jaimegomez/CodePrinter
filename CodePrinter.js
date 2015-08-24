@@ -3197,6 +3197,28 @@
       doc.history.push({ type: 'swap', range: range, offset: up ? -1 : 1 });
     }
   }
+  function posNegativeCols(doc, pos) {
+    return p(pos.line, pos.column - doc.textAt(pos.line).length - 1);
+  }
+  function indent(caret) {
+    var doc = this, tabString = doc.getTabString(), range;
+    caret.eachLine(function(line, index) {
+      singleInsert(doc, line, index, tabString, 0);
+    });
+    range = caret.getRange();
+    doc.history.push({ type: 'indent', range: r(posNegativeCols(doc, range.from), posNegativeCols(doc, range.to)), offset: 1 });
+  }
+  function outdent(caret) {
+    var doc = this, tw = doc.getOption('tabWidth'), success, range;
+    caret.eachLine(function(line, index) {
+      var text = line.text, min = Math.min(tw, text.length);
+      for (var i = 0; i < min && text.charAt(i) === ' '; i++);
+      if (i === 0 && text.charAt(0) === '\t') i++;
+      if (i > 0) success = singleRemove(doc, line, index, 0, i) | true;
+    });
+    range = caret.getRange();
+    success && doc.history.push({ type: 'indent', range: r(posNegativeCols(doc, range.from), posNegativeCols(doc, range.to)), offset: -1 });
+  }
   
   commands = {
     'moveCaretLeft': moveCaret('moveX', -1),
@@ -3226,24 +3248,8 @@
     'scrollToLeft': function() { this.dom.wrapper.scrollLeft = 0; },
     'scrollToRight': function() { this.dom.wrapper.scrollLeft = this.dom.wrapper.scrollWidth; },
     'removeSelection': function() { this.doc.call('removeSelection'); },
-    'indent': caretCmd(function(caret) {
-      var doc = this
-      , tabString = this.getTabString()
-      , range = caret.eachLine(function(line, index) {
-        singleInsert(doc, line, index, tabString, 0);
-      });
-      this.history.push({ type: 'indent', from: range.from, to: range.to, in: true });
-    }),
-    'outdent': caretCmd(function(caret) {
-      var doc = this, tw = this.getOption('tabWidth');
-      var range = caret.eachLine(function(line, index) {
-        var text = line.text, min = Math.min(tw, text.length);
-        for (var i = 0; i < min && text.charAt(i) === ' '; i++);
-        if (i === 0 && text.charAt(0) === '\t') i++;
-        if (i > 0) singleRemove(doc, line, index, 0, i);
-      });
-      this.history.push({ type: 'indent', from: range.from, to: range.to, in: false });
-    }),
+    'indent': caretCmd(indent),
+    'outdent': caretCmd(outdent),
     'autoIndent': function() {},
     'undo': function() { this.doc.undo(); },
     'redo': function() { this.doc.redo(); },
@@ -3359,10 +3365,23 @@
     },
     'indent': {
       make: function(caret, change) {
-        
+        caret.setSelectionRange(change.range);
+        (change.offset > 0 ? indent : outdent).call(this, caret);
       },
       reverse: function(change) {
-        
+        return extend(change, { offset: -change.offset });
+      },
+      canBeMerged: function(a, b) {
+        return a.offset + b.offset && a.range.from.line === b.range.from.line && a.range.to.line === b.range.to.line;
+      },
+      merge: function(a, b) {
+        a.offset += b.offset;
+        a.range = b.range;
+      },
+      split: function(a) {
+        if (a.offset === 1 || a.offset === -1) return a;
+        a.offset > 1 ? --a.offset : ++a.offset;
+        return { type: 'indent', range: a.range, offset: a.offset > 0 ? 1 : -1 };
       }
     },
     'wrap': {
