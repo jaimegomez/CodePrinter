@@ -2052,6 +2052,10 @@
         return rm;
       }
     }
+    this.textAt = function(line) {
+      var dl = data.get(line);
+      return dl ? dl.text : null;
+    }
     this.substring = function(a, b) {
       var parts = [], from = nPos(this, a), to = nPos(this, b);
       if (from && to && comparePos(from, to) <= 0) {
