@@ -3464,9 +3464,30 @@
     if (!hist.lock && from.length) {
       var last = lastV(from), split = maybeSplitChanges(last);
       if (last === split || last.length === 0) from.pop();
-      into.push(split = reverseChanges(split));
+      historyPush(hist, into, split = reverseChanges(split));
       return split;
     }
+  }
+  function historyPush(hist, into, state) {
+    var last = lastV(into);
+    if (isArray(last)) {
+      if (!isArray(state)) state = [state];
+      var codes = [], min = Math.min(last.length, state.length);
+      for (var i = 0; i < min; i++) {
+        var ch = last[i], cur = state[i], hist = historyActions[ch.type];
+        if (ch.type === cur.type && hist.merge && hist.canBeMerged) codes[i] = hist.canBeMerged(ch, cur);
+        if (!codes[i]) break;
+      }
+      if (i === min) {
+        for (var i = 0; i < min; i++) {
+          var hist = historyActions[last[i].type];
+          hist.merge(last[i], state[i], codes[i]);
+        }
+        for (; i < state.length; i++) last.push(state[i]);
+        return true;
+      }
+    }
+    into.push(state);
   }
   function historyBack(hist) { return historyMove(hist, hist.done, hist.undone); }
   function historyForward(hist) { return historyMove(hist, hist.undone, hist.done); }
@@ -3492,24 +3513,7 @@
     commit: function() {
       if (this.staged && this.staged.length) {
         if (this.undone.length) this.undone.length = 0;
-        var lastStage = lastV(this.done);
-        if (isArray(lastStage)) {
-          var codes = [], min = Math.min(lastStage.length, this.staged.length);
-          for (var i = 0; i < min; i++) {
-            var ch = lastStage[i], cur = this.staged[i], hist = historyActions[ch.type];
-            if (ch.type === cur.type && hist.merge && hist.canBeMerged) codes[i] = hist.canBeMerged(ch, cur);
-            if (!codes[i]) break;
-          }
-          if (i === min) {
-            for (var i = 0; i < min; i++) {
-              var hist = historyActions[lastStage[i].type];
-              hist.merge(lastStage[i], this.staged[i], codes[i]);
-            }
-            for (; i < this.staged.length; i++) lastStage.push(this.staged[i]);
-            return this.staged = undefined;
-          }
-        }
-        this.done.push(this.staged);
+        historyPush(this, this.done, this.staged);
       }
       this.staged = undefined;
     },
