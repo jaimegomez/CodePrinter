@@ -1211,28 +1211,11 @@
         this.emit('fullscreenLeaved');
       }
     },
-    createOverlay: function(classes, removeOn) {
-      if (!this.overlays) this.overlays = [];
-      return new CodePrinter.Overlay(this, classes, removeOn);
-    },
-    removeOverlays: function() {
-      var ov = this.overlays || [], args;
-      for (var i = ov.length; i--; ) {
-        if (ov[i].isRemovable) ov[i].remove();
-        else {
-          if (!args) {
-            args = ['refresh'];
-            args.push.apply(args, arguments);
-          }
-          ov[i].emit.apply(ov[i], args);
-        }
-      }
-    },
     openCounter: function() {
-      removeClass(this.dom.counterContainer, 'hidden');
+      removeClass(this.dom.counterContainer, 'cp-hidden');
     },
     closeCounter: function() {
-      addClass(this.dom.counterContainer, 'hidden');
+      addClass(this.dom.counterContainer, 'cp-hidden');
     },
     destroy: function() {
       var p = this.dom.mainNode.parentNode, i = instances.indexOf(this);
@@ -2366,7 +2349,7 @@
           overlay.bottom = prepareSelNode(overlay, overlay.bottom || div.cloneNode(false)
             , toOffset + fromMeasure.offsetY + pt, pl, toMeasure.offsetX - pl, toMeasure.charHeight, null);
         }
-        overlay.reveal();
+        overlay.show();
       }
     }
     this.each = function(func) { data.foreach(func); }
@@ -2399,6 +2382,7 @@
     });
     
     this.view = view = [];
+    this.overlays = [];
     this.carets = [new Caret(this)];
     this.scrollTop = 0;
     this.parser = modes.plaintext;
@@ -2491,6 +2475,22 @@
       each(this.carets, func, this, startIndex);
       this.history.commit();
       return this;
+    },
+    createOverlay: function(classes) {
+      return this.addOverlay(new CodePrinter.Overlay('string' === typeof classes ? [classes] : classes));
+    },
+    addOverlay: function(overlay) {
+      if (!(overlay instanceof CodePrinter.Overlay) || this.overlays.indexOf(overlay) >= 0) return;
+      this.overlays.push(overlay);
+      this.dom.screen.appendChild(overlay.node);
+      return overlay.emit('added');
+    },
+    removeOverlay: function(overlay) {
+      var i = this.overlays.indexOf(overlay);
+      if (i === -1) return;
+      this.overlays.splice(i, 1);
+      this.dom.screen.removeChild(overlay.node);
+      return overlay.emit('removed');
     },
     setMode: function(mode) {
       var doc = this;
@@ -2678,7 +2678,7 @@
     this.beginSelection = function() {
       this.clearSelection();
       anchor = this.head();
-      if (!selOverlay) selOverlay = doc.getEditor().createOverlay('cp-selection-overlay');
+      if (!selOverlay) selOverlay = doc.createOverlay('cp-selection-overlay');
     }
     this.hasSelection = function() {
       return anchor && comparePos(anchor, this.head()) !== 0;
@@ -2712,11 +2712,11 @@
     this.showSelection = function() {
       var range = this.getSelectionRange();
       if (range) {
-        if (!selOverlay) selOverlay = doc.getEditor().createOverlay('cp-selection-overlay');
+        if (!selOverlay) selOverlay = doc.createOverlay('cp-selection-overlay');
         doc.drawSelection(selOverlay, range);
         unselect();
       } else {
-        if (selOverlay) selOverlay.remove();
+        if (selOverlay) selOverlay.hide();
         select(currentLine);
       }
     }
@@ -2729,7 +2729,7 @@
     }
     this.clearSelection = function() {
       if (!anchor) return;
-      if (selOverlay) selOverlay.remove();
+      if (selOverlay) selOverlay.hide();
       anchor = null;
       select(currentLine);
     }
@@ -2902,34 +2902,17 @@
     }
   }
   
-  CodePrinter.Overlay = function(cp, className, removeOn) {
+  CodePrinter.Overlay = function(classes) {
+    this.node = addClass(div.cloneNode(false), ['cp-overlay'].concat(classes));
     EventEmitter.call(this);
-    this.node = addClass(addClass(div.cloneNode(false), 'cp-overlay'), className);
-    if (removeOn instanceof Array) {
-      var emit = this.emit;
-      this.emit = function(event) {
-        emit.apply(this, arguments);
-        if (removeOn.indexOf(event) >= 0) this.remove();
-      }
-    }
-    this.reveal = function() {
-      if (!this.node.parentNode) {
-        cp.overlays.push(this);
-        cp.dom.screen.appendChild(this.node);
-        this.emit('$revealed');
-      }
-    }
-    this.remove = function() {
-      var i = cp.overlays.indexOf(this);
-      i != -1 && cp.overlays.splice(i, 1);
-      this.node.parentNode && this.node.parentNode.removeChild(this.node);
-      this.emit('$removed');
-    }
     return this;
   }
   CodePrinter.Overlay.prototype = {
-    removable: function(is) {
-      this.isRemovable = !!is;
+    show: function() {
+      removeClass(this.node, 'cp-hidden');
+    },
+    hide: function() {
+      addClass(this.node, 'cp-hidden');
     }
   }
   
