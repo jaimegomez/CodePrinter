@@ -4256,13 +4256,9 @@
   function on(node, event, listener) { node.addEventListener(event, listener, false); }
   function off(node, event, listener) { node.removeEventListener(event, listener, false); }
   function eventCancel(e, propagate) { e.preventDefault(); propagate || e.stopPropagation(); return e.returnValue = false; }
-  function addClass(n, c) { if (n.classList) n.classList.add(c); else if (!hasClass(n, c)) n.className += ' '+c; return n; }
-  function removeClass(n, c) { if (n.classList) n.classList.remove(c); else if (hasClass(n, c)) n.className = n.className.replace(new RegExp('(^|\\s+)'+c), ''); return n; }
-  function hasClass(n, c) {
-    if (!c || 'string' !== typeof c) return true;
-    if (n.classList) return n.classList.contains(c);
-    if (new RegExp('(^|\\s)'+c+'(\\s|$)').test(n.className)) return true;
-  }
+  function addClass(n, c) { isArray(c) ? n.classList.add.apply(n.classList, c) : n.classList.add(c); return n; }
+  function removeClass(n, c) { isArray(c) ? n.classList.remove.apply(n.classList, c) : n.classList.remove(c); return n; }
+  function hasClass(n, c) { return n.classList.contains(c); }
   function repeat(th, times) {
     var str = '';
     while (times > 0) { if (times % 2 == 1) str += th; th += th; times >>= 1; }
