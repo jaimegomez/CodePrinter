@@ -286,8 +286,6 @@
       }
       return this;
     },
-    increaseFontSize: function() { this.setFontSize(this.options.fontSize+1); },
-    decreaseFontSize: function() { this.setFontSize(this.options.fontSize-1); },
     setWidth: function(size) {
       if (size == 'auto') {
         this.dom.mainNode.style.removeProperty('width');
@@ -307,31 +305,6 @@
       }
       this.emit('heightChanged');
       return this;
-    },
-    showIndentation: function() {
-      this.options.drawIndentGuides = true;
-      removeClass(this.dom.mainNode, 'cp-without-indentation');
-    },
-    hideIndentation: function() {
-      this.options.drawIndentGuides = false;
-      addClass(this.dom.mainNode, 'cp-without-indentation');
-    },
-    getCurrentLine: function() {
-      return this.caret.line();
-    },
-    setCursorPosition: function(line, column) {
-      var dl, l, o, t;
-      if (line < 0) {
-        l = this.doc.size();
-        line = l + line % l;
-      }
-      if (column == null) column = 0;
-      if (column < 0) {
-        t = dl.text;
-        column = t.length + column % t.length + 1;
-      }
-      this.caret.position(line, column);
-      this.focus();
     },
     getTextAtLine: function(line) {
       var dl = this.doc.get(line < 0 ? this.doc.size() + line : line);
@@ -487,111 +460,6 @@
         }
       }
     },
-    toggleComment: function() {
-      if (this.doc && this.doc.parser && this.doc.parser.lineComment) {
-        var start, end, line, sm, insert
-        , comment = this.doc.parser.lineComment
-        , range = this.doc.getSelectionRange();
-        
-        if (range) {
-          start = range.start.line;
-          end = range.end.line;
-        } else {
-          start = end = this.caret.line();
-        }
-        for (var line = end; line >= start; line--) {
-          var text = this.getTextAtLine(line)
-          , i = text.search(new RegExp('^(\\s*)('+escape(comment)+')?'))
-          , sl = RegExp.$1.length, cl = RegExp.$2.length;
-          
-          if (insert !== false && cl == 0) {
-            insert = true;
-            this.put(comment, line, sl);
-          } else if (insert !== true) {
-            insert = false;
-            this.erase(comment, line, sl + comment.length);
-          }
-        }
-        if (range) {
-          var mv = (insert ? 1 : -1) * comment.length;
-          this.doc.moveSelection(mv, mv);
-        }
-      } else {
-        this.toggleBlockComment(true);
-      }
-    },
-    toggleBlockComment: function(lineComment) {
-      var cs, ce;
-      if (this.doc && this.doc.parser) {
-        if ((cs = this.doc.parser.blockCommentStart) && (ce = this.doc.parser.blockCommentEnd)) {
-          var range = this.doc.getSelectionRange()
-          , l = this.caret.line(), c = this.caret.column()
-          , s = this.getStyleAt(l, c, true)
-          , bc = 'comment';
-          
-          if (s && s.indexOf(bc) >= 0) {
-            var sl = this.searchLeft(cs, l, c, bc)
-            , sr = this.searchRight(ce, l, c, bc);
-            if (sl && sr) {
-              this.erase(ce, sr[0], sr[1] + ce.length);
-              this.erase(cs, sl[0], sl[1] + cs.length);
-              if (range && range.start.line === sl[0]) {
-                this.doc.moveSelectionStart(-cs.length);
-              }
-              if (sl[0] === l && sl[1] < c) this.caret.moveX(-cs.length);
-            }
-          } else {
-            if (range) {
-              var start = range.start, end = range.end
-              , sel = this.doc.getSelection();
-              
-              if (new RegExp('^'+escape(cs)).test(sel) && new RegExp(escape(ce)+'$').test(sel)) {
-                this.erase(ce, end.line, end.column);
-                this.erase(cs, start.line, start.column + ce.length);
-                if (l === start.line) this.caret.moveX(-cs.length);
-              } else {
-                this.doc.wrapSelection(cs, ce);
-                if (l === start.line) this.caret.moveX(cs.length);
-              }
-            } else {
-              if (lineComment) {
-                var txt = this.getTextAtLine(l);
-                this.put(ce, l, txt.length);
-                this.put(cs, l, 0);
-                this.caret.moveX(cs.length);
-              } else {
-                this.insertText(cs + ce, -ce.length);
-              }
-            }
-          }
-        } else if (this.doc.parser.lineComment) {
-          this.toggleComment();
-        }
-      }
-    },
-    toggleMarkCurrentLine: function() {
-      var dl = this.caret.dl();
-      if (dl) dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
-    },
-    textBeforeCursor: function(i) {
-      var bf = this.caret.textBefore();
-      return i > 0 ? bf.slice(-i) : bf;
-    },
-    textAfterCursor: function(i) {
-      var af = this.caret.textAfter();
-      return i > 0 ? af.substring(0, i) : af;
-    },
-    textNearCursor: function(i) {
-      return i > 0 ? this.caret.textAfter().substring(0, i) : this.caret.textBefore().slice(i);
-    },
-    cursorIsBeforePosition: function(line, column, atline) {
-      var l = this.caret.line(), c = this.caret.column();
-      return l == line ? c < column : !atline && l < line;
-    },
-    cursorIsAfterPosition: function(line, column, atline) {
-      var l = this.caret.line(), c = this.caret.column();
-      return l == line ? c > column : !atline && l > line;
-    },
     searchLeft: function(pattern, line, column, style) {
       var i = -1, dl = this.doc.get(line)
       , search = 'string' == typeof pattern
@@ -636,17 +504,6 @@
       }
       return dl && [line, i + column];
     },
-    substring: function(from, to) {
-      var str = '';
-      while (from[0] < to[0]) {
-        str += this.doc.get(from[0]++).text.substr(from[1]) + '\n';
-        from[1] = 0;
-      }
-      return str += this.doc.get(to[0]).text.substring(from[1], to[1]);
-    },
-    charAt: function(line, column) {
-      return line < this.doc.size() ? this.getTextAtLine(line).charAt(column) : '';
-    },
     isState: function(state, line, col, all) {
       if (state && state.length) {
         state = 'string' === typeof state ? [state] : state;
@@ -654,216 +511,6 @@
         return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== l : false;
       }
       return false;
-    },
-    insertText: function(text, mx, autoIndent) {
-      this.doc.removeSelection();
-      var pos, s = text.split(eol)
-      , bf = this.caret.textBefore()
-      , line = this.caret.line()
-      , col = this.caret.column(true);
-      
-      if (s.length > 1) {
-        var af = this.caret.textAfter()
-        , dl = this.caret.dl(), sbf;
-        
-        this.caret.setTextAtCurrentLine(bf + s.shift(), '');
-        this.doc.insert(line+1, s);
-        this.caret.position(line + s.length, lastV(s).length);
-        this.caret.setTextAfter(af);
-      } else {
-        this.caret.setTextBefore(bf + s[0]);
-      }
-      mx && this.caret.moveX(mx);
-      text.length && this.emit('changed', { line: line, column: col, text: text, added: true });
-      autoIndent && this.reIndent(line, line + s.length);
-      return this;
-    },
-    insertSelectedText: function(text, mx) {
-      this.doc.beginSelection();
-      this.insertText(text, mx);
-      this.doc.endSelection();
-      return this;
-    },
-    put: function(text, line, column, mx) {
-      if (text.length && line < this.doc.size()) {
-        var s = text.split(eol)
-        , dl = this.doc.get(line)
-        , dlt = dl.text
-        , bf = dlt.substring(0, column), af = dlt.substr(column)
-        , isa = this.cursorIsAfterPosition(line, bf.length, true);
-        
-        if (s.length > 1) {
-          var i = s.length - 1;
-          this.doc.insert(line+1, s[i] + af);
-          af = '';
-          while (--i > 0) {
-            this.doc.insert(line+1, s[i]);
-          }
-        }
-        this.doc.dispatch(dl, bf + s[0] + af);
-        this.caret.refresh();
-        isa && this.caret.moveX(text.length);
-        mx && this.caret.moveX(mx);
-        this.emit('changed', { line: line, column: bf.length, text: text, added: true });
-      }
-      return this;
-    },
-    erase: function(arg, line, column, mx) {
-      var isa = this.cursorIsAfterPosition(line, column, true);
-      this.caret.savePosition();
-      this.caret.position(line, column);
-      this.removeBeforeCursor(arg);
-      this.caret.restorePosition();
-      isa && this.caret.moveX(-(arg.length || arg));
-      mx && this.caret.moveX(mx);
-      return this;
-    },
-    removeBeforeCursor: function(arg) {
-      var r = '', type = typeof arg, bf = this.caret.textBefore();
-      if ('string' === type) {
-        arg = arg.split(eol);
-        var l = this.caret.line(), x
-        , af = this.caret.textAfter()
-        , last = lastV(arg);
-        
-        if ((x = bf.length - last.length) == bf.lastIndexOf(last)) {
-          bf = bf.substring(0, x);
-        }
-        if (arg.length > 1) {
-          var rm = this.doc.remove(l - arg.length + 1, arg.length - 1)
-          , first = rm && rm[0].text;
-          
-          if (first && (x = first.length - arg[0].length) == first.lastIndexOf(arg[0])) {
-            bf = first.substring(0, x) + bf;
-          }
-        }
-        this.caret.setTextBefore(bf);
-        r = arg.join('\n');
-      } else if ('number' === type) {
-        if (arg <= bf.length) {
-          this.caret.setTextBefore(bf.substring(0, bf.length - arg));
-        } else {
-          var af = this.caret.textAfter()
-          , l = this.caret.line();
-          
-          while (arg > bf.length && l-1 >= 0) {
-            r = '\n' + bf + r;
-            this.doc.remove(l, 1);
-            arg = arg - bf.length - 1;
-            bf = this.caret.position(--l, -1).textBefore();
-          }
-          if (arg) {
-            this.caret.setTextAtCurrentLine(bf.substring(0, bf.length - arg), af);
-          } else {
-            this.caret.setTextAfter(af);
-          }
-        }
-        r = bf.substr(bf.length - arg) + r;
-      }
-      r && this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
-      return r;
-    },
-    removeAfterCursor: function(arg) {
-      var r = '', type = typeof arg
-      , af = this.caret.textAfter();
-      
-      if ('string' === type) {
-        var i = 0, l = this.caret.line()
-        , dl = this.caret.dl(), nextdl
-        , bf = this.caret.textBefore();
-        arg = arg.split(eol);
-        
-        if (af.indexOf(arg[0]) == 0) {
-          af = af.substr(arg[0].length);
-        }
-        if (arg.length > 1) {
-          var rm = this.doc.remove(l + 1, arg.length - 1)
-          , lastline = rm && lastV(rm).text
-          , lastarg = lastV(arg);
-          
-          if (lastline && lastline.indexOf(lastarg) == 0) {
-            af += lastline.substr(lastarg.length);
-          }
-        }
-        this.caret.setTextAfter(af);
-        r = arg.join('\n');
-      } else if ('number' === type) {
-        if (arg <= af.length) {
-          this.caret.setTextAfter(af.substr(arg));
-        } else {
-          var size = this.doc.size()
-          , dl = this.caret.dl(), nextdl
-          , bf = this.caret.textBefore()
-          , l = this.caret.line();
-          
-          while (arg > af.length && l+1 < size) {
-            r = r + af + '\n';
-            this.caret.setTextAfter('');
-            arg = arg - af.length - 1;
-            nextdl = dl.next();
-            af = nextdl.text;
-            this.doc.remove(l+1, 1);
-          }
-          this.caret.setTextAfter(af.substr(arg));
-          this.caret.refresh();
-        }
-        r = r + af.substring(0, arg);
-      }
-      r && this.emit('changed', { line: this.caret.line(), column: this.caret.column(true), text: r, added: false });
-      return r;
-    },
-    replaceLines: function(a, b) {
-      if ('number' === typeof a && 'number' === typeof b) {
-        var first = cp.doc.get(a), second = cp.doc.get(b);
-        if (first && second) {
-          var tmp = first.text;
-          
-          this.emit('changed', { line: a, column: 0, text: first.text, added: false });
-          first.setText(second.text);
-          this.emit('changed', { line: a, column: 0, text: first.text, added: true });
-          this.emit('changed', { line: b, column: 0, text: second.text, added: false });
-          second.setText(tmp);
-          this.emit('changed', { line: b, column: 0, text: second.text, added: true });
-          parse(this.doc, first);
-          parse(this.doc, second);
-        }
-      }
-    },
-    wordBefore: function(pattern) {
-      pattern = pattern || /[\w$]+/;
-      var bf = this.caret.textBefore(), m
-      , rgx = new RegExp(pattern.source + '$');
-      if (m = rgx.exec(bf)) {
-        return m[0];
-      }
-      return '';
-    },
-    wordAfter: function(pattern) {
-      pattern = pattern || /[\w$]+/;
-      var af = this.caret.textAfter(), m
-      , rgx = new RegExp('^' + pattern.source);
-      if (m = rgx.exec(af)) {
-        return m[0];
-      }
-      return '';
-    },
-    removeWordBefore: function(pattern) {
-      var word = this.wordBefore(pattern);
-      word && this.removeBeforeCursor(word);
-      return word;
-    },
-    removeWordAfter: function(pattern) {
-      var word = this.wordAfter(pattern);
-      word && this.removeAfterCursor(word);
-      return word;
-    },
-    deleteToBeginning: function() {
-      this.removeBeforeCursor(this.caret.textBefore());
-      return this;
-    },
-    deleteToEnd: function() {
-      this.removeAfterCursor(this.caret.textAfter());
-      return this;
     },
     createHighlightOverlay: function(/* arrays, ... */) {
       if (this.highlightOverlay) this.highlightOverlay.remove();
@@ -1176,11 +823,6 @@
         var c = this.keyMap[keySequence];
         if (c) return c.call(this, keySequence);
       }
-    },
-    broadcast: function(args) {
-      var ov = this.overlays || [];
-      for (var i = ov.length; i--; ) ov[i].emit.apply(ov[i], args);
-      return this;
     },
     enterFullscreen: function() {
       if (!this.isFullscreen) {
@@ -3245,6 +2887,20 @@
       caret.clearSelection();
       caret.position(range.to.line, -1).insert('\n' + text);
     }),
+    'toggleCounter': function() {
+      var ln = this.options.lineNumbers = !this.options.lineNumbers;
+      (ln ? removeClass : addClass)(this.dom.counterContainer, 'cp-hidden');
+    },
+    'toggleIndentGuides': function() {
+      var dig = this.options.drawIndentGuides = !this.options.drawIndentGuides;
+      (dig ? removeClass : addClass)(this.dom.mainNode, 'cp-without-indentation');
+    },
+    'toggleMark': caretCmd(function(caret) {
+      var dl = caret.dl();
+      dl && dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
+    }),
+    'increaseFontSize': function() { this.setFontSize(this.options.fontSize+1); },
+    'decreaseFontSize': function() { this.setFontSize(this.options.fontSize-1); },
     'delCharLeft': function() {
       var tw = this.options.tabWidth;
       this.doc.eachCaret(function(caret) {
