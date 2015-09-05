@@ -106,13 +106,13 @@
   pre = document.createElement('pre');
   span = document.createElement('span');
   
-  EventEmitter = function() {
+  EventEmitter = function(parent) {
     var events = {};
     this.emit = function(event) {
       var args = new Array(arguments.length - 1), ev;
       for (var i = 0; i < args.length; i++) args[i] = arguments[i+1];
       if (ev = events[event]) for (var i = ev.length; i-- && ev[i];) ev[i].apply(this, args);
-      if (this.broadcast) this.broadcast.call(this, arguments);
+      if (parent) parent.emit.apply(parent, [event, this].concat(args));
       return this;
     }
     this.on = function(event, callback) {
@@ -162,70 +162,6 @@
         new construct(cp, options);
       });
     },
-    intervalIterate: function(callback, onend, options) {
-      if (!(onend instanceof Function) && arguments.length === 2) options = onend;
-      var that = this, dl = this.doc.get(0), fn
-      , index = 0, offset = 0, queue = 500;
-      
-      if (options) {
-        if (options.queue) queue = options.queue;
-        if (options.index) index = options.index;
-        if ('number' === typeof options.start) dl = this.doc.get(index = options.start);
-        else if (options.start instanceof Line) {
-          dl = options.start;
-          if (!options.index) index = dl.info().index;
-        }
-      }
-      
-      async(fn = function() {
-        var j = 0, r;
-        while (dl && j++ < queue) {
-          r = callback.call(that, dl, index++, offset);
-          offset += dl.height;
-          dl = r ? r.next() : r == null ? dl.next() : false;
-        }
-        if (!dl) {
-          onend instanceof Function && onend.call(that, index, dl);
-          return false;
-        }
-        async(fn);
-      });
-    },
-    getStateAt: function(line, column) {
-      var dl = 'number' === typeof line ? this.doc.get(line) : line;
-      if (dl != null) {
-        var parser = this.doc.parser
-        , s = searchLineWithState(parser, dl, this.options.tabWidth)
-        , state = s.state, tmp = s.line;
-        
-        for (; tmp; tmp = tmp.next()) {
-          var ind = parseIndentation(tmp.text, this.options.tabWidth)
-          , stream = new Stream(ind.rest, { indentation: ind.indent });
-          
-          if (tmp == dl) {
-            var pos = Math.max(0, Math.min(column - ind.length, ind.rest.length))
-            , cache = parseStream(parser, stream, state, pos)
-            , oldpos = stream.pos, lastCache = lastV(cache);
-            if (stream.eol()) tmp.state = state;
-            stream.pos = pos;
-            return { stream: stream, state: state, cache: cache, style: lastCache && lastCache.style, parser: state && state.parser || parser, nextIteration: function() {
-              if (stream.pos < oldpos) stream.pos = oldpos;
-              return readIteration(parser, stream, state, cache);
-            }};
-          } else {
-            state = copyState(parse(this.doc, tmp, state).state);
-          }
-        }
-      }
-    },
-    getStyleAt: function(line, column, split) {
-      var s = this.getStateAt(line, column);
-      return s && (split ? s.style && s.style.split(' ') : s.style);
-    },
-    getCurrentParser: function(cp) {
-      var s = this.getStateAt(this.caret.dl() || 0, this.caret.column());
-      return s && s.parser;
-    },
     focus: function() {
       return this.dom.input.focus();
     },
@@ -243,7 +179,7 @@
       if ('number' == typeof tw && tw >= 0) {
         this.options.tabWidth = tw;
         this.tabString = repeat(' ', tw);
-        this.doc && this.doc.initialized && runBackgroundParser(this, this.doc.parser);
+        this.doc && this.doc.initialized && runBackgroundParser(this.doc);
       }
       return this;
     },
@@ -310,111 +246,6 @@
       var dl = this.doc.get(line < 0 ? this.doc.size() + line : line);
       return dl ? dl.text : '';
     },
-    getIndentAtLine: function(dl) {
-      dl = dl instanceof Line ? dl : this.doc.get(dl);
-      if (dl) {
-        var i = -1, text = dl.text
-        , tw = this.options.tabWidth
-        , sp = 0, ind = 0;
-        
-        while (++i < text.length) {
-          if (text[i] == ' ') {
-            ++sp;
-            if (sp == tw) {
-              ++ind;
-              sp = 0;
-            }
-          } else if (text[i] == '\t') {
-            ++ind;
-          } else {
-            break;
-          }
-        }
-        return ind;
-      }
-      return 0;
-    },
-    setIndentAtLine: function(line, indent, dl) {
-      indent = Math.max(0, indent);
-      var old, diff, col, tab, sp;
-      if (line instanceof Line) {
-        dl = line;
-        line = dl.info().index;
-      } else if ('number' === typeof line && !dl) {
-        dl = this.doc.get(line);
-      }
-      if (dl) {
-        old = this.getIndentAtLine(dl);
-        diff = indent - old;
-        col = this.caret.line() == line ? this.caret.column() : -1;
-        if (diff) {
-          tab = tabString(this);
-          dl.setText(repeat(tab, indent) + dl.text.replace(/^\s*/g, ''));
-          sp = RegExp.lastMatch.length;
-          parse(this.doc, dl);
-          if (col >= 0) this.caret.position(line, Math.max(0, col + diff * tab.length + sp % tab.length));
-          this.emit('changed', { line: line, column: 0, text: repeat(tab, Math.abs(diff)), added: diff > 0 });
-        }
-      }
-      return tab ? tab.length * diff : 0;
-    },
-    indent: function(line) {
-      var range;
-      if ('number' == typeof line || !(range = this.doc.getSelectionRange())) {
-        line = line >= 0 ? line : this.caret.line();
-        var dl = this.doc.get(line), tab = tabString(this);
-        if (dl) {
-          var i = tab == '\t' ? 1 : tab.length;
-          dl.text = tab + dl.text;
-          parse(this.doc, dl);
-          this.caret.line() == line && this.caret.moveX(i);
-          this.emit('changed', { line: line, column: 0, text: tab, added: true });
-          return i;
-        }
-      } else {
-        var i = range.start.line, l = range.end.line
-        , m = this.indent(i);
-        if (m > 0) range.start.column += m;
-        while (++i <= l) m = this.indent(i);
-        if (m > 0) range.end.column += m;
-        this.doc.setSelectionRange(range);
-      }
-      return 0;
-    },
-    unindent: function(line) {
-      var range;
-      if ('number' == typeof line || !(range = this.doc.getSelectionRange())) {
-        line = line >= 0 ? line : this.caret.line();
-        var dl = this.doc.get(line), change, i = 1;
-        if (dl) {
-          if (dl.text[0] == '\t') {
-            dl.text = dl.text.substr(1);
-            change = '\t';
-          } else if (dl.text[0] == ' ') {
-            while (dl.text[i] == ' ' && i < this.options.tabWidth) ++i;
-            dl.text = dl.text.substr(i);
-            change = repeat(' ', i);
-          }
-          if (change) {
-            parse(this.doc, dl);
-            if (this.caret.line() == line) {
-              var col = this.caret.column();
-              this.caret.moveX(-Math.min(col, i));
-            }
-            this.emit('changed', { line: line, column: 0, text: change, added: false });
-            return i;
-          }
-        }
-      } else {
-        var i = range.start.line, l = range.end.line
-        , m = this.unindent(i);
-        if (m > 0) range.start.column -= m;
-        while (++i <= l) m = this.unindent(i);
-        if (m > 0) range.end.column -= m;
-        this.doc.setSelectionRange(range);
-      }
-      return 0;
-    },
     getNextLineIndent: function(line) {
       var indent = this.getIndentAtLine(line);
       return nextLineIndent(this, indent, line);
@@ -460,50 +291,6 @@
         }
       }
     },
-    searchLeft: function(pattern, line, column, style) {
-      var i = -1, dl = this.doc.get(line)
-      , search = 'string' == typeof pattern
-      ? function(text) { return text.lastIndexOf(pattern); }
-      : function(text) { return text.search(pattern); };
-      
-      while (dl) {
-        i = search(dl.text.substring(0, column));
-        if (i == -1) {
-          column = Infinity;
-          dl = dl.prev();
-          --line;
-        } else {
-          var st = this.getStyleAt(line, i + 1);
-          if (st == style) {
-            break;
-          }
-          column = i;
-        }
-      }
-      return dl && [line, i];
-    },
-    searchRight: function(pattern, line, column, style) {
-      var i = -1, dl = this.doc.get(line)
-      , search = 'string' === typeof pattern
-      ? function(text) { return text.indexOf(pattern); }
-      : function(text) { return text.search(pattern); };
-      
-      while (dl) {
-        i = search(dl.text.substr(column));
-        if (i == -1) {
-          column = 0;
-          dl = dl.next();
-          ++line;
-        } else {
-          var st = this.getStyleAt(line, column + i + 1);
-          if (st == style) {
-            break;
-          }
-          column += i + 1;
-        }
-      }
-      return dl && [line, i + column];
-    },
     isState: function(state, line, col, all) {
       if (state && state.length) {
         state = 'string' === typeof state ? [state] : state;
@@ -511,199 +298,6 @@
         return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== l : false;
       }
       return false;
-    },
-    createHighlightOverlay: function(/* arrays, ... */) {
-      if (this.highlightOverlay) this.highlightOverlay.remove();
-      var self = this, args = arguments
-      , overlay = this.highlightOverlay = this.createOverlay('cp-highlight-overlay', ['blur', 'changed']);
-      for (var i = 0; i < arguments.length; i++) {
-        var dl = this.doc.get(arguments[i][0]), pos;
-        if (dl) {
-          pos = this.doc.measureRect(dl, arguments[i][1], arguments[i][1] + arguments[i][2].length);
-          var sp = addClass(span.cloneNode(false), 'cp-highlight');
-          sp.setAttribute('style', 'top:'+(dl.getOffset()+pos.offsetY+this.sizes.paddingTop)+'px;left:'+pos.offsetX+'px;width:'+pos.width+'px;height:'+(pos.charHeight+1)+'px;');
-          overlay.node.appendChild(sp);
-        }
-      }
-      overlay.reveal();
-      return this;
-    },
-    search: function(find, scroll) {
-      if (find) {
-        var search = this.searches = this.searches || {};
-        
-        if (!search.value || find.toString() != search.value.toString() || !search.results || !search.length) {
-          var cp = this, j = 0, results = search.results = {}, cur, linkCallback, clearSelected, esc;
-          search.value = find;
-          
-          linkCallback = function(dl, line) {
-            if (cp.searches.results && (cur = cp.searches.results[line])) {
-              searchAppendResult.call(cp, dl, cur);
-            }
-          }
-          clearSelected = function() {
-            var children = search.overlay.node.children, k = 0;
-            for (var i = 0; i < children.length; i++) {
-              if (children[i].style.opacity == '0' && ++k) {
-                children[i].style.opacity = '1';
-              }
-            }
-            k && cp.doc.clearSelection();
-          }
-          
-          if (!(search.overlay instanceof CodePrinter.Overlay)) {
-            search.overlay = this.createOverlay('cp-search-overlay');
-            search.mute = false;
-            
-            search.overlay.on({
-              'click': clearSelected,
-              'blur': clearSelected,
-              'changed': function() {
-                if (!search.mute) {
-                  search.length = 0;
-                  cp.search(search.value, false);
-                }
-              },
-              '$removed': function() {
-                cp.searches.results = cp.searches.active = undefined;
-                cp.searches.length = 0;
-              }
-            });
-            on(search.overlay.node, 'mousedown', function(e) {
-              var res = e.target._searchResult;
-              if (res && e.target.tagName == 'SPAN') {
-                clearSelected();
-                search.mute = true;
-                cp.dom.input.focus();
-                cp.doc.setSelectionRange(res.line, res.startColumn, res.line, res.startColumn + res.length);
-                cp.caret.position(res.line, res.startColumn + res.length);
-                e.target.style.opacity = '0';
-                search.mute = false;
-                return eventCancel(e);
-              }
-            });
-            this.on({
-              link: function(dl, line) {
-                cp.doc.once('viewUpdated', function() {
-                  linkCallback(dl, line);
-                });
-              },
-              unlink: function(dl, line) {
-                cp.doc.once('viewUpdated', function() {
-                  if (cp.searches.results && (cur = cp.searches.results[line])) {
-                    for (var i = 0; i < cur.length; i++) {
-                      if (cur[i].node) {
-                        cur[i].node.parentNode && search.overlay.node.removeChild(cur[i].node);
-                        cur[i].node = undefined;
-                      }
-                    }
-                  }
-                });
-              }
-            });
-          }
-          
-          if ('string' === typeof find) esc = new RegExp(escape(find));
-          else esc = find;
-          
-          this.intervalIterate(function(dl, line, offset) {
-            if (this.searches.value !== find) return false;
-            j += searchOverLine.call(cp, esc, dl, line, offset);
-          }, function(index, last) {
-            var sl = this.wrapper.scrollLeft;
-            search.overlay.node.innerHTML = '';
-            if (last !== false) {
-              if (j) {
-                if (scroll !== false || search.length === 0) {
-                  for (var k in results) {
-                    if (results[k].length) {
-                      search.active = results[k][0];
-                      scroll !== false && this.doc.scrollTo(results[k][0].offset - this.wrapper.offsetHeight/2);
-                      break;
-                    }
-                  }
-                }
-                this.doc.eachVisibleLines(linkCallback);
-              }
-              search.length = j;
-              search.overlay.reveal();
-              this.wrapper.scrollLeft = sl;
-              this.emit('searchCompleted', find, j);
-            }
-          });
-        } else {
-          this.searchNext();
-        }
-      }
-      return this;
-    },
-    searchEnd: function() {
-      if (this.searches) {
-        this.searches.overlay.remove();
-      }
-    },
-    searchNext: function() {
-      if (this.searches) {
-        var search = this.searches
-        , results = search.results
-        , activeLine = search.active.line
-        , newActive;
-        
-        if (search.active) {
-          var i = results[activeLine].indexOf(search.active);
-          if (i < results[activeLine].length - 1) {
-            newActive = results[activeLine][i+1];
-          } else {
-            var keys = Object.keys(results)
-            , j = keys.indexOf(''+activeLine);
-            newActive = results[keys[j+1 < keys.length ? j+1 : 0]][0];
-          }
-          removeClass(search.active.node, 'active');
-        } else {
-          for (var k in results) {
-            newActive = results[k][0];
-            break;
-          }
-        }
-        if (newActive) {
-          if (newActive.offset < this.wrapper.scrollHeight || newActive.offset > this.wrapper.scrollHeight + this.wrapper.offsetHeight) {
-            this.doc.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
-          }
-          addClass((search.active = newActive).node, 'active');
-        } else {
-          search.active = undefined;
-        }
-      }
-    },
-    searchPrev: function() {
-      if (this.searches) {
-        var search = this.searches
-        , results = search.results
-        , activeLine = search.active.line
-        , newActive;
-        
-        if (search.active) {
-          var i = results[activeLine].indexOf(search.active);
-          if (i > 0) {
-            newActive = results[activeLine][i-1];
-          } else {
-            var keys = Object.keys(results)
-            , j = keys.indexOf(''+activeLine)
-            , cur = results[keys[j > 0 ? j-1 : keys.length - 1]];
-            newActive = lastV(cur);
-          }
-          removeClass(search.active.node, 'active');
-        } else {
-          for (var k in results) {
-            newActive = results[k][0];
-            break;
-          }
-        }
-        if (newActive) {
-          this.doc.scrollTo(newActive.offset - this.wrapper.offsetHeight/2);
-          addClass((search.active = newActive).node, 'active');
-        }
-      }
     },
     replace: function(replaceWith, vol) {
       if ('string' === typeof replaceWith && this.searches) {
@@ -782,7 +376,7 @@
         b = s && s.hasOwnProperty(snippetName);
       }
       s = b && s[snippetName];
-      if ('function' == typeof s) s = functionSnippet(this, s);
+      if ('function' == typeof s) s = functionSnippet(this, /*p(x,y),*/ s);
       if (s) return 'string' == typeof s ? { content: s } : s;
     },
     registerSnippet: function() {
@@ -1008,13 +602,13 @@
     }
     return dl;
   }
-  function runBackgroundParser(cp, parser, whole) {
-    var to = whole ? cp.doc.size() - 1 : cp.doc.to()
-    , state = parser.initialState && parser.initialState();
+  function runBackgroundParser(doc, whole) {
+    var to = whole ? doc.size() - 1 : doc.to()
+    , state = doc.parser.initialState && doc.parser.initialState();
     
-    cp.intervalIterate(function(dl, index) {
+    doc.asyncEach(function(dl, index) {
       if (index > to) return false;
-      parse(cp.doc, dl, state);
+      parse(doc, dl, state);
       state = dl.state;
     });
   }
@@ -1034,49 +628,44 @@
     for (var k in state) if (state[k] != null) st[k] = state[k];
     return st;
   }
-  function reIndent(cp, parser, offset) {
-    var dl = cp.caret.dl(), prev = dl.prev(), s;
-    if (s = prev && cp.getStateAt(prev, prev.text.length)) {
+  function reIndent(doc, parser, at) {
+    var s = doc.getState(p(at.line - 1, -1));
+    if (s) {
       var i = parser.indent(s.stream, s.state, s.nextIteration);
-      s = cp.getStateAt(dl, offset | 0);
+      s = doc.getState(at);
       s.stream.indentation = i;
       i = parser.indent(s.stream, s.state, s.nextIteration);
-      if ('number' == typeof i) cp.setIndentAtLine(dl, i);
+      if ('number' == typeof i) doc.setIndent(at.line, i);
     }
   }
-  function matchingHelper(cp, key, opt, line, start, end) {
-    if (cp.getStyleAt(line, start+1) == opt.style) {
-      var counter = 1, i = -1, l = line, c, fn, fix = 0;
+  function matchingHelper(doc, key, opt, line, start, end) {
+    if (doc.getStyles(p(line, start+1)) === opt.style) {
+      var counter = 1, i = 0, pos = p(line, start), fn = doc.searchLeft, fix = 0;
       
-      if (opt.direction == 'left') {
-        c = start;
-        fn = cp.searchLeft;
-      } else {
-        c = end;
-        fn = cp.searchRight;
+      if (opt.direction !== 'left') {
+        pos.column = end;
+        fn = doc.searchRight;
         fix = 1;
       }
-      
       do {
-        var a = fn.call(cp, opt.value, l, c, opt.style)
-        , b = fn.call(cp, key, l, c, opt.style);
+        var a = fn.call(doc, pos, opt.value, opt.style), b = fn.call(doc, pos, key, opt.style);
         
         if (a) {
-          if (b && (fix ? (b[0] < a[0] || b[0] == a[0] && b[1] < a[1]) : (b[0] > a[0] || b[0] == a[0] && b[1] > a[1]))) {
+          var comp = b && comparePos(a, b);
+          if (comp && (fix ? comp > 0 : comp < 0)) {
             ++counter;
             a = b;
           } else {
             --counter;
           }
-          l = a[0];
-          c = a[1] + fix;
+          pos = p(a.line, a.column + fix);
         } else {
           counter = 0;
         }
       } while (counter != 0 && ++i < 100);
       
       if (i < 100) {
-        cp.createHighlightOverlay([line, start, key], [l, c - fix, opt.value]);
+        doc.createHighlightOverlay({ line: line, column: start, text: key }, { line: pos.line, column: pos.column - fix, text: opt.value });
         return true;
       }
     }
@@ -1370,7 +959,7 @@
   }
   function adjustCaretsPos(doc, change) {
     eachCaret(doc, function(caret) {
-      caret.setSelection(adjustPosForChange(caret.anchor(true), change, true), adjustPosForChange(caret.head(true), change));
+      caret.setSelection(adjustPosForChange(caret.anchor(), change, true), adjustPosForChange(caret.head(true), change));
     });
   }
   function adjustPosForChange(pos, change, anchor) {
@@ -1480,19 +1069,19 @@
           dom.code.insertBefore(dl.node, bef.node);
           dom.counter.insertBefore(dl.counter, bef.counter);
           view.splice(q, 0, dl);
-          var tmp = dl.counter.nextSibling;
+          var tmp = dl.counter.nextSibling, counter = index;
           while (tmp) {
-            tmp.firstChild.nodeValue = formatter(firstNumber + ++index);
+            tmp.firstChild.nodeValue = formatter(firstNumber + ++counter);
             tmp = tmp.nextSibling;
           }
         } else {
           dom.code.appendChild(dl.node);
           dom.counter.appendChild(dl.counter);
-          index = view.push(dl) + from;
+          view.push(dl);
         }
         withoutParsing || process(that, dl);
         touch(dl);
-        cp.emit('link', dl, index);
+        that.emit('link', dl, index);
       }
     }
     function insert(dl) { init(dl); link(dl, to + 1); ++to; }
@@ -1502,7 +1091,7 @@
       dom.counter.removeChild(deleteCounter(dl));
       var i = view.indexOf(dl);
       if (i >= 0) view.splice(i, 1);
-      --to; cp.emit('unlink', dl, index);
+      --to; that.emit('unlink', dl, index);
     }
     function clear() {
       for (var i = 0; i < view.length; i++) {
@@ -1600,7 +1189,7 @@
             for (var i = 0; i < m; i++) {
               rmdl = view.pop();
               captureNode(lines[i], rmdl);
-              cp.emit('unlink', rmdl, to + m - i);
+              this.emit('unlink', rmdl, to + m - i);
               link(lines[i], at + i, true);
             }
           } else {
@@ -1696,7 +1285,7 @@
     this.insertText = this.replaceRange = function(text, from, to) {
       var change = replaceRange(this, text, from, to);
       if (change) {
-        this.history.push(change);
+        this.pushChange(change);
         return change.removed;
       }
     }
@@ -1724,7 +1313,7 @@
     this.print = function() {
       this.fill();
       this.updateView();
-      runBackgroundParser(cp, this.parser, true);
+      runBackgroundParser(this, true);
       this.sizes.paddingTop = parseInt(dom.code.style.paddingTop, 10) || 5;
       this.sizes.paddingLeft = parseInt(dom.code.style.paddingLeft, 10) || 10;
       if (cp.options.autoFocus) dom.input.focus();
@@ -1744,26 +1333,27 @@
       dom.code.style.display = 'none';
       
       while (tmp && ++i < view.length) {
-        cp.emit('unlink', view[i], oldfrom + i);
         captureNode(tmp, view[i]);
+        this.emit('unlink', view[i], oldfrom + i);
         process(this, tmp);
         tmp.counter.firstChild.nodeValue = formatter(firstNumber + (to = from + i));
         view[i] = tmp;
-        cp.emit('link', tmp, from + i);
+        this.emit('link', tmp, from + i);
         tmp = tmp.next();
       }
       if (++i < view.length) {
         var spliced = view.splice(i, view.length - i);
         tmp = dl.prev();
         while (tmp && spliced.length) {
-          cp.emit('unlink', spliced[0], oldfrom + i++);
-          captureNode(tmp, spliced.shift());
+          var shift = spliced.shift();
+          captureNode(tmp, shift);
+          this.emit('unlink', shift, oldfrom + i++);
           process(this, tmp);
           tmp.counter.firstChild.nodeValue = formatter(firstNumber + --from);
           dom.code.insertBefore(tmp.node, view[0].node);
           dom.counter.insertBefore(tmp.counter, view[0].counter);
           view.unshift(tmp);
-          cp.emit('link', tmp, from);
+          this.emit('link', tmp, from);
           offset -= tmp.height;
           tmp = tmp.prev();
         }
@@ -1801,12 +1391,12 @@
             sh += dl.height;
           }
         } else {
-          if (disp = abs > 4 * sizes.defaultHeight) { dom.counter.style.display = 'none'; dom.code.style.display = 'none'; }
+          //if (disp = abs > 4 * sizes.defaultHeight) { dom.counter.style.display = 'none'; dom.code.style.display = 'none'; }
           if (d > 0) {
             while (view.length && (h = view[0].height) <= d && (dl = lastV(view).next())) {
               var first = view.shift();
               captureNode(dl, first);
-              cp.emit('unlink', first, from);
+              this.emit('unlink', first, from);
               link(dl, to + 1);
               ++from; ++to;
               d -= h;
@@ -1815,7 +1405,7 @@
             while (view.length && (h = lastV(view).height) <= -d && (dl = view[0].prev())) {
               var last = view.pop();
               captureNode(dl, last);
-              cp.emit('unlink', last, to);
+              this.emit('unlink', last, to);
               --to; link(dl, --from);
               d += dl.height;
             }
@@ -1823,7 +1413,7 @@
           if (tmpd != d) scroll(this, tmpd - d);
         }
       }
-      if (disp) { dom.counter.style.display = ''; dom.code.style.display = ''; }
+      //if (disp) { dom.counter.style.display = ''; dom.code.style.display = ''; }
       scrollTo(this, st);
       if (to != a) this.updateView(a - to);
     }
@@ -1994,6 +1584,13 @@
         overlay.show();
       }
     }
+    this.pushChange = function(change) {
+      if (!change) return;
+      this.history.push(change);
+      this.emit('change', change);
+      if (this.searchResults) updateSearch(this, this.searchResults);
+      return change;
+    }
     this.each = function(func) { data.foreach(func); }
     this.get = function(i) { return data.get(i); }
     this.getEditor = function() { return cp; }
@@ -2019,6 +1616,52 @@
           cc.clearSelection();
           mergeCarets(caret, cc);
           break;
+        }
+      }
+      if (this.getOption('autoScroll')) {
+        var wrapper = this.dom.wrapper
+        , pl = this.sizes.paddingLeft, pt = this.sizes.paddingTop
+        , sl = wrapper.scrollLeft, st = wrapper.scrollTop
+        , cw = wrapper.clientWidth, ch = wrapper.clientHeight
+        , h = caret.dl().height;
+        
+        if (caret.x - pl < sl) {
+          sl = caret.x - pl;
+        } else if (caret.x + pl >= cw + sl) {
+          sl = caret.x + pl - cw;
+        }
+        wrapper.scrollLeft = sl;
+        if (Math.abs(caret.y - st) > ch) {
+          if (caret.y < ch / 2) {
+            st = 0;
+          } else {
+            st = caret.y - ch / 2;
+          }
+        } else {
+          if (caret.y < st + h) {
+            st = caret.y - h - pt;
+          } else if (caret.y + 2 * h >= ch + st) {
+            st = caret.y + 2 * h + pt - ch;
+          }
+        }
+        this.scrollTo(st);
+      }
+      if (this.getOption('matching')) {
+        var m = getMatchingObject(this.parser.matching);
+        if (m) {
+          var a, b, cur, bf = caret.textBefore(), af = caret.textAfter();
+          outer: for (var s in m) {
+            var len = s.length, i = 0;
+            do {
+              a = len == i || bf.indexOf(s.substring(0, len - i), bf.length - len + i) >= 0;
+              b = i == 0 || af.indexOf(s.substring(len - i, len)) == 0;
+              if (a && b) {
+                a = b = matchingHelper(this, s, m[s], head.line, head.column - len + i, head.column + i);
+                if (a) break outer;
+              }
+            } while (++i <= len);
+          }
+          if (!(a && b) && this.highlightOverlay) this.removeOverlay(this.highlightOverlay);
         }
       }
     });
@@ -2061,6 +1704,133 @@
     return each(doc.carets, func, doc, start);
   }
   
+  function searchOverLine(find, dl, line) {
+    var search = this.searchResults
+    , text = dl.text, ln = 0, i, j = 0
+    , match, startflag = find.source.search(/(^|[^\\])\^/) >= 0;
+    
+    while (text && (i = text.search(find)) !== -1) {
+      if (match = RegExp.lastMatch) {
+        search.add(dl, p(line, ln + i), match);
+        ++j;
+      }
+      if (startflag && ln + i === 0) break;
+      var d = (i + match.length) || 1;
+      ln += d;
+      text = text.substr(d);
+    }
+    return j;
+  }
+  function searchNodeStyle(dl, rect, sizes) {
+    return rect.width ? 'top:'+(sizes.paddingTop+dl.getOffset()+rect.offsetY)+'px;left:'+rect.offsetX+'px;width:'+(rect.width+2)+'px;height:'+(rect.charHeight+2)+'px;' : 'display:none;';
+  }
+  function searchShow(dl, line) {
+    if (this.searchResults) this.searchResults.show(dl, line);
+  }
+  function searchHide(dl, line) {
+    if (this.searchResults) this.searchResults.hide(dl, line);
+  }
+  function nextSearchNode(move) {
+    return function() {
+      if (this.length === 0) this.setActive(null);
+      var keys = Object.keys(this.rows);
+      if (this.active) {
+        var i = keys.indexOf(''+this.active.line);
+        if (i < 0) this.setActive(null);
+        else {
+          var row = this.rows[this.active.line], j = row.indexOf(this.active);
+          if (j >= 0 && j + move >= 0 && j + move < row.length) this.setActive(row[j + move]);
+          else if (keys[i + move]) this.setActive(move >= 0 ? this.rows[keys[i + move]][0] : lastV(this.rows[keys[i + move]]));
+          else this.setActive(null);
+        }
+      }
+      if (!this.active) this.setActive(move >= 0 ? this.rows[keys[0]][0] : lastV(this.rows[lastV(keys)]));
+      return this.active;
+    }
+  }
+  function updateSearch(doc, results) {
+    
+  }
+  
+  var SearchResults = function(doc) {
+    this.overlay = new CodePrinter.Overlay(['cp-search-overlay']);
+    this.update = function(dl, node) {
+      var rect = doc.measureRect(dl, node.column, node.column + node.value.length);
+      node.span.setAttribute('style', searchNodeStyle(dl, rect, doc.sizes));
+    }
+  }
+  
+  SearchResults.prototype = {
+    setRequest: function(req) {
+      this.rows = {};
+      this.length = 0;
+      this.active = null;
+      this.request = req;
+      this.overlay.node.innerHTML = '';
+    },
+    add: function(dl, pos, value) {
+      var row = this.rows[pos.line], node, diff = -1;
+      if (!row) row = this.rows[pos.line] = [];
+      for (var i = 0; i < row.length; i++) {
+        diff = pos.column - row[i].column;
+        if (diff <= 0) {
+          if (diff === 0) (node = row[i]).setValue(value);
+          break;
+        }
+      }
+      if (diff !== 0)  {
+        node = new SearchNode(value, pos);
+        row.splice(i, 0, node);
+        if (++this.length === 1) this.setActive(node);
+      }
+    },
+    setActive: function(node) {
+      if (this.active) this.active.span.classList.remove('active');
+      if (this.active = node) node.span.classList.add('active');
+    },
+    show: function(dl, line) {
+      var row = this.rows[line];
+      if (!row) return;
+      for (var i = 0; i < row.length; i++) {
+        this.overlay.node.appendChild(row[i].span);
+        this.update(dl, row[i]);
+      }
+    },
+    hide: function(line) {
+      var row = this.rows[line];
+      if (!row) return;
+      for (var i = 0; i < row.length; i++) {
+        this.overlay.node.removeChild(row[i].span);
+      }
+    },
+    next: nextSearchNode(+1),
+    prev: nextSearchNode(-1),
+    reset: function(line) {
+      var row = this.rows[line];
+      if (!row) return;
+      for (var k in row) {
+        row[k] = null;
+        --this.length;
+      }
+      delete this.rows[line];
+    }
+  }
+  
+  var SearchNode = function(value, pos) {
+    this.span = span.cloneNode(false);
+    this.span.classList.add('cp-search-occurrence');
+    this.span.appendChild(document.createTextNode(value));
+    this.value = value;
+    this.line = pos.line;
+    this.column = pos.column;
+  }
+  
+  SearchNode.prototype = {
+    setValue: function(value) {
+      this.span.firstChild.nodeValue = this.value = value;
+    }
+  }
+  
   Document.prototype = {
     undo: function() { return this.history.operation(this, 'undo', historyBack(this.history)); },
     redo: function() { return this.history.operation(this, 'redo', historyForward(this.history)); },
@@ -2088,6 +1858,244 @@
         this.emit('blur');
       }
     },
+    getState: function(at) {
+      var pos = nPos(this, at), dl = pos && this.get(pos.line);
+      if (!dl) return;
+      var parser = this.parser
+      , tw = this.getOption('tabWidth')
+      , s = searchLineWithState(parser, dl, tw)
+      , state = s.state, tmp = s.line;
+      
+      for (; tmp; tmp = tmp.next()) {
+        var ind = parseIndentation(tmp.text, tw), stream = new Stream(ind.rest, { indentation: ind.indent });
+        if (tmp === dl) {
+          state = copyState(state);
+          var readTo = Math.max(0, Math.min(pos.column - ind.length, ind.rest.length))
+          , cache = parseStream(parser, stream, state, readTo)
+          , oldpos = stream.pos, lastCache = lastV(cache);
+          if (stream.eol()) tmp.state = state;
+          stream.pos = pos;
+          return { stream: stream, state: state, cache: cache, style: lastCache && lastCache.style, parser: state && state.parser || parser, nextIteration: function() {
+            if (stream.pos < oldpos) stream.pos = oldpos;
+            return readIteration(parser, stream, state, cache);
+          }};
+        } else {
+          state = parse(this, tmp, state).state;
+        }
+      }
+    },
+    getStyles: function(at) {
+      var pos = nPos(this, at);
+      if (!pos) return false;
+      //var dl = this.get(pos.line);
+      //if (dl.cache) for (var i = 0; i < dl.cache.length; i++) if (dl.cache[i].from <= at.column) return dl.cache[i].style;
+      return this.getState(pos).style;
+    },
+    getParser: function(at) {
+      var s = this.getState(at);
+      return s && s.parser;
+    },
+    searchLeft: function(start, pattern, style) {
+      var pos = nPos(this, start), dl = pos && this.get(pos.line)
+      , search = 'string' === typeof pattern ? function(text) { return text.lastIndexOf(pattern); } : function(text) { return text.search(pattern); };
+      if (!pos) return;
+      while (dl) {
+        var i = search(dl.text.substring(0, pos.column));
+        if (i === -1) {
+          pos.column = Infinity;
+          dl = dl.prev();
+          --pos.line;
+        } else {
+          var st = this.getStyles(p(pos.line, i + 1));
+          if (st === style) break;
+          pos.column = i;
+        }
+      }
+      return dl && p(pos.line, i);
+    },
+    searchRight: function(start, pattern, style) {
+      var pos = nPos(this, start), dl = pos && this.get(pos.line)
+      , search = 'string' === typeof pattern ? function(text) { return text.indexOf(pattern); } : function(text) { return text.search(pattern); };
+      if (!pos) return;
+      while (dl) {
+        var i = search(dl.text.substr(pos.column));
+        if (i === -1) {
+          pos.column = 0;
+          dl = dl.next();
+          ++pos.line;
+        } else {
+          var st = this.getStyles(p(pos.line, pos.column + i + 1));
+          if (st === style) break;
+          pos.column += i + 1;
+        }
+      }
+      return dl && p(pos.line, i + pos.column);
+    },
+    search: function(find, scroll) {
+      if ('string' === typeof find || find instanceof RegExp) {
+        var search = this.searchResults = this.searchResults || new SearchResults(this);
+        
+        if (!search.request || find.toString() !== search.request.toString() || search.length === 0) {
+          var clearSelected, esc;
+          search.setRequest(find);
+          
+          if (this.addOverlay(search.overlay) !== undefined) {
+            this.on({ link: searchShow, unlink: searchHide });
+          }
+          
+          clearSelected = function() {
+            var children = search.overlay.node.children, k = 0;
+            for (var i = 0; i < children.length; i++) {
+              if (children[i].style.opacity === '0' && ++k) {
+                children[i].style.opacity = '1';
+              }
+            }
+            k && this.call('clearSelection');
+          }
+          
+          if ('string' === typeof find) esc = new RegExp(escape(find));
+          else esc = find;
+          
+          this.asyncEach(function(dl, line, offset) {
+            if (search.request !== find) return false;
+            searchOverLine.call(this, esc, dl, line);
+          }, function(index, last) {
+            var sl = this.dom.wrapper.scrollLeft;
+            if (last !== false) {
+              if (search.length) {
+                if (scroll !== false || search.length === 0) {
+                  var rows = search.rows;
+                  for (var k in rows) {
+                    if (rows[k].length) {
+                      this.scrollTo(this.get(k).getOffset() - this.dom.wrapper.offsetHeight/2);
+                      break;
+                    }
+                  }
+                }
+                this.eachVisibleLines(searchShow);
+              }
+              search.overlay.show();
+              this.dom.wrapper.scrollLeft = sl;
+              this.emit('searchCompleted', find, search.length);
+            }
+          });
+        }
+      }
+      
+      /*if (find) {
+        var search = this.searches = this.searches || {};
+        
+        if (!search.value || find.toString() != search.value.toString() || !search.results || !search.length) {
+          var cp = this, j = 0, results = search.results = {}, cur, linkCallback, clearSelected, esc;
+          search.value = find;
+          
+          linkCallback = function(dl, line) {
+            if (cp.searches.results && (cur = cp.searches.results[line])) {
+              searchAppendResult.call(cp, dl, cur);
+            }
+          }
+          clearSelected = function() {
+            var children = search.overlay.node.children, k = 0;
+            for (var i = 0; i < children.length; i++) {
+              if (children[i].style.opacity == '0' && ++k) {
+                children[i].style.opacity = '1';
+              }
+            }
+            k && cp.doc.clearSelection();
+          }
+          
+          if (!(search.overlay instanceof CodePrinter.Overlay)) {
+            search.overlay = this.createOverlay('cp-search-overlay');
+            search.mute = false;
+            
+            search.overlay.on({
+              'click': clearSelected,
+              'blur': clearSelected,
+              'changed': function() {
+                if (!search.mute) {
+                  search.length = 0;
+                  cp.search(search.value, false);
+                }
+              },
+              '$removed': function() {
+                cp.searches.results = cp.searches.active = undefined;
+                cp.searches.length = 0;
+              }
+            });
+            on(search.overlay.node, 'mousedown', function(e) {
+              var res = e.target._searchResult;
+              if (res && e.target.tagName == 'SPAN') {
+                clearSelected();
+                search.mute = true;
+                cp.dom.input.focus();
+                cp.doc.setSelectionRange(res.line, res.startColumn, res.line, res.startColumn + res.length);
+                cp.caret.position(res.line, res.startColumn + res.length);
+                e.target.style.opacity = '0';
+                search.mute = false;
+                return eventCancel(e);
+              }
+            });
+            this.on({
+              link: function(dl, line) {
+                cp.doc.once('viewUpdated', function() {
+                  linkCallback(dl, line);
+                });
+              },
+              unlink: function(dl, line) {
+                cp.doc.once('viewUpdated', function() {
+                  if (cp.searches.results && (cur = cp.searches.results[line])) {
+                    for (var i = 0; i < cur.length; i++) {
+                      if (cur[i].node) {
+                        cur[i].node.parentNode && search.overlay.node.removeChild(cur[i].node);
+                        cur[i].node = undefined;
+                      }
+                    }
+                  }
+                });
+              }
+            });
+          }
+          
+          if ('string' === typeof find) esc = new RegExp(escape(find));
+          else esc = find;
+          
+          this.intervalIterate(function(dl, line, offset) {
+            if (this.searches.value !== find) return false;
+            j += searchOverLine.call(cp, esc, dl, line, offset);
+          }, function(index, last) {
+            var sl = this.wrapper.scrollLeft;
+            search.overlay.node.innerHTML = '';
+            if (last !== false) {
+              if (j) {
+                if (scroll !== false || search.length === 0) {
+                  for (var k in results) {
+                    if (results[k].length) {
+                      search.active = results[k][0];
+                      scroll !== false && this.doc.scrollTo(results[k][0].offset - this.wrapper.offsetHeight/2);
+                      break;
+                    }
+                  }
+                }
+                this.doc.eachVisibleLines(linkCallback);
+              }
+              search.length = j;
+              search.overlay.reveal();
+              this.wrapper.scrollLeft = sl;
+              this.emit('searchCompleted', find, j);
+            }
+          });
+        } else {
+          this.searchNext();
+        }
+      }*/
+      return this;
+    },
+    searchEnd: function() {
+      var search = this.searchResults;
+      if (!search) return;
+      this.off({ link: searchShow, unlink: searchHide });
+      this.removeOverlay(search.overlay);
+    },
     createCaret: function() {
       var caret = new Caret(this);
       this.carets.push(caret);
@@ -2096,13 +2104,14 @@
       }
       return caret;
     },
-    resetCarets: function() {
+    resetCarets: function(all) {
+      var startIndex = all ? 0 : 1;
       eachCaret(this, function(caret) {
         caret.clearSelection();
         caret.blur();
         this.dom.caretsContainer.removeChild(caret.node);
-      }, 1);
-      this.carets.length = 1;
+      }, startIndex);
+      this.carets.length = startIndex;
       return this.carets[0];
     },
     makeCarets: function(n) {
@@ -2119,7 +2128,7 @@
       return this;
     },
     createOverlay: function(classes) {
-      return this.addOverlay(new CodePrinter.Overlay('string' === typeof classes ? [classes] : classes));
+      return this.addOverlay(new CodePrinter.Overlay(classes));
     },
     addOverlay: function(overlay) {
       if (!(overlay instanceof CodePrinter.Overlay) || this.overlays.indexOf(overlay) >= 0) return;
@@ -2133,6 +2142,21 @@
       this.overlays.splice(i, 1);
       this.dom.screen.removeChild(overlay.node);
       return overlay.emit('removed');
+    },
+    createHighlightOverlay: function() {
+      if (this.highlightOverlay) this.removeOverlay(this.highlightOverlay);
+      var overlay = this.highlightOverlay = this.createOverlay('cp-highlight-overlay'), args = Array.apply(null, arguments);
+      this.once('blur', function() { this.removeOverlay(overlay); });
+      this.once('changed', function() { this.removeOverlay(overlay); });
+      for (var i = 0, dl; i < args.length; i++) {
+        var cur = args[i];
+        if (dl = this.get(cur.line)) {
+          var ms = this.measureRect(dl, cur.column, cur.column + cur.text.length), sp = addClass(span.cloneNode(false), 'cp-highlight');
+          sp.setAttribute('style', 'top:'+(dl.getOffset()+ms.offsetY+this.sizes.paddingTop)+'px;left:'+ms.offsetX+'px;width:'+ms.width+'px;height:'+(ms.charHeight+1)+'px;');
+          overlay.node.appendChild(sp);
+        }
+      }
+      return this;
     },
     setMode: function(mode) {
       var doc = this;
@@ -2149,6 +2173,26 @@
         });
       }
     },
+    getIndent: function(at) {
+      var pos = nPos(this, at);
+      if (!pos) return 0;
+      return parseIndentation(this.textAt(pos.line), this.getOption('tabWidth')).indent;
+    },
+    setIndent: function(line, indent) {
+      if ('number' !== typeof line) return;
+      var dl = this.get(line), old = parseIndentation(dl.text, this.getOption('tabWidth'))
+      , diff = indent - old.indent, tab = tabString(this.getEditor());
+      
+      if (diff) {
+        var newIndent = repeat(tab, indent), lm;
+        dl.setText(newIndent + dl.text.replace(/^\s*/g, ''));
+        lm = RegExp.lastMatch.length;
+        forwardParsing(this, dl);
+        adjustCaretsPos(this, { text: [newIndent], from: p(line, 0), to: p(line, lm) });
+        this.pushChange({ type: 'setIndent', line: line, before: old.indent, after: indent });
+      }
+      return tab.length * diff;
+    },
     appendText: function(text) {
       var t = text.split(eol), size = this.size(), fi = t.shift();
       if (fi) {
@@ -2164,8 +2208,7 @@
       return true;
     },
     end: function() {
-      var cp = this.getEditor();
-      cp && runBackgroundParser(cp, this.parser, true);
+      runBackgroundParser(this, true);
     },
     appendLine: function(text) {
       var dl, size = this.doc.size();
@@ -2195,6 +2238,35 @@
     },
     createReadStream: function() {
       return new ReadStream(this, this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter);
+    },
+    asyncEach: function(callback, onend, options) {
+      if (!(onend instanceof Function) && arguments.length === 2) options = onend;
+      var that = this, dl = this.get(0), fn
+      , index = 0, offset = 0, queue = 500;
+      
+      if (options) {
+        if (options.queue) queue = options.queue;
+        if (options.index) index = options.index;
+        if ('number' === typeof options.start) dl = this.get(index = options.start);
+        else if (options.start instanceof Line) {
+          dl = options.start;
+          if (!options.index) index = dl.info().index;
+        }
+      }
+      
+      async(fn = function() {
+        var j = 0, r;
+        while (dl && j++ < queue) {
+          r = callback.call(that, dl, index++, offset);
+          offset += dl.height;
+          dl = r ? r.next() : r == null ? dl.next() : false;
+        }
+        if (!dl) {
+          onend instanceof Function && onend.call(that, index, dl);
+          return false;
+        }
+        async(fn);
+      });
     }
   }
   
@@ -2251,7 +2323,7 @@
   Caret = CodePrinter.Caret = function(doc) {
     var head = p(0, 0), currentLine, anchor, selOverlay, lastMeasure;
     
-    EventEmitter.call(this);
+    EventEmitter.call(this, doc);
     this.node = addClass(div.cloneNode(false), 'cp-caret');
     
     function setPixelPosition(x, y) {
@@ -2263,10 +2335,7 @@
         
         stl != this.style && this.setStyle(stl);
         (CaretStyles[this.style] || CaretStyles['vertical']).call(this, css, lastMeasure, doc.getOptions());
-        
-        this.emit('beforeMove', this.x, this.y, currentLine, head.line, this.column());
-        for (var k in css) this.node.style[k] = css[k] + ('number' == typeof css[k] ? 'px' : '');
-        this.emit('move', this.x, this.y, currentLine, head.line, this.column());
+        for (var k in css) this.node.style[k] = css[k] + ('number' === typeof css[k] ? 'px' : '');
       }
       return this;
     }
@@ -2311,10 +2380,10 @@
         b = true;
       }
       this.showSelection();
-      if (b) doc.emit('caretWillMove', this);
+      if (b) this.emit('caretWillMove');
       lastMeasure = measure;
       setPixelPosition.call(this, measure.offsetX, measure.offsetY + measure.lineOffset);
-      if (b) doc.emit('caretMoved', this);
+      if (b) this.emit('caretMoved');
       return this;
     }
     this.beginSelection = function() {
@@ -2380,7 +2449,7 @@
       replaceRange(doc, after, range.to, range.to);
       replaceRange(doc, before, range.from, range.from);
       if (comparePos(anchor, head) < 0) this.moveX(-after.length, true) && this.moveAnchor(before.length);
-      doc.history.push({ type: 'wrap', range: range, before: before, after: after, wrap: true });
+      doc.pushChange({ type: 'wrap', range: range, before: before, after: after, wrap: true });
     }
     this.unwrapSelection = function(before, after) {
       var range = this.getRange()
@@ -2389,7 +2458,7 @@
       if (doc.substring(from, range.from) !== before || doc.substring(range.to, to) !== after) return false;
       removeRange(doc, range.to, to);
       removeRange(doc, from, range.from);
-      doc.history.push({ type: 'wrap', range: range, before: before, after: after, wrap: false });
+      doc.pushChange({ type: 'wrap', range: range, before: before, after: after, wrap: false });
     }
     this.moveSelectionTo = function(pos) {
       var range = this.getSelectionRange();
@@ -2399,7 +2468,7 @@
       var removed = removeRange(doc, range.from, range.to).removed;
       this.beginSelection();
       insertText(doc, removed, head);
-      doc.history.push({ type: 'moveSelection', text: removed, from: range.from, into: this.anchor() });
+      doc.pushChange({ type: 'moveSelection', text: removed, from: range.from, into: this.anchor() });
     }
     this.reverse = function() {
       if (!anchor) return;
@@ -2545,7 +2614,8 @@
   }
   
   CodePrinter.Overlay = function(classes) {
-    this.node = addClass(div.cloneNode(false), ['cp-overlay'].concat(classes));
+    var cls = 'string' === typeof classes ? classes.split(/\s+/g) : isArray(classes) ? classes : [];
+    this.node = addClass(div.cloneNode(false), ['cp-overlay'].concat(cls));
     EventEmitter.call(this);
     return this;
   }
@@ -2819,7 +2889,7 @@
       var text = next.text;
       if (up) removeRange(doc, p(range.from.line - 1, 0), p(range.from.line, 0)) && insertText(doc, '\n' + text, p(range.to.line - 1, -1));
       else removeRange(doc, p(range.to.line, -1), p(range.to.line + 1, -1)) && insertText(doc, text + '\n', p(range.from.line, 0));
-      doc.history.push({ type: 'swap', range: range, offset: up ? -1 : 1 });
+      doc.pushChange({ type: 'swap', range: range, offset: up ? -1 : 1 });
     }
   }
   function posNegativeCols(doc, pos) {
@@ -2831,7 +2901,7 @@
       singleInsert(doc, line, index, tabString, 0);
     });
     range = caret.getRange();
-    doc.history.push({ type: 'indent', range: r(posNegativeCols(doc, range.from), posNegativeCols(doc, range.to)), offset: 1 });
+    doc.pushChange({ type: 'indent', range: r(posNegativeCols(doc, range.from), posNegativeCols(doc, range.to)), offset: 1 });
   }
   function outdent(caret) {
     var doc = this, tw = doc.getOption('tabWidth'), success, range;
@@ -2842,7 +2912,12 @@
       if (i > 0) success = singleRemove(doc, line, index, 0, i) | true;
     });
     range = caret.getRange();
-    success && doc.history.push({ type: 'indent', range: r(posNegativeCols(doc, range.from), posNegativeCols(doc, range.to)), offset: -1 });
+    success && doc.pushChange({ type: 'indent', range: r(posNegativeCols(doc, range.from), posNegativeCols(doc, range.to)), offset: -1 });
+  }
+  function scrollToLine(doc, line) {
+    var dl = doc.get(line), offset = dl.getOffset(), st = doc.dom.wrapper.scrollTop, oh = doc.dom.wrapper.offsetHeight;
+    if (offset > st + oh - 20) doc.scrollTo(offset - oh + doc.getOption('viewportMargin'));
+    else if (offset < st + 20) doc.scrollTo(offset + 20);
   }
   
   commands = {
@@ -2901,6 +2976,16 @@
     }),
     'increaseFontSize': function() { this.setFontSize(this.options.fontSize+1); },
     'decreaseFontSize': function() { this.setFontSize(this.options.fontSize-1); },
+    'prevSearchResult': function() {
+      if (!this.doc.searchResults) return;
+      var act = this.doc.searchResults.prev();
+      if (act) scrollToLine(this.doc, act.line);
+    },
+    'nextSearchResult': function() {
+      if (!this.doc.searchResults) return;
+      var act = this.doc.searchResults.next();
+      if (act) scrollToLine(this.doc, act.line);
+    },
     'delCharLeft': function() {
       var tw = this.options.tabWidth;
       this.doc.eachCaret(function(caret) {
@@ -3021,6 +3106,14 @@
         if (a.offset === 1 || a.offset === -1) return a;
         a.offset > 1 ? --a.offset : ++a.offset;
         return { type: 'indent', range: a.range, offset: a.offset > 0 ? 1 : -1 };
+      }
+    },
+    'setIndent': {
+      make: function(change) {
+        this.setIndent(change.line, change.after);
+      },
+      reverse: function(change) {
+        return extend(change, { before: change.after, after: change.before });
       }
     },
     'wrap': {
@@ -3159,11 +3252,13 @@
     operation: function(doc, op, state) {
       if (state) {
         var arr = isArray(state) ? state : [state];
-        doc.makeCarets(arr.length);
+        doc.resetCarets();
         this.lock = true;
-        for (var i = arr.length - 1, change; i >= 0; i--) {
-          change = arr[i];
-          if (historyActions[change.type]) historyActions[change.type].make.call(doc, doc.carets[i], change, op);
+        for (var i = arr.length - 1, j = 0, act; i >= 0; i--) {
+          if (act = historyActions[arr[i].type]) {
+            if (act.make.length > 1) act.make.call(doc, j ? doc.createCaret() : doc.carets[j++], arr[i]);
+            else act.make.call(doc, arr[i]);
+          }
         }
         return !(this.lock = false);
       }
@@ -3328,7 +3423,9 @@
   function callKeyBinding(cp, keyMap, key) {
     var binding = keyMap[key];
     if ('string' === typeof binding) binding = commands[binding];
-    if ('function' === typeof binding) return binding.call(cp, key);
+    if ('function' !== typeof binding) return false;
+    binding.call(cp, key);
+    return true;
   }
   function attachEvents(cp) {
     var wrapper = cp.dom.wrapper
@@ -3472,8 +3569,7 @@
       } else {
         cp.doc.blur();
         addClass(cp.dom.mainNode, 'inactive');
-        if (options.abortSelectionOnBlur) cp.doc.clearSelection();
-        if (cp.highlightOverlay) cp.highlightOverlay.remove();
+        if (options.abortSelectionOnBlur) cp.doc.call('clearSelection');
         cp.emit('blur');
       }
     });
@@ -3494,7 +3590,7 @@
       cp.emit('['+seq+']', e); cp.emit('keydown', seq, e);
       if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
       if (seq.length > 1 && cp.keyMap[seq]) {
-        if (!callKeyBinding(cp, cp.keyMap, seq)) return eventCancel(e, 1);
+        if (callKeyBinding(cp, cp.keyMap, seq)) return eventCancel(e, 1);
       }
     });
     on(input, 'keypress', function(e) {
@@ -3503,8 +3599,7 @@
       
       if (e.ctrlKey !== true && e.metaKey !== true) {
         cp.doc.eachCaret(function(caret) {
-          var a, col, s = cp.getStateAt(caret.dl(), col = caret.column())
-          , parser = s && s.parser;
+          var a, head = caret.head(), s = this.getState(head), parser = s && s.parser;
           
           if (caret.hasSelection() && (a = parser.selectionWrappers[ch])) {
             'string' === typeof a ? caret.wrapSelection(a, a) : caret.wrapSelection(a[0], a[1]);
@@ -3514,7 +3609,7 @@
             caret.insert(ch);
           }
           if (options.autoIndent && parser.isIndentTrigger(ch)) {
-            reIndent(cp, parser, col);
+            reIndent(this, parser, head);
           }
         });
         return eventCancel(e);
@@ -3527,7 +3622,7 @@
         if (this.value.length) cp.doc.call('insert', this.value);
         T = clearTimeout(T) || setTimeout(function() {
           cp.emit('pause');
-          runBackgroundParser(cp, cp.doc.parser);
+          runBackgroundParser(cp.doc);
         }, options.keyupInactivityTimeout);
       }
       this.value = '';
@@ -3539,60 +3634,6 @@
         this.value = '';
       }
     });
-    
-    /*cp.caret.on({
-      positionChanged: function(dl, line, column, x, y) {
-        if (options.autoScroll) {
-          var pl = sizes.paddingLeft, pt = sizes.paddingTop
-          , sl = wrapper.scrollLeft, st = wrapper.scrollTop
-          , cw = wrapper.clientWidth, ch = wrapper.clientHeight
-          , h = dl.height;
-          
-          if (x - pl < sl) {
-            sl = x - pl;
-          } else if (x + pl >= cw + sl) {
-            sl = x + pl - cw;
-          }
-          wrapper.scrollLeft = sl;
-          if (Math.abs(y - st) > ch) {
-            if (y < ch / 2) {
-              st = 0;
-            } else {
-              st = y - ch / 2;
-            }
-          } else {
-            if (y < st + h) {
-              st = y - h - pt;
-            } else if (y + 2 * h >= ch + st) {
-              st = y + 2 * h + pt - ch;
-            }
-          }
-          cp.doc.scrollTo(st);
-          cp.dom.counterContainer.scrollTop = st;
-        }
-      },
-      move: function(x, y, dl, line, column) {
-        if (options.matching) {
-          var m = getMatchingObject(cp.doc.parser.matching);
-          if (m) {
-            var a, b, cur, bf = this.textBefore(), af = this.textAfter();
-            outer: for (var s in m) {
-              var len = s.length, i = 0;
-              do {
-                a = len == i || bf.indexOf(s.substring(0, len - i), bf.length - len + i) >= 0;
-                b = i == 0 || af.indexOf(s.substring(len - i, len)) == 0;
-                if (a && b) {
-                  a = b = matchingHelper(cp, s, m[s], line, column - len + i, column + i);
-                  if (a) break outer;
-                }
-              } while (++i <= len);
-            }
-            if (!(a && b) && cp.highlightOverlay) cp.highlightOverlay.remove();
-          }
-        }
-        cp.emit('caretMoved', line, column);
-      }
-    });*/
     
     function counterMousemove(e) {
       var dl = cp.doc.lineWithOffset(wrapper.scrollTop + e.pageY - sizes.bounds.y - sizes.paddingTop);
@@ -3735,9 +3776,9 @@
       doc.wheelTarget = wt;
     }
   }
-  function insertClosing(cp, ch, comp) {
-    var s = cp.getStateAt(cp.caret.line(), cp.caret.column()), charAfter = s.stream.at(0);
-    charAfter == ch ? cp.caret.moveX(1) : /\b(string|invalid)\b/.test(s.style) || /[^\s\)\]\}]/.test(charAfter) ? cp.insertText(ch, 0) : cp.insertText(ch + comp, -1);
+  function insertClosing(doc, ch, comp) {
+    var s = doc.getState(caret.head()), charAfter = s.stream.at(0);
+    charAfter == ch ? caret.moveX(1) : /\b(string|invalid)\b/.test(s.style) || /[^\s\)\]\}]/.test(charAfter) ? doc.insertText(ch, 0) : doc.insertText(ch + comp, -1);
     return false;
   }
   function desiredHeight(cp, half) {
@@ -3751,7 +3792,7 @@
   function scroll(doc, delta) {
     doc.sizes.scrollTop = Math.max(0, doc.sizes.scrollTop + delta);
     doc.dom.code.style.top = doc.sizes.scrollTop + 'px';
-    doc.dom.counterList.style.top = doc.sizes.scrollTop + 'px';
+    doc.dom.counter.style.top = doc.sizes.scrollTop + 'px';
   }
   function scrollTo(doc, st) {
     doc.scrollTop = st;
@@ -3817,53 +3858,12 @@
     var obj = { '(':')', ')':'(', '{':'}', '}':'{', '[':']', ']':'[', '<':'>', '>':'<' }
     return obj[ch];
   }
-  function functionSnippet(cp, snippet) {
-    var s = cp.getStateAt(cp.caret.dl(), cp.caret.column());
+  function functionSnippet(cp, head, snippet) {
+    var s = doc.getState(head);
     return snippet.call(s.parser, s.stream, s.state);
   }
   function trimSpaces(txt) {
     return txt.replace(/\s+$/, '');
-  }
-  function searchOverLine(find, dl, line, offset) {
-    var results = this.searches.results
-    , text = dl.text, ln = 0, i, j = 0
-    , match, startflag = find.source.search(/(^|[^\\])\^/) >= 0;
-    
-    while (text && (i = text.search(find)) !== -1) {
-      if (match = RegExp.lastMatch) {
-        var cur = results[line] = results[line] || [];
-        cur.push({ value: match, line: line, startColumn: ln + i, length: match.length, offset: offset });
-        ++j;
-      }
-      if (startflag && ln + i === 0) break;
-      var d = (i + match.length) || 1;
-      ln += d;
-      text = text.substr(d);
-    }
-    return j;
-  }
-  function searchAppendResult(dl, res) {
-    for (var i = 0; i < res.length; i++) {
-      var node = res[i].node;
-      if (!node) {
-        node = span.cloneNode(false);
-        node.appendChild(document.createTextNode(''));
-      }
-      node.className = 'cp-search-occurrence';
-      node.firstChild.nodeValue = res[i].value;
-      searchUpdateNode.call(this, dl, node, res[i]);
-      this.searches.overlay.node.appendChild(node);
-    }
-  }
-  function searchUpdateNode(dl, node, res) {
-    var rect = this.doc.measureRect(dl, res.startColumn, res.startColumn + res.length);
-    node._searchResult = res;
-    node.setAttribute('style', rect.width ? 'top:'+(this.sizes.paddingTop+dl.getOffset()+rect.offsetY)+'px;left:'+rect.offsetX+'px;width:'+(rect.width+2)+'px;height:'+(rect.charHeight+2)+'px;' : 'display:none;');
-    res.node = node;
-    if (this.searches.active === res && scroll !== false) {
-      addClass(node, 'active');
-      this.wrapper.scrollLeft = rect.offsetX - this.wrapper.clientWidth / 2;
-    }
   }
   function getModes(names) {
     var m = [];
@@ -3940,11 +3940,8 @@
   } else {
     async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
   }
-
-  if ('function' === typeof this.define) {
-    this.define('CodePrinter', function() { return CodePrinter; });
-  } else if ('object' === typeof this.exports) {
-    module.exports = CodePrinter;
-  }
-  return this.CodePrinter = CodePrinter;
+  
+  if ('object' === typeof module) module.exports = CodePrinter;
+  if ('function' === typeof define) define('CodePrinter', function() { return CodePrinter; });
+  if (window) window.CodePrinter = CodePrinter;
 }.call(this));
