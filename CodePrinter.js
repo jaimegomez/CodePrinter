@@ -2465,9 +2465,9 @@
       if (!pos || !range || comparePos(range.from, pos) <= 0 && comparePos(pos, range.to) <= 0) return false;
       this.clearSelection();
       this.position(pos);
-      var removed = removeRange(doc, range.from, range.to).removed;
-      this.beginSelection();
+      var removed = removeRange(doc, range.from, range.to).removed, anchor = this.head();
       insertText(doc, removed, head);
+      this.setSelection(anchor, this.head());
       doc.pushChange({ type: 'moveSelection', text: removed, from: range.from, into: this.anchor() });
     }
     this.reverse = function() {
