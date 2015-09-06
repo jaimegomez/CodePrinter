@@ -95,6 +95,7 @@
     trimTrailingSpaces: false,
     insertClosingBrackets: true,
     insertClosingQuotes: true,
+    searchOnDblClick: true,
     useParserKeyMap: true,
     tabTriggers: true,
     shortcuts: true,
@@ -1588,7 +1589,6 @@
       if (!change) return;
       this.history.push(change);
       this.emit('change', change);
-      if (this.searchResults) updateSearch(this, this.searchResults);
       return change;
     }
     this.each = function(func) { data.foreach(func); }
@@ -1703,23 +1703,23 @@
   function eachCaret(doc, func, start) {
     return each(doc.carets, func, doc, start);
   }
-  
-  function searchOverLine(find, dl, line) {
-    var search = this.searchResults
-    , text = dl.text, ln = 0, i, j = 0
-    , match, startflag = find.source.search(/(^|[^\\])\^/) >= 0;
-    
-    while (text && (i = text.search(find)) !== -1) {
+  function searchByString(find, dl, line) {
+    if (!find) return 0;
+    var search = this.searchResults, text = dl.text, ln = 0, i;
+    while (ln < text.length && (i = text.indexOf(find, ln)) >= 0) {
+      search.add(dl, p(line, ln + i), find);
+      ln += i + find.length;
+    }
+  }
+  function searchByRegExp(pattern, dl, line) {
+    var search = this.searchResults, text = dl.text, ln = 0, i, match;
+    while (text && (i = text.substr(ln).search(pattern)) >= 0) {
       if (match = RegExp.lastMatch) {
         search.add(dl, p(line, ln + i), match);
-        ++j;
       }
-      if (startflag && ln + i === 0) break;
-      var d = (i + match.length) || 1;
-      ln += d;
-      text = text.substr(d);
+      if (ln + i === 0) break;
+      ln += (i + match.length) || 1;
     }
-    return j;
   }
   function searchNodeStyle(dl, rect, sizes) {
     return rect.width ? 'top:'+(sizes.paddingTop+dl.getOffset()+rect.offsetY)+'px;left:'+rect.offsetX+'px;width:'+(rect.width+2)+'px;height:'+(rect.charHeight+2)+'px;' : 'display:none;';
@@ -1729,6 +1729,10 @@
   }
   function searchHide(dl, line) {
     if (this.searchResults) this.searchResults.hide(dl, line);
+  }
+  function searchOnChange(change) {
+    this.searchResults.length = 0;
+    this.search(this.searchResults.request, false);
   }
   function nextSearchNode(move) {
     return function() {
@@ -1748,15 +1752,13 @@
       return this.active;
     }
   }
-  function updateSearch(doc, results) {
-    
-  }
   
   var SearchResults = function(doc) {
     this.overlay = new CodePrinter.Overlay(['cp-search-overlay']);
     this.update = function(dl, node) {
       var rect = doc.measureRect(dl, node.column, node.column + node.value.length);
       node.span.setAttribute('style', searchNodeStyle(dl, rect, doc.sizes));
+      node.span.setAttribute('data-cp-pos', node.line + ',' + node.column);
     }
   }
   
@@ -1782,6 +1784,13 @@
         node = new SearchNode(value, pos);
         row.splice(i, 0, node);
         if (++this.length === 1) this.setActive(node);
+      }
+    },
+    get: function(line, column) {
+      var row = this.rows[line], node, i = -1;
+      if (!row) return;
+      while (node = row[++i]) {
+        if (node.column <= column && column < node.column + node.value.length) return node;
       }
     },
     setActive: function(node) {
@@ -1931,17 +1940,13 @@
       }
       return dl && p(pos.line, i + pos.column);
     },
-    search: function(find, scroll) {
+    search: function(find, scroll, callback) {
       if ('string' === typeof find || find instanceof RegExp) {
         var search = this.searchResults = this.searchResults || new SearchResults(this);
         
         if (!search.request || find.toString() !== search.request.toString() || search.length === 0) {
-          var clearSelected, esc;
+          var doc = this, clearSelected, esc;
           search.setRequest(find);
-          
-          if (this.addOverlay(search.overlay) !== undefined) {
-            this.on({ link: searchShow, unlink: searchHide });
-          }
           
           clearSelected = function() {
             var children = search.overlay.node.children, k = 0;
@@ -1950,15 +1955,32 @@
                 children[i].style.opacity = '1';
               }
             }
-            k && this.call('clearSelection');
+            k && doc.call('clearSelection');
           }
           
-          if ('string' === typeof find) esc = new RegExp(escape(find));
-          else esc = find;
+          if (this.addOverlay(search.overlay) !== undefined) {
+            this.on({ link: searchShow, unlink: searchHide, change: searchOnChange });
+            on(search.overlay.node, 'mousedown', search.onNodeMousedown = function(e) {
+              var target = e.target, pos = target.getAttribute('data-cp-pos');
+              if (pos && target.tagName === 'SPAN') {
+                clearSelected();
+                pos = pos.split(/\,/g);
+                var node = search.get(parseInt(pos[0], 10), parseInt(pos[1], 10));
+                var caret = doc.resetCarets();
+                caret.setSelection(p(node.line, node.column), p(node.line, node.column + node.value.length));
+                caret.once('selectionCleared', function() { node.span.style.opacity = '1'; });
+                target.style.opacity = '0';
+                doc.dom.input.focus();
+                return eventCancel(e);
+              }
+            });
+          }
+          
+          var searchBy = 'string' === typeof find ? searchByString : searchByRegExp;
           
           this.asyncEach(function(dl, line, offset) {
             if (search.request !== find) return false;
-            searchOverLine.call(this, esc, dl, line);
+            searchBy.call(this, find, dl, line);
           }, function(index, last) {
             var sl = this.dom.wrapper.scrollLeft;
             if (last !== false) {
@@ -1967,7 +1989,7 @@
                   var rows = search.rows;
                   for (var k in rows) {
                     if (rows[k].length) {
-                      this.scrollTo(this.get(k).getOffset() - this.dom.wrapper.offsetHeight/2);
+                      scrollToLine(this, k);
                       break;
                     }
                   }
@@ -1976,124 +1998,19 @@
               }
               search.overlay.show();
               this.dom.wrapper.scrollLeft = sl;
+              'function' === typeof callback && callback.call(this, search);
               this.emit('searchCompleted', find, search.length);
             }
           });
         }
       }
-      
-      /*if (find) {
-        var search = this.searches = this.searches || {};
-        
-        if (!search.value || find.toString() != search.value.toString() || !search.results || !search.length) {
-          var cp = this, j = 0, results = search.results = {}, cur, linkCallback, clearSelected, esc;
-          search.value = find;
-          
-          linkCallback = function(dl, line) {
-            if (cp.searches.results && (cur = cp.searches.results[line])) {
-              searchAppendResult.call(cp, dl, cur);
-            }
-          }
-          clearSelected = function() {
-            var children = search.overlay.node.children, k = 0;
-            for (var i = 0; i < children.length; i++) {
-              if (children[i].style.opacity == '0' && ++k) {
-                children[i].style.opacity = '1';
-              }
-            }
-            k && cp.doc.clearSelection();
-          }
-          
-          if (!(search.overlay instanceof CodePrinter.Overlay)) {
-            search.overlay = this.createOverlay('cp-search-overlay');
-            search.mute = false;
-            
-            search.overlay.on({
-              'click': clearSelected,
-              'blur': clearSelected,
-              'changed': function() {
-                if (!search.mute) {
-                  search.length = 0;
-                  cp.search(search.value, false);
-                }
-              },
-              '$removed': function() {
-                cp.searches.results = cp.searches.active = undefined;
-                cp.searches.length = 0;
-              }
-            });
-            on(search.overlay.node, 'mousedown', function(e) {
-              var res = e.target._searchResult;
-              if (res && e.target.tagName == 'SPAN') {
-                clearSelected();
-                search.mute = true;
-                cp.dom.input.focus();
-                cp.doc.setSelectionRange(res.line, res.startColumn, res.line, res.startColumn + res.length);
-                cp.caret.position(res.line, res.startColumn + res.length);
-                e.target.style.opacity = '0';
-                search.mute = false;
-                return eventCancel(e);
-              }
-            });
-            this.on({
-              link: function(dl, line) {
-                cp.doc.once('viewUpdated', function() {
-                  linkCallback(dl, line);
-                });
-              },
-              unlink: function(dl, line) {
-                cp.doc.once('viewUpdated', function() {
-                  if (cp.searches.results && (cur = cp.searches.results[line])) {
-                    for (var i = 0; i < cur.length; i++) {
-                      if (cur[i].node) {
-                        cur[i].node.parentNode && search.overlay.node.removeChild(cur[i].node);
-                        cur[i].node = undefined;
-                      }
-                    }
-                  }
-                });
-              }
-            });
-          }
-          
-          if ('string' === typeof find) esc = new RegExp(escape(find));
-          else esc = find;
-          
-          this.intervalIterate(function(dl, line, offset) {
-            if (this.searches.value !== find) return false;
-            j += searchOverLine.call(cp, esc, dl, line, offset);
-          }, function(index, last) {
-            var sl = this.wrapper.scrollLeft;
-            search.overlay.node.innerHTML = '';
-            if (last !== false) {
-              if (j) {
-                if (scroll !== false || search.length === 0) {
-                  for (var k in results) {
-                    if (results[k].length) {
-                      search.active = results[k][0];
-                      scroll !== false && this.doc.scrollTo(results[k][0].offset - this.wrapper.offsetHeight/2);
-                      break;
-                    }
-                  }
-                }
-                this.doc.eachVisibleLines(linkCallback);
-              }
-              search.length = j;
-              search.overlay.reveal();
-              this.wrapper.scrollLeft = sl;
-              this.emit('searchCompleted', find, j);
-            }
-          });
-        } else {
-          this.searchNext();
-        }
-      }*/
       return this;
     },
     searchEnd: function() {
       var search = this.searchResults;
       if (!search) return;
-      this.off({ link: searchShow, unlink: searchHide });
+      this.off({ link: searchShow, unlink: searchHide, changed: searchOnChange });
+      off(search.overlay.node, 'mousedown', search.onNodeMousedown);
       this.removeOverlay(search.overlay);
     },
     createCaret: function() {
@@ -2443,6 +2360,7 @@
       if (selOverlay) selOverlay.hide();
       anchor = null;
       select(currentLine);
+      this.emit('selectionCleared');
     }
     this.wrapSelection = function(before, after) {
       var range = this.getRange();
@@ -2917,7 +2835,7 @@
   function scrollToLine(doc, line) {
     var dl = doc.get(line), offset = dl.getOffset(), st = doc.dom.wrapper.scrollTop, oh = doc.dom.wrapper.offsetHeight;
     if (offset > st + oh - 20) doc.scrollTo(offset - oh + doc.getOption('viewportMargin'));
-    else if (offset < st + 20) doc.scrollTo(offset + 20);
+    else if (offset < st + 20) doc.scrollTo(offset - doc.getOption('viewportMargin'));
   }
   
   commands = {
@@ -3544,8 +3462,16 @@
       cp.doc._lockedScrolling = false;
     });
     on(wrapper, 'dblclick', function() {
-      caret.match(/\w/);
-      
+      var word = caret.match(/\w/);
+      if (word && cp.options.searchOnDblClick && (!cp.doc.searchResults || cp.doc.searchResults.request !== word)) {
+        var from = caret.getRange().from;
+        cp.doc.search(word, false, function(results) {
+          var node = results.get(from.line, from.column);
+          results.setActive(null);
+          if (node) node.span.style.opacity = '0';
+          caret.once('selectionCleared', function() { cp.doc.searchEnd(); });
+        });
+      }
       var tripleclick = function() {
         var head = caret.head();
         caret.setSelection(p(head.line, 0), p(head.line + 1, 0));
