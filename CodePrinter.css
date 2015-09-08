@@ -190,9 +190,6 @@
 .codeprinter .cp-counter li::before {
   font-family: FontAwesome;
 }
-.codeprinter .cp-counter.hidden {
-  display: none;
-}
 .codeprinter .cp-scrollbar {
   -webkit-transition: all 0.4s ease 2s;
   -moz-transition: all 0.4s ease 2s;
@@ -287,6 +284,9 @@
   padding: 0;
   position: absolute;
 }
+.codeprinter .cp-search-overlay {
+  pointer-events: none;
+}
 .codeprinter .cp-search-occurrence {
   display: inline-block;
   vertical-align: top;
@@ -301,6 +301,7 @@
   top: 0;
   left: 0;
   z-index: 4;
+  pointer-events: all;
 }
 .codeprinter .cp-search-occurrence.active {
   z-index: 5;
@@ -388,6 +389,10 @@
   border: solid transparent;
   border-width: 0 0 1px 0;
   box-sizing: border-box;
+}
+.codeprinter .cp-hidden {
+  display: none;
+  pointer-events: none;
 }
 .codeprinter.cp-fullscreen {
   display: -webkit-flex;

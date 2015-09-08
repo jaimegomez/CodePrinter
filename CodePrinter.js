@@ -1707,8 +1707,8 @@
     if (!find) return 0;
     var search = this.searchResults, text = dl.text, ln = 0, i;
     while (ln < text.length && (i = text.indexOf(find, ln)) >= 0) {
-      search.add(dl, p(line, ln + i), find);
-      ln += i + find.length;
+      search.add(dl, p(line, i), find);
+      ln = i + find.length;
     }
   }
   function searchByRegExp(pattern, dl, line) {
@@ -1944,15 +1944,15 @@
       if ('string' === typeof find || find instanceof RegExp) {
         var search = this.searchResults = this.searchResults || new SearchResults(this);
         
-        if (!search.request || find.toString() !== search.request.toString() || search.length === 0) {
+        if (!search.request || find.toString() !== search.request.toString() || search.length === 0 || !search.onNodeMousedown || this.overlays.indexOf(search.overlay) === -1) {
           var doc = this, clearSelected, esc;
           search.setRequest(find);
           
           clearSelected = function() {
             var children = search.overlay.node.children, k = 0;
             for (var i = 0; i < children.length; i++) {
-              if (children[i].style.opacity === '0' && ++k) {
-                children[i].style.opacity = '1';
+              if (children[i].classList.contains('cp-hidden') && ++k) {
+                children[i].classList.remove('cp-hidden');
               }
             }
             k && doc.call('clearSelection');
@@ -1968,8 +1968,8 @@
                 var node = search.get(parseInt(pos[0], 10), parseInt(pos[1], 10));
                 var caret = doc.resetCarets();
                 caret.setSelection(p(node.line, node.column), p(node.line, node.column + node.value.length));
-                caret.once('selectionCleared', function() { node.span.style.opacity = '1'; });
-                target.style.opacity = '0';
+                caret.once('selectionCleared', function() { node.span.classList.remove('cp-hidden'); });
+                target.classList.add('cp-hidden');
                 doc.dom.input.focus();
                 return eventCancel(e);
               }
@@ -2002,6 +2002,8 @@
               this.emit('searchCompleted', find, search.length);
             }
           });
+        } else {
+          'function' === typeof callback && callback.call(this, search);
         }
       }
       return this;
@@ -2011,6 +2013,7 @@
       if (!search) return;
       this.off({ link: searchShow, unlink: searchHide, changed: searchOnChange });
       off(search.overlay.node, 'mousedown', search.onNodeMousedown);
+      search.onNodeMousedown = null;
       this.removeOverlay(search.overlay);
     },
     createCaret: function() {
@@ -2114,7 +2117,7 @@
       var t = text.split(eol), size = this.size(), fi = t.shift();
       if (fi) {
         var last = this.get(size - 1);
-        last && this.dispatch(last, last.text + fi);
+        last && last.setText(last.text + fi);
       }
       this.insert(size, t);
       if (this.attached && !this.isFilled) this.isFilled = this.fill();
@@ -2539,10 +2542,10 @@
   }
   CodePrinter.Overlay.prototype = {
     show: function() {
-      removeClass(this.node, 'cp-hidden');
+      this.node.classList.remove('cp-hidden');
     },
     hide: function() {
-      addClass(this.node, 'cp-hidden');
+      this.node.classList.add('cp-hidden');
     }
   }
   
@@ -3463,23 +3466,29 @@
     });
     on(wrapper, 'dblclick', function() {
       var word = caret.match(/\w/);
-      if (word && cp.options.searchOnDblClick && (!cp.doc.searchResults || cp.doc.searchResults.request !== word)) {
-        var from = caret.getRange().from;
-        cp.doc.search(word, false, function(results) {
-          var node = results.get(from.line, from.column);
-          results.setActive(null);
-          if (node) node.span.style.opacity = '0';
-          caret.once('selectionCleared', function() { cp.doc.searchEnd(); });
-        });
-      }
-      var tripleclick = function() {
+      var tripleclick = function(e) {
         var head = caret.head();
         caret.setSelection(p(head.line, 0), p(head.line + 1, 0));
-        off(this, 'click', tripleclick);
+        off(this, 'mouseup', tripleclick);
+        Flags.waitForTripleClick = Flags.isMouseDown = false;
         dblClickTimeout = clearTimeout(dblClickTimeout);
+        return eventCancel(e);
       }
-      on(this, 'click', tripleclick);
-      dblClickTimeout = setTimeout(function() { off(wrapper, 'click', tripleclick); }, 350);
+      on(this, 'mouseup', tripleclick);
+      Flags.waitForTripleClick = true;
+      dblClickTimeout = setTimeout(function() {
+        off(wrapper, 'mouseup', tripleclick);
+        Flags.waitForTripleClick = false;
+        if (word && cp.options.searchOnDblClick) {
+          var from = caret.getRange().from;
+          cp.doc.search(word, false, function(results) {
+            var node = results.get(from.line, from.column);
+            results.setActive(null);
+            if (node) node.span.classList.add('cp-hidden');
+            caret.once('selectionCleared', function() { cp.doc.searchEnd(); });
+          });
+        }
+      }, 250);
     });
     on(wrapper, 'mousedown', onMouse);
     on(wrapper, 'selectstart', function(e) { return eventCancel(e); });
