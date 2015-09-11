@@ -370,32 +370,6 @@
     replaceAll: function(replaceWith) {
       return this.searches && this.replace(replaceWith, this.searches.length);
     },
-    getDefinitions: function() {
-      var obj = {}, dl = this.doc.get(0), i = 0;
-      for (; dl; dl = dl.next()) {
-        if (dl.definition) obj[i] = dl.definition;
-        ++i;
-      }
-      return obj;
-    },
-    nextDefinition: function() {
-      var dl = this.caret.dl().next();
-      for (; dl; dl = dl.next()) {
-        if (dl.definition) {
-          this.caret.position(dl.info().index, dl.definition.pos);
-          return;
-        }
-      }
-    },
-    previousDefinition: function() {
-      var dl = this.caret.dl().prev();
-      for (; dl; dl = dl.prev()) {
-        if (dl.definition) {
-          this.caret.position(dl.info().index, dl.definition.pos);
-          return;
-        }
-      }
-    },
     getSnippets: function() {
       return extend({}, this.options.snippets, this.doc.parser && this.doc.parser.snippets);
     },
@@ -2101,6 +2075,14 @@
       }
       return tab.length * diff;
     },
+    getDefinitions: function() {
+      var obj = {}, dl = this.get(0), i = 0;
+      for (; dl; dl = dl.next()) {
+        if (dl.definition) obj[i] = dl.definition;
+        ++i;
+      }
+      return obj;
+    },
     appendText: function(text) {
       var t = text.split(eol), size = this.size(), fi = t.shift();
       if (fi) {
@@ -2772,8 +2754,6 @@
       return false;
     },
     'Cmd A': 'selectAll',
-    'Cmd V': 'removeSelection',
-    'Cmd X': 'removeSelection',
     'Cmd Z': 'undo',
     'Cmd Shift Z': 'redo'
   }
@@ -2896,6 +2876,24 @@
       if (!this.doc.searchResults) return;
       var act = this.doc.searchResults.next();
       if (act) scrollToLine(this.doc, act.line);
+    },
+    'toNextDefinition': function() {
+      var caret = this.doc.resetCarets(), dl = caret.dl().next();
+      for (; dl; dl = dl.next()) {
+        if (dl.definition) {
+          caret.position(dl.info().index, dl.definition.pos);
+          return;
+        }
+      }
+    },
+    'toPrevDefinition': function() {
+      var caret = this.doc.resetCarets(), dl = caret.dl().prev();
+      for (; dl; dl = dl.prev()) {
+        if (dl.definition) {
+          caret.position(dl.info().index, dl.definition.pos);
+          return;
+        }
+      }
     },
     'delCharLeft': function() {
       var tw = this.options.tabWidth;
