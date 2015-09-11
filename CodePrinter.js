@@ -136,7 +136,7 @@
             var i = events[k].lastIndexOf(args[k]);
             if (i >= 0) events[k].splice(i, 1);
           }
-          if (!args[k] || events[k].length == 0) events[k] = null;
+          if (events[k].length === 0) events[k] = null;
         }
       }
       return this;
