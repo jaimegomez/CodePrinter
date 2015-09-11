@@ -307,7 +307,7 @@
           if (dl != end) {
             s = this.getStateAt(dl, 0);
             parser = s.state && s.state.parser || parser;
-            oi = s.stream.indentation; s.stream.indentation = i;
+            oi = s.stream.indent; s.stream.indent = i;
             i = parser.indent(s.stream, s.state, s.nextIteration);
             if ('number' == typeof i && i != oi) {
               diff = this.setIndentAtLine(dl, i);
@@ -599,10 +599,10 @@
       
       for (; tmp; tmp = tmp.next()) {
         var ind = parseIndentation(tmp.text, tw)
-        , stream = new Stream(ind.rest, { indentation: ind.indent });
+        , stream = new Stream(ind.rest, ind.indent, ind.length);
         tmp.cache = parseStream(parser, stream, state);
         
-        if (tmp.node) updateLine(doc, tmp, ind, doc.getEditor().tabString, tmp.cache);
+        if (tmp.node) updateLine(doc, tmp, ind, doc.editor.tabString, tmp.cache);
         if (stream.definition) tmp.definition = stream.definition;
         else if (tmp.definition) tmp.definition = undefined;
         tmp.state = state;
@@ -644,8 +644,8 @@
   }
   function process(doc, dl) {
     if (!dl.cache) return parse(doc, dl);
-    var ind = parseIndentation(dl.text, doc.getOption('tabWidth')), stream = new Stream(ind.rest, { indentation: ind.indent });
-    updateLine(doc, dl, ind, doc.getEditor().tabString, dl.cache);
+    var ind = parseIndentation(dl.text, doc.getOption('tabWidth')), stream = new Stream(ind.rest, ind.indent, ind.length);
+    updateLine(doc, dl, ind, doc.editor.tabString, dl.cache);
   }
   function cspan(style, content) {
     var node = span.cloneNode(false);
@@ -663,7 +663,7 @@
     if (s) {
       var i = parser.indent(s.stream, s.state, s.nextIteration);
       s = doc.getState(at);
-      s.stream.indentation = i;
+      s.stream.indent = i;
       i = parser.indent(s.stream, s.state, s.nextIteration);
       if ('number' == typeof i) doc.setIndent(at.line, i);
     }
@@ -1681,7 +1681,7 @@
       , state = s.state, tmp = s.line;
       
       for (; tmp; tmp = tmp.next()) {
-        var ind = parseIndentation(tmp.text, tw), stream = new Stream(ind.rest, { indentation: ind.indent });
+        var ind = parseIndentation(tmp.text, tw), stream = new Stream(ind.rest, ind.indent, ind.length);
         if (tmp === dl) {
           state = copyState(state);
           var readTo = Math.max(0, Math.min(pos.column - ind.length, ind.rest.length))
@@ -2538,11 +2538,12 @@
     }
   }
   
-  Stream = function(value, ext) {
+  Stream = function(value, indent, offset) {
     this.pos = 0;
     this.value = value;
     this.length = value.length;
-    if (ext) for (var k in ext) this[k] = ext[k];
+    this.indent = indent | 0;
+    this.offset = offset | 0;
   }
   Stream.prototype = {
     next: function() { if (this.pos < this.value.length) return this.value.charAt(this.pos++); },
@@ -2628,7 +2629,7 @@
       this.pos = Math.max(0, this.pos - n);
     },
     markDefinition: function(defObject) {
-      this.definition = extend({ pos: this.start }, defObject);
+      this.definition = extend({ pos: this.offset + this.start }, defObject);
     }
   }
   
@@ -2695,7 +2696,7 @@
         , tabString = repeat(' ', tabWidth);
         
         for (var i = 0; i < lines.length; i++) {
-          var ind = parseIndentation(lines[i], tabWidth), stream = new Stream(ind.rest, { indentation: ind.indent })
+          var ind = parseIndentation(lines[i], tabWidth), stream = new Stream(ind.rest, ind.indent, ind.length)
           , cache = parseStream(this, stream, state);
           node.innerHTML = '';
           updateInnerLine(node, cache, ind, tabString);
@@ -2705,7 +2706,7 @@
       }
     },
     indent: function(stream, state) {
-      return stream.indentation;
+      return stream.indent;
     },
     isIndentTrigger: function(char) {
       return this.indentTriggers instanceof RegExp && this.indentTriggers.test(char);
