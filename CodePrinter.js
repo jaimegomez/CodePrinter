@@ -108,12 +108,12 @@
   span = document.createElement('span');
   
   EventEmitter = function(parent) {
-    var events = {};
+    var events = {}, propagate = parent;
     this.emit = function(event) {
       var args = new Array(arguments.length - 1), ev;
       for (var i = 0; i < args.length; i++) args[i] = arguments[i+1];
       if (ev = events[event]) for (var i = ev.length; i-- && ev[i];) ev[i].apply(this, args);
-      if (parent) parent.emit.apply(parent, [event, this].concat(args));
+      if (propagate) propagate.emit.apply(propagate, [event, this].concat(args));
       return this;
     }
     this.on = function(event, callback) {
@@ -141,6 +141,9 @@
       }
       return this;
     }
+    this.propagateTo = function(eventEmitter) {
+      propagate = eventEmitter && eventEmitter.emit ? eventEmitter : null;
+    }
   }
   EventEmitter.call(CodePrinter);
   
@@ -151,6 +154,7 @@
   function attachDoc(editor, doc) {
     doc.editor = editor;
     editor.doc = doc;
+    doc.propagateTo(editor);
     var dom = doc.dom = editor.dom, view = doc.view;
     if (view.length) {
       for (var i = 0; i < view.length; i++) {
@@ -176,6 +180,7 @@
     doc.blur();
     editor.doc = doc.editor = null;
     doc.emit('detached');
+    doc.propagateTo(null);
   }
   
   CodePrinter.prototype = {
