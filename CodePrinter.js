@@ -387,15 +387,15 @@
     getSnippets: function() {
       return extend({}, this.options.snippets, this.doc.parser && this.doc.parser.snippets);
     },
-    findSnippet: function(snippetName) {
+    findSnippet: function(snippetName, head) {
       var s = this.options.snippets, b;
       if (!(b = s && s.hasOwnProperty(snippetName))) {
         s = this.doc.parser && this.doc.parser.snippets;
         b = s && s.hasOwnProperty(snippetName);
       }
       s = b && s[snippetName];
-      if ('function' == typeof s) s = functionSnippet(this, /*p(x,y),*/ s);
-      if (s) return 'string' == typeof s ? { content: s } : s;
+      if ('function' === typeof s) s = functionSnippet(this, head, s);
+      if (s) return 'string' === typeof s ? { content: s } : s;
     },
     registerSnippet: function() {
       if (!this.options.snippets) this.options.snippets = [];
@@ -2720,21 +2720,7 @@
     'Shift Delete': 'delToRight',
     'Alt Shift Backspace': 'delLine',
     'Alt Shift Delete': 'delLine',
-    'Tab': function() {
-      if (this.doc.issetSelection()) {
-        this.indent();
-      } else {
-        if (this.options.tabTriggers) {
-          var wbf = this.wordBefore(/\S+/), snippet;
-          if (snippet = this.findSnippet(wbf)) {
-            this.removeBeforeCursor(wbf);
-            this.insertText(snippet.content, snippet.cursorMove);
-            return false;
-          }
-        }
-        this.insertText(this.options.indentByTabs ? '\t' : repeat(' ', this.options.tabWidth - this.caret.column() % this.options.tabWidth));
-      }
-    },
+    'Tab': 'insertTab',
     'Enter': 'insertNewLine',
     'Esc': 'esc',
     'PageUp': 'pageUp',
@@ -2969,6 +2955,24 @@
       if (parser && parser.afterEnterKey) {
         parser.afterEnterKey.call(this, s.stream, s.state);
       }*/
+    },
+    'insertTab': function() {
+      if (this.doc.somethingSelected()) {
+        this.exec('indent');
+      } else {
+        var options = this.options;
+        this.doc.eachCaret(function(caret) {
+          if (options.tabTriggers) {
+            var head = caret.head(), bf = caret.match(/\S+/, -1, false), af = caret.match(/\S+/, 1, false), snippet;
+            if (!af && (snippet = this.editor.findSnippet(bf, head))) {
+              this.replaceRange(snippet.content, p(head.line, head.column - bf.length), head);
+              if ('number' === typeof snippet.cursorMove) caret.moveX(snippet.cursorMove);
+              return false;
+            }
+          }
+          caret.insert(options.indentByTabs ? '\t' : repeat(' ', options.tabWidth - caret.column() % options.tabWidth));
+        });
+      }
     },
     'esc': function() {
       this.isFullscreen ? this.exitFullscreen() : this.doc.searchEnd();
