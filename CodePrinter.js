@@ -202,7 +202,7 @@
         var old = this.doc;
         if (old) detachDoc(this, doc);
         attachDoc(this, doc);
-        this.emit('documentChanged');
+        this.emit('documentChanged', old, doc);
         doc.print();
         return old;
       }
@@ -406,17 +406,12 @@
         }
       }
     },
-    registerKey: function(arg) {
-      if (!(arg instanceof Object)) { var t = arguments[0]; arg = {}; arg[t] = arguments[1]; }
-      extend(this.keyMap, arg);
+    registerKey: function(keySequence, binding) {
+      this.keyMap[keySequence] = binding;
       return this;
     },
-    unregisterKey: function() {
-      for (var i = 0; i < arguments.length; i++) {
-        if (this.keyMap[arguments[i]]) {
-          this.keyMap[arguments[i]] = function() { return true; }
-        }
-      }
+    unregisterKey: function(keySequence) {
+      delete this.keyMap[keySequence];
       return this;
     },
     exec: function(command) {
@@ -2976,7 +2971,7 @@
       }*/
     },
     'esc': function() {
-      this.isFullscreen ? this.exitFullscreen() : this.searchEnd();
+      this.isFullscreen ? this.exitFullscreen() : this.doc.searchEnd();
     }
   }
   
@@ -3368,6 +3363,13 @@
     , dblClickTimeout
     , T, T2, T3, fn, cmdPressed, caret;
     
+    function tripleclick(e) {
+      var head = caret.head();
+      caret.setSelection(p(head.line, 0), p(head.line + 1, 0));
+      Flags.waitForTripleClick = Flags.isMouseDown = false;
+      dblClickTimeout = clearTimeout(dblClickTimeout);
+      return eventCancel(e);
+    }
     function onMouse(e) {
       if (e.defaultPrevented || e.which === 3) return false;
       
@@ -3385,6 +3387,10 @@
       if (e.type === 'mousedown') {
         isMouseDown = Flags.isMouseDown = true;
         
+        if (Flags.waitForTripleClick) {
+          caret = doc.resetCarets();
+          return tripleclick(e);
+        }
         if (caret = issetSelectionAt(doc.carets, measure.line, measure.column)) {
           Flags.movingSelection = true;
         } else {
@@ -3474,18 +3480,8 @@
     });
     on(wrapper, 'dblclick', function() {
       var word = caret.match(/\w/);
-      var tripleclick = function(e) {
-        var head = caret.head();
-        caret.setSelection(p(head.line, 0), p(head.line + 1, 0));
-        off(this, 'mouseup', tripleclick);
-        Flags.waitForTripleClick = Flags.isMouseDown = false;
-        dblClickTimeout = clearTimeout(dblClickTimeout);
-        return eventCancel(e);
-      }
-      on(this, 'mouseup', tripleclick);
       Flags.waitForTripleClick = true;
       dblClickTimeout = setTimeout(function() {
-        off(wrapper, 'mouseup', tripleclick);
         Flags.waitForTripleClick = false;
         if (word && cp.options.searchOnDblClick) {
           var from = caret.getRange().from;
