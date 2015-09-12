@@ -2278,6 +2278,7 @@
       this.showSelection();
       if (b) this.emit('caretWillMove');
       lastMeasure = measure;
+      parserState = undefined;
       setPixelPosition.call(this, measure.offsetX, measure.offsetY + measure.lineOffset);
       if (b) this.emit('caretMoved');
       return this;
@@ -2288,11 +2289,11 @@
       if (!selOverlay) selOverlay = doc.createOverlay('cp-selection-overlay');
     }
     this.hasSelection = function() {
-      return anchor && comparePos(anchor, this.head()) !== 0;
+      return anchor && cmp(anchor, this.head()) !== 0;
     }
     this.inSelection = function(line, column) {
       var pos = p(line, column);
-      return anchor && comparePos(anchor, pos) * comparePos(pos, head) > 0;
+      return anchor && cmp(anchor, pos) * cmp(pos, head) > 0;
     }
     this.getSelection = function() {
       var r = this.getSelectionRange();
@@ -2309,12 +2310,9 @@
     this.setSelection = function(a, b) {
       var newAnchor = nPos(doc, a), newHead = nPos(doc, b);
       if (!newHead) return;
-      if (newAnchor && comparePos(newAnchor, newHead)) anchor = newAnchor;
+      if (newAnchor && cmp(newAnchor, newHead)) anchor = newAnchor;
       else anchor = null;
-      return this.position(newHead);
-    }
-    this.setSelectionRange = function(range) {
-      return range && this.setSelection(range.from, range.to);
+      return this.setHead(newHead);
     }
     this.showSelection = function() {
       var range = this.getSelectionRange();
@@ -2335,11 +2333,11 @@
       }
     }
     this.clearSelection = function() {
-      if (!anchor) return;
+      if (!anchor) return this;
       if (selOverlay) selOverlay.hide();
       anchor = null;
       select(currentLine);
-      this.emit('selectionCleared');
+      return this.emit('selectionCleared');
     }
     this.wrapSelection = function(before, after) {
       var range = this.getRange();
@@ -2371,20 +2369,7 @@
       if (!anchor) return;
       var oldAnchor = anchor;
       anchor = head;
-      this.position(oldAnchor.line, oldAnchor.column);
-    }
-    this.match = function(pattern, dir) {
-      if (pattern) {
-        var text = currentLine.text, left = head.column, right = head.column
-        , ch, test = function(ch) {
-          return 'function' === typeof pattern ? pattern(ch) : pattern.test ? pattern.test(ch) : false;
-        }
-        if (!dir || dir === 1) for (; (ch = text.charAt(right)) && test(ch); ++right);
-        if (!dir || dir === -1) for (; (ch = text.charAt(left - 1)) && test(ch); --left);
-        var str = text.substring(left, right);
-        this.setSelection(p(head.line, left), p(head.line, right));
-        return str;
-      }
+      return this.setHead(oldAnchor);
     }
     this.insert = function(text, movement) {
       var range = this.getRange();
@@ -2407,19 +2392,24 @@
     this.textAfter = function() { return currentLine && currentLine.text.substr(head.column); }
     this.textAtCurrentLine = function() { return currentLine && currentLine.text; }
     
-    this.position = function(line, column) {
-      var nHead = nPos(doc, line, column);
-      if (nHead) {
-        var dl = doc.get(nHead.line);
-        this.dispatch(doc.measureRect(doc.get(nHead.line), nHead.column));
-      }
+    this.getParserState = function() {
+      if (!parserState) parserState = doc.getState(head);
+      return parserState;
+    }
+    this.setHead = function(pos) {
+      var nHead = nPos(doc, pos);
+      if (nHead) this.dispatch(doc.measureRect(doc.get(nHead.line), nHead.column));
       return this;
+    }
+    this.position = function(line, column) {
+      var pos = nPos(doc, line, column);
+      return this.clearSelection().setHead(pos);
     }
     this.moveX = function(mv, dontReverse) {
       if ('number' === typeof mv) {
         if (!dontReverse) mv = maybeReverseSelection(this, anchor, head, mv);
         var pos = positionAfterMove(doc, this.head(), mv);
-        return this.position(pos.line, pos.column);
+        return this.setHead(pos);
       }
       return this;
     }
@@ -2434,7 +2424,7 @@
           head.column = -1;
           mv = size - 1;
         }
-        this.position(mv, head.column);
+        this.setHead(p(mv, head.column));
       }
       return this;
     }
@@ -2503,10 +2493,24 @@
       this.isDisabled = true;
       this.blur();
     },
-    move: function(x, y) {
-      x && this.moveX(x);
-      y && this.moveY(y);
-      return this;
+    setSelectionRange: function(range) {
+      return range && this.setSelection(range.from, range.to);
+    },
+    match: function(pattern, dir, select) {
+      if (pattern) {
+        var text = this.textAtCurrentLine(), head = this.head()
+        , left = head.column, right = head.column, ch, test = function(ch) {
+          return 'function' === typeof pattern ? pattern(ch) : pattern.test ? pattern.test(ch) : false;
+        }
+        if (!dir || dir === 1) for (; (ch = text.charAt(right)) && test(ch); ++right);
+        if (!dir || dir === -1) for (; (ch = text.charAt(left - 1)) && test(ch); --left);
+        var str = text.substring(left, right);
+        if (select !== false) this.setSelection(p(head.line, left), p(head.line, right));
+        return str;
+      }
+    },
+    refresh: function() {
+      return this.setSelectionRange(this.getRange());
     }
   }
   
@@ -2855,7 +2859,6 @@
     'swapDown': caretCmd(function(caret) { swap(this, caret, false); }),
     'duplicate': caretCmd(function(caret) {
       var range = caret.getRange(), text = this.substring(p(range.from.line, 0), p(range.to.line, -1));
-      caret.clearSelection();
       caret.position(range.to.line, -1).insert('\n' + text);
     }),
     'toggleCounter': function() {
@@ -3341,6 +3344,10 @@
     binding.call(cp, key);
     return true;
   }
+  function maybeClearSelection(caret) {
+    var anchor = caret.anchor();
+    if (anchor && cmp(anchor, caret.head()) === 0) caret.clearSelection();
+  }
   function attachEvents(cp) {
     var wrapper = cp.dom.wrapper
     , input = cp.dom.input
@@ -3404,7 +3411,7 @@
           caret.moveSelectionTo(p(measure.line, measure.column));
         } else {
           if (Flags.movingSelection === true) caret.clearSelection();
-          caret.dispatch(measure);
+          maybeClearSelection(caret.dispatch(measure));
         }
         isMouseDown = Flags.isMouseDown = Flags.movingSelection = false;
         
@@ -3530,7 +3537,7 @@
       
       if (e.ctrlKey !== true && e.metaKey !== true) {
         cp.doc.eachCaret(function(caret) {
-          var a, head = caret.head(), s = this.getState(head), parser = s && s.parser;
+          var a, head = caret.head(), s = caret.getParserState(), parser = s && s.parser;
           
           if (caret.hasSelection() && (a = parser.selectionWrappers[ch])) {
             'string' === typeof a ? caret.wrapSelection(a, a) : caret.wrapSelection(a[0], a[1]);
