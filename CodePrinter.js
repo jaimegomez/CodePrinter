@@ -147,6 +147,15 @@
   }
   EventEmitter.call(CodePrinter);
   
+  var r = CodePrinter.range = function(from, to) {
+    return { from: copy(from), to: copy(to) };
+  };
+  var p = CodePrinter.pos = function(line, column) {
+    return { line: line, column: column };
+  };
+  var cmp = CodePrinter.comparePos = function(a, b) {
+    return a.line - b.line || a.column - b.column;
+  };
   CodePrinter.requireStyle = function(style) {
     load('theme/'+style+'.css', true);
   }
@@ -660,7 +669,7 @@
         var a = fn.call(doc, pos, opt.value, opt.style), b = fn.call(doc, pos, key, opt.style);
         
         if (a) {
-          var comp = b && comparePos(a, b);
+          var comp = b && cmp(a, b);
           if (comp && (fix ? comp > 0 : comp < 0)) {
             ++counter;
             a = b;
@@ -973,9 +982,9 @@
   }
   function adjustPosForChange(pos, change, anchor) {
     if (!pos) return null;
-    var cmp = comparePos(pos, change.from);
-    if (anchor ? cmp <= 0 : cmp < 0) return pos;
-    if (comparePos(pos, change.to) <= 0) return changeEnd(change);
+    var c = cmp(pos, change.from);
+    if (anchor ? c <= 0 : c < 0) return pos;
+    if (cmp(pos, change.to) <= 0) return changeEnd(change);
     var line = pos.line - change.to.line + change.from.line + change.text.length - 1, col = pos.column;
     if (pos.line === change.to.line) col += changeEnd(change).column - change.to.column;
     return p(line, col);
@@ -1480,8 +1489,8 @@
     , pos = [h1, h2];
     if (a1) pos.push(a1);
     if (a2) pos.push(a2);
-    pos = pos.sort(comparePos);
-    if (comparePos(h1, h2) < 0) first.setSelection(pos[0], lastV(pos));
+    pos = pos.sort(cmp);
+    if (cmp(h1, h2) < 0) first.setSelection(pos[0], lastV(pos));
     else first.setSelection(lastV(pos), pos[0]);
   }
   function eachCaret(doc, func, start) {
@@ -1915,7 +1924,7 @@
     },
     getSelection: function() {
       var parts = [], carets = [].concat(this.carets);
-      carets.sort(function(a, b) { return comparePos(a.head(), b.head()); });
+      carets.sort(function(a, b) { return cmp(a.head(), b.head()); });
       each(carets, function(caret) {
         var sel = caret.getSelection();
         if (sel) parts[parts.length] = sel;
@@ -1934,7 +1943,7 @@
         , pl = this.sizes.paddingLeft, pt = this.sizes.paddingTop
         , equal = from.line === to.line, fh = fromMeasure.offsetY + fromMeasure.height;
         
-        if (comparePos(from, to) > 0) return;
+        if (cmp(from, to) > 0) return;
         
         overlay.top = prepareSelNode(overlay, overlay.top || div.cloneNode(false)
           , fromOffset + fromMeasure.offsetY + pt, fromMeasure.offsetX, equal && fromMeasure.offsetY === toMeasure.offsetY ? 0 : null, fromMeasure.height, pl);
@@ -1997,7 +2006,7 @@
     },
     substring: function(a, b) {
       var parts = [], from = nPos(this, a), to = nPos(this, b);
-      if (from && to && comparePos(from, to) <= 0) {
+      if (from && to && cmp(from, to) <= 0) {
         var dl = this.get(from.line);
         if (from.line === to.line) return dl.text.substring(from.column, to.column);
         parts[0] = dl.text.substr(from.column);
@@ -2185,7 +2194,7 @@
   
   function maybeReverseSelection(caret, anchor, head, mv) {
     if (!caret.hasSelection() || Flags.shiftKey) return mv;
-    var cmp = comparePos(anchor, head);
+    var cmp = cmp(anchor, head);
     if (cmp < 0 && mv < 0 || cmp > 0 && mv > 0) {
       caret.reverse();
       return mv - cmp;
@@ -2217,7 +2226,7 @@
   }
   
   Caret = CodePrinter.Caret = function(doc) {
-    var head = p(0, 0), currentLine, anchor, selOverlay, lastMeasure;
+    var head = p(0, 0), currentLine, anchor, selOverlay, lastMeasure, parserState;
     
     EventEmitter.call(this, doc);
     this.node = addClass(div.cloneNode(false), 'cp-caret');
@@ -2343,7 +2352,7 @@
       var range = this.getRange();
       replaceRange(doc, after, range.to, range.to);
       replaceRange(doc, before, range.from, range.from);
-      if (comparePos(anchor, head) < 0) this.moveX(-after.length, true) && this.moveAnchor(before.length);
+      if (cmp(anchor, head) < 0) this.moveX(-after.length, true) && this.moveAnchor(before.length);
       doc.pushChange({ type: 'wrap', range: range, before: before, after: after, wrap: true });
     }
     this.unwrapSelection = function(before, after) {
@@ -2357,8 +2366,7 @@
     }
     this.moveSelectionTo = function(pos) {
       var range = this.getSelectionRange();
-      if (!pos || !range || comparePos(range.from, pos) <= 0 && comparePos(pos, range.to) <= 0) return false;
-      this.clearSelection();
+      if (!pos || !range || cmp(range.from, pos) <= 0 && cmp(pos, range.to) <= 0) return false;
       this.position(pos);
       var removed = removeRange(doc, range.from, range.to).removed, anchor = this.head();
       insertText(doc, removed, head);
@@ -2449,7 +2457,7 @@
       return real ? copy(head) : p(head.line, this.column());
     }
     this.anchor = function(real) {
-      return anchor && (real || comparePos(anchor, this.head())) && copy(anchor);
+      if (anchor && (real || cmp(anchor, this.head()))) return copy(anchor);
     }
     this.dl = function() {
       return currentLine;
@@ -2991,7 +2999,7 @@
         return { type: 'replace', text: change.removed, removed: change.text, from: change.from, to: changeEnd(change) };
       },
       canBeMerged: function(a, b) {
-        return comparePos(changeEnd(a), b.from) === 0 ? 1 : comparePos(a.from, changeEnd({ text: b.removed, from: b.from })) === 0 ? 2 : 0;
+        return cmp(changeEnd(a), b.from) === 0 ? 1 : cmp(a.from, changeEnd({ text: b.removed, from: b.from })) === 0 ? 2 : 0;
       },
       merge: function(a, b, code) {
         var x = a, y = b;
@@ -3651,17 +3659,8 @@
     if (source && source.nodeType) return source.value || '';
     return 'string' === typeof source ? source : '';
   }
-  function r(from, to) {
-    return { from: copy(from), to: copy(to) };
-  }
-  function p(line, column) {
-    return { line: line, column: column };
-  }
   function isPos(pos) {
     return pos && 'number' === typeof pos.line && 'number' === typeof pos.column;
-  }
-  function comparePos(a, b) {
-    return a.line - b.line || a.column - b.column;
   }
   function nPos(doc, line, column) {
     var pos = column !== undefined ? p(line, column) : copy(line), size = doc.size();
@@ -3678,7 +3677,7 @@
     return isPos(pos) ? pos : null;
   }
   function getRangeOf(a, b) {
-    return a ? comparePos(a, b) < 0 ? r(a, b) : r(b, a) : r(b, b);
+    return a ? cmp(a, b) < 0 ? r(a, b) : r(b, a) : r(b, b);
   }
   function updateFlags(event, down) {
     var code = event.keyCode;
@@ -3867,7 +3866,7 @@
     return a;
   }
   if (window.postMessage) {
-    async = function(callback) {
+    async = CodePrinter.async = function(callback) {
       if ('function' == typeof callback) {
         asyncQueue.push(callback);
         window.postMessage('CodePrinter', '*');
@@ -3875,7 +3874,7 @@
     }
     on(window, 'message', function(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); });
   } else {
-    async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
+    async = CodePrinter.async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
   }
   
   if ('object' === typeof module) module.exports = CodePrinter;
