@@ -27,7 +27,7 @@
   , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : presto ? -0.05 : -1
   , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
   , modes = {}, addons = {}, instances = [], keyCodes, async, asyncQueue = []
-  , Flags = {};
+  , Flags = {}, modifierKeys = [16, 18, 19, 91,92,93,224];
   
   CodePrinter = function(source, options) {
     if (arguments.length === 1 && source == '[object Object]') {
@@ -77,7 +77,7 @@
     indentByTabs: false,
     insertClosingBrackets: true,
     insertClosingQuotes: true,
-    keyupInactivityTimeout: 1000,
+    keyupInactivityTimeout: 200,
     legacyScrollbars: false,
     lineEndings: '\n',
     lineHeight: 'normal',
@@ -3506,14 +3506,17 @@
         return eventCancel(e);
       }
       if (Flags.cmdKey) {
-        if (code !== 67 && code !== 88) this.value = '';
-        else return;
+        if (code === 67 || code === 88) return;
+        if (code === 86) cp.doc.call('removeSelection');
+        this.value = '';
       }
       if (options.readOnly && (code < 37 || code > 40)) return;
       cp.emit('['+seq+']', e); cp.emit('keydown', seq, e);
-      if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
-      if (seq.length > 1 && cp.keyMap[seq]) {
-        if (callKeyBinding(cp, cp.keyMap, seq)) return eventCancel(e, 1);
+      if (!e.defaultPrevented) {
+        if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
+        if (seq.length > 1 && cp.keyMap[seq]) {
+          if (callKeyBinding(cp, cp.keyMap, seq)) return eventCancel(e, 1);
+        }
       }
     });
     on(input, 'keypress', function(e) {
@@ -3535,18 +3538,18 @@
             reIndent(this, parser, head);
           }
         });
+        T = clearTimeout(T) || setTimeout(function() {
+          cp.emit('pause', ch);
+          runBackgroundParser(cp.doc);
+        }, options.keyupInactivityTimeout);
         return eventCancel(e);
       }
     });
     on(input, 'keyup', function(e) {
       updateFlags(e, false);
       if (options.readOnly) return;
-      if (e.keyCode === 8 && e.ctrlKey !== true && e.metaKey !== true) {
+      if (e.keyCode === 8 || e.ctrlKey !== true && e.metaKey !== true) {
         if (this.value.length) cp.doc.call('insert', this.value);
-        T = clearTimeout(T) || setTimeout(function() {
-          cp.emit('pause');
-          runBackgroundParser(cp.doc);
-        }, options.keyupInactivityTimeout);
       }
       this.value = '';
       cp.emit('keyup', e);
