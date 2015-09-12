@@ -343,47 +343,6 @@
       }
       return false;
     },
-    replace: function(replaceWith, vol) {
-      if ('string' === typeof replaceWith && this.searches) {
-        var search = this.searches
-        , results = search.results
-        , cur, tmp;
-        
-        if (arguments.length === 1) {
-          vol = 1;
-        }
-        vol = Math.max(0, Math.min(vol, search.length));
-        
-        search.mute = true;
-        while (vol-- > 0 && (cur = search.active) && results[cur.line]) {
-          this.searchNext();
-          if ((tmp = results[cur.line]).length > 1) {
-            tmp.splice(tmp.indexOf(cur), 1);
-          } else {
-            delete results[cur.line];
-          }
-          --search.length;
-          cur.node && search.overlay.node.removeChild(cur.node);
-          
-          this.caret.position(cur.line, cur.startColumn);
-          this.removeAfterCursor(cur.value);
-          this.insertText(replaceWith);
-          
-          if (cur.line === search.active.line) {
-            var cmv = replaceWith.length - cur.length
-            , dl = this.doc.get(cur.line);
-            for (var i = 0, l = tmp.length; i < l; i++) {
-              tmp[i].startColumn += cmv;
-              searchUpdateNode.call(this, dl, tmp[i].node, tmp[i]);
-            }
-          }
-        }
-        search.mute = false;
-      }
-    },
-    replaceAll: function(replaceWith) {
-      return this.searches && this.replace(replaceWith, this.searches.length);
-    },
     getSnippets: function() {
       return extend({}, this.options.snippets, this.doc.parser && this.doc.parser.snippets);
     },
@@ -1581,6 +1540,15 @@
         if (node.column <= column && column < node.column + node.value.length) return node;
       }
     },
+    each: function(func) {
+      if ('function' !== typeof func) return;
+      for (var k in this.rows) {
+        var row = this.rows[k];
+        for (var i = 0; i < row.length; i++) {
+          func.call(this, row[i]);
+        }
+      }
+    },
     setActive: function(node) {
       if (this.active) this.active.span.classList.remove('active');
       if (this.active = node) node.span.classList.add('active');
@@ -1879,6 +1847,22 @@
       off(search.overlay.node, 'mousedown', search.onNodeMousedown);
       search.onNodeMousedown = null;
       this.removeOverlay(search.overlay);
+    },
+    replace: function(replaceWith) {
+      var active = this.searchResults && this.searchResults.active;
+      if (active && 'string' === typeof replaceWith) {
+        this.replaceRange(replaceWith, p(active.line, active.column), p(active.line, active.column + active.value.length));
+      }
+    },
+    replaceAll: function(replaceWith) {
+      if (!this.searchResults) return;
+      var doc = this, changes = [];
+      this.searchResults.each(function(node) {
+        changes.push(replaceRange(doc, replaceWith, p(node.line, node.column), p(node.line, node.column + node.value.length)));
+      });
+      this.history.stage();
+      for (var i = 0; i < changes.length; i++) this.pushChange(changes[i]);
+      this.history.commit();
     },
     createCaret: function() {
       var caret = new Caret(this);
@@ -3880,4 +3864,4 @@
   if ('object' === typeof module) module.exports = CodePrinter;
   if ('function' === typeof define) define('CodePrinter', function() { return CodePrinter; });
   if (window) window.CodePrinter = CodePrinter;
-}.call(this));
+})();
