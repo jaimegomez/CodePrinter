@@ -504,10 +504,15 @@
     }
     return { indent: ind, spaces: spaces, length: i, stack: stack, indentText: text.substring(0, i), rest: text.substr(i) };
   }
+  function getIterator(state, parser) {
+    if (!state) return parser.iterator;
+    var iters = state.iterators;
+    return iters && iters.length ? iters[iters.length - 1] : state.parser ? state.parser.iterator : parser.iterator;
+  }
   function readIteration(parser, stream, state, cache) {
     stream.start = stream.pos;
     for (var i = 0; i < 3; i++) {
-      var style = (state && (state.next ? state.next : (state.parser || parser).iterator) || parser.iterator)(stream, state);
+      var style = getIterator(state, parser)(stream, state);
       if (style) stream.lastStyle = style;
       if (stream.pos > stream.start) {
         var v = stream.from(stream.start);
@@ -562,15 +567,15 @@
     return cache;
   }
   function forwardParsing(doc, dl) {
-    var a = dl.state && dl.state.next, b, state;
+    var a = getIterator(dl.state, doc.parser), b, state;
     parse(doc, dl);
-    b = (state = dl.state) && state.next;
+    b = getIterator(state = dl.state, doc.parser);
     
-    while ((dl = dl.next()) && (!a && b || a && a !== b || dl.cache === null)) {
+    while ((dl = dl.next()) && (a !== b || dl.cache === null)) {
       dl.cache = undefined;
-      a = dl.state && dl.state.next;
+      a = getIterator(dl.state, doc.parser);
       parse(doc, dl, state);
-      b = (state = dl.state) && state.next;
+      b = getIterator(state = dl.state, doc.parser);
     }
     return dl;
   }
@@ -1810,7 +1815,7 @@
           
           var searchBy = 'string' === typeof find ? searchByString : searchByRegExp;
           
-          this.asyncEach(function(dl, line, offset) {
+          this.asyncEach(function(dl, line) {
             if (search.request !== find) return false;
             searchBy.call(this, find, dl, line);
           }, function(index, last) {
@@ -2125,7 +2130,7 @@
     asyncEach: function(callback, onend, options) {
       if (!(onend instanceof Function) && arguments.length === 2) options = onend;
       var that = this, dl = this.get(0), fn
-      , index = 0, offset = 0, queue = 500;
+      , index = 0, queue = 500;
       
       if (options) {
         if (options.queue) queue = options.queue;
@@ -2138,12 +2143,8 @@
       }
       
       async(fn = function() {
-        var j = 0, r;
-        while (dl && j++ < queue) {
-          r = callback.call(that, dl, index++, offset);
-          offset += dl.height;
-          dl = r ? r.next() : r == null ? dl.next() : false;
-        }
+        var j = 0;
+        while (dl && j++ < queue) dl = callback.call(that, dl, index++) === false ? null : dl.next();
         if (!dl) {
           onend instanceof Function && onend.call(that, index, dl);
           return false;
@@ -3220,6 +3221,15 @@
   }
   if (!CodePrinter.src) CodePrinter.src = '';
   
+  function pushIterator(state, iterator) {
+    if (!state.iterators) state.iterators = [iterator];
+    else state.iterators.push(iterator);
+  }
+  function popIterator(state) {
+    if (state.iterators) state.iterators.pop();
+  }
+  var iteratorMethods = [pushIterator, popIterator];
+  
   CodePrinter.requireMode = function(names, cb) {
     if ('string' == typeof names) names = [names];
     if ('function' == typeof cb) {
@@ -3245,7 +3255,7 @@
   CodePrinter.defineMode = function(name, req, func) {
     if (arguments.length === 2) { func = req; req = null; }
     var fn = function() {
-      var mode = 'function' == typeof func ? func.apply(CodePrinter, arguments) : func;
+      var mode = 'function' == typeof func ? func.apply(CodePrinter, Array.apply(null, arguments).concat(iteratorMethods)) : func;
       mode.name = name;
       modes[name = name.toLowerCase()] = mode;
       CodePrinter.emit('modeLoaded', mode.name, mode);
