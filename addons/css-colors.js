@@ -7,7 +7,7 @@ CodePrinter.defineAddon('css-colors', function() {
   return function(cp, options) {
     var prop = options && options.property || 'color';
     
-    cp.wrapper.addEventListener('mouseover', function(e) {
+    cp.dom.wrapper.addEventListener('mouseover', function(e) {
       var target = e.target;
       if (target.tagName == 'SPAN') {
         if (is(target, 'cpx-hex')) {
@@ -23,7 +23,7 @@ CodePrinter.defineAddon('css-colors', function() {
         }
       }
     }, false);
-    cp.wrapper.addEventListener('mouseout', function(e) {
+    cp.dom.wrapper.addEventListener('mouseout', function(e) {
       if (e.target.tagName == 'SPAN' && (is(e.target, 'cpx-hex') || is(e.target, 'cpx-css-color'))) {
         e.target.style.removeProperty(prop);
       }
