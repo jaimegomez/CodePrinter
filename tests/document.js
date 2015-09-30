@@ -1,26 +1,7 @@
 
-describe('CodePrinter.Document', function() {
-  var lines = [
-    "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod",
-    "tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,",
-    "quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-    "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu",
-    "fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa",
-    "qui officia deserunt mollit anim id est laborum."
-  ];
+describe('Document', function() {
   
-  var content = lines.join('\n');
-  
-  var doc = cp.createDocument(lines.join('\n'), 'plaintext');
-  
-  function generatePosition() {
-    var pos = {};
-    pos.line = Math.floor(Math.random() * (lines.length - 1));
-    pos.column = Math.floor(Math.random() * (lines[pos.line].length - 1));
-    return pos;
-  }
-  
-  beforeEach(function() {
+  beforeAll(function() {
     cp.setDocument(doc);
   });
   
@@ -53,7 +34,7 @@ describe('CodePrinter.Document', function() {
   var pos2 = generatePosition();
   
   it('should insert multi-line text', function() {
-    doc.replaceRange(multiLineText.join('\n'), pos2);
+    doc.replaceRange(multiLineText, pos2);
     expect(doc.get(pos2.line).text).toBe(lines[pos2.line].substring(0, pos2.column) + multiLineText[0]);
     for (var i = 1; i < multiLineText.length - 1; i++) {
       expect(doc.get(pos2.line + i).text).toBe(multiLineText[i]);
@@ -89,7 +70,7 @@ describe('CodePrinter.Document', function() {
   }
   
   it('should replace multi-line text', function() {
-    doc.replaceRange(multiLineText.join('\n'), pos3, pos4);
+    doc.replaceRange(multiLineText, pos3, pos4);
     replaceLinesTest();
   });
   
@@ -109,5 +90,50 @@ describe('CodePrinter.Document', function() {
   it('should undo all', function() {
     doc.undoAll();
     expect(doc.getValue()).toBe(lines.join('\n'));
+  });
+  
+  it('could search by pattern', function(done) {
+    doc.search(/\b\w\w\b/, function(results) {
+      expect(results.length).toBe(13);
+      results.each(function(searchNode) {
+        expect(searchNode.value.length).toBe(2);
+      });
+      done();
+    });
+  });
+  
+  it('could search by string', function(done) {
+    var dolorPos = [
+      [0, 12],
+      [1, 31],
+      [3, 16],
+      [3, 70]
+    ];
+    
+    doc.search('dolor', function(results) {
+      expect(results.length).toBe(4);
+      results.each(function(searchNode, index, line) {
+        expect(searchNode.value).toBe('dolor');
+        expect(searchNode.line).toBe(dolorPos[index][0]);
+        expect(searchNode.column).toBe(dolorPos[index][1]);
+      });
+      done();
+    });
+  });
+  
+  it('could replace found strings', function(done) {
+    doc.replace('lorem'); // replace only active search node
+    expect(doc.textAt(0)).toBe(lines[0].replace('dolor', 'lorem'));
+    
+    // changes in the document should trigger a new search
+    doc.once('searchCompleted', function(results, request) {
+      expect(results.length).toBe(3);
+      expect(request).toBe('dolor');
+      doc.replaceAll('ipsum');
+      expect(doc.textAt(3)).toBe(lines[3].replace(/dolor/g, 'ipsum'));
+      doc.searchEnd();
+      doc.undoAll();
+      done();
+    });
   });
 });

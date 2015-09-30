@@ -160,7 +160,6 @@
   };
   var np = CodePrinter.normalizePos = function(doc, line, column) {
     var pos = isArray(line) ? p(line[0], line[1]) : column !== undefined ? p(line, column) : copy(line), size = doc.size();
-    console.log(line, isArray(line), pos);
     if (!pos) return null;
     if (pos.line < 0) pos.line = pos.column = 0;
     else if (pos.line >= size) {
