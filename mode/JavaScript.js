@@ -9,6 +9,8 @@ CodePrinter.defineMode('JavaScript', function() {
   , OBJECT_CONTEXT = 8
   , ARRAY_CONTEXT = 16
   , CLASS_CONTEXT = 32
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , wordRgx = /[\w$\xa1-\uffff]/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
   , closeBrackets = /^[}\]\)]/
@@ -35,12 +37,11 @@ CodePrinter.defineMode('JavaScript', function() {
       if (ch == state.quote && !esc) break;
       if (esc = !esc && ch == '\\') {
         stream.undo(1);
-        state.next = escapedString;
+        push(state, escapedString);
         return 'string';
       }
     }
-    if (!ch && esc) state.next = string;
-    else state.next = null;
+    if (ch || !esc) pop(state);
     if (!ch) return 'invalid';
     state.quote = null;
     return 'string';
@@ -49,22 +50,23 @@ CodePrinter.defineMode('JavaScript', function() {
     if (stream.eat('\\')) {
       var ch = stream.next();
       if (ch) {
-        state.next = string;
+        pop(state);
         return 'escaped';
       }
       stream.undo(1);
     }
+    pop(state);
     return string(stream, state, true);
   }
   function comment(stream, state) {
     var star, ch;
     while (ch = stream.next()) {
-      if (star && ch == '/') {
+      if (star && ch === '/') {
         break;
       }
-      star = ch == '*';
+      star = ch === '*';
     }
-    state.next = ch && star ? null : comment;
+    if (ch && star) pop(state);
     return 'comment';
   }
   function regexp(stream, state, escaped) {
@@ -72,54 +74,52 @@ CodePrinter.defineMode('JavaScript', function() {
     while (ch = stream.next()) {
       if (ch == '\\' && !stream.eol()) {
         stream.undo(1);
-        state.next = escapedRegexp;
+        push(state, escapedRegexp);
         return 'regexp';
       }
       if (ch == '/') {
         stream.take(/^[gimy]+/);
-        state.next = null;
+        pop(state);
         return 'regexp';
       }
     }
-    state.next = null;
+    pop(state);
     return 'regexp';
   }
   function escapedRegexp(stream, state) {
     if (stream.eat('\\')) {
       var ch = stream.next();
       if (ch) {
-        state.next = regexp;
+        pop(state);
         return 'escaped';
       }
       stream.undo(1);
     }
+    pop(state);
     return regexp(stream, state, true);
   }
   function parameters(stream, state) {
     var ch = stream.next();
     if (ch) {
       if (ch == ')') {
-        state.next = null;
+        pop(state);
         return 'bracket';
       }
       if (ch == '.' && stream.eat('.') && stream.eat('.')) {
-        state.next = parameters;
         return 'operator';
       }
       if (ch == ',' || ch == ' ') {
-        state.next = parameters;
         return;
       }
       if (wordRgx.test(ch)) {
         var word = ch + stream.take(/^[\w$\xa1-\uffff]+/);
-        if (stream.eol()) state.next = null;
+        if (stream.eol()) pop(state);
         state.context.params[word] = true;
         return 'parameter';
       }
       stream.undo(1);
-      return state.next = null;
     }
-    return state.next = null;
+    pop(state);
   }
   function words(stream, state, ch) {
     var word = ch + stream.take(/^[\w$\xa1-\uffff]+/);
@@ -177,6 +177,12 @@ CodePrinter.defineMode('JavaScript', function() {
         }
       }
       return 'function';
+    }
+    if (stream.isAfter(/^\s*=>/)) {
+      push(state, parameters);
+      pushcontext(state, ARROW_CONTEXT);
+      state.fatArrow = true;
+      return parameters(stream, state);
     }
     
     if (state.context && (state.context.type != OBJECT_CONTEXT || !stream.isAfter(/^\s*:/)) && !stream.isBefore(/\.\s*$/, -word.length)) {
@@ -236,6 +242,7 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   
   rules['"'] = rules["'"] = rules['`'] = function(stream, state, ch) {
+    push(state, string);
     state.quote = ch;
     return string(stream, state);
   }
@@ -245,12 +252,14 @@ CodePrinter.defineMode('JavaScript', function() {
       return 'comment';
     }
     if (stream.eat('*')) {
+      push(state, comment);
       return comment(stream, state);
     }
     if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'variable'
       || stream.lastStyle == 'numeric' || stream.lastStyle == 'constant' || stream.lastValue == ')') {
       return 'operator';
     }
+    push(state, regexp);
     return regexp(stream, state);
   }
   rules['.'] = function(stream, state) {
@@ -264,7 +273,7 @@ CodePrinter.defineMode('JavaScript', function() {
     if (state.letdef >= 0) state.letdef = null;
     if (state.constdef >= 0) state.constdef = null;
     closeFatArrow(stream, state);
-    if (state.control && state.context.type == BLOCK_CONTEXT && state.context.open) {
+    if (state.context.type == BLOCK_CONTEXT && state.context.open) {
       if (state.controlParenthesisClosed || state.control == 'else' && state.controlParenthesisClosed == null) {
         do popcontext(state); while (state.context.open);
         state.control = null;
@@ -279,12 +288,12 @@ CodePrinter.defineMode('JavaScript', function() {
       state.context.open = true;
     }
     else if (state.fn && (stream.lastValue == 'function' || stream.lastStyle == 'function')) {
-      state.next = parameters;
+      push(state, parameters);
       pushcontext(state, FUNCTION_CONTEXT);
       if ('string' == typeof state.fn) stream.markDefinition(new Definition(state.fn, state.context.params));
     }
-    else if (!state.fn && stream.lastStyle != 'function' && stream.isAfter(/^[^\)]*\)\s*=>/)) {
-      state.next = parameters;
+    else if (!state.fn && stream.lastStyle != 'function' && stream.isAfter(/^[^\(\)]*\)\s*=>/)) {
+      push(state, parameters);
       pushcontext(state, ARROW_CONTEXT);
       state.fatArrow = true;
     }
@@ -335,8 +344,10 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   rules['}'] = function(stream, state) {
     closeFatArrow(stream, state);
-    if (state.context.type == BLOCK_CONTEXT && !state.context.open || state.context.type & 47) popcontext(state);
-    else return 'invalid';
+    if (state.context.type == BLOCK_CONTEXT && !state.context.open || state.context.type & 47) {
+      if (state.control) state.control = undefined;
+      popcontext(state);
+    } else return 'invalid';
     return 'bracket';
   }
   rules[']'] = function(stream, state) {
@@ -399,7 +410,7 @@ CodePrinter.defineMode('JavaScript', function() {
     },
     indent: function(stream, state, nextIteration) {
       var i = state.indent, peek = stream.peek();
-      
+      console.log(stream.lastStyle, stream.lastValue, stream.rest(), stream.pos);
       if (stream.lastStyle == 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
       if (closeBrackets.test(peek)) {
         if (!/\bbracket\b/.test(nextIteration()) || stream.lastValue != peek) return null;
@@ -423,6 +434,10 @@ CodePrinter.defineMode('JavaScript', function() {
       }
     },
     snippets: {
+      'fun': {
+        content: 'function() {}',
+        cursorMove: -4
+      },
       'log': {
         content: 'console.log();',
         cursorMove: -2
@@ -443,6 +458,13 @@ CodePrinter.defineMode('JavaScript', function() {
         content: 'setInterval(function() {}, 100);',
         cursorMove: -8
       }
-    }
+    },
+    FAKE_CONTEXT: FAKE_CONTEXT,
+    BLOCK_CONTEXT: BLOCK_CONTEXT,
+    FUNCTION_CONTEXT: FUNCTION_CONTEXT,
+    ARROW_CONTEXT: ARROW_CONTEXT,
+    OBJECT_CONTEXT: OBJECT_CONTEXT,
+    ARRAY_CONTEXT: ARROW_CONTEXT,
+    CLASS_CONTEXT: CLASS_CONTEXT
   });
 });
