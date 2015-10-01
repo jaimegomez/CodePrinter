@@ -209,7 +209,7 @@
       if (doc === null) doc = this.createDocument();
       if (doc instanceof Document && this.doc !== doc) {
         var old = this.doc;
-        if (old) detachDoc(this, doc);
+        if (old) detachDoc(this, old);
         attachDoc(this, doc);
         this.emit('documentChanged', old, doc);
         if (this.dom.mainNode.parentNode) doc.print();
@@ -943,6 +943,7 @@
     var dom = doc.dom, sizes = doc.sizes;
     if (!sizes.minHeight) updateHeight(doc);
     else dom.wrapper.style.minHeight = sizes.minHeight + 'px';
+    updateCountersWidth(doc, doc.sizes.countersWidth);
     dom.wrapper.style.minWidth = sizes.minWidth + 'px';
     dom.scroll.scrollTop = doc.scrollTop | 0;
     dom.scroll.scrollLeft = doc.scrollLeft | 0;
@@ -2508,6 +2509,9 @@
     this.offsetY = function() {
       return lastMeasure ? lastMeasure.offsetY : 0;
     }
+    this.totalOffsetY = function(withLine) {
+      return this.offsetY() + (lastMeasure ? lastMeasure.charHeight : 0);
+    }
     this.head = function(real) {
       return real ? copy(head) : p(head.line, this.column());
     }
@@ -2558,6 +2562,15 @@
     },
     setSelectionRange: function(range) {
       return range && this.setSelection(range.from, range.to);
+    },
+    wordBefore: function() {
+      return this.match(/\w/, -1, false);
+    },
+    wordAfter: function() {
+      return this.match(/\w/, 1, false);
+    },
+    wordAround: function() {
+      return this.match(/\w/, 0, false);
     },
     match: function(pattern, dir, select) {
       if (pattern) {
@@ -3660,6 +3673,7 @@
       }
       if (options.readOnly && (code < 37 || code > 40)) return;
       cp.emit('['+seq+']', e); cp.emit('keydown', seq, e);
+      Flags.keydownPrevented = e.defaultPrevented;
       if (!e.defaultPrevented) {
         if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
         if (seq.length > 1 && cp.keyMap[seq]) {
@@ -3696,10 +3710,12 @@
       if (options.readOnly) return;
       if (e.keyCode === 8 || e.keyCode === 46 || (!e.ctrlKey && !e.metaKey && modifierKeys.indexOf(e.keyCode) === -1)) {
         if (this.value.length) cp.doc.call('insert', this.value);
-        T = clearTimeout(T) || setTimeout(function() {
-          cp.emit('pause');
-          runBackgroundParser(cp.doc);
-        }, options.keyupInactivityTimeout);
+        if (!Flags.keydownPrevented) {
+          T = clearTimeout(T) || setTimeout(function() {
+            cp.emit('pause');
+            runBackgroundParser(cp.doc);
+          }, options.keyupInactivityTimeout);
+        }
       }
       this.value = '';
       cp.emit('keyup', e);

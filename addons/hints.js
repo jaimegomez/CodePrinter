@@ -1,7 +1,9 @@
 'use strict';
 
 CodePrinter.defineAddon('hints', function() {  
+  
   var li_clone = document.createElement('li')
+  , hasOwnProperty = Object.prototype.hasOwnProperty
   , defaults = {
     word: /[\w\-$]+/,
     range: 500,
@@ -29,7 +31,7 @@ CodePrinter.defineAddon('hints', function() {
   
   List.prototype = {
     check: function(pattern, string, matcher, opt) {
-      if (!this.seen.hasOwnProperty(string)) {
+      if (!hasOwnProperty.call(this.seen, string)) {
         this.push(matcher(pattern, string, opt));
       }
     },
@@ -44,6 +46,11 @@ CodePrinter.defineAddon('hints', function() {
       return this.values.sort(function(a, b) {
         return seen[b.value] - seen[a.value];
       });
+    },
+    ignore: function(arr) {
+      for (var i = 0; i < arr.length; i++) {
+        this.seen[arr[i]] = 0;
+      }
     }
   }
   
@@ -83,7 +90,7 @@ CodePrinter.defineAddon('hints', function() {
     this.options = options || {};
     
     for (var key in defaults) {
-      if (!this.options.hasOwnProperty(key)) {
+      if (!hasOwnProperty.call(this.options, key)) {
         this.options[key] = defaults[key];
       }
     }
@@ -104,7 +111,7 @@ CodePrinter.defineAddon('hints', function() {
       var caret = cp.doc.carets[0], parser = caret.getParserState().parser;
       return parser.autoCompleteTriggers ? parser.autoCompleteTriggers.test(word) : this.options.word.test(word);
     }
-    this.search = function() {
+    this.search = function(ignores) {
       if (cp.doc.carets.length > 1) return;
       
       var list = new List()
@@ -112,14 +119,15 @@ CodePrinter.defineAddon('hints', function() {
       , caret = cp.doc.carets[0]
       , wordRgx = getWordRgx(caret)
       , rgx = new RegExp(wordRgx.source, 'g')
-      , wordBf = caret.match(wordRgx, -1, false)
-      , wordAf = caret.match(wordRgx, 1, false)
+      , wordBf = caret.wordBefore()
+      , wordAf = caret.wordAfter()
       , curDL = caret.dl()
       , bf = caret.textBefore()
       , af = caret.textAfter()
       , ps = caret.getParserState()
       , matcher, dl, text, m, next, ph;
       
+      if (ignores) list.ignore(ignores);
       pattern = (wordBf + wordAf).toLowerCase();
       matcher = matchers[pattern && this.options.matcher || 'default'];
       
@@ -154,11 +162,14 @@ CodePrinter.defineAddon('hints', function() {
       }
       return pattern ? list.sort() : list.values;
     }
-    this.show = function(byWord) {
-      var list = this.search(byWord);
+    this.show = function() {
+      var list = this.search();
       this.list.innerHTML = '';
       
       if (list && list.length) {
+        if (list.length === 1 && cp.doc.carets[0].wordAround() === list[0].value) {
+          return this.hide();
+        }
         for (var i = 0; i < list.length; i++) {
           var li = list[i], node = li_clone.cloneNode();
           node.innerHTML = li.html || li.value;
@@ -186,8 +197,8 @@ CodePrinter.defineAddon('hints', function() {
       if (cp.doc.carets.length > 1) return;
       var caret = cp.doc.carets[0]
       , word = getWordRgx(caret)
-      , wbf = caret.match(word, -1, false)
-      , waf = caret.match(word, 1, false)
+      , wbf = caret.wordBefore()
+      , waf = caret.wordAfter()
       , currentWord = wbf + waf
       , ps = caret.getParserState();
       
@@ -195,16 +206,13 @@ CodePrinter.defineAddon('hints', function() {
         var i = 0, head = caret.head();
         while (i < currentWord.length && currentWord[i] === value[i]) i++;
         cp.doc.replaceRange(value.substr(i), CodePrinter.pos(head.line, head.column - wbf.length + i), CodePrinter.pos(head.line, head.column + waf.length));
-      } else {
+      } else if (waf.length) {
         caret.moveX(waf.length);
       }
       if (ps.parser && ps.parser.onCompletionChosen) {
-        if (ps.parser.onCompletionChosen.call(cp, value)) {
-          CodePrinter.async(function() {
-            hints.show();
-          });
-        }
+        ps.parser.onCompletionChosen.call(cp, value);
       }
+      this.hide();
       cp.emit('autocomplete', value);
       return this;
     }
@@ -220,15 +228,15 @@ CodePrinter.defineAddon('hints', function() {
         if (!visible && hints.match(ch)) hints.show();
       },
       'change': function(doc, change) {
-        if (!visible || this.doc.carets.length > 1) return;
+        if (this.doc.carets.length > 1) return;
         var caret = this.doc.carets[0];
-        if (change.type === 'replace' && hints.match(caret.textBefore().slice(-1))) hints.show();
+        if (change.type === 'replace' && hints.match(caret.textBefore(1))) hints.show();
         else hints.hide();
       },
       'caretMoved': function(doc, caret) {
-        if (doc.carets.length > 1) return hints.hide();
-        var charBefore = caret.textBefore().slice(-1);
-        if (!hints.match(charBefore)) hints.hide();
+        if (!visible || this.doc.carets.length > 1) return;
+        var caret = this.doc.carets[0];
+        if (!hints.match(caret.textBefore(1))) hints.hide();
       },
       '[Up]': function(e) {
         if (visible) {
@@ -247,7 +255,6 @@ CodePrinter.defineAddon('hints', function() {
       '[Enter]': function(e) {
         if (visible && active) {
           hints.choose(active.getAttribute('data-value'));
-          hints.hide();
           e.preventDefault();
         }
       },
@@ -285,12 +292,12 @@ CodePrinter.defineAddon('hints', function() {
       var caret = cp.doc.carets[0]
       , container = hints.container
       , x = caret.offsetX() - 4
-      , y = caret.totalOffsetY(true) + cp.doc.sizes.paddingTop + 2;
+      , y = caret.totalOffsetY() + 2;
       
-      if (y + container.offsetHeight > cp.dom.wrapper.offsetHeight) {
-        y = caret.totalOffsetY() - container.offsetHeight - 2;
+      if (y + container.offsetHeight > cp.doc.scrollTop + cp.dom.scroll.offsetHeight) {
+        y = caret.offsetY() - container.offsetHeight - 2;
       }
-      if (x + container.offsetWidth > cp.dom.wrapper.offsetWidth) {
+      if (x + container.offsetWidth > cp.doc.scrollLeft + cp.dom.scroll.offsetWidth) {
         x = x - container.offsetWidth;
       }
       container.style.top = y+'px';
