@@ -12,13 +12,12 @@
 "use strict";
 
 (function() {
-  var CodePrinter, EventEmitter, Data, Branch
-  , Line, CaretStyles, Caret, Document, Stream
-  , ReadStream, historyActions, History, keyMap
-  , Measure, LineView, View, commands, lineendings
-  , div, li, pre, span
-  , BRANCH_OPTIMAL_SIZE = 50
-  , BRANCH_HALF_SIZE = 25
+  var CodePrinter, defaults, EventEmitter
+  , Data, Branch, Line, CaretStyles, Caret, Document
+  , Stream, ReadStream, historyActions, History
+  , keyMap, Measure, LineView, View, commands
+  , lineendings, optionSetters, div, li, pre, span
+  , BRANCH_OPTIMAL_SIZE = 50, BRANCH_HALF_SIZE = 25
   , macosx = /Mac/.test(navigator.platform)
   , webkit = /WebKit\//.test(navigator.userAgent)
   , gecko = /gecko\/\d/i.test(navigator.userAgent)
@@ -34,14 +33,13 @@
       options = source;
       source = null;
     }
-    options = this.options = extend({}, CodePrinter.defaults, options);
     buildDOM(this);
     EventEmitter.call(this);
+    this.options = options || {};
+    setOptions(this, this.options);
     
     this.keyMap = new keyMap;
-    this.tabString = repeat(' ', options.tabWidth);
-    this.setDocument(this.createDocument(source, options.mode));
-    checkOptions(this, options);
+    this.setDocument(this.createDocument(source, this.getOption('mode')));
     attachEvents(this);
     
     if (source && source.parentNode) {
@@ -55,10 +53,8 @@
   
   CodePrinter.version = '0.8.3';
   
-  CodePrinter.defaults = {
+  defaults = {
     abortSelectionOnBlur: false,
-    autoComplete: false,
-    autoCompleteDelay: 200,
     autoFocus: true,
     autoIndent: true,
     autoScroll: true,
@@ -74,6 +70,8 @@
     fontSize: 12,
     height: 300,
     highlightCurrentLine: true,
+    hints: false,
+    hintsDelay: 200,
     history: true,
     historyDelay: 1000,
     historyStackSize: 100,
@@ -90,7 +88,10 @@
     maxFontSize: 60,
     minFontSize: 6,
     mode: 'plaintext',
+    placeholder: '',
     readOnly: false,
+    rulers: null,
+    rulersStyle: 'solid',
     scrollSpeed: 1,
     searchOnDblClick: true,
     shortcuts: true,
@@ -183,10 +184,11 @@
     var dom = doc.dom = editor.dom;
     dom.measure.appendChild(doc.measure.node);
     doc.view.mount(dom.code, dom.counter);
-    doc.scrollTo(doc.scrollTop | 0);
+    doc.scrollTo(doc.scrollLeft | 0, doc.scrollTop | 0);
     updateScroll(doc);
     doc.fill();
     applySizes(doc);
+    if (editor.getOption('autoFocus')) editor.focus();
     doc.emit('attached');
   }
   function detachDoc(editor, doc) {
@@ -203,7 +205,7 @@
   
   CodePrinter.prototype = {
     createDocument: function(source, mode) {
-      return new Document(valueOf(source), mode, getFontDims(this.options));
+      return new Document(valueOf(source), mode, getFontDims(this));
     },
     setDocument: function(doc) {
       if (doc === null) doc = this.createDocument();
@@ -225,73 +227,31 @@
     focus: function() {
       return this.dom.input.focus();
     },
-    setOptions: function(key, value) {
-      if (this.options[key] !== value) {
-        this.options[key] = value;
-        this.emit('optionChanged', key, value);
-      }
-      return this;
+    getOption: function(optionName) {
+      if (optionName in this.options) return this.options[optionName];
+      if (optionName in defaults) return defaults[optionName];
     },
-    setTabWidth: function(tw) {
-      if ('number' === typeof tw && tw >= 0) {
-        this.options.tabWidth = tw;
-        this.tabString = repeat(' ', tw);
-        this.doc && runBackgroundParser(this.doc);
-      }
-      return this;
+    getOptions: function(pick) {
+      var opts = {};
+      if (!isArray(pick)) return extend(opts, defaults, this.options);
+      for (var i = 0; i < pick.length; i++) opts[pick[i]] = this.getOption(pick[i]);
+      return opts;
     },
-    setLineEndings: function(le) {
-      le = le.toUpperCase();
-      this.options.lineEndings = lineendings[le] || this.options.lineEndings || '\n';
-      return this;
-    },
-    setTheme: function(name, dontrequire) {
-      typeof name === 'string' && name !== 'default' ? dontrequire != true && CodePrinter.requireStyle(name) : name = 'default';
-      if (!this.options.disableThemeClassName) {
-        removeClass(this.dom.mainNode, 'cps-'+this.options.theme.replace(' ', '-').toLowerCase());
-        addClass(this.dom.mainNode, 'cps-'+name.replace(' ', '-').toLowerCase());
-      }
-      this.options.theme = name;
-      return this;
-    },
-    setMode: function(mode) {
-      this.doc && this.doc.setMode(mode);
-      return this;
-    },
-    setFontSize: function(size) {
-      if ('number' === typeof size && this.options.minFontSize <= size && size <= this.options.maxFontSize) {
-        var i = 0, doc = this.doc;
-        this.dom.relative.style.fontSize = (this.options.fontSize = size) + 'px';
-        
-        if (doc) {
-          doc.sizes.font = getFontDims(this.options);
-          doc.fill();
-          doc.updateView().call('showSelection');
-          updateScroll(doc);
-          doc.call('refresh');
+    setOption: function(optionName, value) {
+      var oldValue = this.getOption(optionName);
+      if (optionName && value !== oldValue) {
+        if (optionSetters[optionName]) {
+          var setterResult = optionSetters[optionName].call(this, value, oldValue);
+          if (setterResult === oldValue) return this;
+          else if (setterResult !== undefined) value = setterResult;
         }
-        this.emit('fontSizeChanged', size);
+        this.options[optionName] = value;
+        this.emit('optionChanged', optionName, value, oldValue);
       }
       return this;
     },
-    setWidth: function(size) {
-      if (size == 'auto') {
-        this.dom.mainNode.style.removeProperty('width');
-      } else {
-        this.dom.mainNode.style.width = (this.options.width = parseInt(size)) + 'px';
-      }
-      this.emit('widthChanged');
-      return this;
-    },
-    setHeight: function(size) {
-      if (size == 'auto') {
-        this.dom.body.style.removeProperty('height');
-        addClass(this.dom.mainNode, 'cp--auto-height');
-      } else {
-        this.dom.body.style.height = (this.options.height = parseInt(size, 10)) + 'px';
-        removeClass(this.dom.mainNode, 'cp--auto-height');
-      }
-      this.emit('heightChanged');
+    setOptions: function(extend) {
+      for (var optionName in extend) this.setOption(optionName, extend[optionName]);
       return this;
     },
     isState: function(state, line, col, all) {
@@ -303,10 +263,10 @@
       return false;
     },
     getSnippets: function() {
-      return extend({}, this.options.snippets, this.doc.parser && this.doc.parser.snippets);
+      return extend({}, this.getOption('snippets'), this.doc.parser && this.doc.parser.snippets);
     },
     findSnippet: function(snippetName, head) {
-      var s = this.options.snippets, b;
+      var s = this.getOption('snippets'), b;
       if (!(b = s && s.hasOwnProperty(snippetName))) {
         s = this.doc.parser && this.doc.parser.snippets;
         b = s && s.hasOwnProperty(snippetName);
@@ -316,13 +276,13 @@
       if (s) return 'string' === typeof s ? { content: s } : s;
     },
     registerSnippet: function() {
-      if (!this.options.snippets) this.options.snippets = [];
+      var snippets = this.getOption('snippets');
+      if (!snippets) snippets = [];
       for (var i = 0; i < arguments.length; i++) {
         var snippet = arguments[i];
-        if (snippet.content && snippet.trigger) {
-          this.options.snippets.push(snippet);
-        }
+        if (snippet.content && snippet.trigger) snippets.push(snippet);
       }
+      this.setOption('snippets', snippets);
     },
     registerKey: function(keySequence, binding) {
       this.keyMap[keySequence] = binding;
@@ -369,21 +329,14 @@
         tmp.parentNode.removeChild(tmp);
         delete this._;
         this.isFullscreen = false;
-        this.setWidth(this.options.width);
+        optionSetters.width.call(this, this.getOption('width'), undefined);
         this.doc.fill();
         this.input.focus();
         this.emit('fullscreenLeaved');
       }
     },
-    showLineNumbers: function() {
-      this.options.lineNumbers = true;
-      removeClass(this.dom.counter, 'cp-hidden');
-      if (this.dom.mainNode.parentNode) maybeUpdateCountersWidth(this.doc, true);
-    },
-    hideLineNumbers: function() {
-      this.options.lineNumbers = false;
-      updateCountersWidth(this.doc, 0);
-      addClass(this.dom.counter, 'cp-hidden');
+    getDOMNode: function() {
+      return this.dom.mainNode;
     },
     destroy: function() {
       var p = this.dom.mainNode.parentNode, i = instances.indexOf(this);
@@ -879,7 +832,7 @@
     }
   }
   function updateHeight(doc) {
-    var minHeight, dom = doc.dom, minHeight = doc.height() + doc.sizes.paddingTop * 2;
+    var minHeight, dom = doc.dom, minHeight = doc.height() + 2 * doc.sizes.paddingTop;
     if (dom && doc.sizes.minHeight !== minHeight) {
       dom.wrapper.style.minHeight = minHeight + 'px';
       doc.sizes.minHeight = minHeight;
@@ -893,7 +846,7 @@
   }
   function updateCounters(doc) {
     var tmp = doc.view.length && doc.view[0].counter, index = doc.from;
-    do tmp.firstChild.nodeValue = lineNumberFor(doc.editor.options, index++); while (tmp = tmp.nextSibling);
+    do tmp.firstChild.nodeValue = lineNumberFor(doc.editor, index++); while (tmp = tmp.nextSibling);
   }
   function changeEnd(change) {
     if (change.end) return change.end;
@@ -930,13 +883,14 @@
     change.end = change.from;
     adjustCaretsPos(doc, change);
   }
-  function getFontDims(options) {
+  function getFontDims(cp) {
+    var options = cp.getOptions(['fontFamily', 'fontSize', 'lineHeight']);
     var pr = pre.cloneNode(false), rect;
-    pr.setAttribute('style', 'position:absolute;font:normal normal '+options.fontSize+'px/'+options.lineHeight+' '+options.fontFamily+';');
+    pr.style.cssText = 'position:fixed;font:normal normal '+options.fontSize+'px/'+options.lineHeight+' '+options.fontFamily+';';
     pr.appendChild(document.createTextNode('CP'));
-    document.documentElement.appendChild(pr);
+    document.body.appendChild(pr);
     rect = pr.getBoundingClientRect();
-    document.documentElement.removeChild(pr);
+    document.body.removeChild(pr);
     return { width: rect.width / 2, height: rect.height };
   }
   function applySizes(doc) {
@@ -989,12 +943,9 @@
     return replaceRange(doc, text, at, at);
   }
   function defaultFormatter(i) { return i; }
-  function lineNumberFor(options, index) {
-    return String(options.lineNumberFormatter(index + options.firstLineNumber));
-  }
-  function formatter(doc, index) {
-    var lineFormatter = doc.editor.options.lineNumberFormatter || defaultFormatter;
-    return lineFormatter(doc.editor.options.firstLineNumber + index);
+  function lineNumberFor(cp, index) {
+    var formatter = cp.getOption('lineNumberFormatter') || defaultFormatter;
+    return String(formatter(cp.getOption('firstLineNumber') + index));
   }
   function cacheHasFontStyle(cache) {
     for (var j = 0, cl = cache ? cache.length : 0; j < cl; j++) if (cache[j].style.indexOf('font-') >= 0) return true;
@@ -1050,10 +1001,10 @@
   }
   
   function setCounter(doc, lineView, index, setWidth) {
-    var opts = doc.editor.options, text = lineNumberFor(opts, index);
+    var text = lineNumberFor(doc.editor, index);
     if (lineView.counterText !== text) lineView.counter.firstChild.nodeValue = lineView.counterText = text;
     if (setWidth) {
-      lineView.counter.parentNode.style.left = -doc.sizes.countersWidth + (opts.fixedLineNumbers ? doc.scrollLeft : 0) + 'px';
+      lineView.counter.parentNode.style.left = -doc.sizes.countersWidth + (doc.editor.getOption('fixedLineNumbers') ? doc.scrollLeft : 0) + 'px';
       lineView.counter.style.width = doc.sizes.countersWidth + 'px';
     }
   }
@@ -1068,8 +1019,8 @@
     view.display.removeChild(lineView.node);
   }
   function maybeUpdateCountersWidth(doc, force) {
-    var last = lineNumberFor(doc.editor.options, doc.size() - 1);
-    if (force || doc.editor.options.lineNumbers && last.length !== doc.sizes.lastLineNumberLength) {
+    var last = lineNumberFor(doc.editor, doc.size() - 1);
+    if (force || doc.editor.getOption('lineNumbers') && last.length !== doc.sizes.lastLineNumberLength) {
       var measure = doc.measure.node.firstChild;
       measure.firstChild.innerHTML = last;
       var width = measure.firstChild.offsetWidth;
@@ -1079,6 +1030,7 @@
     }
   }
   function updateCountersWidth(doc, width) {
+    if (!doc) return;
     doc.sizes.countersWidth = width;
     doc.dom.counter.style.width = width + 'px';
     doc.dom.wrapper.style.marginLeft = width + 'px';
@@ -1100,7 +1052,7 @@
     return sd;
   }
   function rewind(doc, st) {
-    var dl = doc.lineWithOffset(st - doc.editor.options.viewportMargin)
+    var dl = doc.lineWithOffset(st - doc.editor.getOption('viewportMargin'))
     , view = doc.view, tmpdl = dl, dli = dl.getIndex(), i = -1, popped
     , from = view.from, codeScrollDelta = dl.getOffset() - doc.sizes.scrollTop;
     
@@ -1206,7 +1158,6 @@
     view.length = view.from = 0;
     view.to = -1;
     view.display.innerHTML = '';
-    doc.clearSelection();
     doc.dom.code.style.top = (doc.sizes.scrollTop = 0) + 'px';
   }
   function computeCodeReserve(doc) {
@@ -1301,7 +1252,7 @@
         var st = Math.max(0, Math.min(this.scrollTop + deltaY, this.dom.scroll.scrollHeight - this.dom.scroll.offsetHeight));
         if (this.scrollTop !== st) {
           this._lockedScrolling = true;
-          var margin = this.editor.options.viewportMargin
+          var margin = this.editor.getOption('viewportMargin')
           , top = this.scrollTop + deltaY - this.sizes.scrollTop
           , oldTop = top;
           
@@ -1337,6 +1288,7 @@
       return this.scroll(Math.round(sl - this.scrollLeft), Math.round(st - this.scrollTop));
     }
     this.updateView = function() {
+      if (!this.dom.mainNode.parentNode) return;
       var view = this.view, cw = maybeUpdateCountersWidth(this);
       for (var i = 0, lv = view[i]; i < view.length; lv = view[++i]) {
         setCounter(this, lv, view.from + i, cw);
@@ -1364,14 +1316,14 @@
     this.pushChange = function(change) {
       if (!change) return;
       this.history.push(change);
-      this.emit('change', change);
+      this.emit('changed', change);
       return change;
     }
     this.each = function(func) { data.foreach(func); }
     this.get = function(i) { return data.get(i); }
-    this.getOptions = function() { return this.editor && this.editor.options; }
-    this.getOption = function(key) { return this.editor && this.editor.options[key]; }
-    this.getTabString = function() { return this.editor && this.editor.options.indentByTabs ? '\t' : repeat(' ', this.editor.options.tabWidth); }
+    this.getOptions = function() { return this.editor && this.editor.getOptions(); }
+    this.getOption = function(key) { return this.editor && this.editor.getOption(key); }
+    this.getTabString = function() { return this.editor && this.editor.getOption('indentByTabs') ? '\t' : repeat(' ', this.editor.getOption('tabWidth')); }
     this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
     this.getLineEnding = function() { var ln = this.getOption('lineEnding'); return ln && lineendings[ln] || ln || lineendings['LF']; }
     
@@ -1460,7 +1412,7 @@
           var tick = (v = !v) ? '' : 'hidden';
           if (Flags.isKeyDown || Flags.isMouseDown) {
             tick = '';
-            v = false;
+            v = true;
           }
           cc.style.visibility = tick;
         }, options.caretBlinkRate);
@@ -1636,6 +1588,22 @@
       height: rect.height,
       left: doc.scrollLeft + rect.left - mainRect.left - doc.sizes.countersWidth,
       top: doc.scrollTop + rect.top - mainRect.top
+    };
+  }
+  function findWord(pos, text, pattern, dir) {
+    pattern = pattern || /\w/;
+    var ch, left = pos.column, right = pos.column, test = function(ch) {
+      return 'function' === typeof pattern ? pattern(ch) : pattern.test ? pattern.test(ch) : false;
+    };
+    if (!dir || dir === 1) for (; (ch = text.charAt(right)) && test(ch); ++right);
+    if (!dir || dir === -1) for (; (ch = text.charAt(left - 1)) && test(ch); --left);
+    return {
+      word: text.substring(left, right),
+      before: text.substring(0, left),
+      after: text.substr(right),
+      from: p(pos.line, left),
+      to: p(pos.line, right),
+      target: pos
     };
   }
   
@@ -1841,7 +1809,7 @@
           }
           
           if (this.addOverlay(search.overlay) !== undefined) {
-            this.on({ link: searchShow, unlink: searchHide, change: searchOnChange });
+            this.on({ link: searchShow, unlink: searchHide, changed: searchOnChange });
             on(search.overlay.node, 'mousedown', search.onNodeMousedown = function(e) {
               var target = e.target, pos = target.getAttribute('data-cp-pos');
               if (pos && target.tagName === 'SPAN') {
@@ -2056,7 +2024,7 @@
     fill: function() {
       var view = this.view
       , dl = view.length ? view.lastLine().next() : this.get(0)
-      , margin = this.editor.options.viewportMargin
+      , margin = this.editor.getOption('viewportMargin')
       , topMargin = this.scrollTop - this.sizes.scrollTop
       , bottomMargin = computeCodeReserve(this) - topMargin
       , oldTopMargin = topMargin;
@@ -2095,35 +2063,33 @@
       this.fill();
       this.updateView();
       runBackgroundParser(this, true);
-      this.sizes.paddingTop = parseInt(this.dom.code.style.paddingTop, 10) || 5;
-      this.sizes.paddingLeft = parseInt(this.dom.code.style.paddingLeft, 10) || 10;
-      if (this.editor.options.autoFocus) this.dom.input.focus();
+      this.sizes.paddingTop = parseInt(this.dom.screen.style.paddingTop, 10) || 5;
+      this.sizes.paddingLeft = parseInt(this.dom.screen.style.paddingLeft, 10) || 10;
       var cp = this.editor;
       async(function() { cp && cp.emit('ready'); });
     },
     setMode: function(mode) {
       var doc = this;
       mode = CodePrinter.aliases[mode] || mode || 'plaintext';
-      if (this.mode != mode) {
-        CodePrinter.requireMode(mode, function(parser) {
-          if (parser instanceof CodePrinter.Mode) {
-            var dl = doc.get(0);
-            if (dl) do dl.cache = dl.state = null; while (dl = dl.next());
-            doc.mode = mode;
-            doc.parser = parser;
-            doc.editor && doc.print();
-          }
-        });
-      }
+      if (this.mode === mode) return;
+      CodePrinter.requireMode(mode, function(parser) {
+        if (parser instanceof CodePrinter.Mode && doc.parser !== parser) {
+          var dl = doc.get(0);
+          if (dl) do dl.cache = dl.state = null; while (dl = dl.next());
+          doc.mode = mode;
+          doc.parser = parser;
+          doc.editor && doc.print();
+        }
+      });
     },
     getIndent: function(at) {
       var pos = np(this, at);
       if (!pos) return 0;
-      return parseIndentation(this.textAt(pos.line), this.editor.options.tabWidth).indent;
+      return parseIndentation(this.textAt(pos.line), this.editor.getOption('tabWidth')).indent;
     },
     setIndent: function(line, indent) {
       if ('number' !== typeof line) return;
-      var dl = this.get(line), old = parseIndentation(dl.text, this.editor.options.tabWidth)
+      var dl = this.get(line), old = parseIndentation(dl.text, this.editor.getOption('tabWidth'))
       , diff = indent - old.indent, tab = tabString(this.editor);
       
       if (diff) {
@@ -2161,6 +2127,10 @@
         ++i;
       }
       return obj;
+    },
+    findWord: function(at, pattern, dir) {
+      var pos = np(this, at);
+      return pos && findWord(pos, this.textAt(pos.line), pattern, dir);
     },
     appendText: function(text) {
       var t = text.split(eol), size = this.size(), fi = t.shift();
@@ -2544,6 +2514,7 @@
       this.node.className = 'cp-caret cp-caret-'+style;
     }
     this.focus = function() {
+      this.setHead(head);
       if (!this.hasSelection()) select(currentLine);
     }
     this.blur = function() {
@@ -2563,28 +2534,14 @@
     setSelectionRange: function(range) {
       return range && this.setSelection(range.from, range.to);
     },
-    wordBefore: function() {
-      return this.match(/\w/, -1, false);
-    },
-    wordAfter: function() {
-      return this.match(/\w/, 1, false);
-    },
-    wordAround: function() {
-      return this.match(/\w/, 0, false);
-    },
     match: function(pattern, dir, select) {
-      if (pattern) {
-        var text = this.textAtCurrentLine(), head = this.head()
-        , left = head.column, right = head.column, ch, test = function(ch) {
-          return 'function' === typeof pattern ? pattern(ch) : pattern.test ? pattern.test(ch) : false;
-        }
-        if (!dir || dir === 1) for (; (ch = text.charAt(right)) && test(ch); ++right);
-        if (!dir || dir === -1) for (; (ch = text.charAt(left - 1)) && test(ch); --left);
-        var str = text.substring(left, right);
-        if (select !== false) this.setSelection(p(head.line, left), p(head.line, right));
-        return str;
-      }
+      var find = findWord(this.head(), this.textAtCurrentLine(), pattern, dir);
+      if (select !== false) this.setSelection(find.from, find.to);
+      return find.word;
     },
+    wordBefore: function() { return this.match(/\w/, -1, false); },
+    wordAfter: function() { return this.match(/\w/, 1, false); },
+    wordAround: function() { return this.match(/\w/, 0, false); },
     refresh: function() {
       return this.setSelectionRange(this.getRange());
     }
@@ -2823,17 +2780,17 @@
     'Shift Down': 'moveSelDown',
     'Ctrl Shift W': 'selectWord',
     '"': function(k) {
-      if (this.options.insertClosingQuotes) {
+      if (this.getOption('insertClosingQuotes')) {
         return insertClosing(this, k, k);
       }
     },
     '(': function(k) {
-      if (this.options.insertClosingBrackets) {
+      if (this.getOption('insertClosingBrackets')) {
         return insertClosing(this, k, complementBracket(k));
       }
     },
     ')': function(k) {
-      if (this.options.insertClosingBrackets && this.textAfterCursor(1) == k) this.caret.moveX(1);
+      if (this.getOption('insertClosingBrackets') && this.textAfterCursor(1) == k) this.caret.moveX(1);
       else this.insertText(k);
       return false;
     },
@@ -2943,19 +2900,17 @@
       caret.position(range.to.line, -1).insert('\n' + text);
     }),
     'toggleLineNumbers': function() {
-      var ln = this.options.lineNumbers;
-      ln ? this.hideLineNumbers() : this.showLineNumbers();
+      this.setOption('lineNumbers', !this.getOption('lineNumbers'));
     },
     'toggleIndentGuides': function() {
-      var dig = this.options.drawIndentGuides = !this.options.drawIndentGuides;
-      (dig ? removeClass : addClass)(this.dom.mainNode, 'cp--no-indent-guides');
+      this.setOption('drawIndentGuides', !this.getOption('drawIndentGuides'));
     },
     'toggleMark': caretCmd(function(caret) {
       var dl = caret.dl();
       dl && dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
     }),
-    'increaseFontSize': function() { this.setFontSize(this.options.fontSize+1); },
-    'decreaseFontSize': function() { this.setFontSize(this.options.fontSize-1); },
+    'increaseFontSize': function() { this.setOption('fontSize', this.getOption('fontSize') + 1); },
+    'decreaseFontSize': function() { this.setOption('fontSize', this.getOption('fontSize') - 1); },
     'prevSearchResult': function() {
       if (!this.doc.searchResults) return;
       var act = this.doc.searchResults.prev();
@@ -2985,7 +2940,7 @@
       }
     },
     'delCharLeft': function() {
-      var tw = this.options.tabWidth;
+      var tw = this.getOption('tabWidth');
       this.doc.eachCaret(function(caret) {
         if (caret.hasSelection()) return caret.removeSelection();
         var bf = caret.textBefore(), af = caret.textAfter()
@@ -2995,7 +2950,7 @@
       });
     },
     'delCharRight': function() {
-      var tw = this.options.tabWidth;
+      var tw = this.getOption('tabWidth');
       this.doc.eachCaret(function(caret) {
         if (caret.hasSelection()) return caret.removeSelection();
         var bf = caret.textBefore(), af = caret.textAfter()
@@ -3010,7 +2965,7 @@
     'delToRight': caretCmd(function(caret) { caret.removeAfter(caret.dl().text.length - caret.column()); }),
     'delLine': caretCmd(function(caret) { caret.removeLine(); }),
     'insertNewLine': caretCmd(function(caret) {
-      var options = this.editor.options;
+      var options = this.editor.getOptions(['autoIndent', 'tabWidth', 'indentByTabs']);
       if (options.autoIndent) {
         var head = caret.head()
         , ps = caret.getParserState()
@@ -3040,7 +2995,7 @@
       if (this.doc.somethingSelected()) {
         this.exec('indent');
       } else {
-        var options = this.options;
+        var options = this.getOptions(['tabTriggers', 'indentByTabs', 'tabWidth']);
         this.doc.eachCaret(function(caret) {
           if (options.tabTriggers) {
             var head = caret.head(), bf = caret.match(/\S+/, -1, false), af = caret.match(/\S+/, 1, false), snippet;
@@ -3299,6 +3254,84 @@
     }
   }
   
+  optionSetters = {
+    'drawIndentGuides': function(dig) {
+      (dig ? removeClass : addClass)(this.dom.mainNode, 'cp--no-indent-guides');
+      return !!dig;
+    },
+    'fontFamily': function(family) {
+      this.dom.editor.style.fontFamily = family;
+    },
+    'fontSize': function(size, oldSize) {
+      if (size !== Math.max(this.getOption('minFontSize'), Math.min(size, this.getOption('maxFontSize')))) return oldSize;
+      this.dom.editor.style.fontSize = size + 'px';
+      var doc = this.doc;
+      if (doc) {
+        doc.sizes.font = getFontDims(this);
+        doc.fill();
+        doc.updateView().call('showSelection');
+        updateScroll(doc);
+        doc.call('refresh');
+      }
+      this.emit('fontSizeChanged', size);
+    },
+    'height': function(size) {
+      if (size === 'auto') {
+        this.dom.body.style.removeProperty('height');
+        addClass(this.dom.mainNode, 'cp--auto-height');
+      } else {
+        this.dom.body.style.height = size + 'px';
+        removeClass(this.dom.mainNode, 'cp--auto-height');
+      }
+    },
+    'legacyScrollbars': function(ls) {
+      (ls ? addClass : removeClass)(this.dom.scroll, 'cp--legacy-scrollbars');
+      return !!ls;
+    },
+    'lineEndings': function(le, old) {
+      le = le.toUpperCase();
+      return lineendings[le] || old || '\n';
+    },
+    'lineNumbers': function(ln) {
+      (ln ? removeClass : addClass)(this.dom.counter, 'cp-hidden');
+      ln ? this.dom.mainNode.parentNode && maybeUpdateCountersWidth(this.doc, true) : updateCountersWidth(this.doc, 0);
+      return !!ln;
+    },
+    'mode': function(mode) {
+      this.doc && this.doc.setMode(mode);
+    },
+    'tabIndex': function(ti) {
+      this.dom.input.tabIndex = ti = Math.max(-1, ~~ti);
+      return ti;
+    },
+    'tabWidth': function(tw) {
+      tw = Math.max(0, ~~tw);
+      this.tabString = repeat(' ', tw);
+      runBackgroundParser(this.doc);
+      return tw;
+    },
+    'theme': function(name, dontrequire) {
+      typeof name === 'string' && name !== 'default' ? dontrequire != true && CodePrinter.requireStyle(name) : name = 'default';
+      if (!this.getOption('disableThemeClassName')) {
+        removeClass(this.dom.mainNode, 'cps-'+this.getOption('theme').replace(' ', '-').toLowerCase());
+        addClass(this.dom.mainNode, 'cps-'+name.replace(' ', '-').toLowerCase());
+      }
+    },
+    'width': function(size) {
+      if (size === 'auto') this.dom.mainNode.style.removeProperty('width');
+      else this.dom.mainNode.style.width = size + 'px';
+    }
+  };
+  
+  function addonInitializer(addonName) {
+    return function(value, oldValue) {
+      this.initAddon(addonName, value);
+      return oldValue;
+    }
+  }
+  var addons = ['hints', 'placeholder', 'rulers', 'shortcuts'];
+  for (var i = 0; i < addons.length; i++) optionSetters[addons[i]] = addonInitializer(addons[i]);
+  
   function checkScript(script) {
     var src = script.getAttribute('src'), ex = /\/?codeprinter[\d\-\.]*\.js\/?$/i.exec(src);
     if (ex) {
@@ -3323,6 +3356,9 @@
     },
     popIterator: function(state) {
       if (state.iterators) state.iterators.pop();
+    },
+    replaceIterator: function(state, iterator) {
+      if (state.iterators) state.iterators[state.iterators.length - 1] = iterator;
     }
   }
   
@@ -3374,6 +3410,13 @@
     addons[name] = addon;
     CodePrinter.emit(name+':addonLoaded', addon);
   }
+  CodePrinter.defineOption = function(optionName, defaultValue, setter) {
+    defaults[optionName] = defaultValue;
+    optionSetters[optionName] = setter;
+  }
+  CodePrinter.getDefaults = function() {
+    return copy(defaults);
+  }
   CodePrinter.registerExtension = function(ext, parserName) {
     CodePrinter.aliases[ext.toLowerCase()] = parserName;
   }
@@ -3419,10 +3462,11 @@
       for (var i = 0; i < instances.length; i++) {
         var cp = instances[i], doc = cp.doc;
         if (doc.dom.mainNode === e.target) {
-          doc.scrollTo(doc.scrollTop | 0);
+          doc.scrollTo(doc.scrollLeft | 0, doc.scrollTop | 0);
           updateScroll(doc);
           doc.print();
           cp.emit('inserted');
+          if (cp.getOption('autoFocus')) cp.focus();
         }
       }
     }
@@ -3430,11 +3474,12 @@
   
   function buildDOM(cp) {
     var dom = cp.dom = {};
-    dom.mainNode = addClass(document.createElement('div'), 'codeprinter');
+    dom.mainNode = addClass(document.createElement('div'), ['codeprinter', 'cps-default']);
     dom.body = create(dom.mainNode, 'div', 'cp-body');
     dom.container = create(dom.body, 'div', 'cp-container');
     dom.input = create(dom.container, 'textarea', 'cp-input');
-    dom.scroll = create(dom.container, 'div', 'cp-scroll');
+    dom.editor = create(dom.container, 'div', 'cp-editor');
+    dom.scroll = create(dom.editor, 'div', 'cp-scroll');
     dom.wrapper = create(dom.scroll, 'div', 'cp-wrapper');
     dom.relative = create(dom.wrapper, 'div', 'cp-relative');
     dom.counter = create(dom.scroll, 'div', 'cp-counter');
@@ -3443,8 +3488,6 @@
     dom.screen = create(dom.relative, 'div', 'cp-screen');
     dom.code = create(dom.screen, 'div', 'cp-code');
     dom.measure = create(dom.screen, 'div', 'cp-measure');
-    dom.input.tabIndex = cp.options.tabIndex;
-    dom.input.autofocus = cp.options.autoFocus;
   }
   
   function issetSelectionAt(carets, line, column) {
@@ -3467,7 +3510,7 @@
   function realignHorizontally(doc) {
     var view = doc.view, sl = doc.dom.scroll.scrollLeft, cW = doc.sizes.countersWidth
     , left = -cW + sl + 'px', width = cW + 'px';
-    if (!doc.editor.options.fixedLineNumbers) {
+    if (!doc.editor.getOption('fixedLineNumbers')) {
       doc.dom.counter.style.left = -sl + 'px';
     } else {
       for (var i = 0; i < view.length; i++) {
@@ -3480,7 +3523,7 @@
     var scroll = cp.dom.scroll
     , wrapper = cp.dom.wrapper
     , input = cp.dom.input
-    , options = cp.options
+    , options = cp.getOptions()
     , sizes = cp.doc.sizes
     , counterSelection = []
     , allowKeyup, activeLine
@@ -3508,8 +3551,8 @@
       var doc = cp.doc
       , rect = scroll.getBoundingClientRect()
       , oH = scroll.offsetHeight
-      , x = scroll.scrollLeft + e.clientX - rect.left - doc.sizes.countersWidth
-      , y = e.clientY < rect.top ? 0 : e.clientY <= rect.top + oH ? scroll.scrollTop + e.clientY - rect.top : scroll.scrollHeight
+      , x = scroll.scrollLeft + e.pageX - rect.left - doc.sizes.countersWidth
+      , y = e.pageY < rect.top ? 0 : e.pageY <= rect.top + oH ? scroll.scrollTop + e.pageY - rect.top : scroll.scrollHeight
       , measure = doc.measurePosition(Math.max(0, x), y - doc.sizes.paddingTop);
       
       cp.focus();
@@ -3545,7 +3588,7 @@
         }
         
         moveEvent = e;
-        var top = e.clientY - rect.top, bottom = rect.top + oH - e.clientY, i, t;
+        var top = e.pageY - rect.top, bottom = rect.top + oH - e.pageY, i, t;
         
         if (top <= 40) {
           i = -doc.sizes.font.height;
@@ -3628,7 +3671,7 @@
       Flags.waitForTripleClick = true;
       dblClickTimeout = setTimeout(function() {
         Flags.waitForTripleClick = false;
-        if (word && cp.options.searchOnDblClick) {
+        if (word && cp.getOption('searchOnDblClick')) {
           var from = caret.getRange().from;
           cp.doc.search(word, false, function(results) {
             var node = results.get(from.line, from.column);
@@ -3643,18 +3686,16 @@
     on(scroll, 'selectstart', function(e) { return eventCancel(e); });
     
     on(input, 'focus', function() {
-      cp.doc.focus();
       removeClass(cp.dom.mainNode, 'inactive');
-      cp.emit('focus');
+      cp.doc.focus();
     });
     on(input, 'blur', function() {
       if (isMouseDown) {
         this.focus();
       } else {
-        cp.doc.blur();
         addClass(cp.dom.mainNode, 'inactive');
         if (options.abortSelectionOnBlur) cp.doc.call('clearSelection');
-        cp.emit('blur');
+        cp.doc.blur();
       }
     });
     on(input, 'keydown', function(e) {
@@ -3727,17 +3768,17 @@
       }
     });
   }
-  function checkOptions(cp, options) {
-    var addons = options.addons, dom = cp.dom;
-    cp.setTheme(options.theme);
-    if (options.fontFamily !== CodePrinter.defaults.fontFamily) dom.container.style.fontFamily = options.fontFamily;
-    options.lineNumbers ? cp.showLineNumbers() : cp.hideLineNumbers();
-    options.drawIndentGuides || addClass(dom.mainNode, 'cp--no-indent-guides');
-    options.legacyScrollbars && addClass(dom.scroll, 'cp--legacy-scrollbars');
-    options.tabWidth && cp.setTabWidth(options.tabWidth);
-    options.width !== 'auto' && cp.setWidth(options.width);
-    options.height !== 300 && cp.setHeight(options.height);
-    options.fontSize !== 12 && cp.setFontSize(options.fontSize);
+  function setOptions(cp, options) {
+    var addons = options.addons;
+    cp.tabString = '  ';
+    for (var k in options) {
+      var value = options[k];
+      if (optionSetters[k]) {
+        var setterResult = optionSetters[k].call(cp, options[k], undefined);
+        if (setterResult !== undefined) value = setterResult;
+      }
+      if (value !== defaults[k]) cp.options[k] = value;
+    }
     if (addons) {
       if (addons instanceof Array) {
         for (var i = 0; i < addons.length; i++) {
@@ -3749,8 +3790,6 @@
         }
       }
     }
-    options.shortcuts && cp.initAddon('shortcuts');
-    options.autoComplete && cp.initAddon('hints');
   }
   function create(parent, tag, className) {
     var d = document.createElement(tag);
@@ -3796,7 +3835,7 @@
     return style.replace(/\S+/g, 'cpx-$&');
   }
   function tabString(cp) {
-    return cp.options.indentByTabs ? '\t' : repeat(' ', cp.options.tabWidth);
+    return cp.getOption('indentByTabs') ? '\t' : repeat(' ', cp.getOption('tabWidth'));
   }
   function wheelDelta(e) {
     var x = e.wheelDeltaX, y = e.wheelDeltaY;
@@ -3821,7 +3860,7 @@
     return false;
   }
   function desiredHeight(cp, half) {
-    return (cp.dom.body.offsetHeight || cp.options.height || 0) + cp.options.viewportMargin * (half ? 1 : 2);
+    return (cp.dom.body.offsetHeight || cp.getOption('height') || 0) + cp.getOption('viewportMargin') * (half ? 1 : 2);
   }
   function scroll(doc, delta) {
     if (!delta) return;
