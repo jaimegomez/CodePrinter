@@ -37,13 +37,14 @@ CodePrinter.defineAddon('scrollbars', function() {
     slider.className = 'cp-scrollbar-slider';
     div.appendChild(slider);
     
-    cp.container.appendChild(div);
+    cp.dom.container.appendChild(div);
     
     this.update = function(show) {
       var m = div['offset'+dim] - 4
-      , c = cp.wrapper['offset'+dim]
-      , sm = cp.wrapper['scroll'+dim]
-      , sr = cp.wrapper['scroll'+dir]
+      , scroll = cp.dom.scroll
+      , c = scroll['offset'+dim]
+      , sm = scroll['scroll'+dim]
+      , sr = scroll['scroll'+dir]
       , s = parseInt(m * Math.sqrt(sm / c) * c / sm, 10);
       
       if (sm > c) {
@@ -55,10 +56,10 @@ CodePrinter.defineAddon('scrollbars', function() {
       }
     }
     this.show = function() {
-      div.className += ' visible';
+      div.classList.add('visible');
     }
     this.hide = function() {
-      div.className = div.className.replace(/ visible/g, '');
+      div.classList.remove('visible');
     }
   }
   
@@ -73,7 +74,7 @@ CodePrinter.defineAddon('scrollbars', function() {
       sb.options = { alwaysVisible: false };
       for (var k in options) sb.options[k] = options[k];
       
-      if (cp.caret.isActive) {
+      if (cp.doc.isFocused) {
         sb.update(false);
       }
       

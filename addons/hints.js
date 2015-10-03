@@ -23,6 +23,16 @@ CodePrinter.defineAddon('hints', function() {
     hints.container.appendChild(hints.list);
     hints.overlay.node.appendChild(hints.container);
   }
+  function rm(parent, child) {
+    var next = child.nextElementSibling;
+    parent.removeChild(child);
+    return next;
+  }
+  function isOutOfLastMatch(match, head) {
+    if (!match || CodePrinter.comparePos(match.from, head) > 0) return true;
+    var cmp = CodePrinter.comparePos(head, match.to);
+    return cmp > (head.line === match.to.line ? 1 : 0);
+  }
   
   var List = function() {
     this.seen = {};
@@ -84,10 +94,10 @@ CodePrinter.defineAddon('hints', function() {
   }
   
   var Hints = CodePrinter.Hints = function(cp, options) {
-    var hints = this, active, visible, pattern;
+    var hints = this, active, visible, pattern, lastMatch;
     
     cp.hints = this;
-    this.options = options || {};
+    this.options = options == '[object Object]' ? options : {};
     
     for (var key in defaults) {
       if (!hasOwnProperty.call(this.options, key)) {
@@ -119,16 +129,13 @@ CodePrinter.defineAddon('hints', function() {
       , caret = cp.doc.carets[0]
       , wordRgx = getWordRgx(caret)
       , rgx = new RegExp(wordRgx.source, 'g')
-      , wordBf = caret.wordBefore()
-      , wordAf = caret.wordAfter()
+      , find = cp.doc.findWord(caret.head())
       , curDL = caret.dl()
-      , bf = caret.textBefore()
-      , af = caret.textAfter()
       , ps = caret.getParserState()
       , matcher, dl, text, m, next, ph;
       
       if (ignores) list.ignore(ignores);
-      pattern = (wordBf + wordAf).toLowerCase();
+      pattern = find.word.toLowerCase();
       matcher = matchers[pattern && this.options.matcher || 'default'];
       
       function loop(text) {
@@ -147,7 +154,7 @@ CodePrinter.defineAddon('hints', function() {
         }
       }
       if (!ph || ph.search) {
-        loop(pattern ? bf.substr(0, bf.length - wordBf.length) + ' ' + af.substr(wordAf.length) : bf + af);
+        loop(find.before + ' ' + find.after);
         
         for (var dir = 0; dir <= 1; dir++) {
           next = dir ? curDL.next : curDL.prev;
@@ -160,22 +167,27 @@ CodePrinter.defineAddon('hints', function() {
           limit = limit * 2;
         }
       }
+      lastMatch = find;
       return pattern ? list.sort() : list.values;
     }
     this.show = function() {
       var list = this.search();
-      this.list.innerHTML = '';
       
       if (list && list.length) {
         if (list.length === 1 && cp.doc.carets[0].wordAround() === list[0].value) {
           return this.hide();
         }
+        
+        var child = this.list.firstElementChild;
         for (var i = 0; i < list.length; i++) {
-          var li = list[i], node = li_clone.cloneNode();
+          var li = list[i], node = child || li_clone.cloneNode();
           node.innerHTML = li.html || li.value;
           node.setAttribute('data-value', li.value);
-          this.list.appendChild(node);
+          if (!child) this.list.appendChild(node);
+          else child = node.nextElementSibling;
         }
+        while (child) child = rm(this.list, child);
+        
         this.overlay.show();
         refreshPosition();
         setActive(this.list.children[0], true);
@@ -187,7 +199,7 @@ CodePrinter.defineAddon('hints', function() {
     }
     this.hide = function() {
       this.overlay.hide();
-      visible = active = undefined;
+      visible = active = lastMatch = undefined;
       return this;
     }
     this.isVisible = function() {
@@ -227,8 +239,8 @@ CodePrinter.defineAddon('hints', function() {
         var ch = this.doc.carets[0].textBefore(1);
         if (!visible && hints.match(ch)) hints.show();
       },
-      'change': function(doc, change) {
-        if (this.doc.carets.length > 1) return;
+      'changed': function(doc, change) {
+        if (!visible || this.doc.carets.length > 1) return;
         var caret = this.doc.carets[0];
         if (change.type === 'replace' && hints.match(caret.textBefore(1))) hints.show();
         else hints.hide();
@@ -236,7 +248,7 @@ CodePrinter.defineAddon('hints', function() {
       'caretMoved': function(doc, caret) {
         if (!visible || this.doc.carets.length > 1) return;
         var caret = this.doc.carets[0];
-        if (!hints.match(caret.textBefore(1))) hints.hide();
+        if (isOutOfLastMatch(lastMatch, caret.head()) && hints.match(caret.textBefore(1))) hints.hide();
       },
       '[Up]': function(e) {
         if (visible) {
@@ -334,6 +346,14 @@ CodePrinter.defineAddon('hints', function() {
     }
   }
   
+  CodePrinter.defineOption('hints', false, function(value, oldValue) {
+    if (!value && oldValue) {
+      //this.hints.clear();
+      this.hints = undefined;
+    } else if (value && !oldValue) {
+      new Hints(this, value);
+    }
+  });
   CodePrinter.registerCommand('showHints', function() {
     this.hints && this.hints.show();
   });
