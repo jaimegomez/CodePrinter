@@ -74,18 +74,34 @@
   -moz-flex: 1;
   -ms-flex: 1;
   flex: 1;
-  min-height: 100%;
   background: #ffffff;
   font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 12px;
   position: relative;
   overflow: hidden;
 }
+.codeprinter .cp-editor {
+  display: -webkit-flex;
+  display: -moz-flex;
+  display: -ms-flexbox;
+  display: -ms-flex;
+  display: flex;
+  -webkit-flex-flow: row nowrap;
+  -moz-flex-flow: row nowrap;
+  -ms-flex-flow: row nowrap;
+  flex-flow: row nowrap;
+  -webkit-flex: 1;
+  -moz-flex: 1;
+  -ms-flex: 1;
+  flex: 1;
+  position: relative;
+}
 .codeprinter .cp-scroll {
   -webkit-flex: 1;
   -moz-flex: 1;
   -ms-flex: 1;
   flex: 1;
+  max-height: 100%;
   box-sizing: border-box;
   overflow: hidden;
 }
@@ -124,6 +140,7 @@
 }
 .codeprinter .cp-screen {
   min-height: 100%;
+  padding: 5px 0;
   color: inherit;
   overflow: visible;
   white-space: pre;
@@ -135,7 +152,6 @@
   display: inline-block;
   vertical-align: top;
   min-width: 100%;
-  padding: 5px 0;
   position: relative;
 }
 .codeprinter .cp-measure {
@@ -180,7 +196,7 @@
   position: absolute;
   left: 0;
 }
-.codeprinter .cp-line {
+.codeprinter pre {
   margin: 0;
   padding: 0 10px;
   font: inherit;
@@ -268,6 +284,7 @@
   right: 0;
   bottom: 0;
   left: 0;
+  will-change: transform;
 }
 .codeprinter .cp-selection-overlay {
   z-index: 0;
@@ -331,6 +348,29 @@
 .codeprinter .cp-hint-container .active {
   background-color: #454545;
   color: #fafafa;
+}
+.codeprinter .cp-placeholder {
+  height: 0px;
+  overflow: visible;
+  color: #999999;
+  font-style: italic;
+}
+.codeprinter .cp-rulers {
+  overflow: visible;
+}
+.codeprinter .cp-rulers--dotted .cp-ruler {
+  border-right-style: dotted;
+}
+.codeprinter .cp-rulers--dashed .cp-ruler {
+  border-right-style: dashed;
+}
+.codeprinter .cp-ruler {
+  width: 0px;
+  border-right: 1px solid #eaeaea;
+  position: absolute;
+  top: 0px;
+  bottom: 0px;
+  z-index: 5;
 }
 .codeprinter .cp-carets {
   position: absolute;
