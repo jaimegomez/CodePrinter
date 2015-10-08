@@ -248,7 +248,7 @@ CodePrinter.defineAddon('hints', function() {
       'caretMoved': function(doc, caret) {
         if (!visible || this.doc.carets.length > 1) return;
         var caret = this.doc.carets[0];
-        if (isOutOfLastMatch(lastMatch, caret.head()) && hints.match(caret.textBefore(1))) hints.hide();
+        if (isOutOfLastMatch(lastMatch, caret.head()) || !hints.match(caret.textBefore(1))) hints.hide();
       },
       '[Up]': function(e) {
         if (visible) {

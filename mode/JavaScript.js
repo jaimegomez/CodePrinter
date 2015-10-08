@@ -410,7 +410,6 @@ CodePrinter.defineMode('JavaScript', function() {
     },
     indent: function(stream, state, nextIteration) {
       var i = state.indent, peek = stream.peek();
-      console.log(stream.lastStyle, stream.lastValue, stream.rest(), stream.pos);
       if (stream.lastStyle == 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
       if (closeBrackets.test(peek)) {
         if (!/\bbracket\b/.test(nextIteration()) || stream.lastValue != peek) return null;

@@ -35,8 +35,7 @@
     }
     buildDOM(this);
     EventEmitter.call(this);
-    this.options = options || {};
-    setOptions(this, this.options);
+    setOptions(this, options);
     
     this.keyMap = new keyMap;
     this.setDocument(this.createDocument(source, this.getOption('mode')));
@@ -73,8 +72,6 @@
     hints: false,
     hintsDelay: 200,
     history: true,
-    historyDelay: 1000,
-    historyStackSize: 100,
     indentByTabs: false,
     insertClosingBrackets: true,
     insertClosingQuotes: true,
@@ -227,32 +224,8 @@
     focus: function() {
       return this.dom.input.focus();
     },
-    getOption: function(optionName) {
-      if (optionName in this.options) return this.options[optionName];
-      if (optionName in defaults) return defaults[optionName];
-    },
-    getOptions: function(pick) {
-      var opts = {};
-      if (!isArray(pick)) return extend(opts, defaults, this.options);
-      for (var i = 0; i < pick.length; i++) opts[pick[i]] = this.getOption(pick[i]);
-      return opts;
-    },
-    setOption: function(optionName, value) {
-      var oldValue = this.getOption(optionName);
-      if (optionName && value !== oldValue) {
-        if (optionSetters[optionName]) {
-          var setterResult = optionSetters[optionName].call(this, value, oldValue);
-          if (setterResult === oldValue) return this;
-          else if (setterResult !== undefined) value = setterResult;
-        }
-        this.options[optionName] = value;
-        this.emit('optionChanged', optionName, value, oldValue);
-      }
-      return this;
-    },
-    setOptions: function(extend) {
-      for (var optionName in extend) this.setOption(optionName, extend[optionName]);
-      return this;
+    getTabString: function() {
+      return this.getOption('indentByTabs') ? '\t' : repeat(' ', this.getOption('tabWidth'));
     },
     isState: function(state, line, col, all) {
       if (state && state.length) {
@@ -726,7 +699,7 @@
     },
     foreach: function(f, tmp) {
       tmp = tmp || 0;
-      if (this.isLeaf) for (var i = 0; i < this.length; i++) f.call(this[i], tmp + i);
+      if (this.isLeaf) for (var i = 0; i < this.length; i++) f(this[i], tmp + i);
       else for (var i = 0; i < this.length; i++) {
         this[i].foreach(f, tmp);
         tmp += this[i].size;
@@ -819,15 +792,18 @@
     }
   }
   
+  function patchLineHeight(doc, dl, height) {
+    var diff = height - dl.height;
+    if (diff) {
+      if (dl === doc.view[0].line && doc.view.from !== 0) scrollBy(doc, -diff);
+      for (; dl; dl = dl.parent) dl.height += diff;
+    }
+  }
   function updateLineHeight(doc, dl) {
     if (dl) {
-      var height, node = dl.view.pre;
+      var height, node = maybeExternalMeasure(doc, dl).pre;
       if (height = node.getBoundingClientRect().height) {
-        var diff = height - dl.height;
-        if (diff) {
-          if (dl === doc.view[0] && doc.from !== 0) scrollBy(doc, -diff);
-          for (; dl; dl = dl.parent) dl.height += diff;
-        }
+        patchLineHeight(doc, dl, height);
       }
     }
   }
@@ -1287,9 +1263,9 @@
     this.scrollTo = function(sl, st) {
       return this.scroll(Math.round(sl - this.scrollLeft), Math.round(st - this.scrollTop));
     }
-    this.updateView = function() {
+    this.updateView = function(forceCountersWidth) {
       if (!this.dom.mainNode.parentNode) return;
-      var view = this.view, cw = maybeUpdateCountersWidth(this);
+      var view = this.view, cw = maybeUpdateCountersWidth(this, forceCountersWidth);
       for (var i = 0, lv = view[i]; i < view.length; lv = view[++i]) {
         setCounter(this, lv, view.from + i, cw);
         if (lv.change) process(this, lv.line);
@@ -1319,13 +1295,23 @@
       this.emit('changed', change);
       return change;
     }
+    this.makeChange = function(change, reverse) {
+      var arr = isArray(change) ? change : [change];
+      this.resetCarets();
+      for (var i = arr.length - 1, j = 0, act; i >= 0; i--) {
+        if (reverse) arr[i] = reverseChange(arr[i]);
+        if (act = historyActions[arr[i].type]) {
+          if (act.make.length > 1) act.make.call(this, j ? this.createCaret() : this.carets[j++], arr[i]);
+          else act.make.call(this, arr[i]);
+        }
+      }
+      return this;
+    }
     this.each = function(func) { data.foreach(func); }
     this.get = function(i) { return data.get(i); }
-    this.getOptions = function() { return this.editor && this.editor.getOptions(); }
+    this.getOptions = function(pick) { return this.editor && this.editor.getOptions(pick); }
     this.getOption = function(key) { return this.editor && this.editor.getOption(key); }
-    this.getTabString = function() { return this.editor && this.editor.getOption('indentByTabs') ? '\t' : repeat(' ', this.editor.getOption('tabWidth')); }
     this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
-    this.getLineEnding = function() { var ln = this.getOption('lineEnding'); return ln && lineendings[ln] || ln || lineendings['LF']; }
     
     this.size = function() { return data.size; }
     this.height = function() { return data.height; }
@@ -1608,8 +1594,8 @@
   }
   
   Document.prototype = {
-    undo: function() { return this.history.operation(this, 'undo', historyBack(this.history)); },
-    redo: function() { return this.history.operation(this, 'redo', historyForward(this.history)); },
+    undo: function() { return this.history.operation(this, historyBack(this.history)); },
+    redo: function() { return this.history.operation(this, historyForward(this.history)); },
     undoAll: function() { while (this.undo()); },
     redoAll: function() { while (this.redo()); },
     focus: function() {
@@ -2009,7 +1995,7 @@
         while ((dl = dl.next()) && ++i < to.line) parts[parts.length] = dl.text;
         if (dl) parts[parts.length] = dl.text.substring(0, to.column);
       }
-      return parts.join(this.getLineEnding());
+      return parts.join(this.getOption('lineEnding') || '\n');
     },
     replaceRange: function(text, from, to) {
       var change = replaceRange(this, text, from, to);
@@ -2173,7 +2159,7 @@
     getValue: function(lineEnding) {
       var r = [], i = 0, transform = this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter;
       this.each(function() { r[i++] = transform(this.text); });
-      return r.join(lineEnding || this.getLineEnding());
+      return r.join(lineEnding || this.getOption('lineEnding') || '\n');
     },
     createReadStream: function() {
       return new ReadStream(this, this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter);
@@ -2662,8 +2648,8 @@
   }
   
   ReadStream = function(doc, transform) {
-    var rs = this, stack = []
-    , dl = doc.get(0), le = doc.getLineEnding(), fn;
+    var rs = this, stack = [], dl = doc.get(0)
+    , le = doc.getOption('lineEnding') || '\n', fn;
     EventEmitter.call(this);
     
     async(fn = function() {
@@ -2828,7 +2814,7 @@
     return p(pos.line, pos.column - doc.textAt(pos.line).length - 1);
   }
   function indent(caret) {
-    var doc = this, tabString = doc.getTabString(), range;
+    var doc = this, tabString = doc.editor.getTabString(), range;
     caret.eachLine(function(line, index) {
       singleInsert(doc, line, index, tabString, 0);
     });
@@ -3208,17 +3194,10 @@
       }
       this.staged = undefined;
     },
-    operation: function(doc, op, state) {
-      if (state) {
-        var arr = isArray(state) ? state : [state];
-        doc.resetCarets();
+    operation: function(doc, change) {
+      if (change) {
         this.lock = true;
-        for (var i = arr.length - 1, j = 0, act; i >= 0; i--) {
-          if (act = historyActions[arr[i].type]) {
-            if (act.make.length > 1) act.make.call(doc, j ? doc.createCaret() : doc.carets[j++], arr[i]);
-            else act.make.call(doc, arr[i]);
-          }
-        }
+        doc.makeChange(change);
         return !(this.lock = false);
       }
     },
@@ -3267,9 +3246,13 @@
       this.dom.editor.style.fontSize = size + 'px';
       var doc = this.doc;
       if (doc) {
-        doc.sizes.font = getFontDims(this);
+        var oldHeight = doc.sizes.font.height
+        , font = doc.sizes.font = getFontDims(this);
+        doc.each(function(line) {
+          line.height === oldHeight ? patchLineHeight(doc, line, font.height) : updateLineHeight(doc, line);
+        });
         doc.fill();
-        doc.updateView().call('showSelection');
+        doc.updateView(true).call('showSelection');
         updateScroll(doc);
         doc.call('refresh');
       }
@@ -3521,16 +3504,13 @@
   }
   function attachEvents(cp) {
     var scroll = cp.dom.scroll
-    , wrapper = cp.dom.wrapper
     , input = cp.dom.input
     , options = cp.getOptions()
     , sizes = cp.doc.sizes
     , counterSelection = []
-    , allowKeyup, activeLine
-    , isMouseDown, isScrolling
-    , moveEvent, moveselection
-    , dblClickTimeout
-    , T, T2, T3, fn, cmdPressed, caret;
+    , isScrolling, moveEvent
+    , dblClickTimeout, scrollTimeout
+    , caret;
     
     function counterSelDispatch(line, selIndex) {
       counterSelection[selIndex] = line;
@@ -3558,7 +3538,7 @@
       cp.focus();
       
       if (e.type === 'mousedown') {
-        isMouseDown = Flags.isMouseDown = true;
+        Flags.isMouseDown = true;
         
         if (x < 0) {
           caret = counterSelDispatch(measure.line, 0);
@@ -3616,7 +3596,7 @@
           if (Flags.movingSelection === true) caret.clearSelection();
           maybeClearSelection(caret);
         }
-        isMouseDown = Flags.isMouseDown = Flags.movingSelection = false;
+        Flags.isMouseDown = Flags.movingSelection = false;
         counterSelection.length = 0;
         
         off(window, 'mousemove', onMouse);
@@ -3657,7 +3637,7 @@
         if (!isScrolling) addClass(scroll, 'cp--scrolling');
         isScrolling = true;
         cp.emit('scroll');
-        T3 = clearTimeout(T3) || setTimeout(function() {
+        scrollTimeout = clearTimeout(scrollTimeout) || setTimeout(function() {
           isScrolling = false;
           removeClass(scroll, 'cp--scrolling');
           wheelTarget(cp.doc, null);
@@ -3690,7 +3670,7 @@
       cp.doc.focus();
     });
     on(input, 'blur', function() {
-      if (isMouseDown) {
+      if (Flags.isMouseDown) {
         this.focus();
       } else {
         addClass(cp.dom.mainNode, 'inactive');
@@ -3749,14 +3729,8 @@
     on(input, 'keyup', function(e) {
       updateFlags(e, false);
       if (options.readOnly) return;
-      if (e.keyCode === 8 || e.keyCode === 46 || (!e.ctrlKey && !e.metaKey && modifierKeys.indexOf(e.keyCode) === -1)) {
-        if (this.value.length) cp.doc.call('insert', this.value);
-        if (!Flags.keydownPrevented) {
-          T = clearTimeout(T) || setTimeout(function() {
-            cp.emit('pause');
-            runBackgroundParser(cp.doc);
-          }, options.keyupInactivityTimeout);
-        }
+      if (this.value.length && !e.ctrlKey && !e.metaKey && modifierKeys.indexOf(e.keyCode) === -1) {
+        cp.doc.call('insert', this.value);
       }
       this.value = '';
       cp.emit('keyup', e);
@@ -3768,27 +3742,51 @@
       }
     });
   }
-  function setOptions(cp, options) {
-    var addons = options.addons;
+  function setOptions(cp, opts) {
+    var addons, options = opts == '[object Object]' ? copy(opts) : {};
+    
+    cp.getOption = function(optionName) {
+      if (optionName in options) return options[optionName];
+      if (optionName in defaults) return defaults[optionName];
+    }
+    cp.getOptions = function(pick) {
+      var opts = {};
+      if (!isArray(pick)) return extend(opts, defaults, options);
+      for (var i = 0; i < pick.length; i++) opts[pick[i]] = this.getOption(pick[i]);
+      return opts;
+    }
+    cp.setOption = function(optionName, value) {
+      var oldValue = this.getOption(optionName);
+      if (optionName && value !== oldValue) {
+        if (optionSetters[optionName]) {
+          var setterResult = optionSetters[optionName].call(this, value, oldValue);
+          if (setterResult === oldValue) return this;
+          else if (setterResult !== undefined) value = setterResult;
+        }
+        options[optionName] = value;
+        this.emit('optionChanged', optionName, value, oldValue);
+      }
+      return this;
+    }
+    cp.setOptions = function(extend) {
+      for (var optionName in extend) this.setOption(optionName, extend[optionName]);
+      return this;
+    }
+    
     cp.tabString = '  ';
+    
     for (var k in options) {
       var value = options[k];
       if (optionSetters[k]) {
         var setterResult = optionSetters[k].call(cp, options[k], undefined);
         if (setterResult !== undefined) value = setterResult;
       }
-      if (value !== defaults[k]) cp.options[k] = value;
+      if (value !== defaults[k]) options[k] = value;
+      else delete options[k];
     }
-    if (addons) {
-      if (addons instanceof Array) {
-        for (var i = 0; i < addons.length; i++) {
-          cp.initAddon(addons[i]);
-        }
-      } else {
-        for (var k in addons) {
-          cp.initAddon(k, addons[k]);
-        }
-      }
+    if (addons = options.addons) {
+      if (addons instanceof Array) for (var i = 0; i < addons.length; i++) cp.initAddon(addons[i]);
+      else for (var k in addons) cp.initAddon(k, addons[k]);
     }
   }
   function create(parent, tag, className) {

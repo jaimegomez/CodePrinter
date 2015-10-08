@@ -12,6 +12,8 @@ CodePrinter.defineMode('CSS', function() {
   , operators = /[+>~^$|\*=]/
   , controls = /^(charset|document|font-face|import|(-(moz|ms|o|webkit|khtml)-)?keyframes|media|namespace|page|supports)\b/
   , unitsRgx = /^(%|p(x|t|c)|e(m|x)|m(s|m)|v(w|h|min|max|m)|rem|ch|s|in|cm)/
+  , pushIterator = CodePrinter.helpers.pushIterator
+  , popIterator = CodePrinter.helpers.popIterator
   , tags = [
     'html','body','div','a','ol','ul','li','span','p',
     'h1','h2','h3','h4','h5','h6','img','input','textarea',
@@ -277,12 +279,11 @@ CodePrinter.defineMode('CSS', function() {
       if (ch == state.quote && !esc) break;
       if (esc = !esc && ch == '\\') {
         stream.undo(1);
-        state.next = escapedString;
+        pushIterator(state, escapedString);
         return 'string';
       }
     }
-    if (!ch && esc) state.next = string;
-    state.next = null;
+    popIterator(state);
     if (!ch) return 'invalid';
     state.quote = undefined;
     return 'string';
@@ -291,7 +292,7 @@ CodePrinter.defineMode('CSS', function() {
     if (stream.eat('\\')) {
       var ch = stream.next();
       if (ch) {
-        state.next = string;
+        popIterator(state);
         return 'escaped';
       }
       stream.undo(1);
@@ -300,15 +301,14 @@ CodePrinter.defineMode('CSS', function() {
   }
   function comment(stream, state) {
     if (stream.skip('*/', true)) {
-      state.next = undefined;
+      popIterator(state);
       return 'comment';
     }
     stream.skip();
-    state.next = comment;
     return 'comment';
   }
   function attribute(stream, state) {
-    state.next = undefined;
+    popIterator(state);
     var ch = stream.next();
     if (/[a-z]/i.test(ch)) {
       stream.eatWhile(/[\w\-]/);
@@ -320,7 +320,7 @@ CodePrinter.defineMode('CSS', function() {
   function vardef(stream, state) {
     stream.match(/^\s*/, true);
     stream.eat(':');
-    state.next = undefined;
+    popIterator(state);
     if (stream.eol()) state.vardef = undefined;
     return;
   }
@@ -387,7 +387,7 @@ CodePrinter.defineMode('CSS', function() {
             var word = ch + stream.eatWhile(wordRgx);
             if (stream.isAfter(/^\s*:/)) {
               state.vars[word] = true;
-              state.next = vardef;
+              pushIterator(state, vardef);
               state.vardef = word;
             }
             return 'variable';
@@ -397,7 +397,7 @@ CodePrinter.defineMode('CSS', function() {
           return 'keyword';
         }
         if (ch == '[') {
-          state.next = attribute;
+          pushIterator(state, attribute);
           return;
         }
       }
@@ -425,10 +425,12 @@ CodePrinter.defineMode('CSS', function() {
         return 'namespace';
       }
       if (ch == '/' && stream.eat('*')) {
+        pushIterator(state, comment);
         return comment(stream, state);
       }
       if (ch == '"' || ch == "'") {
         state.quote = ch;
+        pushIterator(state, string);
         return string(stream, state);
       }
       if (/\d/.test(ch)) {
@@ -519,15 +521,15 @@ CodePrinter.defineMode('CSS', function() {
       }
     },
     keyMap: {
-      ':': function(stream, state) {
+      ':': function(stream, state, caret) {
         if (!stream.isBefore(':') && !stream.isAfter(';') && stream.lastStyle == 'special') {
-          this.insertText(': ;', -1);
+          caret.insert(':;', -1);
           return false;
         }
       },
-      ';': function(stream, state) {
+      ';': function(stream, state, caret) {
         if (stream.isAfter(';')) {
-          this.caret.moveX(1);
+          caret.moveX(1);
           return false;
         }
       }

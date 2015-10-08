@@ -57,6 +57,7 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
               if (ctx.name) return 'property';
               ctx.name = word;
             } else if (word !== ctx.name) {
+              popcontext(state);
               return 'invalid';
             }
             return 'keyword';
