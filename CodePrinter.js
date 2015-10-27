@@ -56,6 +56,7 @@
     abortSelectionOnBlur: false,
     autoFocus: true,
     autoIndent: true,
+    autoIndentBlankLines: true,
     autoScroll: true,
     blinkCaret: true,
     caretBlinkRate: 600,
@@ -2241,6 +2242,10 @@
     var afterMove = positionAfterMove(doc, pos, move);
     return move <= 0 ? r(afterMove, pos) : r(pos, afterMove);
   }
+  function nextLineIndent(doc, dl) {
+    var indent = doc.getNextLineIndent(dl.getIndex());
+    return repeat(tabString(doc.editor), indent);
+  }
   
   Caret = CodePrinter.Caret = function(doc) {
     var head = p(0, 0), currentLine, anchor, selOverlay, lastMeasure, parserState;
@@ -2290,6 +2295,11 @@
       if (currentLine !== dl) {
         unselect();
         select(currentLine = dl);
+      }
+      if (!dl.text && doc.getOption('autoIndentBlankLines')) {
+        dl.text = nextLineIndent(doc, dl);
+        column = dl.text.length;
+        measure.offsetX += column * doc.sizes.font.width;
       }
       if (head.line !== line) {
         this.emit('lineChange', dl, line, column);
