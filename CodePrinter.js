@@ -3332,7 +3332,11 @@
       return true;
     }
   }
-  if (document.currentScript) {
+  if ('object' === typeof module && module.filename) {
+    var path = module.filename.split(/\//g);
+    path.pop();
+    CodePrinter.src = path.join('/') + '/';
+  } else if (document.currentScript) {
     checkScript(document.currentScript);
   } else {
     var scripts = document.scripts;
