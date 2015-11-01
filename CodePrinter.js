@@ -541,8 +541,10 @@
       } while (counter !== 0 && ++i < 100);
       
       if (i < 100) {
-        doc.createHighlightOverlay({ line: line, column: start, text: key }, { line: pos.line, column: pos.column - fix, text: opt.value });
-        return true;
+        return [
+          r(p(line, start), p(line, start + key.length)),
+          r(p(pos.line, pos.column - fix), p(pos.line, pos.column - fix + opt.value.length))
+        ];
       }
     }
   }
@@ -830,10 +832,18 @@
     if (!change.text) return change.from;
     return p(change.from.line + change.text.length - 1, lastV(change.text).length + (change.text.length === 1 ? change.from.column : 0));
   }
-  function adjustCaretsPos(doc, change) {
+  function adjustPos(doc, change) {
     eachCaret(doc, function(caret) {
       caret.setSelection(adjustPosForChange(caret.anchor(), change, true), adjustPosForChange(caret.head(true), change));
     });
+    if (doc.markers) {
+      var markers = doc.markers.items;
+      for (var i = markers.length - 1; i >= 0; i--) {
+        var marker = markers[i];
+        if (marker.options.strong) marker.updatePos(adjustPosForChange(marker.from, change, true), adjustPosForChange(marker.to, change));
+        else marker.clear();
+      }
+    }
   }
   function adjustPosForChange(pos, change, anchor) {
     if (!pos) return null;
@@ -850,7 +860,7 @@
     line.view && parse(doc, line);
     change.from = change.to = p(lineIndex, at);
     change.end = p(lineIndex, at + insert.length);
-    adjustCaretsPos(doc, change);
+    adjustPos(doc, change);
   }
   function singleRemove(doc, line, lineIndex, from, to) {
     var text = line.text, change = { from: p(lineIndex, from), to: p(lineIndex, to) };
@@ -858,7 +868,7 @@
     line.view && parse(doc, line);
     change.text = [text.substring(from, to)];
     change.end = change.from;
-    adjustCaretsPos(doc, change);
+    adjustPos(doc, change);
   }
   function getFontDims(cp) {
     var options = cp.getOptions(['fontFamily', 'fontSize', 'lineHeight']);
@@ -910,7 +920,7 @@
     dl.setText(dl.text + after);
     forwardParsing(doc, first);
     var change = { type: 'replace', text: text, removed: removed, from: from, to: to };
-    adjustCaretsPos(doc, change);
+    adjustPos(doc, change);
     return change;
   }
   function removeRange(doc, from, to) {
@@ -1333,8 +1343,8 @@
           }
         }
       },
-      'caretMoved': function(caret) {
-        if (this.getOption('autoScroll') && lastV(this.carets) === caret && !Flags.mouseScrolling) {
+      'dispatch': function(caret) {
+        if (this.getOption('autoScroll') && lastV(this.carets) === caret && !Flags.mouseScrolling && this.isFocused) {
           var scroll = this.dom.scroll
           , pl = this.sizes.paddingLeft, pt = this.sizes.paddingTop
           , sl = scroll.scrollLeft, st = scroll.scrollTop
@@ -1357,19 +1367,32 @@
         if (this.getOption('matching')) {
           var m = getMatchingObject(this.parser.matching);
           if (m) {
-            var a, b, cur, head = caret.head(), bf = caret.textBefore(), af = caret.textAfter();
+            var a, b, c, cur, head = caret.head(), bf = caret.textBefore(), af = caret.textAfter();
             outer: for (var s in m) {
               var len = s.length, i = 0;
               do {
                 a = len == i || bf.indexOf(s.substring(0, len - i), bf.length - len + i) >= 0;
                 b = i == 0 || af.indexOf(s.substring(len - i, len)) == 0;
                 if (a && b) {
-                  a = b = matchingHelper(this, s, m[s], head.line, head.column - len + i, head.column + i);
-                  if (a) break outer;
+                  c = matchingHelper(this, s, m[s], head.line, head.column - len + i, head.column + i);
+                  if (c) break outer;
                 }
               } while (++i <= len);
             }
-            if (!(a && b) && this.highlightOverlay) this.removeOverlay(this.highlightOverlay);
+            var markers = this.highlightMarkers;
+            if (c) {
+              if (!markers) {
+                var opts = { className: 'cp-highlight', strong: true, blur: true };
+                markers = this.highlightMarkers = [this.markText(c[0].from, c[0].to, opts), this.markText(c[1].from, c[1].to, opts)];
+              } else {
+                markers[0].updatePos(c[0].from, c[0].to);
+                markers[1].updatePos(c[1].from, c[1].to);
+              }
+            } else if (markers) {
+              markers[0].hide();
+              markers[1].hide();
+            }
+            //if (!(a && b) && this.highlightOverlay) this.removeOverlay(this.highlightOverlay);
           }
         }
       }
@@ -1974,6 +1997,10 @@
       }
       return this;
     },
+    markText: function(from, to, options) {
+      if (!this.markers) this.markers = this.addOverlay(new CodePrinter.MarkersOverlay(this));
+      return this.markers.add(np(this, from), np(this, to), options);
+    },
     isLineVisible: function(dl) {
       return this.view.indexOf('number' === typeof dl ? this.get(dl) : dl) >= 0;
     },
@@ -2084,7 +2111,7 @@
         dl.setText(newIndent + dl.text.replace(/^\s*/g, ''));
         lm = RegExp.lastMatch.length;
         forwardParsing(this, dl);
-        adjustCaretsPos(this, { text: [newIndent], from: p(line, 0), to: p(line, lm) });
+        adjustPos(this, { text: [newIndent], from: p(line, 0), to: p(line, lm) });
         this.pushChange({ type: 'setIndent', line: line, before: old.indent, after: indent });
       }
       return tab.length * diff;
@@ -2246,6 +2273,16 @@
     var indent = doc.getNextLineIndent(dl.getIndex());
     return repeat(tabString(doc.editor), indent);
   }
+  function quietChange(doc, dl, text) {
+    dl.text = text;
+    if (doc.linkedDocs.length > 0) {
+      var index = dl.getIndex();
+      doc.eachLinkedDoc(function(linkedDoc) {
+        var dl = linkedDoc.get(index);
+        dl.text = text;
+      });
+    }
+  }
   
   Caret = CodePrinter.Caret = function(doc) {
     var head = p(0, 0), currentLine, anchor, selOverlay, lastMeasure, parserState;
@@ -2317,6 +2354,7 @@
       parserState = undefined;
       setPixelPosition.call(this, measure.offsetX, measure.offsetY);
       if (b) this.emit('caretMoved');
+      this.emit('dispatch');
       return this;
     }
     this.beginSelection = function() {
@@ -2553,7 +2591,88 @@
     EventEmitter.call(this);
     return this;
   }
-  CodePrinter.Overlay.prototype = {
+  
+  var Marker = function(doc, from, to, options) {
+    this.doc = doc;
+    this.node = div.cloneNode(false);
+    this.node.className = 'cp-marker-wrapper';
+    this.options = options ? copy(options) : {};
+    this.updatePos(from, to);
+    return this;
+  }
+  
+  Marker.prototype = {
+    updatePos: function(from, to) {
+      if (cmp(from, to) === 0) return this.clear();
+      if (this.options.hidden) this.show();
+      if (this.from) this.node.innerHTML = '';
+      this.from = from;
+      this.to = to;
+      
+      var className = ['cp-marker'];
+      if (this.options.className) className.push(this.options.className);
+      
+      for (var i = from.line, dl; i <= to.line && (dl = this.doc.get(i)); i++) {
+        var colFrom = i === from.line ? from.column : 0
+        , colTo = i === to.line ? to.column : dl.text.length
+        , ms = this.doc.measureRect(dl, colFrom, colTo)
+        , mark = addClass(div.cloneNode(false), className);
+        mark.style.cssText = 'top:'+ms.offsetY+'px;left:'+ms.offsetX+'px;width:'+ms.width+'px;height:'+ms.charHeight+'px;';
+        this.node.appendChild(mark);
+      }
+    },
+    show: function() {
+      if (!this.node.parentNode) {
+        this.doc.markers.node.appendChild(this.node);
+        this.options.hidden = false;
+      }
+    },
+    hide: function() {
+      if (this.node.parentNode) {
+        this.node.parentNode.removeChild(this.node);
+        this.options.hidden = true;
+      }
+    },
+    clear: function() {
+      this.doc.markers.remove(this);
+    }
+  }
+  
+  CodePrinter.MarkersOverlay = function(doc) {
+    var self = this, items = this.items = [];
+    CodePrinter.Overlay.call(this, 'cp-markers-overlay');
+    
+    function onBlur() {
+      for (var i = items.length - 1; i >= 0; i--) {
+        if (!items[i].options.strong) items[i].clear();
+        else if (items[i].options.blur) items[i].hide();
+      }
+    }
+    function onFocus() {
+      for (var i = items.length - 1; i >= 0; i--) {
+        if (items[i].options.blur) items[i].show();
+      }
+    }
+    
+    doc.on('blur', onBlur);
+    doc.on('caretMoved', onBlur);
+    doc.on('focus', onFocus);
+    
+    this.add = function(from, to, options) {
+      var marker = new Marker(doc, from, to, options);
+      this.items.push(marker);
+      this.node.appendChild(marker.node);
+      return marker;
+    }
+    this.remove = function(marker) {
+      var i = this.items.indexOf(marker);
+      if (i >= 0) {
+        this.items.splice(i, 1);
+        marker.options.hidden || this.node.removeChild(marker.node);
+      }
+    }
+  }
+  CodePrinter.Overlay.prototype = CodePrinter.MarkersOverlay.prototype = {
     show: function() {
       this.node.classList.remove('cp-hidden');
     },
@@ -2904,6 +3023,12 @@
     'toggleMark': caretCmd(function(caret) {
       var dl = caret.dl();
       dl && dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
+    }),
+    'markSelection': caretCmd(function(caret) {
+      var range = caret.getSelectionRange();
+      range && this.markText(range.from, range.to, {
+        strong: true
+      });
     }),
     'increaseFontSize': function() { this.setOption('fontSize', this.getOption('fontSize') + 1); },
     'decreaseFontSize': function() { this.setOption('fontSize', this.getOption('fontSize') - 1); },
