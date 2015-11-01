@@ -3587,6 +3587,15 @@
   CodePrinter.getDefaults = function() {
     return copy(defaults);
   }
+  CodePrinter.setDefault = function(optionName, value) {
+    var oldValue = defaults[optionName];
+    if (optionSetters[optionName]) {
+      for (var i = 0; i < instances.length; i++) {
+        instances[i].hasOwnOption(optionName) || optionSetters[optionName].call(instances[i], value, oldValue);
+      }
+    }
+    defaults[optionName] = value;
+  }
   CodePrinter.registerExtension = function(ext, parserName) {
     CodePrinter.aliases[ext.toLowerCase()] = parserName;
   }
@@ -3958,6 +3967,9 @@
     cp.setOptions = function(extend) {
       for (var optionName in extend) this.setOption(optionName, extend[optionName]);
       return this;
+    }
+    cp.hasOwnOption = function(optionName) {
+      return optionName in options;
     }
     
     cp.tabString = '  ';
