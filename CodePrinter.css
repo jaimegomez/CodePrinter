@@ -74,7 +74,7 @@
   -moz-flex: 1;
   -ms-flex: 1;
   flex: 1;
-  background: #ffffff;
+  background: #fff;
   font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 12px;
   position: relative;
@@ -114,7 +114,7 @@
   margin-left: 30px;
   position: relative;
   overflow: visible;
-  color: #555555;
+  color: #555;
   cursor: text;
 }
 .codeprinter .cp-relative {
@@ -141,9 +141,11 @@
 .codeprinter .cp-screen {
   min-height: 100%;
   padding: 5px 0;
+  box-sizing: border-box;
   color: inherit;
   overflow: visible;
   white-space: pre;
+  position: relative;
   -moz-tab-size: 2;
   -o-tab-size: 2;
   tab-size: 2;
@@ -155,25 +157,25 @@
   position: relative;
 }
 .codeprinter .cp-measure {
+  display: inline-block;
   visibility: hidden;
   opacity: 0;
   position: absolute;
   top: 0px;
   left: 0px;
   bottom: 0px;
-  right: 0px;
+  overflow: hidden;
 }
 .codeprinter .cp-counter {
   width: 30px;
   height: 100%;
-  background: #ffffff;
-  border-right: 1px solid #d4d4d4;
+  background: #fff;
   box-sizing: border-box;
   overflow: hidden;
   white-space: nowrap;
   position: absolute;
   top: 0;
-  z-index: 3;
+  z-index: 20;
 }
 .codeprinter .cp-line-view {
   position: relative;
@@ -183,14 +185,14 @@
   top: 0;
   bottom: 0;
   left: -30px;
-  z-index: 4;
+  z-index: 30;
 }
 .codeprinter .cp-line-number {
   min-width: 30px;
   height: 100%;
   padding: 0 5px 0 7px;
   box-sizing: border-box;
-  color: #777777;
+  color: #888;
   text-align: right;
   white-space: nowrap;
   position: absolute;
@@ -203,6 +205,9 @@
   word-wrap: inherit;
   white-space: inherit;
   line-height: normal;
+  position: relative;
+}
+.codeprinter pre span {
   position: relative;
   z-index: 2;
 }
@@ -250,9 +255,9 @@
   bottom: 7px;
 }
 .codeprinter .cp-findbar {
-  background: #ffffff;
+  background: #fff;
   border-top: 1px solid #d4d4d4;
-  color: #555555;
+  color: #555;
 }
 .codeprinter .cp-findbar input {
   margin: 0;
@@ -278,7 +283,6 @@
 .codeprinter .cp-overlay {
   background: none !important;
   white-space: pre;
-  z-index: 7;
   position: absolute;
   top: 0;
   right: 0;
@@ -286,19 +290,26 @@
   left: 0;
   will-change: transform;
 }
-.codeprinter .cp-selection-overlay {
-  z-index: 0;
-}
 .codeprinter .cp-selection {
   background: #c8dcff;
   color: transparent;
-  cursor: pointer;
+  cursor: text;
 }
 .codeprinter .cp-selection,
-.codeprinter .cp-highlight {
+.codeprinter .cp-marker {
   margin: -1px 0 0 -1px;
   padding: 0;
   position: absolute;
+}
+.codeprinter .cp-marker {
+  color: transparent;
+  background: rgba(100, 255, 0, 0.4);
+  box-sizing: border-box;
+  z-index: 1;
+}
+.codeprinter .cp-highlight {
+  background: yellow;
+  border-bottom: 1px solid black;
 }
 .codeprinter .cp-search-overlay {
   pointer-events: none;
@@ -326,12 +337,12 @@
 .codeprinter .cp-hint-container {
   max-width: 300px;
   max-height: 100px;
-  background: #ffffff;
+  background: #fff;
   border: 1px solid #d4d4d4;
   pointer-events: all;
   position: absolute;
   overflow: scroll;
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.15);
 }
 .codeprinter .cp-hint-container ul {
   display: block;
@@ -352,7 +363,7 @@
 .codeprinter .cp-placeholder {
   height: 0px;
   overflow: visible;
-  color: #999999;
+  color: #999;
   font-style: italic;
 }
 .codeprinter .cp-rulers {
@@ -374,9 +385,9 @@
 }
 .codeprinter .cp-carets {
   position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 11;
+  top: 0px;
+  left: 0px;
+  z-index: 10;
   pointer-events: none;
 }
 .codeprinter .cp-caret {
@@ -418,12 +429,6 @@
 .codeprinter .cp-active-line .cp-line,
 .codeprinter .cp-active-line .cp-line-number {
   background: rgba(230, 239, 255, 0.5);
-}
-.codeprinter .cp-highlight {
-  color: transparent;
-  border: solid transparent;
-  border-width: 0 0 1px 0;
-  box-sizing: border-box;
 }
 .codeprinter.cp-fullscreen {
   display: -webkit-flex;
@@ -578,17 +583,10 @@
   background: #d0d0d0;
 }
 .cps-default .cp-counter {
-  box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.15);
 }
 .cps-default .cp-caret {
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
-}
-.cps-default .cp-highlight {
-  border-color: #000;
-}
-.cps-default .cp-active-line .cp-line,
-.cps-default .cp-active-line .cp-line-number {
-  box-shadow: 0 0 0 1px rgba(51, 153, 255, 0.2);
 }
 .cps-default .cpx-control,
 .cps-default .cpx-external {
