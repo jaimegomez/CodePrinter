@@ -171,8 +171,11 @@
     }
     return isPos(pos) ? pos : null;
   };
+  CodePrinter.requireCSS = function(path) {
+    load(path, true);
+  }
   CodePrinter.requireStyle = function(style) {
-    load('theme/'+style+'.css', true);
+    CodePrinter.requireCSS('theme/'+style+'.css');
   }
   
   function attachDoc(editor, doc) {
@@ -180,11 +183,12 @@
     editor.doc = doc;
     doc.propagateTo(editor);
     var dom = doc.dom = editor.dom;
+    updateFontSizes(editor, doc);
     dom.measure.appendChild(doc.measure.node);
     doc.view.mount(dom.code, dom.counter);
     doc.scrollTo(doc.scrollLeft | 0, doc.scrollTop | 0);
-    updateScroll(doc);
     doc.fill();
+    updateScroll(doc);
     applySizes(doc);
     if (editor.getOption('autoFocus')) editor.focus();
     doc.emit('attached');
@@ -352,6 +356,7 @@
     }
     var child = updateInnerLine(pre, cache, ind, tabString);
     while (child) child = rm(doc, pre, child);
+    dl.view.change = false;
   }
   function updateInnerLine(node, cache, ind, tabString) {
     var child = updateIndent(node, node.firstChild, ind, tabString)
@@ -359,7 +364,7 @@
     while (++i < l) {
       tmp = cache[i];
       if (j < tmp.from) child = maybeSpanUpdate(node, child, '', text.substring(j, j = tmp.from));
-      child = maybeSpanUpdate(node, child, cpx(tmp.style), text.substring(tmp.from, j = tmp.to));
+      child = maybeSpanUpdate(node, child, cpx(tmp.symbol), text.substring(tmp.from, j = tmp.to));
     }
     if (j < text.length) child = maybeSpanUpdate(node, child, '', text.substr(j));
     return child;
@@ -401,24 +406,24 @@
   function readIteration(parser, stream, state, cache) {
     stream.start = stream.pos;
     for (var i = 0; i < 3; i++) {
-      var style = getIterator(state, parser)(stream, state);
-      if (style) stream.lastStyle = style;
+      var symbol = getIterator(state, parser)(stream, state);
+      if (symbol) stream.lastSymbol = symbol;
       if (stream.pos > stream.start) {
         var v = stream.from(stream.start);
-        if (v != ' ' && v != '\t') stream.lastValue = v;
-        if (style) cachePush(cache, stream.start, stream.pos, style);
-        return style;
+        if (v !== ' ' && v !== '\t') stream.lastValue = v;
+        if (symbol) cachePush(cache, stream.start, stream.pos, symbol);
+        return symbol;
       }
     }
     throw new Error('Parser has reached an infinite loop!');
   }
-  function cachePush(cache, from, to, style) {
+  function cachePush(cache, from, to, symbol) {
     var length = cache.length, last = cache[length - 1];
-    if (last && last.style == style && last.to == from) last.to = to;
-    else cache[length] = { from: from, to: to, style: style };
+    if (last && last.symbol === symbol && last.to === from) last.to = to;
+    else cache[length] = { from: from, to: to, symbol: symbol };
   }
   function parse(doc, dl, stateBefore) {
-    if (dl != null) {
+    if (dl && doc.editor) {
       var state = stateBefore, tmp = dl
       , tw = doc.getOption('tabWidth')
       , parser = doc.parser;
@@ -466,6 +471,7 @@
       parse(doc, dl, state);
       b = getIterator(state = dl.state, doc.parser);
     }
+    if (dl) parse(doc, dl, state);
     return dl;
   }
   function runBackgroundParser(doc, whole) {
@@ -514,8 +520,12 @@
       if ('number' === typeof indent) doc.setIndent(line + 1, indent);
     }
   }
+  function reIndentAt(doc, at) {
+    var indent = doc.getNextLineIndent(at);
+    if ('number' === typeof indent) doc.setIndent(at.line, indent);
+  }
   function matchingHelper(doc, key, opt, line, start, end) {
-    if (doc.getStyles(p(line, start+1)) === opt.style) {
+    if (doc.getSymbolAt(p(line, start + 1)) === opt.symbol) {
       var counter = 1, i = 0, pos = p(line, start), fn = doc.searchLeft, fix = 0;
       
       if (opt.direction !== 'left') {
@@ -524,7 +534,7 @@
         fix = 1;
       }
       do {
-        var a = fn.call(doc, pos, opt.value, opt.style), b = fn.call(doc, pos, key, opt.style);
+        var a = fn.call(doc, pos, opt.value, opt.symbol), b = fn.call(doc, pos, key, opt.symbol);
         
         if (a) {
           var comp = b && cmp(a, b);
@@ -798,7 +808,7 @@
   function patchLineHeight(doc, dl, height) {
     var diff = height - dl.height;
     if (diff) {
-      if (dl === doc.view[0].line && doc.view.from !== 0) scrollBy(doc, -diff);
+      if (doc.view.length > 0 && dl === doc.view[0].line && doc.view.from !== 0) scrollBy(doc, -diff);
       for (; dl; dl = dl.parent) dl.height += diff;
     }
   }
@@ -809,6 +819,12 @@
         patchLineHeight(doc, dl, height);
       }
     }
+  }
+  function updateFontSizes(cp, doc) {
+    var oldHeight = doc.sizes.font.height, font = doc.sizes.font = getFontDims(cp);
+    doc.each(function(line) {
+      line.height === oldHeight ? patchLineHeight(doc, line, font.height) : updateLineHeight(doc, line);
+    });
   }
   function updateHeight(doc) {
     var minHeight, dom = doc.dom, minHeight = doc.height() + 2 * doc.sizes.paddingTop;
@@ -885,7 +901,7 @@
     if (!sizes.minHeight) updateHeight(doc);
     else dom.wrapper.style.minHeight = sizes.minHeight + 'px';
     updateCountersWidth(doc, doc.sizes.countersWidth);
-    dom.wrapper.style.minWidth = sizes.minWidth + 'px';
+    dom.screen.style.minWidth = sizes.minWidth + 'px';
     dom.scroll.scrollTop = doc.scrollTop | 0;
     dom.scroll.scrollLeft = doc.scrollLeft | 0;
   }
@@ -935,7 +951,7 @@
     return String(formatter(cp.getOption('firstLineNumber') + index));
   }
   function cacheHasFontStyle(cache) {
-    for (var j = 0, cl = cache ? cache.length : 0; j < cl; j++) if (cache[j].style.indexOf('font-') >= 0) return true;
+    for (var j = 0, cl = cache ? cache.length : 0; j < cl; j++) if (cache[j].symbol.indexOf('font-') >= 0) return true;
     return false;
   }
   
@@ -1295,7 +1311,7 @@
         }
         maxLineChanged = false;
         var minWidth = externalMeasure(this, maxLine).pre.offsetWidth;
-        if (this.sizes.minWidth !== minWidth) this.dom.wrapper.style.minWidth = (this.sizes.minWidth = minWidth) + 'px';
+        if (this.sizes.minWidth !== minWidth) this.dom.screen.style.minWidth = (this.sizes.minWidth = minWidth) + 'px';
       }
       updateHeight(this);
       return this.emit('viewUpdated');
@@ -1616,6 +1632,10 @@
       target: pos
     };
   }
+  function clearLine(dl) {
+    dl.cache = dl.state = null;
+    if (dl.view) dl.view.change = true;
+  }
   
   Document.prototype = {
     undo: function() { return this.history.operation(this, historyBack(this.history)); },
@@ -1661,7 +1681,7 @@
           , oldpos = stream.pos, lastCache = lastV(cache);
           if (stream.eol()) tmp.state = state;
           stream.pos = readTo;
-          return { stream: stream, state: state, cache: cache, style: lastCache && lastCache.style, parser: state && state.parser || parser, nextIteration: function() {
+          return { stream: stream, state: state, cache: cache, symbol: lastCache && lastCache.symbol, parser: state && state.parser || parser, nextIteration: function() {
             if (stream.pos < oldpos) stream.pos = oldpos;
             return readIteration(parser, stream, state, cache);
           }};
@@ -1670,12 +1690,18 @@
         }
       }
     },
-    getStyles: function(at) {
+    getSymbolAt: function(at) {
       var pos = np(this, at);
       if (!pos) return false;
-      //var dl = this.get(pos.line);
-      //if (dl.cache) for (var i = 0; i < dl.cache.length; i++) if (dl.cache[i].from <= at.column) return dl.cache[i].style;
-      return this.getState(pos).style;
+      var dl = this.get(pos.line);
+      if (dl.cache) {
+        var offset = parseIndentation(dl.text, this.getOption('tabWidth')).length;
+        if (at.column <= offset) return '';
+        for (var i = 0; i < dl.cache.length; i++)
+          if (at.column <= dl.cache[i].to + offset)
+            return dl.cache[i].symbol;
+      }
+      return this.getState(pos).symbol;
     },
     getParser: function(at) {
       var s = this.getState(at);
@@ -1771,7 +1797,7 @@
           dl = dl.prev();
           --pos.line;
         } else {
-          var st = this.getStyles(p(pos.line, i + 1));
+          var st = this.getSymbolAt(p(pos.line, i + 1));
           if (st === style) break;
           pos.column = i;
         }
@@ -1789,7 +1815,7 @@
           dl = dl.next();
           ++pos.line;
         } else {
-          var st = this.getStyles(p(pos.line, pos.column + i + 1));
+          var st = this.getSymbolAt(p(pos.line, pos.column + i + 1));
           if (st === style) break;
           pos.column += i + 1;
         }
@@ -2085,11 +2111,11 @@
     setMode: function(mode) {
       var doc = this;
       mode = CodePrinter.aliases[mode] || mode || 'plaintext';
-      if (this.mode === mode) return;
+      if (this.parser.name === mode) return;
       CodePrinter.requireMode(mode, function(parser) {
         if (parser instanceof CodePrinter.Mode && doc.parser !== parser) {
           var dl = doc.get(0);
-          if (dl) do dl.cache = dl.state = null; while (dl = dl.next());
+          if (dl) do clearLine(dl); while (dl = dl.next());
           doc.mode = mode;
           doc.parser = parser;
           doc.editor && doc.print();
@@ -2117,7 +2143,7 @@
       return tab.length * diff;
     },
     getNextLineIndent: function(line, allowArrays) {
-      var ps = this.getState(p(line, -1))
+      var ps = this.getState(isPos(line) ? line : p(line, -1))
       , i = ps.parser.indent(ps.stream, ps.state, ps.nextIteration);
       return 'number' === typeof i ? i : isArray(i) ? allowArrays ? i : i[0] : 0;
     },
@@ -2186,7 +2212,7 @@
     },
     getValue: function(lineEnding) {
       var r = [], i = 0, transform = this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter;
-      this.each(function() { r[i++] = transform(this.text); });
+      this.each(function(line) { r[i++] = transform(line.text); });
       return r.join(lineEnding || this.getOption('lineEnding') || '\n');
     },
     createReadStream: function() {
@@ -3363,7 +3389,7 @@
   for (var i = 0; i < brackets.length; i++) {
     CodePrinter.matching.brackets[brackets[i]] = {
       direction: i < 3 ? 'right' : 'left',
-      style: 'bracket',
+      symbol: 'bracket',
       value: complementBracket(brackets[i])
     }
   }
@@ -3381,11 +3407,7 @@
       this.dom.editor.style.fontSize = size + 'px';
       var doc = this.doc;
       if (doc) {
-        var oldHeight = doc.sizes.font.height
-        , font = doc.sizes.font = getFontDims(this);
-        doc.each(function(line) {
-          line.height === oldHeight ? patchLineHeight(doc, line, font.height) : updateLineHeight(doc, line);
-        });
+        updateFontSizes(this, doc);
         doc.fill();
         doc.updateView(true).call('showSelection');
         updateScroll(doc);
@@ -3522,13 +3544,15 @@
     return modes.hasOwnProperty(name.toLowerCase());
   }
   CodePrinter.requireAddon = function(name, cb) {
-    if ('string' == typeof name && 'function' == typeof cb) {
+    if ('string' === typeof name && 'function' === typeof cb) {
+      name = name.toLowerCase();
       if (addons.hasOwnProperty(name)) cb.call(CodePrinter, addons[name]);
-      else CodePrinter.on(name+':addonLoaded', cb) && load('addons/'+name+'.js');
+      else CodePrinter.once(name+':addonLoaded', cb) && load('addons/'+name+'.js');
     }
   }
   CodePrinter.defineAddon = function(name, func) {
     var addon = func.call(CodePrinter);
+    name = name.toLowerCase();
     addons[name] = addon;
     CodePrinter.emit(name+':addonLoaded', addon);
   }
@@ -3824,7 +3848,7 @@
       if (seq === (macosx ? 'Cmd' : 'Ctrl')) {
         this.value = cp.doc.getSelection();
         this.setSelectionRange(0, this.value.length);
-        return eventCancel(e);
+        return eventCancel(e, true);
       }
       if (Flags.cmdKey) {
         if (code === 67 || code === 88) return;
@@ -3859,7 +3883,7 @@
             caret.insert(ch);
           }
           if (options.autoIndent && parser.isIndentTrigger(ch)) {
-            reIndent(this, head.line, head.line);
+            reIndentAt(this, head);
           }
         });
         return eventCancel(e);
@@ -4109,7 +4133,7 @@
         window.postMessage('CodePrinter', '*');
       }
     }
-    on(window, 'message', function(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); });
+    on(window, 'message', function async(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); });
   } else {
     async = CodePrinter.async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
   }
