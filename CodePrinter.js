@@ -2377,18 +2377,18 @@
       var dl = measure.dl
       , column = measure.column
       , line = measure.line
-      , t = dl.text, b;
+      , t = dl.text, b = !doc.isFocused;
       
       if (currentLine !== dl) {
         unselect();
         select(currentLine = dl);
       }
-      if (!dl.text && doc.getOption('autoIndentBlankLines')) {
-        dl.text = nextLineIndent(doc, dl);
-        column = dl.text.length;
-        measure.offsetX += column * doc.sizes.font.width;
-      }
       if (head.line !== line) {
+        if (!dl.text && doc.getOption('autoIndentBlankLines') && doc.isFocused) {
+          quietChange(doc, dl, nextLineIndent(doc, dl));
+          column = dl.text.length;
+          measure.offsetX += column * doc.sizes.font.width;
+        }
         this.emit('lineChange', dl, line, column);
         head.line = line;
         b = true;
