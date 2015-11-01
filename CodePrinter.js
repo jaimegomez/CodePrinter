@@ -1317,12 +1317,18 @@
       return this.emit('viewUpdated');
     }
     this.pushChange = function(change) {
-      if (!change) return;
+      if (!change || this.pushingChanges) return;
+      this.pushingChanges = true;
       this.history.push(change);
       this.emit('changed', change);
+      this.eachLinkedDoc(function(doc) {
+        doc.makeChange(change);
+      });
+      this.pushingChanges = false;
       return change;
     }
     this.makeChange = function(change, reverse) {
+      if (this.pushingChanges) return;
       var arr = isArray(change) ? change : [change];
       this.resetCarets();
       for (var i = arr.length - 1, j = 0, act; i >= 0; i--) {
@@ -1422,8 +1428,10 @@
     this.overlays = [];
     this.carets = [new Caret(this)];
     this.scrollTop = this.scrollLeft = 0;
+    this.mode = mode;
     this.parser = modes.plaintext;
     this.history = new History(this);
+    this.linkedDocs = [];
     
     return this.init(source, mode);
   }
@@ -2026,6 +2034,22 @@
     markText: function(from, to, options) {
       if (!this.markers) this.markers = this.addOverlay(new CodePrinter.MarkersOverlay(this));
       return this.markers.add(np(this, from), np(this, to), options);
+    },
+    createLinkedDoc: function() {
+      var doc = new Document(this.getValue(), this.mode, this.sizes.font);
+      doc.linkedDocs.push(this);
+      this.linkedDocs.push(doc);
+      return doc;
+    },
+    unlinkDoc: function(doc) {
+      var i = this.linkedDocs.indexOf(doc)
+      , j = doc.linkedDocs.indexOf(this);
+      if (i >= 0) this.linkedDocs.splice(i, 1);
+      if (j >= 0) doc.linkedDocs.splice(j, 1);
+      return doc;
+    },
+    eachLinkedDoc: function(fn) {
+      each(this.linkedDocs, fn, this);
     },
     isLineVisible: function(dl) {
       return this.view.indexOf('number' === typeof dl ? this.get(dl) : dl) >= 0;
