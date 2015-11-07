@@ -2177,12 +2177,12 @@
       return this.init('');
     },
     getValue: function(lineEnding) {
-      var r = [], i = 0, transform = this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter;
+      var r = [], i = 0, transform = this.getOption('trimTrailingSpaces') ? rightTrim : defaultFormatter;
       this.each(function(line) { r[i++] = transform(line.text); });
       return r.join(lineEnding || this.getOption('lineEnding') || '\n');
     },
     createReadStream: function() {
-      return new ReadStream(this, this.getOption('trimTrailingSpaces') ? trimSpaces : defaultFormatter);
+      return new ReadStream(this, this.getOption('trimTrailingSpaces') ? rightTrim : defaultFormatter);
     },
     asyncEach: function(callback, onend, options) {
       if (!(onend instanceof Function) && arguments.length === 2) options = onend;
@@ -2951,6 +2951,23 @@
       caret.moveX(dir * Math.max(1, match.length));
     });
   }
+  function addComment(doc, comment) {
+    return function(line, index) {
+      var trimmed = leftTrim(line.text);
+      if (trimmed.indexOf(comment) !== 0) {
+        doc.insertText(comment, p(index, line.text.length - trimmed.length));
+      }
+    };
+  }
+  function removeComment(doc, comment) {
+    return function(line, index) {
+      var trimmed = leftTrim(line.text);
+      if (trimmed.indexOf(comment) === 0) {
+        var col = line.text.length - trimmed.length;
+        doc.removeRange(p(index, col), p(index, col + comment.length));
+      }
+    };
+  }
   
   commands = {
     'moveCaretLeft': moveCaret('moveX', -1),
@@ -3002,6 +3019,28 @@
     'toggleMark': caretCmd(function(caret) {
       var dl = caret.dl();
       dl && dl.classes && dl.classes.indexOf('cp-marked') >= 0 ? dl.removeClass('cp-marked') : dl.addClass('cp-marked');
+    }),
+    'toggleComment': caretCmd(function(caret) {
+      var comment = this.parser.lineComment, add = leftTrim(caret.textAtCurrentLine()).indexOf(comment) !== 0;
+      add ? caret.eachLine(addComment(this, comment)) : caret.eachLine(removeComment(this, comment));
+    }),
+    'toggleBlockComment': caretCmd(function(caret) {
+      var commentBegin = this.parser.blockCommentStart || '', commentEnd = this.parser.blockCommentEnd || ''
+      , range = caret.getRange();
+      if ((commentBegin || commentEnd) && range) {
+        var first = this.get(range.from.line), last = this.get(range.to.line)
+        , firstTrimmed = leftTrim(first.text), lastTrimmed = rightTrim(last.text)
+        , fcol = first.text.length - firstTrimmed.length
+        , i = firstTrimmed.indexOf(commentBegin), li = lastTrimmed.lastIndexOf(commentEnd);
+        
+        if (i >= 0 && li >= 0) {
+          this.removeRange(p(range.to.line, li), p(range.to.line, li + commentEnd.length));
+          this.removeRange(p(range.from.line, fcol + i), p(range.from.line, fcol + i + commentBegin.length));
+        } else if (i === -1 && li === -1) {
+          this.insertText(commentEnd, p(range.to.line, lastTrimmed.length));
+          this.insertText(commentBegin, p(range.from.line, fcol));
+        }
+      }
     }),
     'markSelection': caretCmd(function(caret) {
       var range = caret.getSelectionRange();
@@ -4158,9 +4197,6 @@
     var s = doc.getState(head);
     return snippet.call(s.parser, s.stream, s.state);
   }
-  function trimSpaces(txt) {
-    return txt.replace(/\s+$/, '');
-  }
   function getModes(names) {
     var m = [];
     for (var i = 0; i < names.length; i++) m.push(modes[names[i].toLowerCase()] || null);
@@ -4198,6 +4234,8 @@
     if ((macosx ? e.metaKey : e.ctrlKey) && key != 'Cmd') res = 'Cmd ' + res;
     return res;
   }
+  function rightTrim(txt) { return txt.replace(/\s+$/, ''); }
+  function leftTrim(txt) { return txt.replace(/^\s+/, ''); }
   function extend(base) { if (base) for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
   function copy(obj) { var cp = isArray(obj) ? [] : {}; for (var k in obj) cp[k] = 'object' === typeof obj[k] ? copy(obj[k]) : obj[k]; return cp; }
   function isArray(arr) { return Object.prototype.toString.call(arr) === '[object Array]'; }
