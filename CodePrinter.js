@@ -524,40 +524,6 @@
     var indent = doc.getNextLineIndent(at);
     if ('number' === typeof indent) doc.setIndent(at.line, indent);
   }
-  function matchingHelper(doc, key, opt, line, start, end) {
-    if (doc.getSymbolAt(p(line, start + 1)) === opt.symbol) {
-      var counter = 1, i = 0, pos = p(line, start), fn = doc.searchLeft, fix = 0;
-      
-      if (opt.direction !== 'left') {
-        pos.column = end;
-        fn = doc.searchRight;
-        fix = 1;
-      }
-      do {
-        var a = fn.call(doc, pos, opt.value, opt.symbol), b = fn.call(doc, pos, key, opt.symbol);
-        
-        if (a) {
-          var comp = b && cmp(a, b);
-          if (comp && (fix ? comp > 0 : comp < 0)) {
-            ++counter;
-            a = b;
-          } else {
-            --counter;
-          }
-          pos = p(a.line, a.column + fix);
-        } else {
-          counter = 0;
-        }
-      } while (counter !== 0 && ++i < 100);
-      
-      if (i < 100) {
-        return [
-          r(p(line, start), p(line, start + key.length)),
-          r(p(pos.line, pos.column - fix), p(pos.line, pos.column - fix + opt.value.length))
-        ];
-      }
-    }
-  }
   
   Branch = function(leaf, children) {
     this.parent = null;
@@ -856,8 +822,8 @@
       var markers = doc.markers.items;
       for (var i = markers.length - 1; i >= 0; i--) {
         var marker = markers[i];
-        if (marker.options.strong) marker.updatePos(adjustPosForChange(marker.from, change, true), adjustPosForChange(marker.to, change));
-        else marker.clear();
+        if (marker.options.weak) marker.clear();
+        else marker.update(adjustPosForChange(marker.from, change, true), adjustPosForChange(marker.to, change, true));
       }
     }
   }
@@ -1387,34 +1353,14 @@
           this.scrollTo(sl, st);
         }
         if (this.getOption('matching')) {
-          var m = getMatchingObject(this.parser.matching);
-          if (m) {
-            var a, b, c, cur, head = caret.head(), bf = caret.textBefore(), af = caret.textAfter();
-            outer: for (var s in m) {
-              var len = s.length, i = 0;
-              do {
-                a = len == i || bf.indexOf(s.substring(0, len - i), bf.length - len + i) >= 0;
-                b = i == 0 || af.indexOf(s.substring(len - i, len)) == 0;
-                if (a && b) {
-                  c = matchingHelper(this, s, m[s], head.line, head.column - len + i, head.column + i);
-                  if (c) break outer;
-                }
-              } while (++i <= len);
+          var matches = getMatches(this, caret, this.parser.matching);
+          if (matches) {
+            for (var i = 0; i < matches.length; i++) {
+              this.markText(matches[i].from, matches[i].to, {
+                className: 'cp-highlight',
+                weak: true
+              });
             }
-            var markers = this.highlightMarkers;
-            if (c) {
-              if (!markers) {
-                var opts = { className: 'cp-highlight', strong: true, blur: true };
-                markers = this.highlightMarkers = [this.markText(c[0].from, c[0].to, opts), this.markText(c[1].from, c[1].to, opts)];
-              } else {
-                markers[0].updatePos(c[0].from, c[0].to);
-                markers[1].updatePos(c[1].from, c[1].to);
-              }
-            } else if (markers) {
-              markers[0].hide();
-              markers[1].hide();
-            }
-            //if (!(a && b) && this.highlightOverlay) this.removeOverlay(this.highlightOverlay);
           }
         }
       }
@@ -1709,7 +1655,13 @@
           if (at.column <= dl.cache[i].to + offset)
             return dl.cache[i].symbol;
       }
-      return this.getState(pos).symbol;
+      var state = this.getState(pos);
+      return state && state.symbol || '';
+    },
+    hasSymbolAt: function(symbol, at) {
+      if (!symbol) return false;
+      var sym = this.getSymbolAt(at);
+      return sym && sym.split(' ').indexOf(symbol) >= 0;
     },
     getParser: function(at) {
       var s = this.getState(at);
@@ -1794,7 +1746,7 @@
       if (!m.charWidth) m.charWidth = calcCharWidth(dl.view || this.measure);
       return m;
     },
-    searchLeft: function(start, pattern, style) {
+    searchLeft: function(start, pattern, symbol) {
       var pos = np(this, start), dl = pos && this.get(pos.line)
       , search = 'string' === typeof pattern ? function(text) { return text.lastIndexOf(pattern); } : function(text) { return text.search(pattern); };
       if (!pos) return;
@@ -1805,14 +1757,13 @@
           dl = dl.prev();
           --pos.line;
         } else {
-          var st = this.getSymbolAt(p(pos.line, i + 1));
-          if (st === style) break;
+          if (this.hasSymbolAt(symbol, p(pos.line, i + 1))) break;
           pos.column = i;
         }
       }
       return dl && p(pos.line, i);
     },
-    searchRight: function(start, pattern, style) {
+    searchRight: function(start, pattern, symbol) {
       var pos = np(this, start), dl = pos && this.get(pos.line)
       , search = 'string' === typeof pattern ? function(text) { return text.indexOf(pattern); } : function(text) { return text.search(pattern); };
       if (!pos) return;
@@ -1823,8 +1774,7 @@
           dl = dl.next();
           ++pos.line;
         } else {
-          var st = this.getSymbolAt(p(pos.line, pos.column + i + 1));
-          if (st === style) break;
+          if (this.hasSymbolAt(symbol, p(pos.line, pos.column + i + 1))) break;
           pos.column += i + 1;
         }
       }
@@ -2647,12 +2597,12 @@
     this.node = div.cloneNode(false);
     this.node.className = 'cp-marker-wrapper';
     this.options = options ? copy(options) : {};
-    this.updatePos(from, to);
+    this.update(from, to);
     return this;
   }
   
   Marker.prototype = {
-    updatePos: function(from, to) {
+    update: function(from, to) {
       if (cmp(from, to) === 0) return this.clear();
       if (this.options.hidden) this.show();
       if (this.from) this.node.innerHTML = '';
@@ -2694,19 +2644,12 @@
     
     function onBlur() {
       for (var i = items.length - 1; i >= 0; i--) {
-        if (!items[i].options.strong) items[i].clear();
-        else if (items[i].options.blur) items[i].hide();
-      }
-    }
-    function onFocus() {
-      for (var i = items.length - 1; i >= 0; i--) {
-        if (items[i].options.blur) items[i].show();
+        if (items[i].options.weak || items[i].options.blur) items[i].clear();
       }
     }
     
     doc.on('blur', onBlur);
     doc.on('caretMoved', onBlur);
-    doc.on('focus', onFocus);
     
     this.add = function(from, to, options) {
       var marker = new Marker(doc, from, to, options);
@@ -2747,17 +2690,18 @@
     sol: function() { return this.pos === 0; },
     eol: function() { return this.pos >= this.value.length; },
     eat: function(match) {
-      var ch = this.value.charAt(this.pos), eaten;
-      if ('string' == typeof match) eaten = ch == match;
-      else eaten = ch && (match.test ? match.test(ch) : match(ch));
+      var type = typeof match, ch = this.value.charAt(this.pos), eaten;
+      if ('string' === type) eaten = ch == match;
+      else eaten = ch && ('function' === type ? match(ch) : match.test(ch));
       if (eaten) {
         ++this.pos;
         return ch;
       }
     },
     eatWhile: function(match) {
-      var pos = this.pos;
-      while (this.eat(match));
+      var pos = this.pos, type = typeof match;
+      if ('function' === type) for (var v = this.value; this.pos < v.length && match(v[this.pos]); this.pos++);
+      else while (this.eat(match));
       return this.from(pos);
     },
     eatUntil: function(match, noLeftContext) {
@@ -2773,7 +2717,8 @@
       return this.from(pos);
     },
     match: function(match, eat, caseSensitive) {
-      if ('string' == typeof match) {
+      var type = typeof match;
+      if ('string' === type) {
         var cs = function(str) { return caseSensitive ? str.toLowerCase() : str; };
         var substr = this.value.substr(this.pos, match.length);
         if (cs(substr) == cs(match)) {
@@ -2951,7 +2896,7 @@
     },
     '(': function(k) {
       if (this.getOption('insertClosingBrackets')) {
-        return insertClosing(this, k, complementBracket(k));
+        return insertClosing(this, k, brackets[k]);
       }
     },
     ')': function(k) {
@@ -3404,18 +3349,152 @@
     }
   }
   
+  function getMatcher(name) {
+    var matcher;
+    if ('string' === typeof name) {
+      matcher = CodePrinter.matching[name];
+    }
+    return matcher instanceof CodePrinter.Matcher ? matcher : null;
+  }
+  function getMatches(doc, caret, matchers) {
+    var matchersArray = 'string' === typeof matchers ? [matchers] : matchers, matches = [];
+    if (isArray(matchersArray) && matchersArray.length > 0) {
+      var text = caret.textAtCurrentLine(), line = caret.line(), col = caret.column(), state = caret.getParserState();
+      each(matchersArray, function(matcherName) {
+        var matcher = getMatcher(matcherName), match;
+        if (matcher && (match = matcher.match(text, col, state))) {
+          var search = matcher.search(doc, line, match);
+          if (search) isArray(search) ? matches.push.apply(matches, search) : matches.push(search);
+        }
+      });
+      return matches;
+    }
+  }
+  
+  CodePrinter.Matcher = function(match) {
+    this.rules = {};
+    if ('function' === typeof match) {
+      this.match = match;
+    }
+  }
+  
+  var Match = CodePrinter.Match = function(key, colStart, rule) {
+    extend(this, rule);
+    this.key = key;
+    this.colStart = colStart;
+    this.colEnd = colStart + key.length;
+  }
+  
+  CodePrinter.Matcher.prototype = {
+    addRule: function(rule) {
+      if (rule && rule.key) {
+        this.rules[rule.key] = rule;
+      }
+    },
+    findOffset: function(before, after, key) {
+      for (var i = 0, l = key.length; i <= l; i++) {
+        if (before.lastIndexOf(key.substring(0, i)) === before.length - i && after.indexOf(key.substr(i)) === 0) {
+          return -i;
+        }
+      }
+    },
+    match: function(text, column) {
+      var rules = this.rules, before = text.substring(0, column), after = text.substr(column);
+      
+      for (var key in rules) {
+        var offset = this.findOffset(before, after, key);
+        if ('number' === typeof offset) {
+          return new Match(key, column + offset, rules[key]);
+        }
+      }
+    },
+    search: function(doc, line, match) {
+      if (match.keySymbol && !doc.hasSymbolAt(match.keySymbol, p(line, match.colStart + 1))) {
+        return false;
+      }
+      var counter = 1, i = 0, pos, fn, fix;
+      
+      switch (match.direction) {
+        case 'left':
+          pos = p(line, match.colStart);
+          fn = doc.searchLeft;
+          fix = 0;
+          break;
+        case 'right':
+          pos = p(line, match.colEnd);
+          fn = doc.searchRight;
+          fix = 1;
+          break;
+        default:
+          return false;
+      }
+      do {
+        var a = fn.call(doc, pos, match.search, match.searchSymbol)
+        , b = fn.call(doc, pos, match.key, match.keySymbol);
+        
+        if (a) {
+          var comp = b && cmp(a, b);
+          if (comp && (fix ? comp > 0 : comp < 0)) {
+            ++counter;
+            a = b;
+          } else {
+            --counter;
+          }
+          pos = p(a.line, a.column + fix);
+        } else {
+          counter = 0;
+        }
+      } while (counter !== 0 && ++i < 100);
+      
+      if (a && i < 100) {
+        return [
+          r(p(line, match.colStart), p(line, match.colEnd)),
+          r(p(pos.line, pos.column - fix), p(pos.line, pos.column - fix + match.search.length))
+        ];
+      }
+    }
+  }
+  
   lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
   CodePrinter.aliases = { 'js': 'JavaScript', 'htm': 'HTML', 'less': 'CSS', 'h': 'C++', 'cpp': 'C++', 'rb': 'Ruby', 'pl': 'Perl',
     'sh': 'Bash', 'adb': 'Ada', 'coffee': 'CoffeeScript', 'md': 'Markdown', 'svg': 'XML', 'plist': 'XML', 'yml': 'YAML' };
-  CodePrinter.matching = {'brackets': {}};
+  CodePrinter.matching = {};
   
-  var brackets = ['{', '(', '[', '}', ')', ']'];
-  for (var i = 0; i < brackets.length; i++) {
-    CodePrinter.matching.brackets[brackets[i]] = {
-      direction: i < 3 ? 'right' : 'left',
-      symbol: 'bracket',
-      value: complementBracket(brackets[i])
+  CodePrinter.matching.tags = new CodePrinter.Matcher(function(text, column, parserState) {
+    var ctx = parserState.state.context;
+    if (ctx.type === 'tag' && ctx.name) {
+      var offset = this.findOffset(text.substring(0, column), text.substr(column), ctx.name);
+      
+      if ('number' === typeof offset) {
+        if (parserState.stream.at(offset - 1) === '/') {
+          return new Match(ctx.name, column + offset, {
+            keySymbol: 'close-tag',
+            search: ctx.name,
+            searchSymbol: 'open-tag',
+            direction: 'left'
+          });
+        } else {
+          return new Match(ctx.name, column + offset, {
+            keySymbol: 'open-tag',
+            search: ctx.name,
+            searchSymbol: 'close-tag',
+            direction: 'right'
+          });
+        }
+      }
     }
+  });
+  CodePrinter.matching.brackets = new CodePrinter.Matcher();
+  
+  var brackets = {'{': '}', '(': ')', '[': ']', '}': '{', ')': '(', ']': '['};
+  for (var bracket in brackets) {
+    CodePrinter.matching.brackets.addRule({
+      key: bracket,
+      keySymbol: 'bracket',
+      search: brackets[bracket],
+      searchSymbol: 'bracket',
+      direction: /^[\{\(\[]$/.test(bracket) ? 'right' : 'left'
+    });
   }
   
   optionSetters = {
@@ -3618,6 +3697,11 @@
   CodePrinter.registerHistoryAction = function(action, face) {
     if (action && face && 'function' === typeof face.undo && 'function' === typeof face.redo) {
       historyActions[action] = face;
+    }
+  }
+  CodePrinter.defineMatcher = function(name, matcher) {
+    if ('string' === typeof name && matcher instanceof CodePrinter.Matcher) {
+      CodePrinter.matching[name] = matcher;
     }
   }
   CodePrinter.getFlag = function(key) {
@@ -4003,10 +4087,6 @@
     node.parentNode || overlay.node.appendChild(node);
     return node;
   }
-  function getMatchingObject(m) {
-    if ('string' === typeof m) return CodePrinter.matching[m];
-    return m;
-  }
   function valueOf(source) {
     if (source && source.nodeType) return source.value || '';
     return 'string' === typeof source ? source : '';
@@ -4056,9 +4136,6 @@
     charAfter == ch ? caret.moveX(1) : /\b(string|invalid)\b/.test(s.style) || /[^\s\)\]\}]/.test(charAfter) ? doc.insertText(ch, 0) : doc.insertText(ch + comp, -1);
     return false;
   }
-  function desiredHeight(cp, half) {
-    return (cp.dom.body.offsetHeight || cp.getOption('height') || 0) + cp.getOption('viewportMargin') * (half ? 1 : 2);
-  }
   function scroll(doc, delta) {
     if (!delta) return;
     doc.sizes.scrollTop += delta;
@@ -4091,10 +4168,6 @@
     var s = cspan(null, 'A'), cw;
     view.pre.appendChild(s); cw = s.offsetWidth; view.pre.removeChild(s);
     return cw;
-  }
-  function complementBracket(ch) {
-    var obj = { '(':')', ')':'(', '{':'}', '}':'{', '[':']', ']':'[', '<':'>', '>':'<' }
-    return obj[ch];
   }
   function functionSnippet(cp, head, snippet) {
     var s = doc.getState(head);
@@ -4140,7 +4213,6 @@
     if ((macosx ? e.metaKey : e.ctrlKey) && key != 'Cmd') res = 'Cmd ' + res;
     return res;
   }
-  function escape(str) { return str.replace(/[-\/\\^$*+?.()|[\]{}"']/g, '\\$&'); }
   function extend(base) { if (base) for (var i = 1; i < arguments.length; i++) for (var k in arguments[i]) base[k] = arguments[i][k]; return base; }
   function copy(obj) { var cp = isArray(obj) ? [] : {}; for (var k in obj) cp[k] = 'object' === typeof obj[k] ? copy(obj[k]) : obj[k]; return cp; }
   function isArray(arr) { return Object.prototype.toString.call(arr) === '[object Array]'; }
