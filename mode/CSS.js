@@ -341,7 +341,7 @@ CodePrinter.defineMode('CSS', function() {
     blockCommentEnd: '*/',
     indentTriggers: /\}/,
     autoCompleteWord: /@?[\w\-\\]+/,
-    autoCompleteTriggers: /[:@]/,
+    autoCompleteTriggers: /[\w:@ ]/,
     matching: 'brackets',
     
     initialState: function() {
