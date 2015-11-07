@@ -35,9 +35,9 @@
     }
     buildDOM(this);
     EventEmitter.call(this);
+    this.keyMap = new keyMap;
     setOptions(this, options);
     
-    this.keyMap = new keyMap;
     this.setDocument(this.createDocument(source, this.getOption('mode')));
     attachEvents(this);
     
@@ -516,13 +516,20 @@
     to = Math.min(to, doc.size() - 1);
     if (from === 0) doc.setIndent(0, 0);
     for (var line = from; line < to; line++) {
-      var indent = doc.getNextLineIndent(line);
-      if ('number' === typeof indent) doc.setIndent(line + 1, indent);
+      reIndentAt(doc, line + 1);
     }
   }
-  function reIndentAt(doc, at) {
-    var indent = doc.getNextLineIndent(at);
-    if ('number' === typeof indent) doc.setIndent(at.line, indent);
+  function reIndentAt(doc, line) {
+    var indent = doc.getNextLineIndent(line - 1);
+    if ('number' === typeof indent) {
+      var next = doc.get(line);
+      if (next) {
+        var ps = doc.getState(p(line, parseIndentation(next.text, 2).length));
+        ps.stream.indent = indent;
+        indent = ps.parser.indent(ps.stream, ps.state, ps.nextIteration);
+        doc.setIndent(line, indent);
+      }
+    }
   }
   
   Branch = function(leaf, children) {
@@ -1655,8 +1662,9 @@
     },
     hasSymbolAt: function(symbol, at) {
       if (!symbol) return false;
-      var sym = this.getSymbolAt(at);
-      return sym && sym.split(' ').indexOf(symbol) >= 0;
+      var symbols = isArray(symbol) ? symbol : [symbol]
+      , sym = this.getSymbolAt(at).split(' ');
+      return sym && symbols.filter(function(item) { return sym.indexOf(item) >= 0; }).length === symbols.length;
     },
     getParser: function(at) {
       var s = this.getState(at);
@@ -2089,7 +2097,7 @@
       });
     },
     getIndent: function(at) {
-      var pos = np(this, at);
+      var pos = np(this, at, 0);
       if (!pos) return 0;
       return parseIndentation(this.textAt(pos.line), this.editor.getOption('tabWidth')).indent;
     },
@@ -2109,9 +2117,10 @@
       return tab.length * diff;
     },
     getNextLineIndent: function(line, allowArrays) {
-      var ps = this.getState(isPos(line) ? line : p(line, -1))
+      var pos = isPos(line) ? line : p(line, -1), ps = this.getState(pos)
       , i = ps.parser.indent(ps.stream, ps.state, ps.nextIteration);
-      return 'number' === typeof i ? i : isArray(i) ? allowArrays ? i : i[0] : 0;
+      if ('number' === typeof i) return i;
+      return isArray(i) ? allowArrays ? i : i[0] : 0;
     },
     reIndent: function(from, to) {
       if ('number' === typeof from && 'number' === typeof to) {
@@ -3593,7 +3602,7 @@
       return oldValue;
     }
   }
-  var addons = ['hints', 'placeholder', 'rulers', 'shortcuts', 'matchTags'];
+  var addons = ['hints', 'placeholder', 'rulers', 'shortcuts'];
   for (var i = 0; i < addons.length; i++) optionSetters[addons[i]] = addonInitializer(addons[i]);
   
   function checkScript(script) {
@@ -4031,6 +4040,7 @@
             reIndentAt(this, head);
           }
         });
+        cp.emit('keypress', ch, e);
         return eventCancel(e);
       }
     });
