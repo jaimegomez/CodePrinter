@@ -364,8 +364,8 @@ CodePrinter.defineMode('CSS', function() {
           return 'numeric';
         }
         if (ch === '#') {
-          var hex = ch + stream.eatWhile(/[0-9a-f]/i);
-          return hex.length === 4 || hex.length === 7 ? 'numeric hex' : 'invalid';
+          var hex = stream.eatWhile(/[0-9a-f]/i);
+          return [3, 4, 6, 8].indexOf(hex.length) >= 0 ? 'numeric hex' : 'invalid';
         }
         if (ch === '@') {
           var word = ch + stream.eatWhile(wordRgx);
