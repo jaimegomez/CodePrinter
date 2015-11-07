@@ -14,28 +14,28 @@ CodePrinter.defineMode('JavaScript', function() {
   , wordRgx = /[\w$\xa1-\uffff]/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
   , closeBrackets = /^[}\]\)]/
-  , controls = ['if','else','elseif','for','switch','while','do','try','catch','finally']
-  , constants = ['null','undefined','NaN','Infinity']
+  , controls = CodePrinter.keySet(['if','else','elseif','for','switch','while','do','try','catch','finally'])
+  , constants = CodePrinter.keySet(['null','undefined','NaN','Infinity'])
   , rules = {}
-  , keywords = [
+  , keywords = CodePrinter.keySet([
     'var','let','const','return','new','case','continue','break','instanceof','typeof',
     'class','export','import','extends','yield','super','debugger','default','delete',
     'in','throw','void','with','of','public','private','package','protected',
     'interface','implements'
-  ]
-  , specials = [
+  ])
+  , specials = CodePrinter.keySet([
     'this','$','_','window','document','console','arguments','function','navigator',
     'global','module','Object','Array','String','Number','Function','RegExp','Date',
     'Boolean','Math','JSON','Proxy','Promise','Map','WeakMap','Set','WeakSet','Symbol',
     'Reflect','Error','EvalError','InternalError','RangeError','ReferenceError',
     'StopIteration','SyntaxError','TypeError','URIError'
-  ];
+  ]);
   
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;
     while (ch = stream.next()) {
-      if (ch == state.quote && !esc) break;
-      if (esc = !esc && ch == '\\') {
+      if (ch === state.quote && !esc) break;
+      if (esc = !esc && ch === '\\') {
         stream.undo(1);
         push(state, escapedString);
         return 'string';
@@ -72,12 +72,12 @@ CodePrinter.defineMode('JavaScript', function() {
   function regexp(stream, state, escaped) {
     var esc = !!escaped, ch;
     while (ch = stream.next()) {
-      if (ch == '\\' && !stream.eol()) {
+      if (ch === '\\' && !stream.eol()) {
         stream.undo(1);
         push(state, escapedRegexp);
         return 'regexp';
       }
-      if (ch == '/') {
+      if (ch === '/') {
         stream.take(/^[gimy]+/);
         pop(state);
         return 'regexp';
@@ -101,14 +101,14 @@ CodePrinter.defineMode('JavaScript', function() {
   function parameters(stream, state) {
     var ch = stream.next();
     if (ch) {
-      if (ch == ')') {
+      if (ch === ')') {
         pop(state);
         return 'bracket';
       }
-      if (ch == '.' && stream.eat('.') && stream.eat('.')) {
+      if (ch === '.' && stream.eat('.') && stream.eat('.')) {
         return 'operator';
       }
-      if (ch == ',' || ch == ' ') {
+      if (ch === ',' || ch === ' ') {
         return;
       }
       if (wordRgx.test(ch)) {
@@ -123,48 +123,48 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   function words(stream, state, ch) {
     var word = ch + stream.take(/^[\w$\xa1-\uffff]+/);
-    if (word == 'function') {
+    if (word === 'function') {
       if (!state.fn) state.fn = true;
       return 'special';
     }
-    if (word == 'var') {
+    if (word === 'var') {
       state.vardef = state.indent;
       return 'keyword';
     }
-    if (word == 'let') {
+    if (word === 'let') {
       state.letdef = state.indent;
       return 'keyword';
     }
-    if (word == 'class') {
+    if (word === 'class') {
       state.classdef = true;
       return 'keyword';
     }
-    if (word == 'const') {
+    if (word === 'const') {
       state.constdef = state.indent;
       return 'keyword';
     }
-    if (stream.lastValue == 'function') {
+    if (stream.lastValue === 'function') {
       state.fn = word;
       return saveVariable(state, word, 'function', 47);
     }
-    if (stream.lastValue == 'class') {
+    if (stream.lastValue === 'class') {
       state.classdef = word;
       return saveVariable(state, word, 'variable', 47);
     }
-    if (word == 'true' || word == 'false') return 'builtin boolean';
-    if (constants.indexOf(word) >= 0) return 'constant';
-    if (controls.indexOf(word) >= 0) {
-      if (stream.lastStyle != 'control') state.control = word;
+    if (word === 'true' || word === 'false') return 'builtin boolean';
+    if (constants[word]) return 'constant';
+    if (controls[word]) {
+      if (stream.lastSymbol !== 'control') state.control = word;
       return 'control';
     }
-    if (specials.indexOf(word) >= 0) return 'special';
-    if (keywords.indexOf(word) >= 0) return 'keyword';
+    if (specials[word]) return 'special';
+    if (keywords[word]) return 'keyword';
     
-    if (state.context.type == CLASS_CONTEXT) {
+    if (state.context.type === CLASS_CONTEXT) {
       if (stream.isAfter(/^\s*\(/)) {
         state.fn = word;
         return saveVariable(state, word, 'function', CLASS_CONTEXT);
-      } else if (word == 'get' || word == 'set') {
+      } else if (word === 'get' || word === 'set') {
         return 'keyword';
       }
     }
@@ -172,7 +172,7 @@ CodePrinter.defineMode('JavaScript', function() {
       var rgx = RegExp.$1;
       if (rgx) {
         state.fn = word;
-        if (state.context.type == OBJECT_CONTEXT && rgx[0] == ':') {
+        if (state.context.type === OBJECT_CONTEXT && rgx[0] === ':') {
           saveVariable(state, word, 'function', OBJECT_CONTEXT);
         }
       }
@@ -185,14 +185,14 @@ CodePrinter.defineMode('JavaScript', function() {
       return parameters(stream, state);
     }
     
-    if (state.context && (state.context.type != OBJECT_CONTEXT || !stream.isAfter(/^\s*:/)) && !stream.isBefore(/\.\s*$/, -word.length)) {
+    if (state.context && (state.context.type !== OBJECT_CONTEXT || !stream.isAfter(/^\s*:/)) && !stream.isBefore(/\.\s*$/, -word.length)) {
       var isVar = isVariable(word, state);
       if (isVar && 'string' === typeof isVar) return isVar;
     }
-    if ((!stream.lastValue || (stream.lastStyle == 'keyword' && stream.lastValue != 'new') || stream.lastValue == ',') && stream.isAfter(/^\s*([=;,]|$)/)) {
-      if (state.vardef == state.indent) return saveVariable(state, word, 'variable', FUNCTION_CONTEXT);
-      if (state.letdef == state.indent) return saveVariable(state, word, 'variable', BLOCK_CONTEXT);
-      if (state.constdef == state.indent) return saveVariable(state, word, 'constant', FUNCTION_CONTEXT);
+    if ((!stream.lastValue || (stream.lastSymbol === 'keyword' && stream.lastValue !== 'new') || stream.lastValue === ',') && stream.isAfter(/^\s*([=;,]|$)/)) {
+      if (state.vardef === state.indent) return saveVariable(state, word, 'variable', FUNCTION_CONTEXT);
+      if (state.letdef === state.indent) return saveVariable(state, word, 'variable', BLOCK_CONTEXT);
+      if (state.constdef === state.indent) return saveVariable(state, word, 'constant', FUNCTION_CONTEXT);
     }
     return 'word';
   }
@@ -223,7 +223,7 @@ CodePrinter.defineMode('JavaScript', function() {
     return vartype;
   }
   function closeFatArrow(stream, state) {
-    if (state.fatArrow && state.context.type == ARROW_CONTEXT) {
+    if (state.fatArrow && state.context.type === ARROW_CONTEXT) {
       popcontext(state);
       state.fatArrow = null;
     }
@@ -255,8 +255,8 @@ CodePrinter.defineMode('JavaScript', function() {
       push(state, comment);
       return comment(stream, state);
     }
-    if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'variable'
-      || stream.lastStyle == 'numeric' || stream.lastStyle == 'constant' || stream.lastValue == ')') {
+    if (stream.lastSymbol === 'word' || stream.lastSymbol === 'parameter' || stream.lastSymbol === 'variable'
+      || stream.lastSymbol === 'numeric' || stream.lastSymbol === 'constant' || stream.lastValue === ')') {
       return 'operator';
     }
     push(state, regexp);
@@ -273,8 +273,8 @@ CodePrinter.defineMode('JavaScript', function() {
     if (state.letdef >= 0) state.letdef = null;
     if (state.constdef >= 0) state.constdef = null;
     closeFatArrow(stream, state);
-    if (state.context.type == BLOCK_CONTEXT && state.context.open) {
-      if (state.controlParenthesisClosed || state.control == 'else' && state.controlParenthesisClosed == null) {
+    if (state.context.type === BLOCK_CONTEXT && state.context.open) {
+      if (state.controlParenthesisClosed || state.control === 'else' && state.controlParenthesisClosed === null) {
         do popcontext(state); while (state.context.open);
         state.control = null;
       }
@@ -282,17 +282,17 @@ CodePrinter.defineMode('JavaScript', function() {
     return 'punctuation';
   }
   rules['('] = function(stream, state) {
-    if (state.control && stream.lastStyle == 'control') {
+    if (state.control && stream.lastSymbol === 'control') {
       if (state.controlParenthesisClosed) state.controlParenthesisClosed = false;
       pushcontext(state, BLOCK_CONTEXT);
       state.context.open = true;
     }
-    else if (state.fn && (stream.lastValue == 'function' || stream.lastStyle == 'function')) {
+    else if (state.fn && (stream.lastValue === 'function' || stream.lastSymbol === 'function')) {
       push(state, parameters);
       pushcontext(state, FUNCTION_CONTEXT);
-      if ('string' == typeof state.fn) stream.markDefinition(new Definition(state.fn, state.context.params));
+      if ('string' === typeof state.fn) stream.markDefinition(new Definition(state.fn, state.context.params));
     }
-    else if (!state.fn && stream.lastStyle != 'function' && stream.isAfter(/^[^\(\)]*\)\s*=>/)) {
+    else if (!state.fn && stream.lastSymbol !== 'function' && stream.isAfter(/^[^\(\)]*\)\s*=>/)) {
       push(state, parameters);
       pushcontext(state, ARROW_CONTEXT);
       state.fatArrow = true;
@@ -304,22 +304,22 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   rules['{'] = function(stream, state) {
     var ctxType = state.context.type;
-    if (state.control && ctxType == BLOCK_CONTEXT && state.context.open && stream.lastValue == ')') {
+    if (state.control && ctxType === BLOCK_CONTEXT && state.context.open && stream.lastValue === ')') {
       if (state.controlParenthesisClosed) state.controlParenthesisClosed = null;
       state.control = null;
       state.context.open = false;
     }
-    else if (state.fn && ctxType == FUNCTION_CONTEXT) {
+    else if (state.fn && ctxType === FUNCTION_CONTEXT) {
       state.fn = null;
     }
-    else if (state.fatArrow && ctxType == ARROW_CONTEXT && stream.lastValue == '=>') {
+    else if (state.fatArrow && ctxType === ARROW_CONTEXT && stream.lastValue === '=>') {
       state.fatArrow = false;
     }
     else if (state.classdef) {
       pushcontext(state, CLASS_CONTEXT);
       state.classdef = null;
     }
-    else if (state.vardef == state.indent || state.letdef == state.indent) {
+    else if (state.vardef === state.indent || state.letdef === state.indent) {
       pushcontext(state, OBJECT_CONTEXT);
     }
     else {
@@ -333,7 +333,7 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   rules[')'] = function(stream, state) {
     closeFatArrow(stream, state);
-    if (state.context.type == FAKE_CONTEXT) popcontext(state);
+    if (state.context.type === FAKE_CONTEXT) popcontext(state);
     else if (state.control) {
       if (state.vardef >= 0) state.vardef = null;
       if (state.letdef >= 0) state.letdef = null;
@@ -344,7 +344,7 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   rules['}'] = function(stream, state) {
     closeFatArrow(stream, state);
-    if (state.context.type == BLOCK_CONTEXT && !state.context.open || state.context.type & 47) {
+    if (state.context.type === BLOCK_CONTEXT && !state.context.open || state.context.type & 47) {
       if (state.control) state.control = undefined;
       popcontext(state);
     } else return 'invalid';
@@ -357,7 +357,7 @@ CodePrinter.defineMode('JavaScript', function() {
     return 'bracket';
   }
   rules['#'] = function(stream) {
-    if (stream.peek() == '!' && stream.pos == 1) {
+    if (stream.peek() === '!' && stream.pos === 1) {
       stream.skip();
       return 'directive';
     }
@@ -383,7 +383,7 @@ CodePrinter.defineMode('JavaScript', function() {
       
       if (rule) return rule(stream, state, ch);
       
-      if (ch == '0' && stream.eat(/x/i)) {
+      if (ch === '0' && stream.eat(/x/i)) {
         stream.take(/^[\da-f]+/i);
         return 'numeric hex';
       }
@@ -391,13 +391,13 @@ CodePrinter.defineMode('JavaScript', function() {
         stream.match(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/, true);
         return 'numeric';
       }
-      if (ch == '<' && state.parser && stream.isAfter(/^\s*\/\s*script/i)) {
+      if (ch === '<' && state.parser && stream.isAfter(/^\s*\/\s*script/i)) {
         state.parser = null;
         stream.undo(1);
         return;
       }
       if (operatorRgx.test(ch)) {
-        if (ch == '*' && stream.lastValue == 'function') return;
+        if (ch === '*' && stream.lastValue === 'function') return;
         stream.take(/^[+\-*&%=<>!?|~^]+/);
         return 'operator';
       }
@@ -410,14 +410,14 @@ CodePrinter.defineMode('JavaScript', function() {
     },
     indent: function(stream, state, nextIteration) {
       var i = state.indent, peek = stream.peek();
-      if (stream.lastStyle == 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
+      if (stream.lastSymbol === 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
       if (closeBrackets.test(peek)) {
-        if (!/\bbracket\b/.test(nextIteration()) || stream.lastValue != peek) return null;
-        if (peek == ')') return state.context.type == FAKE_CONTEXT ? i - 1 : null;
-        if (peek == ']') return state.context.type == ARRAY_CONTEXT ? i - 1 : null;
-        if (peek == '}') return state.context.type & 47 ? i - 1 : null;
+        if (!/\bbracket\b/.test(nextIteration()) || stream.lastValue !== peek) return null;
+        if (peek === ')') return state.context.type === FAKE_CONTEXT ? i - 1 : null;
+        if (peek === ']') return state.context.type === ARRAY_CONTEXT ? i - 1 : null;
+        if (peek === '}') return state.context.type & 47 ? i - 1 : null;
       }
-      if (peek == 'e') return stream.isBefore('els') && stream.lastStyle == 'control' ? i : null;
+      if (peek === 'e') return stream.isBefore('els') && stream.lastSymbol === 'control' ? i : null;
       if (state.parser && stream.isAfter(/^\s*<\s*\/\s*script/i)) return i - 1;
       return i;
     },

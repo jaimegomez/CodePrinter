@@ -2,26 +2,20 @@
 
 CodePrinter.defineMode('CSS', function() {
   
-  function keyset(arr) {
-    var obj = {};
-    for (var i = 0; i < arr.length; i++) obj[arr[i]] = true;
-    return obj;
-  }
-  
   var wordRgx = /[\w\-\\]/
   , operators = /[+>~^$|\*=]/
   , controls = /^(charset|document|font-face|import|(-(moz|ms|o|webkit|khtml)-)?keyframes|media|namespace|page|supports)\b/
   , unitsRgx = /^(%|p(x|t|c)|e(m|x)|m(s|m)|v(w|h|min|max|m)|rem|ch|s|in|cm)/
   , pushIterator = CodePrinter.helpers.pushIterator
   , popIterator = CodePrinter.helpers.popIterator
-  , tags = [
+  , tags = CodePrinter.keySet([
     'html','body','div','a','ol','ul','li','span','p',
     'h1','h2','h3','h4','h5','h6','img','input','textarea',
     'button','form','label','select','option','optgroup',
     'main','nav','header','section','aside','footer','code',
     'fieldset','article','pre','table','tr','th','td',
     'thead','tbody','tfoot','frameset','frame','iframe'
-  ]
+  ])
   , colors = [
     'inherit', 'transparent', 'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure',
     'beige', 'bisque', 'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown',
@@ -50,7 +44,7 @@ CodePrinter.defineMode('CSS', function() {
     'teal', 'thistle', 'tomato', 'turquoise', 'violet', 'wheat', 'white',
     'whitesmoke', 'yellow', 'yellowgreen', 'initial'
   ]
-  , _colors = keyset(colors)
+  , _colors = CodePrinter.keySet(colors)
   , borderStyles = ['dashed', 'dotted', 'double', 'groove', 'hidden', 'inset', 'none', 'outset', 'ridge', 'solid', 'inherit']
   , borderWidths = ['medium', 'thin', 'thick', 'inherit']
   , overflows = ['auto', 'hidden', 'scroll', 'visible', 'inherit']
@@ -276,8 +270,8 @@ CodePrinter.defineMode('CSS', function() {
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;
     while (ch = stream.next()) {
-      if (ch == state.quote && !esc) break;
-      if (esc = !esc && ch == '\\') {
+      if (ch === state.quote && !esc) break;
+      if (esc = !esc && ch === '\\') {
         stream.undo(1);
         pushIterator(state, escapedString);
         return 'string';
@@ -349,26 +343,26 @@ CodePrinter.defineMode('CSS', function() {
       return { vars: {}, indent: 0 }
     },
     iterator: function(stream, state) {
-      if (stream.pos == 0 && state.vardef) state.vardef = undefined;
+      if (stream.pos === 0 && state.vardef) state.vardef = undefined;
       var ch = stream.next();
       if (state.property || state.vardef) {
-        if (ch == '-' || /\d/.test(ch)) {
+        if (ch === '-' || /\d/.test(ch)) {
           if (stream.match(/^\d*\.?\d+/, true) || /\d/.test(ch)) {
             stream.match(unitsRgx, true);
             return 'numeric';
           }
           return;
         }
-        if (ch == '.') {
+        if (ch === '.') {
           stream.match(/^\d+/, true);
           stream.match(unitsRgx, true);
           return 'numeric';
         }
-        if (ch == '#') {
+        if (ch === '#') {
           var hex = ch + stream.eatWhile(/[0-9a-f]/i);
-          return hex.length == 4 || hex.length == 7 ? 'numeric hex' : 'invalid';
+          return hex.length === 4 || hex.length === 7 ? 'numeric hex' : 'invalid';
         }
-        if (ch == '@') {
+        if (ch === '@') {
           var word = ch + stream.eatWhile(wordRgx);
           if (state.vars[word] === true) {
             return 'variable';
@@ -380,7 +374,7 @@ CodePrinter.defineMode('CSS', function() {
           stream.eatWhile(wordRgx);
           return symbols[ch];
         }
-        if (ch == '@') {
+        if (ch === '@') {
           if (stream.match(controls, true)) {
             return 'control';
           } else {
@@ -393,42 +387,42 @@ CodePrinter.defineMode('CSS', function() {
             return 'variable';
           }
         }
-        if (ch == '*') {
+        if (ch === '*') {
           return 'keyword';
         }
-        if (ch == '[') {
+        if (ch === '[') {
           pushIterator(state, attribute);
           return;
         }
       }
-      if (ch == '{') {
-        if (stream.lastStyle) stream.markDefinition(new Definition(stream.value.substr(0, stream.pos - 1)));
+      if (ch === '{') {
+        if (stream.lastSymbol) stream.markDefinition(new Definition(stream.value.substr(0, stream.pos - 1)));
         ++state.indent;
         return 'bracket';
       }
-      if (ch == '}') {
+      if (ch === '}') {
         if (state.property) state.property = undefined;
         if (state.vardef) state.vardef = undefined;
         --state.indent;
         return 'bracket';
       }
-      if (ch == '(' || ch == ')') {
+      if (ch === '(' || ch === ')') {
         return 'bracket';
       }
-      if (ch == ';') {
+      if (ch === ';') {
         if (state.property) state.property = undefined;
         if (state.vardef) state.vardef = undefined;
         return;
       }
-      if (ch == ':' && !state.property) {
+      if (ch === ':' && !state.property) {
         stream.eatWhile(wordRgx);
         return 'namespace';
       }
-      if (ch == '/' && stream.eat('*')) {
+      if (ch === '/' && stream.eat('*')) {
         pushIterator(state, comment);
         return comment(stream, state);
       }
-      if (ch == '"' || ch == "'") {
+      if (ch === '"' || ch === "'") {
         state.quote = ch;
         pushIterator(state, string);
         return string(stream, state);
@@ -438,7 +432,7 @@ CodePrinter.defineMode('CSS', function() {
         stream.eat('%');
         return 'numeric';
       }
-      if (ch == '<' && state.parser && stream.isAfter(/^\s*\/\s*style/i)) {
+      if (ch === '<' && state.parser && stream.isAfter(/^\s*\/\s*style/i)) {
         state.parser = undefined;
         stream.undo(1);
         return;
@@ -449,7 +443,7 @@ CodePrinter.defineMode('CSS', function() {
       }
       if (wordRgx.test(ch)) {
         var word = ch + stream.eatWhile(wordRgx);
-        if (tags.indexOf(word) >= 0) {
+        if (tags[word]) {
           return 'keyword';
         }
         if ((state.property || state.vardef) && _colors[word] === true) {
@@ -466,7 +460,7 @@ CodePrinter.defineMode('CSS', function() {
         }
         if (state.indent > 0) {
           var prop = word;
-          if (ch == '-') {
+          if (ch === '-') {
             prop = getUnprefixedProperty(word);
           }
           if (stream.isAfter(/^\s*:/)) state.property = word;
@@ -480,7 +474,7 @@ CodePrinter.defineMode('CSS', function() {
       return;
     },
     indent: function(stream, state) {
-      if (stream.lastValue == '{' && stream.isAfter(/^\s*\}/)) {
+      if (stream.lastValue === '{' && stream.isAfter(/^\s*\}/)) {
         return [state.indent, -1];
       }
       if (stream.isAfter(/^\s*\}/) || state.parser && stream.isAfter(/^\s*<\s*\/\s*style/i)) return state.indent - 1;
@@ -496,9 +490,9 @@ CodePrinter.defineMode('CSS', function() {
       if (stream.isBefore(/(^|\W)\-(we|mo|ms|o)[\w\-]*$/)) {
         var prefix = RegExp.$2, v = [];
         
-        if (prefix == 'we') {
+        if (prefix === 'we') {
           prefix = 'webkit';
-        } else if (prefix == 'mo') {
+        } else if (prefix === 'mo') {
           prefix = 'moz';
         }
         for (var i = 0; i < properties.length; i++) {
@@ -522,7 +516,7 @@ CodePrinter.defineMode('CSS', function() {
     },
     keyMap: {
       ':': function(stream, state, caret) {
-        if (!stream.isBefore(':') && !stream.isAfter(';') && stream.lastStyle == 'special') {
+        if (!stream.isBefore(':') && !stream.isAfter(';') && stream.lastSymbol === 'special') {
           caret.insert(':;', -1);
           return false;
         }

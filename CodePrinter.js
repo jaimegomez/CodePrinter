@@ -3707,6 +3707,13 @@
   CodePrinter.getFlag = function(key) {
     return Flags[key];
   }
+  CodePrinter.keySet = function(arr) {
+    var obj = {};
+    for (var i = 0; i < arr.length; i++) {
+      obj[arr[i]] = true;
+    }
+    return obj;
+  }
   
   CodePrinter.defineMode('plaintext', new CodePrinter.Mode());
   
