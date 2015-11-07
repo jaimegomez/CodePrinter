@@ -250,7 +250,7 @@
         b = s && s.hasOwnProperty(snippetName);
       }
       s = b && s[snippetName];
-      if ('function' === typeof s) s = functionSnippet(this, head, s);
+      if ('function' === typeof s) s = functionSnippet(this.doc, head, s);
       if (s) return 'string' === typeof s ? { content: s } : s;
     },
     registerSnippet: function() {
@@ -326,7 +326,7 @@
   function searchLineWithState(parser, dl, tw) {
     if (!parser.initialState) return { state: null, line: dl };
     var tmp = dl.prev(), minI = Infinity, best, ind;
-    for (var i = 0; tmp && i < 300; i++) {
+    for (var i = 0; tmp && i < 1000; i++) {
       if (tmp.state) { best = tmp; break; }
       ind = parseIndentation(tmp.text, tw).indent;
       if (ind < minI) { best = tmp; minI = ind; }
@@ -381,7 +381,7 @@
     span.firstChild.nodeValue = content;
   }
   function parseIndentation(text, tabWidth) {
-    var p = '', i = -1, spaces = 0, ind = 0, stack = [];
+    var i = -1, spaces = 0, ind = 0, stack = [];
     while (++i < text.length) {
       if (text[i] == ' ') {
         ++spaces;
@@ -454,7 +454,7 @@
     return dl;
   }
   function parseStream(parser, stream, state, col) {
-    var style, v, l = col != null ? col : stream.length, cache = [];
+    var l = col != null ? col : stream.length, cache = [];
     (state && state.parser || parser).onEntry(stream, state);
     while (stream.pos < l) readIteration(parser, stream, state, cache);
     (state && state.parser || parser).onExit(stream, state);
@@ -483,13 +483,13 @@
       if (index > to) return false;
       parse(doc, dl, state);
       state = dl.state;
-    }, function(index, last) {
+    }, function() {
       doc.parsing = false;
     });
   }
   function process(doc, dl) {
     if (!dl.cache) return parse(doc, dl);
-    var ind = parseIndentation(dl.text, doc.getOption('tabWidth')), stream = new Stream(ind.rest, ind.indent, ind.length);
+    var ind = parseIndentation(dl.text, doc.getOption('tabWidth'));
     updateLine(doc, dl, ind, doc.editor.tabString, dl.cache);
   }
   function cspan(style, content) {
@@ -805,10 +805,6 @@
       doc.dom.code.style.top = (doc.sizes.scrollTop = o) + 'px';
     }
   }
-  function updateCounters(doc) {
-    var tmp = doc.view.length && doc.view[0].counter, index = doc.from;
-    do tmp.firstChild.nodeValue = lineNumberFor(doc.editor, index++); while (tmp = tmp.nextSibling);
-  }
   function changeEnd(change) {
     if (change.end) return change.end;
     if (!change.text) return change.from;
@@ -1023,7 +1019,7 @@
   function rewind(doc, st) {
     var dl = doc.lineWithOffset(st - doc.editor.getOption('viewportMargin'))
     , view = doc.view, tmpdl = dl, dli = dl.getIndex(), i = -1, popped
-    , from = view.from, codeScrollDelta = dl.getOffset() - doc.sizes.scrollTop;
+    , codeScrollDelta = dl.getOffset() - doc.sizes.scrollTop;
     
     if (view.from <= dli && dli <= view.to) return false;
     
@@ -1143,7 +1139,7 @@
   }
   
   Document = CodePrinter.Document = function(source, mode, font) {
-    var that = this, caretPos, maxLine, maxLineLength = 0, maxLineChanged, data;
+    var maxLine, maxLineLength = 0, maxLineChanged, data;
     
     this.init = function(source, mode) {
       source = source || '';
@@ -1318,7 +1314,7 @@
     EventEmitter.call(this);
     
     this.on({
-      'caretWillMove': function(caret, x, y) {
+      'caretWillMove': function(caret) {
         var head = caret.head();
         for (var i = 0; i < this.carets.length; i++) {
           var cc = this.carets[i];
@@ -1334,7 +1330,6 @@
       'dispatch': function(caret) {
         if (this.getOption('autoScroll') && lastV(this.carets) === caret && !Flags.mouseScrolling && this.isFocused) {
           var scroll = this.dom.scroll
-          , pl = this.sizes.paddingLeft, pt = this.sizes.paddingTop
           , sl = scroll.scrollLeft, st = scroll.scrollTop
           , ow = scroll.offsetWidth - this.sizes.countersWidth
           , oh = scroll.offsetHeight
@@ -1376,7 +1371,7 @@
     this.scrollTop = this.scrollLeft = 0;
     this.mode = mode;
     this.parser = modes.plaintext;
-    this.history = new History(this);
+    this.history = new History();
     this.linkedDocs = [];
     
     return this.init(source, mode);
@@ -1417,7 +1412,7 @@
     if (!find) return 0;
     var search = this.searchResults, text = dl.text, ln = 0, i;
     while (ln < text.length && (i = text.indexOf(find, ln)) >= 0) {
-      search.add(dl, p(line, i), find);
+      search.add(p(line, i), find);
       ln = i + find.length;
     }
   }
@@ -1425,22 +1420,22 @@
     var search = this.searchResults, text = dl.text, ln = 0, i, match;
     while (text && (i = text.substr(ln).search(pattern)) >= 0) {
       if (match = RegExp.lastMatch) {
-        search.add(dl, p(line, ln + i), match);
+        search.add(p(line, ln + i), match);
       }
       if (ln + i === 0) break;
       ln += (i + match.length) || 1;
     }
   }
-  function searchNodeStyle(dl, rect) {
+  function searchNodeStyle(rect) {
     return rect.width ? 'top:'+rect.offsetY+'px;left:'+rect.offsetX+'px;width:'+rect.width+'px;height:'+rect.charHeight+'px;' : 'display:none;';
   }
-  function searchShow(dl, line) {
+  function searchShow(dl) {
     if (this.searchResults) this.searchResults.show(dl, dl.getIndex());
   }
-  function searchHide(dl, line) {
+  function searchHide(dl) {
     if (this.searchResults) this.searchResults.hide(dl, dl.getIndex());
   }
-  function searchOnChange(change) {
+  function searchOnChange() {
     this.searchResults.length = 0;
     this.search(this.searchResults.request, false);
   }
@@ -1468,7 +1463,7 @@
     this.update = function(dl, node) {
       var rect = doc.measureRect(dl, node.column, node.column + node.value.length);
       rect.offsetY = dl.getOffset() + doc.sizes.paddingTop;
-      node.span.setAttribute('style', searchNodeStyle(dl, rect));
+      node.span.setAttribute('style', searchNodeStyle(rect));
       node.span.setAttribute('data-cp-pos', node.line + ',' + node.column);
     }
   }
@@ -1481,7 +1476,7 @@
       this.request = req;
       this.overlay.node.innerHTML = '';
     },
-    add: function(dl, pos, value) {
+    add: function(pos, value) {
       var row = this.rows[pos.line], node, diff = -1;
       if (!row) row = this.rows[pos.line] = [];
       for (var i = 0; i < row.length; i++) {
@@ -1789,7 +1784,7 @@
         var search = this.searchResults = this.searchResults || new SearchResults(this);
         
         if (!search.request || find.toString() !== search.request.toString() || search.length === 0 || !search.onNodeMousedown || this.overlays.indexOf(search.overlay) === -1) {
-          var doc = this, clearSelected, esc;
+          var doc = this, clearSelected;
           search.setRequest(find);
           
           clearSelected = function() {
@@ -1899,7 +1894,6 @@
       }
     },
     eachCaret: function(func, startIndex) {
-      var carets = this.carets;
       this.history.stage();
       each(this.carets, func, this, startIndex);
       this.history.commit();
@@ -1925,11 +1919,9 @@
         var from = range.from, to = range.to
         , firstLine = this.get(from.line)
         , lastLine = this.get(to.line)
-        , fromOffset = firstLine.getOffset()
-        , toOffset = lastLine.getOffset()
         , fromMeasure = this.measureRect(firstLine, from.column)
         , toMeasure = this.measureRect(lastLine, to.column)
-        , pl = this.sizes.paddingLeft, pt = this.sizes.paddingTop
+        , pl = this.sizes.paddingLeft
         , equal = from.line === to.line;
         
         if (cmp(from, to) > 0) return;
@@ -2226,7 +2218,7 @@
       css.height = options.caretHeight * measure.charHeight;
       css.left -= 1;
     },
-    underline: function(css, measure, options) {
+    underline: function(css, measure) {
       css.width = measure.charWidth || measure.dl.height / 2;
       css.height = 1;
       css.top += measure.dl.height - 1;
@@ -2247,8 +2239,7 @@
     return mv;
   }
   function positionAfterMove(doc, pos, move) {
-    var mv = move, line = pos.line, column = pos.column
-    , dl = doc.get(line), size = doc.size();
+    var mv = move, line = pos.line, column = pos.column, dl = doc.get(line);
     
     if (mv <= 0) {
       while (dl) {
@@ -2303,13 +2294,6 @@
       }
       return this;
     }
-    function updateDL(text) {
-      if (currentLine) {
-        currentLine.setText(text);
-        forwardParsing(doc, currentLine);
-        doc.updateView();
-      }
-    }
     function select(dl) {
       if (dl && !dl.active && doc.isFocused) {
         if (doc.getOption('highlightCurrentLine')) dl.addClass(activeClassName);
@@ -2327,7 +2311,7 @@
       var dl = measure.dl
       , column = measure.column
       , line = measure.line
-      , t = dl.text, b = !doc.isFocused;
+      , b = !doc.isFocused;
       
       if (currentLine !== dl) {
         unselect();
@@ -2513,7 +2497,7 @@
     this.offsetY = function() {
       return lastMeasure ? lastMeasure.offsetY : 0;
     }
-    this.totalOffsetY = function(withLine) {
+    this.totalOffsetY = function() {
       return this.offsetY() + (lastMeasure ? lastMeasure.charHeight : 0);
     }
     this.head = function(real) {
@@ -2639,7 +2623,7 @@
   }
   
   CodePrinter.MarkersOverlay = function(doc) {
-    var self = this, items = this.items = [];
+    var items = this.items = [];
     CodePrinter.Overlay.call(this, 'cp-markers-overlay');
     
     function onBlur() {
@@ -2821,7 +2805,7 @@
     init: function() {},
     onEntry: function() {},
     onExit: function() {},
-    iterator: function(stream, state) {
+    iterator: function(stream) {
       stream.skip();
       return '';
     },
@@ -2843,7 +2827,7 @@
         return lines.join('');
       }
     },
-    indent: function(stream, state) {
+    indent: function(stream) {
       return stream.indent;
     },
     isIndentTrigger: function(char) {
@@ -3059,8 +3043,7 @@
       var tw = this.getOption('tabWidth');
       this.doc.eachCaret(function(caret) {
         if (caret.hasSelection()) return caret.removeSelection();
-        var bf = caret.textBefore(), af = caret.textAfter()
-        , chbf = bf.slice(-1), m = bf.match(/^ +$/)
+        var bf = caret.textBefore(), m = bf.match(/^ +$/)
         , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
         caret.removeBefore(r);
       });
@@ -3069,8 +3052,7 @@
       var tw = this.getOption('tabWidth');
       this.doc.eachCaret(function(caret) {
         if (caret.hasSelection()) return caret.removeSelection();
-        var bf = caret.textBefore(), af = caret.textAfter()
-        , chaf = af.charAt(0), m = af.match(/^ +$/)
+        var af = caret.textAfter(), m = af.match(/^ +$/)
         , r = m && m[0] && m[0].length % tw === 0 ? tw : 1;
         caret.removeAfter(r);
       });
@@ -3299,7 +3281,7 @@
   function historyBack(hist) { return historyMove(hist, hist.done, hist.undone); }
   function historyForward(hist) { return historyMove(hist, hist.undone, hist.done); }
   
-  History = function(doc) {
+  History = function() {
     this.lock = false;
     this.done = [];
     this.undone = [];
@@ -3572,7 +3554,7 @@
       return oldValue;
     }
   }
-  var addons = ['hints', 'placeholder', 'rulers', 'shortcuts'];
+  var addons = ['hints', 'placeholder', 'rulers', 'shortcuts', 'matchTags'];
   for (var i = 0; i < addons.length; i++) optionSetters[addons[i]] = addonInitializer(addons[i]);
   
   function checkScript(script) {
@@ -3818,9 +3800,9 @@
       var doc = cp.doc
       , rect = scroll.getBoundingClientRect()
       , oH = scroll.offsetHeight
-      , x = scroll.scrollLeft + e.pageX - rect.left - doc.sizes.countersWidth
+      , x = scroll.scrollLeft + e.pageX - rect.left - sizes.countersWidth
       , y = e.pageY < rect.top ? 0 : e.pageY <= rect.top + oH ? scroll.scrollTop + e.pageY - rect.top : scroll.scrollHeight
-      , measure = doc.measurePosition(Math.max(0, x), y - doc.sizes.paddingTop);
+      , measure = doc.measurePosition(Math.max(0, x), y - sizes.paddingTop);
       
       cp.focus();
       
@@ -3858,10 +3840,10 @@
         var top = e.pageY - rect.top, bottom = rect.top + oH - e.pageY, i, t;
         
         if (top <= 40) {
-          i = -doc.sizes.font.height;
+          i = -sizes.font.height;
           t = Math.round(top);
         } else if (bottom <= 40) {
-          i = doc.sizes.font.height;
+          i = sizes.font.height;
           t = Math.round(bottom);
         }
         if (i) {
@@ -3907,17 +3889,17 @@
       });
       on(scroll, 'touchend', function() { x = y = null; });
     } else if ('onwheel' in window) {
-      on(scroll, 'wheel', function(e) { return wheel(cp.doc, this, e, options.scrollSpeed, e.deltaX, e.deltaY); });
+      on(scroll, 'wheel', function(e) { return wheel(cp.doc, e, options.scrollSpeed, e.deltaX, e.deltaY); });
     } else {
       var mousewheel = function(e) {
         var d = wheelDelta(e);
-        return wheel(cp.doc, this, e, wheelUnit * options.scrollSpeed, d.x, d.y);
+        return wheel(cp.doc, e, wheelUnit * options.scrollSpeed, d.x, d.y);
       }
       on(scroll, 'mousewheel', mousewheel);
       gecko && on(scroll, 'DOMMouseScroll', mousewheel);
     }
     
-    on(scroll, 'scroll', function(e) {
+    on(scroll, 'scroll', function() {
       if (!cp.doc._lockedScrolling) {
         cp.doc.scroll(this.scrollLeft - cp.doc.scrollLeft, this.scrollTop - cp.doc.scrollTop);
       } else {
@@ -4022,7 +4004,7 @@
       this.value = '';
       cp.emit('keyup', e);
     });
-    on(input, 'input', function(e) {
+    on(input, 'input', function() {
       if (!options.readOnly && this.value.length) {
         cp.doc.call('insert', this.value, 0, options.autoIndent && cp.doc.parser.name !== 'plaintext');
         this.value = '';
@@ -4127,7 +4109,7 @@
     if (y == null) y = e.axis === e.VERTICAL_AXIS ? e.detail : e.wheelDelta;
     return { x: x, y: y };
   }
-  function wheel(doc, node, e, speed, x, y) {
+  function wheel(doc, e, speed, x, y) {
     if (webkit && macosx) wheelTarget(doc, e.target);
     doc.scroll(speed * x, speed * y);
     return eventCancel(e);
@@ -4147,10 +4129,6 @@
     if (!delta) return;
     doc.sizes.scrollTop += delta;
     doc.dom.code.style.top = doc.sizes.scrollTop + 'px';
-  }
-  function scrollTo(doc, st) {
-    doc.scrollTop = st;
-    doc.dom.scroll.scrollTop = st;
   }
   function scrollBy(doc, delta) {
     doc.scrollTop += delta;
@@ -4176,7 +4154,7 @@
     view.pre.appendChild(s); cw = s.offsetWidth; view.pre.removeChild(s);
     return cw;
   }
-  function functionSnippet(cp, head, snippet) {
+  function functionSnippet(doc, head, snippet) {
     var s = doc.getState(head);
     return snippet.call(s.parser, s.stream, s.state);
   }
@@ -4231,7 +4209,6 @@
   function eventCancel(e, propagate) { e.preventDefault(); propagate || e.stopPropagation(); return e.returnValue = false; }
   function addClass(n, c) { isArray(c) ? n.classList.add.apply(n.classList, c) : n.classList.add(c); return n; }
   function removeClass(n, c) { isArray(c) ? n.classList.remove.apply(n.classList, c) : n.classList.remove(c); return n; }
-  function hasClass(n, c) { return n.classList.contains(c); }
   function repeat(th, times) {
     var str = '';
     while (times > 0) { if (times % 2 == 1) str += th; th += th; times >>= 1; }
