@@ -8,7 +8,7 @@ var lines = [
   "qui officia deserunt mollit anim id est laborum."
 ];
 var content = lines.join('\n');
-var cp = new CodePrinter(content, { shortcuts: false, height: 1000, mode: 'plaintext' });
+var cp = new CodePrinter(content, { shortcuts: false, height: 1000, mode: 'plaintext', hints: true });
 var doc = cp.doc;
 
 document.body.appendChild(cp.dom.mainNode);
@@ -20,9 +20,9 @@ function generatePosition() {
   return pos;
 }
 
-function checkStyles(positions, style) {
+function checkSymbols(positions, symbols) {
   for (var i = 0; i < positions.length; i++) {
-    expect(cp.getStateAt(positions[i][0], positions[i][1]).style).toBe(style);
+    expect(cp.doc.hasSymbolAt(symbols, positions[i])).toBeTruthy();
   }
 }
 

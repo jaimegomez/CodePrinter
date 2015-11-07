@@ -1,25 +1,35 @@
-
 describe('JavaScript', function() {
-  var doc = cp.createDocument('function factorial(n) {\nif (n === 0) {\nreturn 1;\n}\nreturn (n * factorial(n - 1));\n}\n     console.log(factorial(7)); // 5040\n', 'JavaScript');
+  var lines = [
+    'function factorial(n) {',
+    'if (n === 0) {',
+    'return 1;',
+    '}',
+    'return (n * factorial(n - 1));',
+    '}',
+    '',
+    '     console.log(factorial(7)); // 5040'
+  ];
   
-  beforeEach(function() {
+  var doc = cp.createDocument(lines.join('\n'), 'JavaScript');
+  
+  beforeAll(function() {
     cp.setDocument(doc);
   });
   
   it('should reindent', function() {
-    cp.reIndent();
+    cp.exec('reIndent');
     expect(cp.doc).toBe(doc);
-    expect(cp.doc.parser.name).toBe('JavaScript');
-    expect(cp.getIndentAtLine(0)).toBe(0);
-    expect(cp.getIndentAtLine(1)).toBe(1);
-    expect(cp.getIndentAtLine(2)).toBe(2);
-    expect(cp.getIndentAtLine(3)).toBe(1);
-    expect(cp.getIndentAtLine(4)).toBe(1);
-    expect(cp.getIndentAtLine(5)).toBe(0);
-    expect(cp.getIndentAtLine(6)).toBe(0);
-    expect(cp.getIndentAtLine(7)).toBe(0);
-    expect(cp.getIndentAtLine(8)).toBe(0); // this line doesn't exist
-  })
+    expect(doc.parser.name).toBe('JavaScript');
+    expect(doc.getIndent(0)).toBe(0);
+    expect(doc.getIndent(1)).toBe(1);
+    expect(doc.getIndent(2)).toBe(2);
+    expect(doc.getIndent(3)).toBe(1);
+    expect(doc.getIndent(4)).toBe(1);
+    expect(doc.getIndent(5)).toBe(0);
+    expect(doc.getIndent(6)).toBe(0);
+    expect(doc.getIndent(7)).toBe(0);
+    expect(doc.getIndent(8)).toBe(0); // this line doesn't exist
+  });
   
   it('should have correct contexts', function() {
     var FAKE_CONTEXT = 0
@@ -30,40 +40,40 @@ describe('JavaScript', function() {
     , ARRAY_CONTEXT = 16
     , CLASS_CONTEXT = 32;
     
-    expect(cp.getStateAt(0, 0).state.context.type).not.toBeDefined();
-    expect(cp.getStateAt(0, 19).state.context.type).toBe(FUNCTION_CONTEXT);
-    expect(cp.getStateAt(1, 3).state.context.type).toBe(FUNCTION_CONTEXT);
-    expect(cp.getStateAt(1, 16).state.context.type).toBe(BLOCK_CONTEXT);
-    expect(cp.getStateAt(3, 3).state.context.type).toBe(FUNCTION_CONTEXT);
-    expect(cp.getStateAt(4, 10).state.context.type).toBe(FAKE_CONTEXT);
-    expect(cp.getStateAt(4, 28).state.context.type).toBe(FAKE_CONTEXT);
-    expect(cp.getStateAt(4, 30).state.context.type).toBe(FAKE_CONTEXT);
-    expect(cp.getStateAt(4, 31).state.context.type).toBe(FUNCTION_CONTEXT);
-    expect(cp.getStateAt(5, 1).state.context.type).not.toBeDefined();
-  })
+    expect(doc.getState([0, 0]).state.context.type).not.toBeDefined();
+    expect(doc.getState([0, 19]).state.context.type).toBe(FUNCTION_CONTEXT);
+    expect(doc.getState([1, 3]).state.context.type).toBe(FUNCTION_CONTEXT);
+    expect(doc.getState([1, 16]).state.context.type).toBe(BLOCK_CONTEXT);
+    expect(doc.getState([3, 3]).state.context.type).toBe(FUNCTION_CONTEXT);
+    expect(doc.getState([4, 10]).state.context.type).toBe(FAKE_CONTEXT);
+    expect(doc.getState([4, 28]).state.context.type).toBe(FAKE_CONTEXT);
+    expect(doc.getState([4, 30]).state.context.type).toBe(FAKE_CONTEXT);
+    expect(doc.getState([4, 31]).state.context.type).toBe(FUNCTION_CONTEXT);
+    expect(doc.getState([5, 1]).state.context.type).not.toBeDefined();
+  });
   
   it('should recognize variables', function() {
-    expect(cp.getStateAt(0, 20).style).toContain('parameter');
-    expect(cp.getStateAt(1, 7).style).toContain('variable');
-    expect(cp.getStateAt(4, 25).style).toContain('variable');
-  })
+    expect(doc.hasSymbolAt('parameter', [0, 20])).toBeTruthy();
+    expect(doc.hasSymbolAt('variable', [1, 7])).toBeTruthy();
+    expect(doc.hasSymbolAt('variable', [4, 25])).toBeTruthy();
+  });
   
   it('should toggle comments', function() {
-    cp.caret.position(2, 4);
-    cp.toggleComment();
-    expect(cp.getTextAtLine(2)).toBe('    //return 1;');
-    cp.toggleComment();
-    expect(cp.getTextAtLine(2)).toBe('    return 1;');
-  })  
+    doc.carets[0].position(2, 4);
+    cp.exec('toggleComment');
+    expect(doc.textAt(2)).toBe('    //return 1;');
+    cp.exec('toggleComment');
+    expect(doc.textAt(2)).toBe('    return 1;');
+  });
   
   it('should toggle block comments', function() {
-    cp.doc.setSelectionRange(1, 2, 3, 3);
-    cp.toggleBlockComment();
-    expect(cp.getTextAtLine(1)).toBe('  /*if (n === 0) {');
-    expect(cp.getStateAt(2, 7).style).toContain('comment');
-    expect(cp.getTextAtLine(3)).toBe('  }*/');
-    cp.toggleBlockComment();
-    expect(cp.getStateAt(3, 2)).not.toContain('comment');
-    cp.doc.clearSelection();
-  })
-})
+    doc.carets[0].setSelectionRange({ from: [1, 2], to: [3, 3] });
+    cp.exec('toggleBlockComment');
+    expect(doc.textAt(1)).toBe('  /*if (n === 0) {');
+    expect(doc.hasSymbolAt('comment', [2, 7])).toBeTruthy();
+    expect(doc.textAt(3)).toBe('  }*/');
+    cp.exec('toggleBlockComment');
+    expect(doc.hasSymbolAt('comment', [3, 2])).not.toBeTruthy();
+    doc.carets[0].clearSelection();
+  });
+});

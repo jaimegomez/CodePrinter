@@ -4,11 +4,15 @@ module.exports = function(config) {
     files: [
       'CodePrinter.js',
       'CodePrinter.css',
+      'addons/*.js',
       'mode/*.js',
       'tests/codeprinter.js',
       'tests/document.js',
       'tests/caret.js',
       'tests/commands.js',
+      'tests/mode/javascript.js',
+      'tests/mode/jsx.js',
+      'tests/mode/css.js',
       //'tests/mode/*.js'
     ],
     frameworks: ['jasmine'],
