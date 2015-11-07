@@ -16,9 +16,14 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
   
   return new CodePrinter.Mode({
     name: 'JSX',
+    blockCommentStart: '/*',
+    blockCommentEnd: '*/',
+    lineComment: '//',
+    indentTriggers: /[\}\]\)\/]/,
+    matching: ['brackets', 'tags'],
     
     onExit: JavaScript.onExit,
-    indent: JavaScript.indent,
+    completions: JavaScript.completions,
     snippets: JavaScript.snippets,
     
     initialState: function() {
@@ -56,11 +61,12 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
             if (state.closingTag !== true) {
               if (ctx.name) return 'property';
               ctx.name = word;
+              return 'keyword open-tag';
             } else if (word !== ctx.name) {
               popcontext(state);
               return 'invalid';
             }
-            return 'keyword';
+            return 'keyword close-tag';
           }
         }
       }
@@ -73,6 +79,11 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
       
       stream.undo(1);
       return JavaScript.iterator(stream, state);
+    },
+    indent: function(stream, state, nextIteration) {
+      var ch = stream.peek();
+      if (stream.lastValue === '</' && ch === '/' && state.context.type === 'tag') return state.indent - 1;
+      return JavaScript.indent(stream, state, nextIteration);
     },
     keyMap: {
       '/': function(stream, state, caret) {
