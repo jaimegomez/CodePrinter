@@ -2084,7 +2084,7 @@
     },
     setMode: function(mode) {
       var doc = this;
-      mode = CodePrinter.aliases[mode] || mode || 'plaintext';
+      mode = (CodePrinter.aliases[mode] || mode || 'plaintext').toLowerCase();
       if (this.parser.name === mode) return;
       CodePrinter.requireMode(mode, function(parser) {
         if (parser instanceof CodePrinter.Mode && doc.parser !== parser) {
@@ -3486,8 +3486,8 @@
   }
   
   lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
-  CodePrinter.aliases = { 'js': 'JavaScript', 'htm': 'HTML', 'less': 'CSS', 'h': 'C++', 'cpp': 'C++', 'rb': 'Ruby', 'pl': 'Perl',
-    'sh': 'Bash', 'adb': 'Ada', 'coffee': 'CoffeeScript', 'md': 'Markdown', 'svg': 'XML', 'plist': 'XML', 'yml': 'YAML' };
+  CodePrinter.aliases = { 'js': 'javascript', 'htm': 'html', 'less': 'css', 'h': 'cpp', 'c++': 'cpp', 'rb': 'ruby', 'pl': 'perl',
+    'sh': 'bash', 'adb': 'ada', 'coffee': 'coffeescript', 'md': 'markdown', 'svg': 'xml', 'plist': 'xml', 'yml': 'yaml' };
   CodePrinter.matching = {};
   
   CodePrinter.matching.tags = new CodePrinter.Matcher(function(text, column, parserState) {
@@ -3640,15 +3640,17 @@
   }
   
   CodePrinter.requireMode = function(names, cb) {
-    if ('string' == typeof names) names = [names];
-    if ('function' == typeof cb) {
-      var m = getModes(names), fn;
-      if (m.indexOf(null) == -1) {
+    var modeNames;
+    if (isArray(names)) modeNames = names.map(function(name) { return name.toLowerCase(); });
+    else if ('string' === typeof names) modeNames = [names.toLowerCase()];
+    if (modeNames && modeNames.length > 0 && 'function' === typeof cb) {
+      var m = getModes(modeNames), fn;
+      if (m.indexOf(null) === -1) {
         var cbapply = function() { cb.apply(CodePrinter, m); }
         CodePrinter.syncRequire ? cbapply() : async(cbapply);
       } else {
         CodePrinter.on('modeLoaded', fn = function(modeName, mode) {
-          var i = names.indexOf(modeName);
+          var i = modeNames.indexOf(modeName.toLowerCase());
           if (i >= 0) {
             m[i] = mode;
             if (m.indexOf(null) == -1) {
@@ -3657,7 +3659,7 @@
             }
           }
         });
-        for (var i = 0; i < m.length; i++) m[i] || load('mode/'+names[i]+'.js');
+        for (var i = 0; i < m.length; i++) m[i] || load('mode/'+modeNames[i]+'.js');
       }
     }
   }
@@ -3665,10 +3667,10 @@
     if (arguments.length === 2) { func = req; req = null; }
     var fn = function() {
       var mode = 'function' == typeof func ? func.apply(CodePrinter, Array.apply(null, arguments)) : func;
-      mode.name = name;
-      modes[name = name.toLowerCase()] = mode;
-      CodePrinter.emit('modeLoaded', mode.name, mode);
-      CodePrinter.emit(mode.name+':loaded', mode);
+      mode.name = name = name.toLowerCase();
+      modes[name] = mode;
+      CodePrinter.emit('modeLoaded', name, mode);
+      CodePrinter.emit(name+':loaded', mode);
     }
     req ? CodePrinter.requireMode(req, fn) : fn();
   }

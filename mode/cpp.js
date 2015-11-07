@@ -1,6 +1,6 @@
 /* CodePrinter - Cpp Mode */
 
-CodePrinter.defineMode('C++', function() {
+CodePrinter.defineMode('Cpp', function() {
   var wordRgx = /[\w$\xa1-\uffff]/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
   , closeBrackets = /^[}\]\)]/
@@ -169,7 +169,7 @@ CodePrinter.defineMode('C++', function() {
   }
   
   return new CodePrinter.Mode({
-    name: 'C++',
+    name: 'Cpp',
     blockCommentStart: '/*',
     blockCommentEnd: '*/',
     lineComment: '//',
