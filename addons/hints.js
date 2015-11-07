@@ -231,24 +231,25 @@ CodePrinter.defineAddon('hints', function() {
     
     cp.on({
       'documentChanged': function(oldDoc, newDoc) {
-        oldDoc.removeOverlay(hints.overlay);
+        if (oldDoc) oldDoc.removeOverlay(hints.overlay);
         newDoc.addOverlay(hints.overlay);
       },
-      'pause': function() {
+      'keypress': function() {
         if (this.doc.carets.length > 1) return;
-        var ch = this.doc.carets[0].textBefore(1);
-        if (!visible && hints.match(ch)) hints.show();
-      },
-      'changed': function(doc, change) {
-        if (!visible || this.doc.carets.length > 1) return;
         var caret = this.doc.carets[0];
-        if (change.type === 'replace' && hints.match(caret.textBefore(1))) hints.show();
+        if (hints.match(caret.textBefore(1))) hints.show();
         else hints.hide();
       },
       'caretMoved': function(doc, caret) {
         if (!visible || this.doc.carets.length > 1) return;
         var caret = this.doc.carets[0];
         if (isOutOfLastMatch(lastMatch, caret.head()) || !hints.match(caret.textBefore(1))) hints.hide();
+      },
+      'blur': function() {
+        if (visible) hints.hide();
+      },
+      'scrollend': function() {
+        if (visible) refreshPosition();
       },
       '[Up]': function(e) {
         if (visible) {

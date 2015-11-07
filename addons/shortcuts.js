@@ -22,6 +22,7 @@ CodePrinter.defineAddon('shortcuts', function() {
       this.setCursorPosition(parseInt(prompt("Jump to line..."), 10) - 1, 0);
     },
     'Cmd M': 'toggleMark',
+    'Cmd Shift M': 'markSelection',
     'Ctrl N': 'toggleLineNumbers',
     'Cmd ]': 'indent',
     'Cmd [': 'outdent',
