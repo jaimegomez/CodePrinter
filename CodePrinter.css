@@ -308,8 +308,9 @@
   z-index: 1;
 }
 .codeprinter .cp-highlight {
-  background: yellow;
+  background: #FFFD82;
   border-bottom: 1px solid black;
+  z-index: auto;
 }
 .codeprinter .cp-search-overlay {
   pointer-events: none;
