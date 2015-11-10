@@ -232,14 +232,6 @@
     getTabString: function() {
       return this.getOption('indentByTabs') ? '\t' : repeat(' ', this.getOption('tabWidth'));
     },
-    isState: function(state, line, col, all) {
-      if (state && state.length) {
-        state = 'string' === typeof state ? [state] : state;
-        var gs = getStates.call(this, this.doc.get(line).parsed, col), l = gs ? gs.length : 0;
-        return gs ? all ? gs.diff(state).length === 0 && gs.length == state.length : gs.diff(state).length !== l : false;
-      }
-      return false;
-    },
     getSnippets: function() {
       return extend({}, this.getOption('snippets'), this.doc.parser && this.doc.parser.snippets);
     },
@@ -383,13 +375,13 @@
   function parseIndentation(text, tabWidth) {
     var i = -1, spaces = 0, ind = 0, stack = [];
     while (++i < text.length) {
-      if (text[i] == ' ') {
+      if (text[i] === ' ') {
         ++spaces;
-        if (spaces == tabWidth) {
+        if (spaces === tabWidth) {
           spaces = 0;
           stack[ind++] = 0;
         }
-      } else if (text[i] == '\t') {
+      } else if (text[i] === '\t') {
         spaces = 0;
         stack[ind++] = 1;
       } else {
@@ -448,7 +440,7 @@
         if (stream.definition) tmp.definition = stream.definition;
         else if (tmp.definition) tmp.definition = undefined;
         tmp.state = state;
-        if (tmp == dl) break;
+        if (tmp === dl) break;
         state = copyState(state);
       }
     }
@@ -566,7 +558,7 @@
     shift: shift,
     indexOf: function(node, offset) {
       for (var i = offset || 0, l = this.length; i < l; i++) {
-        if (this[i] == node) {
+        if (this[i] === node) {
           return i;
         }
       }
@@ -627,8 +619,8 @@
           var min = Math.min(n, s - at), oh = ch.height;
           push.apply(r, ch.remove(at, min));
           this.height -= oh - ch.height;
-          if (s == min) { this.splice(i--, 1); ch.parent = null; }
-          if ((n -= min) == 0) break;
+          if (s === min) { this.splice(i--, 1); ch.parent = null; }
+          if ((n -= min) === 0) break;
           at = 0;
         } else {
           at -= s;
@@ -638,7 +630,7 @@
       return r;
     },
     fall: function() {
-      if (this.size < 10 && this.parent && this.length == 1) {
+      if (this.size < 10 && this.parent && this.length === 1) {
         var child = this.pop();
         while (child.length) {
           var node = child.shift();
@@ -662,7 +654,7 @@
     getLineWithOffset: function(offset) {
       var h = 0, i = -1;
       while (++i < this.length && h + this[i].height < offset) h += this[i].height;
-      if (i == this.length) --i; offsetDiff = offset - h;
+      if (i === this.length) --i; offsetDiff = offset - h;
       return this.isLeaf ? this[i] : this[i] ? this[i].getLineWithOffset(offsetDiff) : null;
     },
     next: function() {
@@ -746,7 +738,7 @@
     },
     addClass: function(className) {
       if (!this.classes) this.classes = [className];
-      else if (this.classes.indexOf(className) == -1)
+      else if (this.classes.indexOf(className) === -1)
         this.classes.push(className);
       touch(this);
     },
@@ -754,7 +746,7 @@
       if (this.classes) {
         var j = this.classes.indexOf(className);
         if (j >= 0) this.classes.splice(j, 1);
-        if (this.classes.length == 0) this.classes = undefined;
+        if (this.classes.length === 0) this.classes = undefined;
         touch(this);
       }
     },
@@ -2169,7 +2161,7 @@
     },
     appendLine: function(text) {
       var dl, size = this.doc.size();
-      (size == 1 && (dl = this.doc.get(0)).text.length == 0) ? dl.setText(text) : this.doc.insert(size, text);
+      (size === 1 && (dl = this.doc.get(0)).text.length === 0) ? dl.setText(text) : this.doc.insert(size, text);
       if (!this.doc.isFilled) this.doc.isFilled = this.doc.fill();
       return this;
     },
@@ -2569,9 +2561,9 @@
       if (select !== false) this.setSelection(find.from, find.to);
       return find.word;
     },
-    wordBefore: function() { return this.match(/\w/, -1, false); },
-    wordAfter: function() { return this.match(/\w/, 1, false); },
-    wordAround: function() { return this.match(/\w/, 0, false); },
+    wordBefore: function(rgx) { return this.match(rgx || /\w/, -1, false); },
+    wordAfter: function(rgx) { return this.match(rgx || /\w/, 1, false); },
+    wordAround: function(rgx) { return this.match(rgx || /\w/, 0, false); },
     refresh: function() {
       return this.setSelectionRange(this.getRange());
     }
@@ -2682,17 +2674,19 @@
     at: function(offset) { return this.value.charAt(this.pos + (offset | 0)); },
     peek: function() { return this.at(0); },
     from: function(pos) { return this.value.substring(pos, this.pos); },
-    rest: function() { return this.value.substr(this.pos); },
+    rest: function(length) { return this.value.substr(this.pos, length); },
     sol: function() { return this.pos === 0; },
     eol: function() { return this.pos >= this.value.length; },
     eat: function(match) {
-      var type = typeof match, ch = this.value.charAt(this.pos), eaten;
-      if ('string' === type) eaten = ch == match;
+      var type = typeof match, ch = this.at(0), eaten;
+      if ('string' === type) eaten = ch === match;
       else eaten = ch && ('function' === type ? match(ch) : match.test(ch));
-      if (eaten) {
-        ++this.pos;
-        return ch;
-      }
+      if (eaten) { ++this.pos; return ch; }
+    },
+    eatChain: function(chain) {
+      var eaten = startsWith(this.value, chain, this.pos);
+      if (eaten) this.pos += chain.length;
+      return eaten;
     },
     eatWhile: function(match) {
       var pos = this.pos, type = typeof match;
@@ -2705,7 +2699,7 @@
       if (match instanceof RegExp) {
         if (match.test(this.value.substr(this.pos))) {
           var lc = RegExp.leftContext.length;
-          if (!noLeftContext || lc == 0) {
+          if (!noLeftContext || lc === 0) {
             this.pos += lc + RegExp.lastMatch.length;
           }
         }
@@ -2717,7 +2711,7 @@
       if ('string' === type) {
         var cs = function(str) { return caseSensitive ? str.toLowerCase() : str; };
         var substr = this.value.substr(this.pos, match.length);
-        if (cs(substr) == cs(match)) {
+        if (cs(substr) === cs(match)) {
           if (eat) this.pos += match.length;
           return true;
         }
@@ -2741,23 +2735,19 @@
     },
     isAfter: function(match) {
       var str = this.value.substr(this.pos);
-      return 'string' == typeof match ? str.indexOf(match) == 0 : match.test ? match.test(str) : match(str);
+      return 'string' === typeof match ? startsWith(str, match) : match.test ? match.test(str) : match(str);
     },
     isBefore: function(match, offset) {
       var str = this.value.substring(0, this.pos + (offset || 0));
-      return 'string' == typeof match ? str.lastIndexOf(match) == str.length - match.length : match.test ? match.test(str) : match(str);
+      return 'string' === typeof match ? startsWith(str, match, str.length - match.length) : match.test ? match.test(str) : match(str);
     },
     skip: function(ch, eat) {
       if (ch) {
         var i = this.value.indexOf(ch, this.pos);
-        if (i >= 0) {
-          this.pos = i + (eat ? ch.length : 0);
-          return true;
-        }
-      } else {
-        this.pos = this.value.length;
-        return true;
-      }
+        if (i === -1) return false;
+        this.pos = i + (eat ? ch.length : 0);
+      } else this.pos = this.value.length;
+      return true;
     },
     undo: function(n) {
       this.pos = Math.max(0, this.pos - n);
@@ -2903,7 +2893,7 @@
       }
     },
     ')': function(k) {
-      if (this.getOption('insertClosingBrackets') && this.textAfterCursor(1) == k) this.caret.moveX(1);
+      if (this.getOption('insertClosingBrackets') && this.textAfterCursor(1) === k) this.caret.moveX(1);
       else this.insertText(k);
       return false;
     },
@@ -3131,7 +3121,7 @@
         , rest = '', mv = 0, tmp;
         
         if (ps.parser && ps.parser.indent) {
-          var nextIndent = this.getNextLineIndent(head.line, true);
+          var nextIndent = this.getNextLineIndent(head, true);
           if (nextIndent instanceof Array) {
             indent = nextIndent.shift();
             while (nextIndent.length) rest += '\n' + repeat(tab, indent + nextIndent.shift());
@@ -3663,7 +3653,7 @@
           var i = modeNames.indexOf(modeName.toLowerCase());
           if (i >= 0) {
             m[i] = mode;
-            if (m.indexOf(null) == -1) {
+            if (m.indexOf(null) === -1) {
               cb.apply(CodePrinter, m);
               CodePrinter.off('modeLoaded', fn);
             }
@@ -3676,7 +3666,7 @@
   CodePrinter.defineMode = function(name, req, func) {
     if (arguments.length === 2) { func = req; req = null; }
     var fn = function() {
-      var mode = 'function' == typeof func ? func.apply(CodePrinter, Array.apply(null, arguments)) : func;
+      var mode = 'function' === typeof func ? func.apply(CodePrinter, Array.apply(null, arguments)) : func;
       mode.name = name = name.toLowerCase();
       modes[name] = mode;
       CodePrinter.emit('modeLoaded', name, mode);
@@ -3723,7 +3713,7 @@
   CodePrinter.issetExtension = function(ext) {
     if (CodePrinter.aliases[ext]) return true;
     for (var k in CodePrinter.aliases) {
-      if (CodePrinter.aliases[k] == ext) {
+      if (CodePrinter.aliases[k] === ext) {
         return true;
       }
     }
@@ -4049,7 +4039,7 @@
             caret.insert(ch);
           }
           if (options.autoIndent && parser.isIndentTrigger(ch)) {
-            reIndentAt(this, head);
+            reIndentAt(this, head.line);
           }
         });
         cp.emit('keypress', ch, e);
@@ -4183,7 +4173,7 @@
   }
   function insertClosing(doc, ch, comp) {
     var s = doc.getState(caret.head()), charAfter = s.stream.at(0);
-    charAfter == ch ? caret.moveX(1) : /\b(string|invalid)\b/.test(s.style) || /[^\s\)\]\}]/.test(charAfter) ? doc.insertText(ch, 0) : doc.insertText(ch + comp, -1);
+    charAfter === ch ? caret.moveX(1) : /\b(string|invalid)\b/.test(s.style) || /[^\s\)\]\}]/.test(charAfter) ? doc.insertText(ch, 0) : doc.insertText(ch + comp, -1);
     return false;
   }
   function scroll(doc, delta) {
@@ -4269,25 +4259,30 @@
   function eventCancel(e, propagate) { e.preventDefault(); propagate || e.stopPropagation(); return e.returnValue = false; }
   function addClass(n, c) { isArray(c) ? n.classList.add.apply(n.classList, c) : n.classList.add(c); return n; }
   function removeClass(n, c) { isArray(c) ? n.classList.remove.apply(n.classList, c) : n.classList.remove(c); return n; }
+  function startsWith(str, needle, offset) {
+    var len = needle.length, i = -1;
+    while (++i < len) if (str.charAt(i + (offset | 0)) !== needle.charAt(i)) return false;
+    return true;
+  }
   function repeat(th, times) {
     var str = '';
-    while (times > 0) { if (times % 2 == 1) str += th; th += th; times >>= 1; }
+    while (times > 0) { if (times % 2 === 1) str += th; th += th; times >>= 1; }
     return str;
   }
   function parseEventArguments(a, b) {
-    if ('string' == typeof a) { var obj = {}; obj[a] = b; return obj; }
+    if ('string' === typeof a) { var obj = {}; obj[a] = b; return obj; }
     return a;
   }
   if (window.postMessage) {
     async = CodePrinter.async = function(callback) {
-      if ('function' == typeof callback) {
+      if ('function' === typeof callback) {
         asyncQueue.push(callback);
         window.postMessage('CodePrinter', '*');
       }
     }
     on(window, 'message', function async(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); });
   } else {
-    async = CodePrinter.async = function(callback) { 'function' == typeof callback && setTimeout(callback, 1); }
+    async = CodePrinter.async = function(callback) { 'function' === typeof callback && setTimeout(callback, 1); }
   }
   
   if ('object' === typeof module) module.exports = CodePrinter;
