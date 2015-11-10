@@ -4024,9 +4024,9 @@
     });
     on(input, 'keypress', function(e) {
       if (options.readOnly) return;
-      var ch = String.fromCharCode(e.keyCode);
+      var ch = String.fromCharCode(e.charCode || e.keyCode);
       
-      if (e.ctrlKey !== true && e.metaKey !== true) {
+      if (ch && e.ctrlKey !== true && e.metaKey !== true) {
         cp.doc.eachCaret(function(caret) {
           var a, head = caret.head(), s = caret.getParserState(), parser = s && s.parser;
           
