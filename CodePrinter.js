@@ -401,12 +401,13 @@
   function getIterator(state, parser) {
     if (!state) return parser.iterator;
     var iters = state.iterators;
-    return iters && iters.length ? iters[iters.length - 1] : state.parser ? state.parser.iterator : parser.iterator;
+    return iters && iters.length ? iters[iters.length - 1] : parser.iterator;
   }
   function readIteration(parser, stream, state, cache) {
     stream.start = stream.pos;
     for (var i = 0; i < 3; i++) {
-      var symbol = getIterator(state, parser)(stream, state);
+      var currentParser = state && state.parser || parser
+      , symbol = getIterator(state, currentParser).call(currentParser, stream, state);
       if (symbol) stream.lastSymbol = symbol;
       if (stream.pos > stream.start) {
         var v = stream.from(stream.start);
@@ -460,18 +461,19 @@
     (state && state.parser || parser).onExit(stream, state);
     return cache;
   }
+  function stateChanged(parser, stateA, stateB) {
+    var itA = getIterator(stateA, parser), itB = getIterator(stateB, parser);
+    return stateA.context !== stateB.context || itA.toString() !== itB.toString();
+  }
   function forwardParsing(doc, dl) {
-    var a = getIterator(dl.state, doc.parser), b, state;
-    parse(doc, dl);
-    b = getIterator(state = dl.state, doc.parser);
+    var stateBefore = dl.state, stateAfter = parse(doc, dl).state;
     
-    while ((dl = dl.next()) && (a !== b || dl.cache === null)) {
+    while ((dl = dl.next()) && dl.view && (dl.cache === null || stateChanged(doc.parser, stateBefore, stateAfter))) {
       dl.cache = undefined;
-      a = getIterator(dl.state, doc.parser);
-      parse(doc, dl, state);
-      b = getIterator(state = dl.state, doc.parser);
+      stateBefore = dl.state;
+      stateAfter = parse(doc, dl, stateAfter).state;
     }
-    if (dl) parse(doc, dl, state);
+    if (dl) parse(doc, dl, stateAfter);
     return dl;
   }
   function runBackgroundParser(doc, whole) {
@@ -1355,7 +1357,7 @@
           this.scrollTo(sl, st);
         }
         if (this.getOption('matching')) {
-          var matches = getMatches(this, caret, this.parser.matching);
+          var matches = getMatches(this, caret, caret.getParserState().parser.matching);
           if (matches) {
             for (var i = 0; i < matches.length; i++) {
               this.markText(matches[i].from, matches[i].to, {
@@ -1637,7 +1639,8 @@
           , oldpos = stream.pos, lastCache = lastV(cache);
           if (stream.eol()) tmp.state = state;
           stream.pos = readTo;
-          return { stream: stream, state: state, cache: cache, symbol: lastCache && lastCache.symbol, parser: state && state.parser || parser, nextIteration: function() {
+          parser = state && state.parser || parser;
+          return { stream: stream, state: state, cache: cache, symbol: lastCache && lastCache.symbol, parser: parser, nextIteration: function() {
             if (stream.pos < oldpos) stream.pos = oldpos;
             return readIteration(parser, stream, state, cache);
           }};
@@ -2845,14 +2848,21 @@
     isAutoCompleteTrigger: function(char) {
       return this.autoCompleteTriggers instanceof RegExp && this.autoCompleteTriggers.test(char);
     },
-    redirect: function(parser, stream, state) {
-      if (state && state.parser !== parser) {
-        state.parser = parser;
-        if (this.initialState !== parser.initialState) {
-          var initial = parser.initialState();
-          for (var k in initial) if (state[k] == null) state[k] = initial[k];
+    passthrough: function(parser, state, beforeIteration) {
+      if (!parser || !state || 'function' !== typeof beforeIteration) return;
+      var oldParser = state.parser, iterator = function(stream, state) {
+        if (beforeIteration(stream, state) !== false) {
+          return parser.iterator(stream, state);
         }
+        state.parser = oldParser;
+        CodePrinter.helpers.popIterator(state);
+      };
+      if (this.initialState !== parser.initialState) {
+        var initial = parser.initialState();
+        for (var k in initial) if (state[k] == null) state[k] = initial[k];
       }
+      state.parser = parser;
+      CodePrinter.helpers.pushIterator(state, iterator);
     }
   }
   
