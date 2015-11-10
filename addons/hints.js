@@ -209,8 +209,8 @@ CodePrinter.defineAddon('hints', function() {
       if (cp.doc.carets.length > 1) return;
       var caret = cp.doc.carets[0]
       , word = getWordRgx(caret)
-      , wbf = caret.wordBefore()
-      , waf = caret.wordAfter()
+      , wbf = caret.wordBefore(word)
+      , waf = caret.wordAfter(word)
       , currentWord = wbf + waf
       , ps = caret.getParserState();
       
@@ -222,7 +222,7 @@ CodePrinter.defineAddon('hints', function() {
         caret.moveX(waf.length);
       }
       if (ps.parser && ps.parser.onCompletionChosen) {
-        ps.parser.onCompletionChosen.call(cp, value);
+        ps.parser.onCompletionChosen.call(cp, value, caret);
       }
       this.hide();
       cp.emit('autocomplete', value);
