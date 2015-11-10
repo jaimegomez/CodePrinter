@@ -4016,8 +4016,9 @@
       Flags.keydownPrevented = e.defaultPrevented;
       if (!e.defaultPrevented) {
         if (!cp.keyMap[seq] && e.shiftKey) seq = keySequence(e, true);
-        if (seq.length > 1 && cp.keyMap[seq]) {
-          if (callKeyBinding(cp, cp.keyMap, seq)) return eventCancel(e, 1);
+        if (seq.length > 1 && cp.keyMap[seq] && callKeyBinding(cp, cp.keyMap, seq)) {
+          if ([8, 46, 127, 63272].indexOf(code) >= 0) cp.emit('keypress', '', e);
+          return eventCancel(e, 1);
         }
       }
     });
