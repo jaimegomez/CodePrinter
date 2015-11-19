@@ -455,7 +455,7 @@
   }
   function stateChanged(parser, stateA, stateB) {
     var itA = getIterator(stateA, parser), itB = getIterator(stateB, parser);
-    return stateA.context !== stateB.context || itA.toString() !== itB.toString();
+    return stateA && stateB && (stateA.context !== stateB.context || itA.toString() !== itB.toString());
   }
   function forwardParsing(doc, dl) {
     var stateBefore = dl.state, stateAfter = parse(doc, dl).state;
@@ -505,15 +505,15 @@
     }
     return st;
   }
-  function reIndent(doc, from, to) {
+  function reindent(doc, from, to) {
     from = Math.max(0, from - 1);
     to = Math.min(to, doc.size() - 1);
     if (from === 0) doc.setIndent(0, 0);
     for (var line = from; line < to; line++) {
-      reIndentAt(doc, line + 1);
+      reindentAt(doc, line + 1);
     }
   }
-  function reIndentAt(doc, line) {
+  function reindentAt(doc, line) {
     var indent = doc.getNextLineIndent(line - 1);
     if ('number' === typeof indent) {
       var next = doc.get(line);
@@ -1283,6 +1283,7 @@
       if (!change || this.pushingChanges) return;
       this.pushingChanges = true;
       this.history.push(change);
+      runBackgroundParser(this);
       this.emit('changed', change);
       this.eachLinkedDoc(function(doc) {
         doc.makeChange(change);
@@ -1668,7 +1669,7 @@
     measurePosition: function(x, y) {
       var dl = this.lineWithOffset(y)
       , ch = maybeExternalMeasure(this, dl).pre.childNodes
-      , mainRect = this.dom.mainNode.getBoundingClientRect()
+      , mainRect = this.dom.body.getBoundingClientRect()
       , child = ch[0], rect, l, i = -1, chl = ch.length
       , m = new Measure(dl, this.sizes);
       
@@ -1700,7 +1701,7 @@
     },
     measureRect: function(dl, offset, to) {
       var ch = maybeExternalMeasure(this, dl).pre.childNodes
-      , mainRect = this.dom.mainNode.getBoundingClientRect()
+      , mainRect = this.dom.body.getBoundingClientRect()
       , child = ch[0], rect, l, i = -1, chl = ch.length, b
       , tmp = 0, m = new Measure(dl, this.sizes);
       
@@ -2117,17 +2118,17 @@
       if ('number' === typeof i) return i;
       return isArray(i) ? allowArrays ? i : i[0] : 0;
     },
-    reIndent: function(from, to) {
+    reindent: function(from, to) {
       if ('number' === typeof from && 'number' === typeof to) {
-        if (from <= to) reIndent(this, from, to);
-        else reIndent(this, to, from);
+        if (from <= to) reindent(this, from, to);
+        else reindent(this, to, from);
       } else if (this.somethingSelected()) {
         this.eachCaret(function(caret) {
           var range = caret.getRange();
-          reIndent(this, range.from.line, range.to.line);
+          reindent(this, range.from.line, range.to.line);
         });
       } else {
-        reIndent(this, 0, this.size() - 1);
+        reindent(this, 0, this.size() - 1);
       }
     },
     getDefinitions: function() {
@@ -2220,7 +2221,6 @@
     vertical: function(css, measure, options) {
       css.width = 1;
       css.height = options.caretHeight * measure.charHeight;
-      css.left -= 1;
     },
     underline: function(css, measure) {
       css.width = measure.charWidth || measure.dl.height / 2;
@@ -2840,16 +2840,23 @@
     },
     passthrough: function(parser, state, beforeIteration) {
       if (!parser || !state || 'function' !== typeof beforeIteration) return;
-      var oldParser = state.parser, iterator = function(stream, state) {
+      var oldParser = state.parser, oldContext = state.context;
+      var iterator = function(stream, state) {
         if (beforeIteration(stream, state) !== false) {
           return parser.iterator(stream, state);
         }
         state.parser = oldParser;
+        state.context = oldContext;
         CodePrinter.helpers.popIterator(state);
       };
       if (this.initialState !== parser.initialState) {
         var initial = parser.initialState();
         for (var k in initial) if (state[k] == null) state[k] = initial[k];
+        if (initial.context && oldContext) {
+          state.context = initial.context;
+          state.context.indent = oldContext.indent;
+          state.context.prev = oldContext;
+        }
       }
       state.parser = parser;
       CodePrinter.helpers.pushIterator(state, iterator);
@@ -3008,7 +3015,7 @@
     'removeSelection': function() { this.doc.call('removeSelection'); },
     'indent': caretCmd(indent),
     'outdent': caretCmd(outdent),
-    'reIndent': function() { this.doc.reIndent(); },
+    'reindent': function() { this.doc.reindent(); },
     'undo': function() { this.doc.undo(); },
     'redo': function() { this.doc.redo(); },
     'toNextDef': function() {},
@@ -3823,6 +3830,7 @@
   }
   function attachEvents(cp) {
     var scroll = cp.dom.scroll
+    , wrapper = cp.dom.wrapper
     , input = cp.dom.input
     , options = cp.getOptions()
     , sizes = cp.doc.sizes
@@ -3848,10 +3856,10 @@
       if (e.defaultPrevented || e.which === 3) return false;
       
       var doc = cp.doc
-      , rect = scroll.getBoundingClientRect()
-      , oH = scroll.offsetHeight
-      , x = scroll.scrollLeft + e.pageX - rect.left - sizes.countersWidth
-      , y = e.pageY < rect.top ? 0 : e.pageY <= rect.top + oH ? scroll.scrollTop + e.pageY - rect.top : scroll.scrollHeight
+      , rect = wrapper.getBoundingClientRect()
+      , oH = wrapper.offsetHeight
+      , x = e.pageX - rect.left
+      , y = e.pageY < rect.top ? 0 : e.pageY <= rect.top + oH ? e.pageY - rect.top : scroll.scrollHeight
       , measure = doc.measurePosition(Math.max(0, x), y - sizes.paddingTop);
       
       cp.focus();
@@ -3981,7 +3989,7 @@
         }
       }, 250);
     });
-    on(scroll, 'mousedown', onMouse);
+    on(wrapper, 'mousedown', onMouse);
     on(scroll, 'selectstart', function(e) { return eventCancel(e); });
     
     on(input, 'focus', function() {
@@ -4040,7 +4048,7 @@
             caret.insert(ch);
           }
           if (options.autoIndent && parser.isIndentTrigger(ch)) {
-            reIndentAt(this, head.line);
+            reindentAt(this, head.line);
           }
         });
         cp.emit('keypress', ch, e);

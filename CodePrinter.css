@@ -31,7 +31,7 @@
 .codeprinter.cp--no-indent-guides .cpx-tab {
   border-color: transparent !important;
 }
-.codeprinter .cp--scrolling {
+.codeprinter .cp--scrolling .cp-scroll {
   will-change: scroll-position;
 }
 .codeprinter .cp--scrolling * {
@@ -95,6 +95,7 @@
   -ms-flex: 1;
   flex: 1;
   position: relative;
+  will-change: transform;
 }
 .codeprinter .cp-scroll {
   -webkit-flex: 1;
@@ -297,14 +298,14 @@
 }
 .codeprinter .cp-selection,
 .codeprinter .cp-marker {
-  margin: -1px 0 0 -1px;
+  margin: 0;
   padding: 0;
   position: absolute;
+  box-sizing: content-box;
 }
 .codeprinter .cp-marker {
   color: transparent;
   background: rgba(100, 255, 0, 0.4);
-  box-sizing: border-box;
   z-index: 1;
 }
 .codeprinter .cp-highlight {
@@ -316,7 +317,7 @@
   pointer-events: none;
 }
 .codeprinter .cp-search-occurrence {
-  margin: -1px -1px 0 -2px;
+  margin: -1px -1px 0 -1px;
   padding: 0;
   background: none;
   border: 1px solid #aaa;
@@ -394,7 +395,6 @@
 .codeprinter .cp-caret {
   width: 1px;
   height: 13px;
-  margin-top: -1px;
   background: #000;
   position: absolute;
   top: -50px;

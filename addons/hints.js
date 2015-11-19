@@ -234,10 +234,10 @@ CodePrinter.defineAddon('hints', function() {
         if (oldDoc) oldDoc.removeOverlay(hints.overlay);
         newDoc.addOverlay(hints.overlay);
       },
-      'keypress': function() {
+      'keypress': function(ch) {
         if (this.doc.carets.length > 1) return;
         var caret = this.doc.carets[0];
-        if (hints.match(caret.textBefore(1))) hints.show();
+        if (visible && !ch || hints.match(ch)) hints.show();
         else hints.hide();
       },
       'caretMoved': function(doc, caret) {
