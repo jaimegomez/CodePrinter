@@ -27,7 +27,7 @@
   , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
   , modes = {}, addons = {}, instances = [], keyCodes, async, asyncQueue = []
   , Flags = {}, modifierKeys = [16, 17, 18, 91, 92, 93, 224];
-  
+
   CodePrinter = function(source, options) {
     if (arguments.length === 1 && source == '[object Object]') {
       options = source;
@@ -37,21 +37,21 @@
     EventEmitter.call(this);
     this.keyMap = new keyMap;
     setOptions(this, options);
-    
+
     this.setDocument(this.createDocument(source, this.getOption('mode')));
     attachEvents(this);
-    
+
     if (source && source.parentNode) {
       source.parentNode.insertBefore(this.dom.mainNode, source);
       source.style.display = 'none';
     }
-    
+
     instances.push(this);
     return this;
   }
-  
+
   CodePrinter.version = '0.8.3';
-  
+
   defaults = {
     abortSelectionOnBlur: false,
     autoFocus: true,
@@ -102,12 +102,12 @@
     viewportMargin: 50,
     width: 'auto'
   }
-  
+
   div = document.createElement('div');
   li = document.createElement('li');
   pre = addClass(document.createElement('pre'), 'cp-line');
   span = document.createElement('span');
-  
+
   EventEmitter = function(parent) {
     var events = {}, propagate = parent;
     this.emit = function(event) {
@@ -147,7 +147,7 @@
     }
   }
   EventEmitter.call(CodePrinter);
-  
+
   var r = CodePrinter.range = function(from, to) {
     return { from: copy(from), to: copy(to) };
   };
@@ -177,7 +177,7 @@
   CodePrinter.requireStyle = function(style) {
     CodePrinter.requireCSS('theme/'+style+'.css');
   }
-  
+
   function attachDoc(editor, doc) {
     doc.editor = editor;
     editor.doc = doc;
@@ -204,7 +204,7 @@
     doc.emit('detached');
     doc.propagateTo(null);
   }
-  
+
   CodePrinter.prototype = {
     createDocument: function(source, mode) {
       return new Document(valueOf(source), mode, getFontDims(this));
@@ -314,7 +314,7 @@
       if (i >= 0) instances.splice(i, 1);
     }
   }
-  
+
   function searchLineWithState(parser, dl, tw) {
     if (!parser.initialState) return { state: null, line: dl };
     var tmp = dl.prev(), minI = Infinity, best, ind;
@@ -420,7 +420,7 @@
       var state = stateBefore, tmp = dl
       , tw = doc.getOption('tabWidth')
       , parser = doc.parser;
-      
+
       if (parser.initialState) {
         if (state === undefined) {
           var s = searchLineWithState(parser, tmp, tw);
@@ -430,12 +430,12 @@
           state = state ? copyState(state) : parser.initialState();
         }
       }
-      
+
       for (; tmp; tmp = tmp.next()) {
         var ind = parseIndentation(tmp.text, tw)
         , stream = new Stream(ind.rest, ind.indent, ind.length);
         tmp.cache = parseStream(parser, stream, state);
-        
+
         if (tmp.view) updateLine(doc, tmp, ind, doc.editor.tabString, tmp.cache);
         if (stream.definition) tmp.definition = stream.definition;
         else if (tmp.definition) tmp.definition = undefined;
@@ -459,7 +459,7 @@
   }
   function forwardParsing(doc, dl) {
     var stateBefore = dl.state, stateAfter = parse(doc, dl).state;
-    
+
     while ((dl = dl.next()) && dl.view && (dl.cache === null || stateChanged(doc.parser, stateBefore, stateAfter))) {
       dl.cache = undefined;
       stateBefore = dl.state;
@@ -525,7 +525,7 @@
       }
     }
   }
-  
+
   Branch = function(leaf, children) {
     this.parent = null;
     this.isLeaf = leaf = leaf == null ? true : leaf;
@@ -544,13 +544,13 @@
     }
     return this;
   }
-  
+
   var splice = Array.prototype.splice
   , push = Array.prototype.push
   , pop = Array.prototype.pop
   , shift = Array.prototype.shift
   , unshift = Array.prototype.unshift;
-  
+
   Branch.prototype = {
     splice: splice,
     push: push,
@@ -593,7 +593,7 @@
               leaf.parent = this;
               this.splice(i + 1, 0, leaf);
             } while (ch.size > BRANCH_OPTIMAL_SIZE);
-            
+
             if (this.length > BRANCH_OPTIMAL_SIZE) {
               this.wrapAll();
             }
@@ -687,7 +687,7 @@
       return this;
     }
   }
-  
+
   Data = function() {
     Branch.call(this, false);
     var branch = new Branch(true);
@@ -696,7 +696,7 @@
     return this;
   }
   Data.prototype = Branch.prototype;
-  
+
   Line = function(text, height) {
     this.text = text;
     this.height = height;
@@ -704,7 +704,7 @@
     this.cache = this.state = null;
     return this;
   }
-  
+
   Line.prototype = {
     setText: function(str) {
       if (this.text !== str) {
@@ -771,7 +771,7 @@
       return dl && skipMerged && dl.mergedWith || dl;
     }
   }
-  
+
   function patchLineHeight(doc, dl, height) {
     var diff = height - dl.height;
     if (diff) {
@@ -875,7 +875,7 @@
     var removed = [], first = doc.get(from.line)
     , delta = to.line - from.line, dl = first, i = 0
     , after = delta ? doc.get(to.line).text.substr(to.column) : first.text.substr(to.column);
-    
+
     removed[0] = delta ? first.text.substr(from.column) : first.text.substring(from.column, to.column);
     first.setText(first.text.substring(0, from.column) + text[0]);
     while (++i < delta && i < text.length && (dl = dl.next())) {
@@ -917,14 +917,14 @@
     for (var j = 0, cl = cache ? cache.length : 0; j < cl; j++) if (cache[j].symbol.indexOf('font-') >= 0) return true;
     return false;
   }
-  
+
   Measure = function(dl, sizes) {
     this.dl = dl;
     this.line = dl.getIndex();
     this.column = this.offsetX = this.offsetY = this.width = this.charWidth = 0;
     this.height = this.charHeight = sizes.font.height;
   }
-  
+
   var lineViewNode = addClass(div.cloneNode(false), 'cp-line-view')
   , lnumberWrapper = addClass(div.cloneNode(false), 'cp-line-number-wrapper')
   , lnumberNode = addClass(div.cloneNode(false), 'cp-line-number');
@@ -932,14 +932,14 @@
   lnumberWrapper.appendChild(lnumberNode);
   lineViewNode.appendChild(lnumberWrapper);
   lineViewNode.appendChild(pre.cloneNode(false));
-  
+
   LineView = function() {
     this.node = lineViewNode.cloneNode(true);
     this.counter = this.node.firstChild.firstChild;
     this.pre = this.node.lastChild;
     this.change = 0;
   }
-  
+
   function lineUnlink(doc, lineView) {
     var line = lineView.line;
     if (!line) return;
@@ -961,11 +961,11 @@
     doc.emit('link', line);
     return lineView;
   }
-  
+
   LineView.prototype.tail = function() {
     return this.line; // TODO: merged lines
   }
-  
+
   function setCounter(doc, lineView, index, setWidth) {
     var text = lineNumberFor(doc.editor, index);
     if (lineView.counterText !== text) lineView.counter.firstChild.nodeValue = lineView.counterText = text;
@@ -1021,9 +1021,9 @@
     var dl = doc.lineWithOffset(st - doc.editor.getOption('viewportMargin'))
     , view = doc.view, tmpdl = dl, dli = dl.getIndex(), i = -1, popped
     , codeScrollDelta = dl.getOffset() - doc.sizes.scrollTop;
-    
+
     if (view.from <= dli && dli <= view.to) return false;
-    
+
     while (tmpdl && ++i < view.length) {
       replaceLineInLineView(doc, view[i], tmpdl, dli + i);
       tmpdl = tmpdl.next(true);
@@ -1058,7 +1058,7 @@
     push.call(view, shifted);
     return lineLink(doc, shifted, next);
   }
-  
+
   View = function(doc) {
     EventEmitter.call(this, doc);
     this.doc = doc;
@@ -1066,7 +1066,7 @@
     this.to = -1;
     this.display = null;
   }
-  
+
   View.prototype = {
     indexOf: Array.prototype.indexOf,
     push: function(lineView) {
@@ -1118,7 +1118,7 @@
       return this.length ? this[this.length - 1].tail() : null;
     }
   }
-  
+
   function clearDoc(doc) {
     var view = doc.view;
     view.length = view.from = 0;
@@ -1138,10 +1138,10 @@
       dl = dl.next(true);
     }
   }
-  
+
   Document = CodePrinter.Document = function(source, mode, font) {
     var maxLine, maxLineLength = 0, maxLineChanged, data;
-    
+
     this.init = function(source, mode) {
       source = source || '';
       data = new Data();
@@ -1188,7 +1188,7 @@
     this.remove = function(at, n) {
       if ('number' !== typeof n || n <= 0 || at < 0 || at + n > data.size) return;
       var view = this.view, h = data.height, rm = data.remove(at, n), sd = 0;
-      
+
       if (at + n < view.from) { // change before view
         sd = data.height - h;
         view.from -= n; view.to -= n;
@@ -1221,9 +1221,9 @@
           var margin = this.editor.getOption('viewportMargin')
           , top = this.scrollTop + deltaY - this.sizes.scrollTop
           , oldTop = top;
-          
+
           if ((deltaY < -200 || 200 < deltaY) && rewind(this, st) !== false) return;
-          
+
           if (deltaY > 0) {
             if (top < margin) {
               maybeAppendLineViews(this, computeCodeReserve(this) - top, margin);
@@ -1309,12 +1309,12 @@
     this.getOptions = function(pick) { return this.editor && this.editor.getOptions(pick); }
     this.getOption = function(key) { return this.editor && this.editor.getOption(key); }
     this.lineWithOffset = function(offset) { return data.getLineWithOffset(Math.max(0, Math.min(offset, data.height))); }
-    
+
     this.size = function() { return data.size; }
     this.height = function() { return data.height; }
-    
+
     EventEmitter.call(this);
-    
+
     this.on({
       'caretWillMove': function(caret) {
         var head = caret.head();
@@ -1336,7 +1336,7 @@
           , ow = scroll.offsetWidth - this.sizes.countersWidth
           , oh = scroll.offsetHeight
           , h = caret.dl().height;
-          
+
           if (caret.x < sl) {
             sl = caret.x;
           } else if (caret.x >= sl + ow) {
@@ -1362,7 +1362,7 @@
         }
       }
     });
-    
+
     this.from = 0;
     this.to = -1;
     this.sizes = { scrollTop: 0, font: font || {}, paddingTop: 5, paddingLeft: 10, countersWidth: 30, lastLineNumberLength: 1 };
@@ -1375,10 +1375,10 @@
     this.parser = modes.plaintext;
     this.history = new History();
     this.linkedDocs = [];
-    
+
     return this.init(source, mode);
   }
-  
+
   function startBlinking(doc, options) {
     clearInterval(doc.caretsBlinkingInterval);
     if (options.blinkCaret) {
@@ -1459,7 +1459,7 @@
       return this.active;
     }
   }
-  
+
   var SearchResults = function(doc) {
     this.overlay = new CodePrinter.Overlay(['cp-search-overlay']);
     this.update = function(dl, node) {
@@ -1469,7 +1469,7 @@
       node.span.setAttribute('data-cp-pos', node.line + ',' + node.column);
     }
   }
-  
+
   SearchResults.prototype = {
     setRequest: function(req) {
       this.rows = {};
@@ -1542,7 +1542,7 @@
       delete this.rows[line];
     }
   }
-  
+
   var SearchNode = function(value, pos) {
     this.span = span.cloneNode(false);
     this.span.classList.add('cp-search-occurrence');
@@ -1551,13 +1551,13 @@
     this.line = pos.line;
     this.column = pos.column;
   }
-  
+
   SearchNode.prototype = {
     setValue: function(value) {
       this.span.firstChild.nodeValue = this.value = value;
     }
   }
-  
+
   function getOffsetRect(doc, mainRect, el) {
     var rect = el.getBoundingClientRect();
     return {
@@ -1587,7 +1587,7 @@
     dl.cache = dl.state = null;
     if (dl.view) dl.view.change = true;
   }
-  
+
   Document.prototype = {
     undo: function() { return this.history.operation(this, historyBack(this.history)); },
     redo: function() { return this.history.operation(this, historyForward(this.history)); },
@@ -1622,7 +1622,7 @@
       , tw = this.getOption('tabWidth')
       , s = searchLineWithState(parser, dl, tw)
       , state = s.state, tmp = s.line;
-      
+
       for (; tmp; tmp = tmp.next()) {
         var ind = parseIndentation(tmp.text, tw), stream = new Stream(ind.rest, ind.indent, ind.length);
         if (tmp === dl) {
@@ -1672,7 +1672,7 @@
       , mainRect = this.dom.body.getBoundingClientRect()
       , child = ch[0], rect, l, i = -1, chl = ch.length
       , m = new Measure(dl, this.sizes);
-      
+
       if (chl === 1 && child.firstChild.nodeValue === zws) {
         rect = getOffsetRect(this, mainRect, child);
       } else {
@@ -1704,7 +1704,7 @@
       , mainRect = this.dom.body.getBoundingClientRect()
       , child = ch[0], rect, l, i = -1, chl = ch.length, b
       , tmp = 0, m = new Measure(dl, this.sizes);
-      
+
       if (chl === 1 && child.firstChild.nodeValue === zws) {
         rect = getOffsetRect(this, mainRect, child);
       } else {
@@ -1722,7 +1722,7 @@
             m.offsetY = rect.top;
             m.charWidth = rect.width / l;
             b = true;
-            
+
             if (to < offset || 'number' !== typeof to) break;
             if (to <= tmp + l) {
               m.width = (to - offset) * rect.width / l;
@@ -1786,11 +1786,11 @@
       }
       if ('string' === typeof find || find instanceof RegExp) {
         var search = this.searchResults = this.searchResults || new SearchResults(this);
-        
+
         if (!search.request || find.toString() !== search.request.toString() || search.length === 0 || !search.onNodeMousedown || this.overlays.indexOf(search.overlay) === -1) {
           var doc = this, clearSelected;
           search.setRequest(find);
-          
+
           clearSelected = function() {
             var children = search.overlay.node.children, k = 0;
             for (var i = 0; i < children.length; i++) {
@@ -1800,7 +1800,7 @@
             }
             k && doc.call('clearSelection');
           }
-          
+
           if (this.addOverlay(search.overlay) !== undefined) {
             this.on({ link: searchShow, unlink: searchHide, changed: searchOnChange });
             on(search.overlay.node, 'mousedown', search.onNodeMousedown = function(e) {
@@ -1818,9 +1818,9 @@
               }
             });
           }
-          
+
           var searchBy = 'string' === typeof find ? searchByString : searchByRegExp;
-          
+
           this.asyncEach(function(dl, line) {
             if (search.request !== find || !search.onNodeMousedown) return false;
             searchBy.call(this, find, dl, line);
@@ -1927,15 +1927,15 @@
         , toMeasure = this.measureRect(lastLine, to.column)
         , pl = this.sizes.paddingLeft
         , equal = from.line === to.line;
-        
+
         if (cmp(from, to) > 0) return;
-        
+
         overlay.top = prepareSelNode(overlay, overlay.top || div.cloneNode(false)
           , fromMeasure.offsetY, fromMeasure.offsetX, equal && fromMeasure.offsetY === toMeasure.offsetY ? 0 : null, fromMeasure.height, pl);
-        
+
         overlay.middle = prepareSelNode(overlay, overlay.middle || div.cloneNode(false)
           , fromMeasure.offsetY + fromMeasure.height, pl, null, toMeasure.offsetY - fromMeasure.offsetY - fromMeasure.height, pl);
-        
+
         if (equal && fromMeasure.offsetY === toMeasure.offsetY) {
           overlay.bottom = prepareSelNode(overlay, overlay.bottom || div.cloneNode(false)
             , toMeasure.offsetY, fromMeasure.offsetX, toMeasure.offsetX - fromMeasure.offsetX, fromMeasure.height, null);
@@ -2038,7 +2038,7 @@
       , topMargin = this.scrollTop - this.sizes.scrollTop
       , bottomMargin = computeCodeReserve(this) - topMargin
       , oldTopMargin = topMargin;
-      
+
       if (bottomMargin < margin) {
         while (dl && bottomMargin < margin) {
           var lv = view.push(new LineView());
@@ -2101,7 +2101,7 @@
       if ('number' !== typeof line) return;
       var dl = this.get(line), old = parseIndentation(dl.text, this.editor.getOption('tabWidth'))
       , diff = indent - old.indent, tab = tabString(this.editor);
-      
+
       if (diff) {
         var newIndent = repeat(tab, indent), lm;
         dl.setText(newIndent + dl.text.replace(/^\s*/g, ''));
@@ -2193,7 +2193,7 @@
       if (!(onend instanceof Function) && arguments.length === 2) options = onend;
       var that = this, dl = this.get(0), fn
       , index = 0, queue = 1500;
-      
+
       if (options) {
         if (options.queue) queue = options.queue;
         if (options.index) index = options.index;
@@ -2203,7 +2203,7 @@
           if (!options.index) index = dl.getIndex();
         }
       }
-      
+
       async(fn = function() {
         var j = 0;
         while (dl && j++ < queue) dl = callback.call(that, dl, index++) === false ? false : dl.next();
@@ -2216,7 +2216,7 @@
     }
   }
   Document.prototype.insertText = Document.prototype.replaceRange;
-  
+
   CaretStyles = {
     vertical: function(css, measure, options) {
       css.width = 1;
@@ -2232,7 +2232,7 @@
       css.height = options.caretHeight * measure.charHeight;
     }
   }
-  
+
   function maybeReverseSelection(caret, anchor, head, mv) {
     if (!caret.hasSelection() || Flags.shiftKey) return mv;
     var comp = cmp(anchor, head);
@@ -2244,7 +2244,7 @@
   }
   function positionAfterMove(doc, pos, move) {
     var mv = move, line = pos.line, column = pos.column, dl = doc.get(line);
-    
+
     if (mv <= 0) {
       while (dl) {
         if (-mv <= column) return p(line, column + mv);
@@ -2278,20 +2278,20 @@
       });
     }
   }
-  
+
   Caret = CodePrinter.Caret = function(doc) {
     var head = p(0, 0), currentLine, anchor, selOverlay, lastMeasure, parserState;
-    
+
     EventEmitter.call(this, doc);
     this.node = addClass(div.cloneNode(false), 'cp-caret');
-    
+
     function setPixelPosition(x, y) {
       if (!this.isDisabled) {
         var css = {}, stl = doc.getOption('caretStyle');
-        
+
         if (x >= 0) css.left = this.x = x;
         if (y >= 0) css.top = this.y = y;
-        
+
         stl != this.style && this.setStyle(stl);
         (CaretStyles[this.style] || CaretStyles['vertical']).call(this, css, lastMeasure, doc.getOptions());
         for (var k in css) this.node.style[k] = css[k] + ('number' === typeof css[k] ? 'px' : '');
@@ -2310,13 +2310,13 @@
         currentLine.active = undefined;
       }
     }
-    
+
     this.dispatch = function(measure) {
       var dl = measure.dl
       , column = measure.column
       , line = measure.line
       , b = !doc.isFocused;
-      
+
       if (currentLine !== dl) {
         unselect();
         select(currentLine = dl);
@@ -2438,7 +2438,7 @@
       if ('number' === typeof movement) this.moveX(movement);
       return this;
     }
-    
+
     function docRemove(rangeHandler) {
       return function(n) {
         var range = this.hasSelection() ? getRangeOf(anchor, head) : rangeHandler.call(this, n);
@@ -2448,11 +2448,11 @@
     this.removeBefore = docRemove(function(n) { return rangeWithMove(doc, this.head(), -n); });
     this.removeAfter = docRemove(function(n) { return rangeWithMove(doc, this.head(), n); });
     this.removeLine = docRemove(function() { return r(p(head.line, 0), p(head.line, currentLine.text.length)); });
-    
+
     this.textBefore = function(len) { return currentLine && currentLine.text.substring(len ? head.column - len : 0, head.column); }
     this.textAfter = function(len) { return currentLine && currentLine.text.substr(head.column, len); }
     this.textAtCurrentLine = function() { return currentLine && currentLine.text; }
-    
+
     this.getParserState = function() {
       if (!parserState) parserState = doc.getState(head);
       return parserState;
@@ -2568,18 +2568,18 @@
       return this.setSelectionRange(this.getRange());
     }
   }
-  
+
   function classArray(base, classes) {
     var arr = [base];
     return arr.concat('string' === typeof classes ? classes.split(/\s+/g) : isArray(classes) ? classes : []);
   }
-  
+
   CodePrinter.Overlay = function(classes) {
     this.node = addClass(div.cloneNode(false), classArray('cp-overlay', classes));
     EventEmitter.call(this);
     return this;
   }
-  
+
   var Marker = function(doc, from, to, options) {
     this.doc = doc;
     this.node = div.cloneNode(false);
@@ -2588,7 +2588,7 @@
     this.update(from, to);
     return this;
   }
-  
+
   Marker.prototype = {
     update: function(from, to) {
       if (cmp(from, to) === 0) return this.clear();
@@ -2596,10 +2596,10 @@
       if (this.from) this.node.innerHTML = '';
       this.from = from;
       this.to = to;
-      
+
       var className = ['cp-marker'];
       if (this.options.className) className.push(this.options.className);
-      
+
       for (var i = from.line, dl; i <= to.line && (dl = this.doc.get(i)); i++) {
         var colFrom = i === from.line ? from.column : 0
         , colTo = i === to.line ? to.column : dl.text.length
@@ -2625,20 +2625,20 @@
       this.doc.markers.remove(this);
     }
   }
-  
+
   CodePrinter.MarkersOverlay = function(doc) {
     var items = this.items = [];
     CodePrinter.Overlay.call(this, 'cp-markers-overlay');
-    
+
     function onBlur() {
       for (var i = items.length - 1; i >= 0; i--) {
         if (items[i].options.weak || items[i].options.blur) items[i].clear();
       }
     }
-    
+
     doc.on('blur', onBlur);
     doc.on('caretMoved', onBlur);
-    
+
     this.add = function(from, to, options) {
       var marker = new Marker(doc, from, to, options);
       this.items.push(marker);
@@ -2661,7 +2661,7 @@
       this.node.classList.add('cp-hidden');
     }
   }
-  
+
   Stream = function(value, indent, offset) {
     this.pos = 0;
     this.value = value;
@@ -2756,15 +2756,15 @@
       this.definition = extend({ pos: this.offset + this.start }, defObject);
     }
   }
-  
+
   ReadStream = function(doc, transform) {
     var rs = this, stack = [], dl = doc.get(0)
     , le = doc.getOption('lineEnding') || '\n', fn;
     EventEmitter.call(this);
-    
+
     async(fn = function() {
       var r = 25 + 50 * Math.random(), i = -1;
-      
+
       while (dl && ++i < r) {
         stack.push(transform(dl.text));
         dl = dl.next();
@@ -2779,7 +2779,7 @@
     });
     return this;
   }
-  
+
   ReadStream.prototype = {
     pipe: function(stream) {
       if (stream) {
@@ -2793,7 +2793,7 @@
       return stream;
     }
   }
-  
+
   CodePrinter.Mode = function(ext) {
     this.name = 'plaintext';
     this.keyMap = {};
@@ -2818,7 +2818,7 @@
         , node = pre.cloneNode(false)
         , lines = string.split(eol)
         , tabString = repeat(' ', tabWidth);
-        
+
         for (var i = 0; i < lines.length; i++) {
           var ind = parseIndentation(lines[i], tabWidth), stream = new Stream(ind.rest, ind.indent, ind.length)
           , cache = parseStream(this, stream, state);
@@ -2862,7 +2862,7 @@
       CodePrinter.helpers.pushIterator(state, iterator);
     }
   }
-  
+
   keyMap = function() {}
   keyMap.prototype = {
     'Backspace': 'delCharLeft',
@@ -2911,7 +2911,7 @@
   keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
   keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
   keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
-  
+
   function moveCaret(fn, mv) {
     return function() {
       this.doc.call('clearSelection').call(fn, mv);
@@ -2984,7 +2984,7 @@
       }
     };
   }
-  
+
   commands = {
     'moveCaretLeft': moveCaret('moveX', -1),
     'moveCaretRight': moveCaret('moveX', 1),
@@ -3048,7 +3048,7 @@
         , firstTrimmed = leftTrim(first.text), lastTrimmed = rightTrim(last.text)
         , fcol = first.text.length - firstTrimmed.length
         , i = firstTrimmed.indexOf(commentBegin), li = lastTrimmed.lastIndexOf(commentEnd);
-        
+
         if (i >= 0 && li >= 0) {
           this.removeRange(p(range.to.line, li), p(range.to.line, li + commentEnd.length));
           this.removeRange(p(range.from.line, fcol + i), p(range.from.line, fcol + i + commentBegin.length));
@@ -3126,7 +3126,7 @@
         , tw = options.tabWidth
         , tab = options.indentByTabs ? '\t' : repeat(' ', tw)
         , rest = '', mv = 0, tmp;
-        
+
         if (ps.parser && ps.parser.indent) {
           var nextIndent = this.getNextLineIndent(head, true);
           if (nextIndent instanceof Array) {
@@ -3166,7 +3166,7 @@
       this.isFullscreen ? this.exitFullscreen() : this.doc.searchEnd();
     }
   }
-  
+
   function mergeStringArrays(a, b) {
     a[a.length-1] += b.shift();
     return a.concat(b);
@@ -3176,7 +3176,7 @@
     if (col) { range.from.column += col; range.to.column += col; }
     return range;
   }
-  
+
   historyActions = {
     'replace': {
       make: function(caret, change) {
@@ -3276,7 +3276,7 @@
       }
     }
   }
-  
+
   function checkHistorySupport(stack) {
     for (var i = 0; i < stack.length; i++) {
       var change = stack[i];
@@ -3335,14 +3335,14 @@
   }
   function historyBack(hist) { return historyMove(hist, hist.done, hist.undone); }
   function historyForward(hist) { return historyMove(hist, hist.undone, hist.done); }
-  
+
   History = function() {
     this.lock = false;
     this.done = [];
     this.undone = [];
     this.staged = undefined;
   }
-  
+
   History.prototype = {
     push: function(state) {
       if (!this.lock && state && historyActions[state.type]) {
@@ -3385,7 +3385,7 @@
       }
     }
   }
-  
+
   function getMatcher(name) {
     var matcher;
     if ('string' === typeof name) {
@@ -3407,21 +3407,21 @@
       return matches;
     }
   }
-  
+
   CodePrinter.Matcher = function(match) {
     this.rules = {};
     if ('function' === typeof match) {
       this.match = match;
     }
   }
-  
+
   var Match = CodePrinter.Match = function(key, colStart, rule) {
     extend(this, rule);
     this.key = key;
     this.colStart = colStart;
     this.colEnd = colStart + key.length;
   }
-  
+
   CodePrinter.Matcher.prototype = {
     addRule: function(rule) {
       if (rule && rule.key) {
@@ -3437,7 +3437,7 @@
     },
     match: function(text, column) {
       var rules = this.rules, before = text.substring(0, column), after = text.substr(column);
-      
+
       for (var key in rules) {
         var offset = this.findOffset(before, after, key);
         if ('number' === typeof offset) {
@@ -3450,7 +3450,7 @@
         return false;
       }
       var counter = 1, i = 0, pos, fn, fix;
-      
+
       switch (match.direction) {
         case 'left':
           pos = p(line, match.colStart);
@@ -3468,7 +3468,7 @@
       do {
         var a = fn.call(doc, pos, match.search, match.searchSymbol)
         , b = fn.call(doc, pos, match.key, match.keySymbol);
-        
+
         if (a) {
           var comp = b && cmp(a, b);
           if (comp && (fix ? comp > 0 : comp < 0)) {
@@ -3482,7 +3482,7 @@
           counter = 0;
         }
       } while (counter !== 0 && ++i < 100);
-      
+
       if (a && i < 100) {
         return [
           r(p(line, match.colStart), p(line, match.colEnd)),
@@ -3491,17 +3491,17 @@
       }
     }
   }
-  
+
   lineendings = { 'LF': '\n', 'CR': '\r', 'LF+CR': '\n\r', 'CR+LF': '\r\n' }
   CodePrinter.aliases = { 'js': 'javascript', 'htm': 'html', 'less': 'css', 'h': 'cpp', 'c++': 'cpp', 'rb': 'ruby', 'pl': 'perl',
     'sh': 'bash', 'adb': 'ada', 'coffee': 'coffeescript', 'md': 'markdown', 'svg': 'xml', 'plist': 'xml', 'yml': 'yaml' };
   CodePrinter.matching = {};
-  
+
   CodePrinter.matching.tags = new CodePrinter.Matcher(function(text, column, parserState) {
     var ctx = parserState.state.context;
     if (ctx.type === 'tag' && ctx.name) {
       var offset = this.findOffset(text.substring(0, column), text.substr(column), ctx.name);
-      
+
       if ('number' === typeof offset) {
         if (parserState.stream.at(offset - 1) === '/') {
           return new Match(ctx.name, column + offset, {
@@ -3522,7 +3522,7 @@
     }
   });
   CodePrinter.matching.brackets = new CodePrinter.Matcher();
-  
+
   var brackets = {'{': '}', '(': ')', '[': ']', '}': '{', ')': '(', ']': '['};
   for (var bracket in brackets) {
     CodePrinter.matching.brackets.addRule({
@@ -3533,7 +3533,7 @@
       direction: /^[\{\(\[]$/.test(bracket) ? 'right' : 'left'
     });
   }
-  
+
   optionSetters = {
     'drawIndentGuides': function(dig) {
       (dig ? removeClass : addClass)(this.dom.mainNode, 'cp--no-indent-guides');
@@ -3602,7 +3602,7 @@
       else this.dom.mainNode.style.width = size + 'px';
     }
   };
-  
+
   function addonInitializer(addonName) {
     return function(value, oldValue) {
       this.initAddon(addonName, value);
@@ -3611,7 +3611,7 @@
   }
   var addons = ['hints', 'placeholder', 'rulers', 'shortcuts'];
   for (var i = 0; i < addons.length; i++) optionSetters[addons[i]] = addonInitializer(addons[i]);
-  
+
   function checkScript(script) {
     var src = script.getAttribute('src'), ex = /\/?codeprinter[\d\-\.]*\.js\/?$/i.exec(src);
     if (ex) {
@@ -3632,7 +3632,7 @@
     }
   }
   if (!CodePrinter.src) CodePrinter.src = '';
-  
+
   CodePrinter.helpers = {
     pushIterator: function(state, iterator) {
       if (!state.iterators) state.iterators = [iterator];
@@ -3645,7 +3645,7 @@
       if (state.iterators) state.iterators[state.iterators.length - 1] = iterator;
     }
   }
-  
+
   CodePrinter.each = function(func) {
     if ('function' !== typeof func) throw new TypeError('CodePrinter.each requires function as the first argument');
     for (var i = 0; i < instances.length; i++) {
@@ -3766,19 +3766,19 @@
     }
     return obj;
   }
-  
+
   CodePrinter.defineMode('plaintext', new CodePrinter.Mode());
-  
+
   on(window, 'resize', function() {
     for (var i = 0; i < instances.length; i++) {
       var cp = instances[i];
       cp.doc && cp.doc.updateView();
     }
   });
-  
+
   var animationEventName = 'animationstart';
   if ('undefined' === window.onanimationstart) animationEventName = webkit ? 'webkitAnimationStart' : ie ? 'MSAnimationStart' : presto ? 'oanimationstart' : animationEventName;
-  
+
   on(document, animationEventName, function(e) {
     if (e.animationName === 'cp-insertAnimation') {
       for (var i = 0; i < instances.length; i++) {
@@ -3793,7 +3793,7 @@
       }
     }
   });
-  
+
   function buildDOM(cp) {
     var dom = cp.dom = {};
     dom.mainNode = addClass(document.createElement('div'), ['codeprinter', 'cps-default']);
@@ -3811,7 +3811,7 @@
     dom.code = create(dom.screen, 'div', 'cp-code');
     dom.measure = create(dom.screen, 'div', 'cp-measure');
   }
-  
+
   function issetSelectionAt(carets, line, column) {
     for (var i = 0; i < carets.length; i++)
       if (carets[i].inSelection(line, column))
@@ -3851,7 +3851,7 @@
     , isScrolling, moveEvent
     , dblClickTimeout, scrollTimeout
     , caret;
-    
+
     function counterSelDispatch(line, selIndex) {
       counterSelection[selIndex] = line;
       var last = lastV(counterSelection), caret = cp.doc.resetCarets();
@@ -3867,19 +3867,19 @@
     }
     function onMouse(e) {
       if (e.defaultPrevented || e.which === 3) return false;
-      
+
       var doc = cp.doc
       , rect = wrapper.getBoundingClientRect()
       , oH = wrapper.offsetHeight
       , x = e.pageX - rect.left
       , y = e.pageY < rect.top ? 0 : e.pageY <= rect.top + oH ? e.pageY - rect.top : scroll.scrollHeight
       , measure = doc.measurePosition(Math.max(0, x), y - sizes.paddingTop);
-      
+
       cp.focus();
-      
+
       if (e.type === 'mousedown') {
         Flags.isMouseDown = true;
-        
+
         if (x < 0) {
           caret = counterSelDispatch(measure.line, 0);
         } else {
@@ -3906,10 +3906,10 @@
         } else if (cmp(caret.head(), measure) !== 0) {
           caret.dispatch(measure);
         }
-        
+
         moveEvent = e;
         var top = e.pageY - rect.top, bottom = rect.top + oH - e.pageY, i, t;
-        
+
         if (top <= 40) {
           i = -sizes.font.height;
           t = Math.round(top);
@@ -3938,12 +3938,12 @@
         }
         Flags.isMouseDown = Flags.movingSelection = false;
         counterSelection.length = 0;
-        
+
         off(window, 'mousemove', onMouse);
         off(window, 'mouseup', onMouse);
       }
     }
-    
+
     if ('ontouchstart' in window || navigator.msMaxTouchPoints > 0) {
       var x, y;
       on(scroll, 'touchstart', function(e) {
@@ -3969,7 +3969,7 @@
       on(scroll, 'mousewheel', mousewheel);
       gecko && on(scroll, 'DOMMouseScroll', mousewheel);
     }
-    
+
     on(scroll, 'scroll', function() {
       if (!cp.doc._lockedScrolling) {
         cp.doc.scroll(this.scrollLeft - cp.doc.scrollLeft, this.scrollTop - cp.doc.scrollTop);
@@ -4004,7 +4004,7 @@
     });
     on(wrapper, 'mousedown', onMouse);
     on(scroll, 'selectstart', function(e) { return eventCancel(e); });
-    
+
     on(input, 'focus', function() {
       removeClass(cp.dom.mainNode, 'inactive');
       cp.doc.focus();
@@ -4021,7 +4021,7 @@
     on(input, 'keydown', function(e) {
       updateFlags(e, true);
       var code = e.keyCode, seq = keySequence(e);
-      
+
       if (seq === (macosx ? 'Cmd' : 'Ctrl')) {
         this.value = cp.doc.getSelection();
         this.setSelectionRange(0, this.value.length);
@@ -4046,11 +4046,11 @@
     on(input, 'keypress', function(e) {
       if (options.readOnly) return;
       var ch = String.fromCharCode(e.charCode || e.keyCode);
-      
+
       if (ch && e.ctrlKey !== true && e.metaKey !== true) {
         cp.doc.eachCaret(function(caret) {
           var a, head = caret.head(), s = caret.getParserState(), parser = s && s.parser;
-          
+
           if (caret.hasSelection() && (a = parser.selectionWrappers[ch])) {
             'string' === typeof a ? caret.wrapSelection(a, a) : caret.wrapSelection(a[0], a[1]);
           } else if (options.useParserKeyMap && parser.keyMap[ch]) {
@@ -4086,7 +4086,7 @@
   }
   function setOptions(cp, opts) {
     var addons, options = opts == '[object Object]' ? copy(opts) : {};
-    
+
     cp.getOption = function(optionName) {
       if (optionName in options) return options[optionName];
       if (optionName in defaults) return defaults[optionName];
@@ -4117,9 +4117,9 @@
     cp.hasOwnOption = function(optionName) {
       return optionName in options;
     }
-    
+
     cp.tabString = '  ';
-    
+
     for (var k in options) {
       var value = options[k];
       if (optionSetters[k]) {
@@ -4258,7 +4258,7 @@
   for (var i = 0; i < 10; i++) { keyCodes[i+96] = 'Num'+i; keyCodes[i+48] = ''+i; }
   for (var i = 65; i < 91; i++) keyCodes[i] = String.fromCharCode(i);
   for (var i = 1; i < 20; i++) keyCodes[i+111] = keyCodes[i+63235] = 'F'+i;
-  
+
   function keySequence(e, noShift) {
     var key = keyCodes[e.keyCode], res = key;
     if (key == null) return false;
@@ -4306,7 +4306,7 @@
   } else {
     async = CodePrinter.async = function(callback) { 'function' === typeof callback && setTimeout(callback, 1); }
   }
-  
+
   if ('object' === typeof module) module.exports = CodePrinter;
   if ('function' === typeof define) define('CodePrinter', function() { return CodePrinter; });
   if (window) window.CodePrinter = CodePrinter;
