@@ -3646,6 +3646,12 @@
     }
   }
   
+  CodePrinter.each = function(func) {
+    if ('function' !== typeof func) throw new TypeError('CodePrinter.each requires function as the first argument');
+    for (var i = 0; i < instances.length; i++) {
+      func.call(this, instances[i]);
+    }
+  }
   CodePrinter.requireMode = function(names, cb) {
     var modeNames;
     if (isArray(names)) modeNames = names.map(function(name) { return name.toLowerCase(); });
@@ -3729,9 +3735,16 @@
   CodePrinter.registerCommand = function(name, func) {
     if (commands[name]) throw new Error('CodePrinter: Command called "' + name + '" is already defined!');
     commands[name] = func;
+    CodePrinter.emit('commandRegistered', name, func);
   }
   CodePrinter.unregisterCommand = function(name) {
-    if (commands[name]) commands[name] = undefined;
+    if (commands[name]) {
+      commands[name] = undefined;
+      CodePrinter.emit('commandUnregistered', name);
+    }
+  }
+  CodePrinter.eachCommand = function(func) {
+    for (var key in commands) func.call(this, key, commands[key]);
   }
   CodePrinter.registerHistoryAction = function(action, face) {
     if (action && face && 'function' === typeof face.undo && 'function' === typeof face.redo) {
