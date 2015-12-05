@@ -6,9 +6,11 @@
 .codeprinter {
   margin: 0;
   padding: 0;
-  border: 1px solid #d4d4d4;
   min-width: 50px;
   min-height: 13px;
+  background: #fff;
+  border: 1px solid #d4d4d4;
+  color: #555;
   overflow: hidden;
   position: relative;
   text-align: left;
@@ -74,7 +76,6 @@
   -moz-flex: 1;
   -ms-flex: 1;
   flex: 1;
-  background: #fff;
   font-family: Menlo, Monaco, Consolas, Courier, monospace;
   font-size: 12px;
   position: relative;
@@ -95,9 +96,17 @@
   -ms-flex: 1;
   flex: 1;
   position: relative;
-  will-change: transform;
 }
 .codeprinter .cp-scroll {
+  display: -webkit-flex;
+  display: -moz-flex;
+  display: -ms-flexbox;
+  display: -ms-flex;
+  display: flex;
+  -webkit-flex-flow: row nowrap;
+  -moz-flex-flow: row nowrap;
+  -ms-flex-flow: row nowrap;
+  flex-flow: row nowrap;
   -webkit-flex: 1;
   -moz-flex: 1;
   -ms-flex: 1;
@@ -110,12 +119,15 @@
   overflow: auto;
 }
 .codeprinter .cp-wrapper {
+  -webkit-flex: 1;
+  -moz-flex: 1;
+  -ms-flex: 1;
+  flex: 1;
   min-width: 50px;
   min-height: 100%;
   margin-left: 30px;
   position: relative;
   overflow: visible;
-  color: #555;
   cursor: text;
 }
 .codeprinter .cp-relative {
@@ -289,7 +301,6 @@
   right: 0;
   bottom: 0;
   left: 0;
-  will-change: transform;
 }
 .codeprinter .cp-selection {
   background: #c8dcff;
