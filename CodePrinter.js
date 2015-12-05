@@ -1,3 +1,4 @@
+
 /*
  * CodePrinter.js
  *
@@ -787,8 +788,8 @@
       }
     }
   }
-  function updateFontSizes(cp, doc) {
-    var oldHeight = doc.sizes.font.height, font = doc.sizes.font = getFontDims(cp);
+  function updateFontSizes(cp, doc, fontOptions) {
+    var oldHeight = doc.sizes.font.height, font = doc.sizes.font = getFontDims(cp, fontOptions);
     doc.each(function(line) {
       line.height === oldHeight ? patchLineHeight(doc, line, font.height) : updateLineHeight(doc, line);
     });
@@ -849,8 +850,11 @@
     change.end = change.from;
     adjustPos(doc, change);
   }
-  function getFontDims(cp) {
-    var options = cp.getOptions(['fontFamily', 'fontSize', 'lineHeight']);
+  function getFontOptions(cp) {
+    return cp.getOptions(['fontFamily', 'fontSize', 'lineHeight']);
+  }
+  function getFontDims(cp, font) {
+    var options = font || getFontOptions(cp);
     var pr = pre.cloneNode(false), rect;
     pr.style.cssText = 'position:fixed;font:normal normal '+options.fontSize+'px/'+options.lineHeight+' '+options.fontFamily+';';
     pr.appendChild(document.createTextNode('CP'));
@@ -3547,7 +3551,7 @@
       this.dom.editor.style.fontSize = size + 'px';
       var doc = this.doc;
       if (doc) {
-        updateFontSizes(this, doc);
+        updateFontSizes(this, doc, extend(getFontOptions(this), { fontSize: size }));
         doc.fill();
         doc.updateView(true).call('showSelection');
         updateScroll(doc);
@@ -3772,7 +3776,10 @@
   on(window, 'resize', function() {
     for (var i = 0; i < instances.length; i++) {
       var cp = instances[i];
-      cp.doc && cp.doc.updateView();
+      if (cp.doc) {
+        cp.doc.fill();
+        cp.doc.updateView();
+      }
     }
   });
 
@@ -3802,10 +3809,10 @@
     dom.input = create(dom.container, 'textarea', 'cp-input');
     dom.editor = create(dom.container, 'div', 'cp-editor');
     dom.scroll = create(dom.editor, 'div', 'cp-scroll');
-    dom.wrapper = create(dom.scroll, 'div', 'cp-wrapper');
-    dom.relative = create(dom.wrapper, 'div', 'cp-relative');
     dom.counter = create(dom.scroll, 'div', 'cp-counter');
     dom.counterChild = create(dom.counter, 'div', 'cp-counter-child');
+    dom.wrapper = create(dom.scroll, 'div', 'cp-wrapper');
+    dom.relative = create(dom.wrapper, 'div', 'cp-relative');
     dom.caretsContainer = create(dom.relative, 'div', 'cp-carets');
     dom.screen = create(dom.relative, 'div', 'cp-screen');
     dom.code = create(dom.screen, 'div', 'cp-code');
@@ -3987,6 +3994,7 @@
       cp.doc._lockedScrolling = false;
     });
     on(scroll, 'dblclick', function() {
+      if (!caret) caret = doc.resetCarets();
       var word = caret.match(/\w/);
       Flags.waitForTripleClick = true;
       dblClickTimeout = setTimeout(function() {
