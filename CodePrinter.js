@@ -2326,8 +2326,9 @@
         select(currentLine = dl);
       }
       if (head.line !== line) {
-        if (!dl.text && doc.getOption('autoIndentBlankLines') && doc.isFocused) {
+        if (!dl.text && doc.getOption('autoIndentBlankLines')) {
           quietChange(doc, dl, nextLineIndent(doc, dl));
+          parse(doc, dl);
           column = dl.text.length;
           measure.offsetX += column * doc.sizes.font.width;
         }
