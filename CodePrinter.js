@@ -3645,12 +3645,16 @@
     pushIterator: function(state, iterator) {
       if (!state.iterators) state.iterators = [iterator];
       else state.iterators.push(iterator);
+      return iterator;
     },
     popIterator: function(state) {
-      if (state.iterators) state.iterators.pop();
+      if (state.iterators) return state.iterators.pop();
     },
     replaceIterator: function(state, iterator) {
       if (state.iterators) state.iterators[state.iterators.length - 1] = iterator;
+    },
+    currentIterator: function(state) {
+      if (state.iterators) return state.iterators[state.iterators.length - 1];
     }
   }
 
