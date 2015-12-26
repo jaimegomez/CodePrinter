@@ -448,7 +448,7 @@
     return dl;
   }
   function parseStream(parser, stream, state, col) {
-    var l = col != null ? col : stream.length, cache = [];
+    var l = col != null ? col : stream.length, cache = stream.cache = [];
     (state && state.parser || parser).onEntry(stream, state);
     while (stream.pos < l) readIteration(parser, stream, state, cache);
     (state && state.parser || parser).onExit(stream, state);
@@ -2754,6 +2754,11 @@
     },
     undo: function(n) {
       this.pos = Math.max(0, this.pos - n);
+    },
+    undoLastSymbol: function(symbol) {
+      if (!symbol || this.lastSymbol === symbol) {
+        this.cache.pop();
+      }
     },
     markDefinition: function(defObject) {
       this.definition = extend({ pos: this.offset + this.start }, defObject);
