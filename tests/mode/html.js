@@ -22,7 +22,7 @@ describe('HTML', function() {
       2, 2, 2, 1, 0, 0
     ];
     
-    cp.reIndent();
+    cp.exec('reindent');
     for (var i = 0; i < indents.length; i++) {
       expect(cp.getIndentAtLine(i)).toBe(indents[i]);
     }

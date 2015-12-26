@@ -11,9 +11,9 @@ describe('JSON', function() {
     cp.setDocument(doc);
   });
   
-  it('should re-indent', function() {
+  it('should reindent', function() {
     var arr = [0, 1, 2, 2, 2, 3, 4, 4, 4, 3, 2, 1, 0, 0];
-    cp.reIndent();
+    cp.exec('reindent');
     for (var i = 0; i < 14; i++) {
       expect(cp.getIndentAtLine(i)).toBe(arr[i]);
     }

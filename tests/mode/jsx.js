@@ -4,14 +4,14 @@ describe('JSX', function() {
     'let React = require("react");',
     '',
     'let Component = React.createClass({',
-    '  render() {',
-    '    return (',
-    '      <div className="Component">',
-    '        <input type="text" value={this.props.value + 8} />',
-    '        {this.props.children}',
-    '      </div>',
-    '    );',
-    '  }',
+    'render() {',
+    'return (',
+    '<div className="Component">',
+    '<input type="text" value={this.props.value + 8} />',
+    '{this.props.children}',
+    '</div>',
+    ');',
+    '}',
     '});',
     '',
     'module.exports = Component;'
@@ -21,6 +21,14 @@ describe('JSX', function() {
   
   beforeAll(function() {
     cp.setDocument(doc);
+  });
+  
+  it('should reindent', function() {
+    var indents = [0, 0, 0, 0, 1, 2, 3, 4, 4, 3, 2, 1, 0, 0, 0];
+    cp.exec('reindent');
+    for (var i = 0; i < indents.length; i++) {
+      expect(doc.getIndent(i)).toBe(indents[i]);
+    }
   });
   
   it('should recognize tags', function() {

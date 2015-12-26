@@ -17,9 +17,9 @@ describe('JavaScript', function() {
   });
   
   it('should reindent', function() {
-    cp.exec('reIndent');
+    cp.exec('reindent');
     expect(cp.doc).toBe(doc);
-    expect(doc.parser.name).toBe('JavaScript');
+    expect(doc.parser.name).toBe('javascript');
     expect(doc.getIndent(0)).toBe(0);
     expect(doc.getIndent(1)).toBe(1);
     expect(doc.getIndent(2)).toBe(2);
@@ -32,24 +32,18 @@ describe('JavaScript', function() {
   });
   
   it('should have correct contexts', function() {
-    var FAKE_CONTEXT = 0
-    , BLOCK_CONTEXT = 1
-    , FUNCTION_CONTEXT = 3
-    , ARROW_CONTEXT = 7
-    , OBJECT_CONTEXT = 8
-    , ARRAY_CONTEXT = 16
-    , CLASS_CONTEXT = 32;
+    var parser = doc.parser;
     
-    expect(doc.getState([0, 0]).state.context.type).not.toBeDefined();
-    expect(doc.getState([0, 19]).state.context.type).toBe(FUNCTION_CONTEXT);
-    expect(doc.getState([1, 3]).state.context.type).toBe(FUNCTION_CONTEXT);
-    expect(doc.getState([1, 16]).state.context.type).toBe(BLOCK_CONTEXT);
-    expect(doc.getState([3, 3]).state.context.type).toBe(FUNCTION_CONTEXT);
-    expect(doc.getState([4, 10]).state.context.type).toBe(FAKE_CONTEXT);
-    expect(doc.getState([4, 28]).state.context.type).toBe(FAKE_CONTEXT);
-    expect(doc.getState([4, 30]).state.context.type).toBe(FAKE_CONTEXT);
-    expect(doc.getState([4, 31]).state.context.type).toBe(FUNCTION_CONTEXT);
-    expect(doc.getState([5, 1]).state.context.type).not.toBeDefined();
+    expect(doc.getState([0, 0]).state.context.type).toBe(parser.BLOCK_CONTEXT);
+    expect(doc.getState([0, 19]).state.context.type).toBe(parser.FUNCTION_CONTEXT);
+    expect(doc.getState([1, 3]).state.context.type).toBe(parser.FUNCTION_CONTEXT);
+    expect(doc.getState([1, 16]).state.context.type).toBe(parser.BLOCK_CONTEXT);
+    expect(doc.getState([3, 3]).state.context.type).toBe(parser.FUNCTION_CONTEXT);
+    expect(doc.getState([4, 10]).state.context.type).toBe(parser.FAKE_CONTEXT);
+    expect(doc.getState([4, 28]).state.context.type).toBe(parser.FAKE_CONTEXT);
+    expect(doc.getState([4, 30]).state.context.type).toBe(parser.FAKE_CONTEXT);
+    expect(doc.getState([4, 31]).state.context.type).toBe(parser.FUNCTION_CONTEXT);
+    expect(doc.getState([5, 1]).state.context.type).toBe(parser.BLOCK_CONTEXT);
   });
   
   it('should recognize variables', function() {

@@ -45,7 +45,7 @@ describe('CSS', function() {
   it('should be prepared', function() {
     expect(cp.doc).toBe(doc);
     expect(doc.parser).toBeDefined();
-    expect(doc.parser.name).toBe('CSS');
+    expect(doc.parser.name).toBe('css');
   });
   
   it('should reindent', function() {
@@ -55,7 +55,7 @@ describe('CSS', function() {
       1, 1, 1, 1, 1, 1, 2, 1, 0, 0
     ];
     
-    cp.exec('reIndent');
+    cp.exec('reindent');
     for (var i = 0; i < indents.length; i++) {
       expect(doc.getIndent(i)).toBe(indents[i]);
     }
