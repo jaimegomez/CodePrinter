@@ -83,6 +83,7 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
     indent: function(stream, state, nextIteration) {
       var ch = stream.peek();
       if (stream.lastValue === '</' && ch === '/' && state.context.type === 'tag') return state.indent - 1;
+      if (stream.isAfter(/^<\/\w+/)) return state.indent - 1;
       return JavaScript.indent(stream, state, nextIteration);
     },
     keyMap: {

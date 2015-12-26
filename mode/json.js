@@ -4,6 +4,8 @@ CodePrinter.defineMode('JSON', function() {
   
   var invalidCharacters = /['()\/\?!\-+=]/
   , allowedEscapes = /^(["\\\/bfnrt]|u[0-9a-fA-F]{4})/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator;
   
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;
@@ -11,23 +13,21 @@ CodePrinter.defineMode('JSON', function() {
       if (ch == '"' && !esc) break;
       if (esc = !esc && ch == '\\') {
         stream.undo(1);
-        state.next = escapedString;
+        push(state, escapedString);
         return 'string';
       }
     }
-    if (!ch && esc) state.next = string;
-    state.next = null;
-    if (!ch) return 'invalid';
-    return 'string';
+    if (ch || !esc) pop(state);
+    return ch ? 'string' : 'invalid';
   }
   function escapedString(stream, state) {
     if (stream.eat('\\')) {
       if (stream.match(allowedEscapes, true)) {
-        state.next = string;
+        pop(state);
         return 'escaped';
       }
     }
-    state.next = string;
+    pop(state);
     return 'invalid';
   }
   
@@ -45,7 +45,7 @@ CodePrinter.defineMode('JSON', function() {
       var ch = stream.next();
       
       if (ch == '"') {
-        return string(stream, state);
+        return push(state, string)(stream, state);
       }
       if (ch == '0' && stream.eat('x')) {
         stream.eatWhile(/[0-9a-f]/i);

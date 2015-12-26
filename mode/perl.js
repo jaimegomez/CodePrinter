@@ -4,12 +4,16 @@ CodePrinter.defineMode('Perl', function() {
   
   var vartypes = /[\$\@\&\%\*]/
   , operators = /[+\-*&%=<>!?|~^]/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , controls = ['do','else','elsif','for','foreach','if','unless','until','while']
   , keywords = ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','ne','no','or','package','q','qq','qr','qw','qx','s','tr','xor','y']
   , specials = ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','STDIN','STDOUT','STDERR','print','printf','sprintf','return']
   
   function singleQuote(stream, state) {
-    state.next = stream.skip("'", true) ? null : singleQuote;
+    if (stream.skip("'", true)) {
+      pop(state);
+    }
     return 'string';
   }
   function doubleQuote(stream, state, escaped) {
@@ -18,30 +22,30 @@ CodePrinter.defineMode('Perl', function() {
       if (ch == '"' && !esc) break;
       if (esc = !esc && ch == '\\') {
         stream.undo(1);
-        state.next = escapedString;
+        push(state, escapedString);
         return 'string';
       }
     }
-    if (!ch && esc) state.next = doubleQuote;
-    if (ch) state.next = null;
+    if (ch) pop(state);
     return 'string';
   }
   function escapedString(stream, state) {
     if (stream.eat('\\')) {
       var ch = stream.next();
       if (ch) {
-        state.next = doubleQuote;
+        pop(state);
         return 'escaped';
       }
       stream.undo(1);
     }
+    pop(state);
     return doubleQuote(stream, state, true);
   }
   function comment(stream, state) {
     var ch = stream.next();
     if (ch == '=' && stream.pos == 1 && stream.indentation == 0 && stream.isAfter('cut')) {
       stream.undo(-3);
-      state.next = null;
+      pop(state);
     }
     return 'comment';
   }
@@ -50,20 +54,20 @@ CodePrinter.defineMode('Perl', function() {
     while (ch = stream.next()) {
       if (ch == '\\' && !stream.eol()) {
         stream.undo(1);
-        state.next = escapedRegexp;
+        push(state, escapedRegexp);
         return 'regexp';
       }
       if (ch == state.quote) {
         if (state.doubleRgx) {
-          state.doubleRgx = null;
+          state.doubleRgx = undefined;
         } else {
           stream.take(/^[gimy]+/);
-          state.next = state.quote = null;
+          state.quote = undefined;
+          pop(state);
           return 'regexp';
         }
       }
     }
-    state.next = regexp;
     return 'regexp';
   }
   function escapedRegexp(stream, state) {
@@ -71,39 +75,38 @@ CodePrinter.defineMode('Perl', function() {
       var ch = stream.next();
       if (ch) {
         if (ch == 'x') stream.take(/^[0-9a-fA-F]{1,2}/);
-        state.next = regexp;
+        pop(state);
         return 'escaped';
       }
       stream.undo(1);
     }
+    pop(state);
     return regexp(stream, state, true);
   }
   function parameters(stream, state) {
     var ch = stream.next();
     if (ch) {
       if (ch == ')') {
-        state.next = null;
+        pop(state);
         --state.indent;
         return 'bracket';
       }
       if (ch == '.' && stream.eat('.') && stream.eat('.')) {
-        state.next = parameters;
         return 'operator';
       }
       if (ch == ',' || ch == ' ') {
-        state.next = parameters;
         return;
       }
       if (/\w/.test(ch)) {
         var word = ch + stream.take(/^\w+/);
-        if (stream.eol()) state.next = null;
+        if (stream.eol()) pop(state);
         state.context.params[word] = true;
         return 'parameter';
       }
       stream.undo(1);
-      return state.next = null;
     }
-    return state.next = null;
+    pop(state);
+    return;
   }
   
   function pushcontext(state, name) {
@@ -133,8 +136,8 @@ CodePrinter.defineMode('Perl', function() {
     iterator: function(stream, state) {
       var ch = stream.next();
       
-      if (ch == "'") return singleQuote(stream, state);
-      if (ch == '"') return doubleQuote(stream, state);
+      if (ch == "'") return push(state, singleQuote)(stream, state);
+      if (ch == '"') return push(state, doubleQuote)(stream, state);
       
       if (ch == '#') {
         stream.skip();
@@ -149,7 +152,7 @@ CodePrinter.defineMode('Perl', function() {
         var ls = stream.lastStyle;
         if (ls == 'numeric' || ls == 'bracket' || ls == 'variable') return 'operator';
         state.quote = ch;
-        return regexp(stream, state);
+        return push(state, regexp)(stream, state);
       }
       if (/\d/.test(ch)) {
         if (ch == '0') {
@@ -189,7 +192,7 @@ CodePrinter.defineMode('Perl', function() {
             stream.next();
             state.quote = p;
             state.doubleRgx = word == 's';
-            return regexp(stream, state);
+            return push(state, regexp)(stream, state);
           }
         }
         if (controls.indexOf(word) >= 0) return 'control';
@@ -208,7 +211,7 @@ CodePrinter.defineMode('Perl', function() {
         return 'bracket';
       }
       if (ch == '{' || ch == '(' || ch == '[') {
-        if (state.subdef && ch == '(') state.next = parameters;
+        if (state.subdef && ch == '(') push(state, parameters);
         ++state.indent;
         return 'bracket';
       }
@@ -225,7 +228,7 @@ CodePrinter.defineMode('Perl', function() {
       }
       if (ch == '=' && stream.pos == 1 && stream.indentation == 0) {
         stream.skip();
-        state.next = comment;
+        push(state, comment);
         return 'comment';
       }
       if (operators.test(ch)) {

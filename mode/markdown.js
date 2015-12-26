@@ -5,25 +5,26 @@ CodePrinter.defineMode('Markdown', function() {
   var OL_CONTEXT = 1
   , UL_CONTEXT = 2
   , brackets = /^[\[\]\(\)]/
-  , listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/;
+  , listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator;
   
   function comment(stream, state) {
     if (stream.skip('```', true)) {
-      state.next = undefined;
+      pop(state);
     } else {
       stream.skip();
-      state.next = comment;
     }
     return 'comment';
   }
   function link(stream, state) {
     stream.eatWhile(/[^\]]/);
-    state.next = undefined;
+    pop(state);
     return 'string';
   }
   function linkSrc(stream, state) {
     stream.eatWhile(/[^\)]/);
-    state.next = undefined;
+    pop(state);
     return 'special';
   }
   function emphasis(stream, state) {
@@ -31,7 +32,7 @@ CodePrinter.defineMode('Markdown', function() {
     while (ch = stream.next()) {
       if (ch == '*' || ch == '_' || ch == '~') {
         if (emp.inner && ch == emp.start[0] && (emp.start.length == 1 || stream.isAfter(ch))) {
-          state.next = emphasisInnerEnd;
+          push(state, emphasisInnerEnd);
         } else if (emp.start.length == 1 && stream.isAfter(ch)) {
           if (ch != emp.start[0] || emp.prev) {
             state.emphasis = {
@@ -39,10 +40,10 @@ CodePrinter.defineMode('Markdown', function() {
               start: ch + ch,
               inner: true,
               prev: emp
-            }
-            state.next = emphasisInner;
+            };
+            push(state, emphasisInner);
           } else {
-            state.next = undefined;
+            pop(state);
           }
         } else if (emp.start.length == 2 && !stream.isAfter(ch)) {
           state.emphasis = {
@@ -50,18 +51,18 @@ CodePrinter.defineMode('Markdown', function() {
             start: ch,
             inner: true,
             prev: emp
-          }
-          state.next = emphasisInner;
+          };
+          push(state, emphasisInner);
         } else if (ch == '~' && ch != emp.start[0]) {
           state.emphasis = {
             style: st + ' strike',
             start: ch + ch,
             inner: true,
             prev: emp
-          }
-          state.next = emphasisInner;
+          };
+          push(state, emphasisInner);
         } else {
-          state.next = undefined;
+          pop(state);
         }
         stream.undo(1);
         break;
@@ -71,7 +72,7 @@ CodePrinter.defineMode('Markdown', function() {
   }
   function emphasisInner(stream, state) {
     var ch = stream.next();
-    state.next = emphasis;
+    pop(state);
     if (ch == '*' || ch == '_' || ch == '~') {
       if (state.emphasis.start.length == 2) stream.eat(ch);
       return 'parameter';
@@ -79,7 +80,7 @@ CodePrinter.defineMode('Markdown', function() {
   }
   function emphasisInnerEnd(stream, state) {
     var ch = stream.next();
-    state.next = emphasis;
+    pop(state);
     if (ch == state.emphasis.start[0]) {
       if (state.emphasis.start.length == 2) stream.eat(ch);
       state.emphasis = state.emphasis.prev;
@@ -88,14 +89,14 @@ CodePrinter.defineMode('Markdown', function() {
   }
   
   function pushcontext(stream, state, type) {
-    if (state.context.indent == stream.indentation) {
+    if (state.context.indent == stream.indent) {
       popcontext(state);
     }
     state.context = {
       type: type,
-      indent: stream.indentation,
+      indent: stream.indent,
       prev: state.context
-    }
+    };
   }
   function popcontext(state) {
     if (state.context.prev) {
@@ -116,7 +117,7 @@ CodePrinter.defineMode('Markdown', function() {
       }
     },
     onEntry: function(stream, state) {
-      while (stream.indentation < state.context.indent && popcontext(state));
+      while (stream.indent < state.context.indent && popcontext(state));
       if (!stream.value) popcontext(state);
     },
     iterator: function(stream, state) {
@@ -143,7 +144,7 @@ CodePrinter.defineMode('Markdown', function() {
           return 'string';
         }
         if (ch == '+' || ch == '*' || ch == '-' && !stream.isAfter('-')) {
-          if (state.context.type != UL_CONTEXT || stream.indentation > state.context.indent) {
+          if (state.context.type != UL_CONTEXT || stream.indent > state.context.indent) {
             pushcontext(stream, state, UL_CONTEXT);
           }
           return 'numeric hex';
@@ -155,7 +156,7 @@ CodePrinter.defineMode('Markdown', function() {
         if (/\d/.test(ch)) {
           stream.take(/^\d*/);
           if (stream.eat('.')) {
-            if (state.context.type != OL_CONTEXT || stream.indentation > state.context.indent) {
+            if (state.context.type != OL_CONTEXT || stream.indent > state.context.indent) {
               pushcontext(stream, state, OL_CONTEXT);
             }
           }
@@ -174,7 +175,7 @@ CodePrinter.defineMode('Markdown', function() {
               style: sem.length == 1 ? 'italic' : ch == '~' ? 'strike' : 'bold',
               start: sem
             }
-            state.next = emphasis;
+            push(state, emphasis);
           } else if (ch == '*' && stream.pos == 1) {
             return 'numeric hex';
           }
@@ -187,7 +188,7 @@ CodePrinter.defineMode('Markdown', function() {
       if (brackets.test(ch)) {
         if (ch == '[') state.link = true;
         if (ch == ']') state.link = false;
-        if (ch == '(') state.next = linkSrc;
+        if (ch == '(') push(state, linkSrc);
         return 'bracket';
       }
       if (ch == '!') {
@@ -200,17 +201,6 @@ CodePrinter.defineMode('Markdown', function() {
     },
     indent: function(stream, state) {
       return state.context.indent;
-    },
-    afterEnterKey: function(stream, state) {
-      var ctx = state.context, bf = stream.from(0);
-      if (ctx.type & OL_CONTEXT) {
-        if (/^(\d+)\./.test(bf)) {
-          this.insertText(parseInt(RegExp.$1, 10) + 1 + '. ');
-        }
-      }
-      else if (ctx.type & UL_CONTEXT) {
-        this.insertText(stream.value[0] + ' ');
-      }
     }
   });
 });

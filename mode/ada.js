@@ -4,6 +4,8 @@ CodePrinter.defineMode('Ada', function() {
   
   var numericRgx = /^([\d_]+|[\d_]*\.[\d_]+|\d?\#\d+\#)(?:e[+\-]?[\d_]+)?/i
   , operatorRgx = /[+\-*\/%!=<>&|~^]/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , specials = ['ada','gnat','interfaces','standard','system']
   , types = ['access','array','decimal','digits','integer','mod','protected','real','record']
   , controls = ['begin','case','do','end','else','elsif','for','goto','if','loop','procedure','task','when','while']
@@ -18,15 +20,10 @@ CodePrinter.defineMode('Ada', function() {
   ]
   
   function string(stream, state) {
-    state.next = stream.skip('"', true) ? null : string;
-    return 'string';
-  }
-  function property(stream, state) {
-    if (stream.take(/^\w+/)) {
-      return 'property';
+    if (stream.skip('"', true)) {
+      pop(state);
     }
-    state.next = null;
-    return;
+    return 'string';
   }
   
   function pushcontext(state, name) {
@@ -67,11 +64,13 @@ CodePrinter.defineMode('Ada', function() {
         if (stream.match(/^.'/, true)) {
           return 'string';
         }
-        state.next = property;
-        return;
+        if (stream.take(/^\w+/)) {
+          return 'property';
+        }
+        return 'string';
       }
       if (ch == '"') {
-        return string(stream, state);
+        return push(state, string)(stream, state);
       }
       if (ch == ';') {
         if (state.endPhase) state.endPhase = null;

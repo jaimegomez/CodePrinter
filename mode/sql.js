@@ -4,6 +4,8 @@ CodePrinter.defineMode('SQL', function() {
   
   var keyMap = {}
   , operatorsRgx = /[\-+=<>%]/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , atoms = ['false','true','null','unknown']
   , builtins = [
     'bool','boolean','bit','blob','enum','long','longblob','longtext',
@@ -35,20 +37,22 @@ CodePrinter.defineMode('SQL', function() {
         if (state.quote == "'") {
           if (stream.peek() == "'") {
             stream.undo(1);
-            state.next = escapedString;
+            push(state, escapedString);
             return 'string';
           }
         }
         break;
       }
     }
-    if (ch) state.next = state.quote = undefined;
-    else state.next = string;
+    if (ch) {
+      pop(state);
+      state.quote = undefined;
+    }
     return 'string';
   }
   function escapedString(stream, state) {
     if (stream.eat("'") && stream.eat("'")) {
-      state.next = string;
+      pop(state);
       return 'escaped';
     }
   }
@@ -60,7 +64,7 @@ CodePrinter.defineMode('SQL', function() {
       }
       star = ch == '*';
     }
-    state.next = ch && star ? null : comment;
+    if (ch && star) pop(state);
     return 'comment';
   }
   
@@ -85,10 +89,10 @@ CodePrinter.defineMode('SQL', function() {
       }
       if (ch == "'" || ch == '"' || ch == '`') {
         state.quote = ch;
-        return string(stream, state);
+        return push(state, string)(stream, state);
       }
       if (ch == '/' && stream.eat('*')) {
-        return comment(stream, state);
+        return push(state, comment)(stream, state);
       }
       if (ch == '-' && stream.eat('-')) {
         stream.skip();

@@ -4,7 +4,10 @@ CodePrinter.defineMode('Java', function() {
   
   var wordRgx = /[\w\$_\xa1-\uffff]/
   , operatorRgx = /[+\-*&%=<>!?|\/]/
-  , openBrackets = /^[{\[\(]/, closeBrackets = /^[}\]\)]/
+  , openBrackets = /^[{\[\(]/
+  , closeBrackets = /^[}\]\)]/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , controls = ['if','else','while','for','do','case','switch','try','catch','finally']
   , types = ['byte','short','int','long','float','double','boolean','char']
   , constants = ['null','undefined','NaN','Infinity']
@@ -40,12 +43,11 @@ CodePrinter.defineMode('Java', function() {
       if (ch == state.quote && !esc) break;
       if (esc = !esc && ch == '\\') {
         stream.undo(1);
-        state.next = escapedString;
+        push(state, escapedString);
         return 'string';
       }
     }
-    if (!ch && esc) state.next = string;
-    state.next = null;
+    pop(state);
     if (!ch) return 'invalid';
     state.quote = undefined;
     return 'string';
@@ -54,11 +56,12 @@ CodePrinter.defineMode('Java', function() {
     if (stream.eat('\\')) {
       var ch = stream.next();
       if (ch) {
-        state.next = string;
+        pop(state);
         return 'escaped';
       }
       stream.undo(1);
     }
+    pop(state);
     return string(stream, state, true);
   }
   function comment(stream, state) {
@@ -69,7 +72,7 @@ CodePrinter.defineMode('Java', function() {
       }
       star = ch == '*';
     }
-    state.next = ch && star ? null : comment;
+    if (ch && star) pop(state);
     return 'comment';
   }
   
@@ -101,6 +104,7 @@ CodePrinter.defineMode('Java', function() {
       var ch = stream.next();
       if (ch == '"' || ch == "'") {
         state.quote = ch;
+        push(state, string);
         return string(stream, state);
       }
       if (ch == '/') {
@@ -109,6 +113,7 @@ CodePrinter.defineMode('Java', function() {
           return 'comment';
         }
         if (stream.eat('*')) {
+          push(state, comment)
           return comment(stream, state);
         }
       }

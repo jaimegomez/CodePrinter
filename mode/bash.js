@@ -5,6 +5,8 @@ CodePrinter.defineMode('Bash', function() {
   var wordRgx = /\w/
   , closeBrackets = /^[}\]\)]/
   , operatorRgx = /[+\-*\/%!=<>&|~^]/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , controlsA = ['case','do','then']
   , controlsB = ['for','in','select','until','while','done','fi','esac']
   , controlsC = ['if', 'else', 'elif']
@@ -14,8 +16,10 @@ CodePrinter.defineMode('Bash', function() {
   function string(stream, state) {
     var ch;
     while (ch = stream.next()) if (ch == state.quote) break;
-    if (ch) state.quote = state.next = null;
-    else state.next = string;
+    if (ch) {
+      pop(state);
+      state.quote = undefined;
+    }
     return 'string';
   }
   
@@ -48,7 +52,7 @@ CodePrinter.defineMode('Bash', function() {
       var ch = stream.next();
       if (ch == '"' || ch == "'" || ch == '`') {
         state.quote = ch;
-        return string(stream, state);
+        return push(state, string)(stream, state);
       }
       if (ch == '#') {
         if (stream.pos == 1) {

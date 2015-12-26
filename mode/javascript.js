@@ -46,6 +46,48 @@ CodePrinter.defineMode('JavaScript', function() {
     state.quote = null;
     return 'string';
   }
+  function templateString(stream, state, escaped) {
+    var esc = !!escaped, ch;
+    while (ch = stream.next()) {
+      if (ch === state.quote && !esc) break;
+      if (ch === '$' && stream.peek() === '{') {
+        stream.undo(1);
+        push(state, stringInjection);
+        return 'string';
+      }
+      if (esc = !esc && ch === '\\') {
+        stream.undo(1);
+        push(state, escapedString);
+        return 'string';
+      }
+    }
+    if (ch) {
+      pop(state);
+      state.quote = undefined;
+    }
+    return 'string';
+  }
+  function stringInjection(stream, state) {
+    if (stream.eatChain('${')) {
+      push(state, function(stream, state) {
+        var peek = stream.peek();
+        if (peek === '}') {
+          stream.next();
+          pop(state);
+          return 'escaped';
+        }
+        if (peek === '`') {
+          pop(state);
+          pop(state);
+          return;
+        }
+        return this.iterator(stream, state);
+      });
+      return 'escaped';
+    }
+    pop(state);
+    return stream.eatChain('}') ? 'escaped' : 'string';
+  }
   function escapedString(stream, state) {
     if (stream.eat('\\')) {
       var ch = stream.next();
@@ -169,11 +211,14 @@ CodePrinter.defineMode('JavaScript', function() {
       }
     }
     if (stream.isAfter(/^\s*([:=]\s*function)?\s*\(/)) {
-      var rgx = RegExp.$1;
+      var rgx = RegExp.$1, type = state.context.type;
       if (rgx) {
         state.fn = word;
-        if (state.context.type === OBJECT_CONTEXT && rgx[0] === ':') {
+        if (type === OBJECT_CONTEXT && rgx[0] === ':') {
           saveVariable(state, word, 'function', OBJECT_CONTEXT);
+        }
+        else if (type & BLOCK_CONTEXT && rgx[0] === '=') {
+          saveVariable(state, word, 'function', state.letdef != null ? BLOCK_CONTEXT : FUNCTION_CONTEXT);
         }
       }
       return 'function';
@@ -215,7 +260,7 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   function saveVariable(state, varname, vartype, type) {
     var ctx = state.context;
-    while (ctx && ctx.prev && !(ctx.type & type)) ctx = ctx.prev;
+    while (ctx && ctx.prev && (ctx.type > type || !(ctx.type & type))) ctx = ctx.prev;
     if (ctx) {
       if (!ctx.vars) ctx.vars = {};
       ctx.vars[varname] = vartype;
@@ -241,10 +286,13 @@ CodePrinter.defineMode('JavaScript', function() {
     }
   }
   
-  rules['"'] = rules["'"] = rules['`'] = function(stream, state, ch) {
-    push(state, string);
+  rules['"'] = rules["'"] = function(stream, state, ch) {
     state.quote = ch;
-    return string(stream, state);
+    return push(state, string)(stream, state);
+  }
+  rules['`'] = function(stream, state, ch) {
+    state.quote = '`';
+    return push(state, templateString)(stream, state);
   }
   rules['/'] = function(stream, state) {
     if (stream.eat('/')) {
@@ -252,15 +300,13 @@ CodePrinter.defineMode('JavaScript', function() {
       return 'comment';
     }
     if (stream.eat('*')) {
-      push(state, comment);
-      return comment(stream, state);
+      return push(state, comment)(stream, state);
     }
     if (stream.lastSymbol === 'word' || stream.lastSymbol === 'parameter' || stream.lastSymbol === 'variable'
       || stream.lastSymbol === 'numeric' || stream.lastSymbol === 'constant' || stream.lastValue === ')') {
       return 'operator';
     }
-    push(state, regexp);
-    return regexp(stream, state);
+    return push(state, regexp)(stream, state);
   }
   rules['.'] = function(stream, state) {
     if (stream.match(/^\d+(?:[eE][+\-]?\d+)?/, true)) return 'numeric';
@@ -369,13 +415,15 @@ CodePrinter.defineMode('JavaScript', function() {
     blockCommentStart: '/*',
     blockCommentEnd: '*/',
     lineComment: '//',
+    autoCompleteWord: /[\w_]+/,
+    autoCompleteTriggers: /[\w_]/,
     indentTriggers: /[\}\]\)e]/,
     matching: 'brackets',
     
     initialState: function() {
       return {
         indent: 0,
-        context: { vars: {}, indent: 0 }
+        context: { type: BLOCK_CONTEXT, vars: {}, indent: 0 }
       }
     },
     iterator: function(stream, state) {
@@ -390,11 +438,6 @@ CodePrinter.defineMode('JavaScript', function() {
       if (/\d/.test(ch)) {
         stream.match(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/, true);
         return 'numeric';
-      }
-      if (ch === '<' && state.parser && stream.isAfter(/^\s*\/\s*script/i)) {
-        state.parser = null;
-        stream.undo(1);
-        return;
       }
       if (operatorRgx.test(ch)) {
         if (ch === '*' && stream.lastValue === 'function') return;
@@ -412,10 +455,10 @@ CodePrinter.defineMode('JavaScript', function() {
       var i = state.indent, peek = stream.peek();
       if (stream.lastSymbol === 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
       if (closeBrackets.test(peek)) {
-        if (!/\bbracket\b/.test(nextIteration()) || stream.lastValue !== peek) return null;
         if (peek === ')') return state.context.type === FAKE_CONTEXT ? i - 1 : null;
         if (peek === ']') return state.context.type === ARRAY_CONTEXT ? i - 1 : null;
         if (peek === '}') return state.context.type & 47 ? i - 1 : null;
+        if (!/\bbracket\b/.test(nextIteration()) || stream.lastValue !== peek) return null;
       }
       if (peek === 'e') return stream.isBefore('els') && stream.lastSymbol === 'control' ? i : null;
       if (state.parser && stream.isAfter(/^\s*<\s*\/\s*script/i)) return i - 1;

@@ -5,6 +5,8 @@ CodePrinter.defineMode('CoffeeScript', function() {
   var wordRgx = /[\w$\xa1-\uffff]/
   , numericRgx = /^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , controls = ['if','else','elseif','then','for','switch','while','until','do','try','catch','finally']
   , booleans = /^(true|false|yes|no|o(n|ff))$/
   , constants = /^(null|undefined|NaN|Infinity)$/
@@ -27,17 +29,16 @@ CodePrinter.defineMode('CoffeeScript', function() {
       if (ch == state.quote && !esc) break;
       if (esc = !esc && ch == '\\') {
         stream.undo(1);
-        state.next = escapedString;
+        push(state, escapedString);
         return 'string';
       }
       if (ch == '#' && stream.peek() == '{') {
-        state.next = interpolation;
+        push(state, interpolation);
         stream.undo(1);
         return 'string';
       }
     }
-    if (!ch && esc) state.next = string;
-    else state.next = null;
+    if (ch || !esc) pop(state);
     if (!ch) return 'invalid';
     state.quote = null;
     return 'string';
@@ -46,11 +47,12 @@ CodePrinter.defineMode('CoffeeScript', function() {
     if (stream.eat('\\')) {
       var ch = stream.next();
       if (ch) {
-        state.next = string;
+        pop(state);
         return 'escaped';
       }
       stream.undo(1);
     }
+    pop(state);
     return string(stream, state, true);
   }
   function interpolation(stream, state) {
@@ -60,16 +62,18 @@ CodePrinter.defineMode('CoffeeScript', function() {
         stream.undo(1);
       }
     }
-    state.next = string;
+    pop(state);
     return 'escaped';
   }
   function comment(stream, state) {
-    state.next = !stream.skip('###', true) && comment;
+    if (stream.skip('###', true)) {
+      pop(state);
+    }
     return 'comment';
   }
   function commentInRegexp(stream, state) {
     stream.next() == '#' ? stream.skip() : stream.undo(1);
-    state.next = blockRegexp;
+    push(state, blockRegexp);
     return 'comment';
   }
   function regexp(stream, state, escaped) {
@@ -77,16 +81,15 @@ CodePrinter.defineMode('CoffeeScript', function() {
     while (ch = stream.next()) {
       if (ch == '\\' && !stream.eol()) {
         stream.undo(1);
-        state.next = escapedRegexp;
+        push(state, escapedRegexp);
         return 'regexp';
       }
       if (ch == '/') {
         stream.take(/^[gimy]+/);
-        state.next = null;
-        return 'regexp';
+        break;
       }
     }
-    state.next = null;
+    pop(state);
     return 'regexp';
   }
   function blockRegexp(stream, state) {
@@ -94,38 +97,39 @@ CodePrinter.defineMode('CoffeeScript', function() {
     while (ch = stream.next()) {
       if (ch == '\\' && !stream.eol()) {
         stream.undo(1);
-        state.next = escapedRegexp;
+        push(state, escapedRegexp);
         return 'regexp';
       }
       if (ch == '/') {
         ++i;
         if (i == 3) {
           stream.take(/^[gimy]+/);
-          state.next = state.blockRegexp = null;
+          state.blockRegexp = null;
+          pop(state);
           return 'regexp';
         }
       } else {
         if (ch == '#' && stream.isBefore(' ')) {
           stream.undo(1);
-          state.next = commentInRegexp;
+          push(state, commentInRegexp);
           return 'regexp';
         }
         i = 0;
       }
     }
-    state.next = blockRegexp;
     return 'regexp';
   }
   function escapedRegexp(stream, state) {
     if (stream.eat('\\')) {
       var ch = stream.next();
       if (ch) {
-        state.next = state.blockRegexp ? blockRegexp : regexp;
+        pop(state);
         return 'escaped';
       }
       stream.undo(1);
     }
-    return (state.blockRegexp ? blockRegexp : regexp)(stream, state, true);
+    pop(state);
+    return regexp(stream, state, true);
   }
   function parameters(stream, state) {
     var ch = stream.next();
@@ -133,7 +137,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
       if (ch == '=') return 'operator';
       if (ch == '(') return 'bracket';
       if (ch == ')') {
-        state.next = null;
+        pop(state);
         return 'bracket';
       }
       if (ch == '.' && stream.eat('.') && stream.eat('.')) {
@@ -141,12 +145,12 @@ CodePrinter.defineMode('CoffeeScript', function() {
       }
       if (wordRgx.test(ch)) {
         var word = ch + stream.take(/^[\w$\xa1-\uffff]+/);
-        if (stream.eol()) state.next = null;
+        if (stream.eol()) pop(state);
         state.context.params[word] = true;
         return 'parameter';
       }
     }
-    if (stream.eol()) state.next = null;
+    if (stream.eol()) pop(state);
     return;
   }
   
@@ -194,7 +198,9 @@ CodePrinter.defineMode('CoffeeScript', function() {
       
       var ch = stream.next();
       if (ch == '#') {
-        if (stream.eat('#') && stream.eat('#')) return comment(stream, state);
+        if (stream.eat('#') && stream.eat('#')) {
+          return push(state, comment)(stream, state);
+        }
         stream.skip();
         return 'comment';
       }
@@ -209,18 +215,18 @@ CodePrinter.defineMode('CoffeeScript', function() {
       }
       if (ch == '"' || ch == "'" || ch == '`') {
         state.quote = ch;
-        return string(stream, state);
+        return push(state, string)(stream, state);
       }
       if (ch == '/') {
         if (stream.isAfter('//')) {
           state.blockRegexp = true;
-          return blockRegexp(stream, state);
+          return push(state, blockRegexp)(stream, state);
         }
         if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'numeric'
           || stream.lastStyle == 'constant' || stream.lastValue == ')') {
           return 'operator';
         }
-        return regexp(stream, state);
+        return push(state, regexp)(stream, state);
       }
       if (ch == '@') {
         return 'special';
@@ -244,7 +250,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
         if (specials.indexOf(word) >= 0) return 'special';
         
         if (stream.isAfter(/^\s*[=:]\s*(\([\w\s\,\.]*\))?\s*->/)) {
-          if (RegExp.$1) state.next = parameters;
+          if (RegExp.$1) push(state, parameters);
           state.context.vars[word] = 'function';
           pushcontext(stream, state, word);
           return 'function';

@@ -5,6 +5,8 @@ CodePrinter.defineMode('Cpp', function() {
   , operatorRgx = /[+\-*&%=<>!?|~^]/
   , closeBrackets = /^[}\]\)]/
   , allowedEscapes = /('|"|\?|\\|a|b|f|n|r|t|v|\d{3}|x\d{2}|u\d{4}|U\d{8})/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , controls = ['if','else','elseif','for','switch','while','do','try','catch']
   , types = [
     'void','int','double','short','long','char','float','bool','unsigned',
@@ -61,12 +63,11 @@ CodePrinter.defineMode('Cpp', function() {
       if (ch == state.quote && !esc) break;
       if (esc = !esc && ch == '\\') {
         stream.undo(1);
-        state.next = escapedString;
+        push(state, escapedString);
         return 'string';
       }
     }
-    if (!ch && esc) state.next = string;
-    else state.next = null;
+    if (ch || !esc) pop(state);
     if (!ch) return 'invalid';
     state.quote = null;
     return 'string';
@@ -74,11 +75,11 @@ CodePrinter.defineMode('Cpp', function() {
   function escapedString(stream, state) {
     if (stream.eat('\\')) {
       if (stream.match(allowedEscapes, true)) {
-        state.next = string;
+        pop(state);
         return 'escaped';
       }
     }
-    state.next = string;
+    pop(state);
     return 'invalid';
   }
   function comment(stream, state) {
@@ -89,7 +90,7 @@ CodePrinter.defineMode('Cpp', function() {
       }
       star = ch == '*';
     }
-    state.next = ch && star ? null : comment;
+    if (ch && star) pop(state);
     return 'comment';
   }
   function include(stream, state) {
@@ -106,7 +107,7 @@ CodePrinter.defineMode('Cpp', function() {
       }
     }
     stream.skip();
-    state.next = undefined;
+    pop(state);
     return 'string';
   }
   function parameters(stream, state) {
@@ -118,12 +119,12 @@ CodePrinter.defineMode('Cpp', function() {
       }
       if (ch == ')') {
         --p;
-        if (p == 0) state.next = null;
+        if (p == 0) pop(state);
         return 'bracket'; 
       }
       if (ch == '{' || ch == ';') {
         stream.undo(1);
-        state.next = null;
+        pop(state);
         return;
       }
       if (ch == ',') return 'punctuation';
@@ -186,6 +187,7 @@ CodePrinter.defineMode('Cpp', function() {
       var ch = stream.next();
       if (ch == '"' || ch == "'") {
         state.quote = ch;
+        push(state, string);
         return string(stream, state);
       }
       if (ch == '/') {
@@ -194,6 +196,7 @@ CodePrinter.defineMode('Cpp', function() {
           return 'comment';
         }
         if (stream.eat('*')) {
+          push(state, comment);
           return comment(stream, state);
         }
         if (stream.lastStyle == 'word' || stream.lastStyle == 'parameter' || stream.lastStyle == 'numeric'
@@ -204,7 +207,7 @@ CodePrinter.defineMode('Cpp', function() {
       if (ch == '#' && stream.pos == 1) {
         var word = stream.eatWhile(/\w/);
         if (word == 'include' && !stream.eol()) {
-          state.next = include;
+          push(state, include);
         }
         return 'directive';
       }
@@ -252,7 +255,7 @@ CodePrinter.defineMode('Cpp', function() {
         if (stream.isAfter(/^\s*\(/)) {
           if (state.indent == state.context.indent && state.type && !state.vardef) {
             state.fn = word;
-            state.next = parameters;
+            push(state, parameters);
           }
           return 'function';
         }

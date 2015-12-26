@@ -5,8 +5,11 @@ CodePrinter.defineMode('PHP', function() {
   var wordFirstLetterRgx = /[a-z_\x7f-\xff]/i
   , wordRgx = /[\w\x7f-\xff]/i
   , varnameRgx = /^[a-z_\x7f-\xff][\w\x7f-\xff]*/i
-  , openBrackets = /^[{\[(]/, closeBrackets = /^[}\])]/
+  , openBrackets = /^[{\[(]/
+  , closeBrackets = /^[}\])]/
   , operatorsRgx = /[=!+\-\*\/%<>|&\.]/
+  , push = CodePrinter.helpers.pushIterator
+  , pop = CodePrinter.helpers.popIterator
   , constants = ['__CLASS__','__DIR__','__FILE__','__FUNCTION__','__LINE__','__METHOD__','__NAMESPACE__','__TRAIT__']
   , controls = [
     'if','else','for','foreach','switch','case','default',
@@ -31,23 +34,26 @@ CodePrinter.defineMode('PHP', function() {
       if (ch == state.quote && !esc) break;
       if (esc = !esc && ch == '\\') {
         stream.undo(1);
-        state.next = escapedString;
+        push(state, escapedString);
         return 'string';
       }
     }
-    if (!ch) state.next = string;
-    else state.next = state.quote = null;
+    if (ch) {
+      pop(state);
+      state.quote = null;
+    }
     return 'string';
   }
   function escapedString(stream, state) {
     if (stream.eat('\\')) {
       var ch = stream.next();
       if (ch) {
-        state.next = string;
+        pop(state);
         return 'escaped';
       }
       stream.undo(1);
     }
+    pop(state);
     return string(stream, state, true);
   }
   function comment(stream, state) {
@@ -58,12 +64,12 @@ CodePrinter.defineMode('PHP', function() {
       }
       star = ch == '*';
     }
-    state.next = ch && star ? null : comment;
+    if (ch && star) pop(state);
     return 'comment';
   }
   function namespace(stream, state) {
     stream.eatWhile(/[^\;]/);
-    state.next = undefined;
+    pop(state);
     return 'namespace';
   }
   
@@ -107,10 +113,10 @@ CodePrinter.defineMode('PHP', function() {
       }
       if (ch == '"') {
         state.quote = ch;
-        return string(stream, state);
+        return push(state, string)(stream, state);
       }
       if (ch == '/' && stream.eat('*')) {
-        return comment(stream, state);
+        return push(state, comment)(stream, state);
       }
       if (ch == '<' && stream.eat('?')) {
         stream.skip('php', true);
@@ -174,7 +180,7 @@ CodePrinter.defineMode('PHP', function() {
           return 'keyword';
         }
         if (word == 'namespace') {
-          state.next = namespace;
+          push(state, namespace);
           state.namespace = true;
           return 'keyword';
         }
@@ -220,158 +226,6 @@ CodePrinter.defineMode('PHP', function() {
       return {
         values: cc,
         search: 100
-      }
-    }
-  });
-  
-  var keyMap = {}
-  
-  keyMap['e'] = keyMap['f'] = keyMap['h'] = keyMap['r'] = function(e, k, ch) {
-    var bf = this.caret.textBefore(), w = bf.split(/\s+/g).last()+ch;
-    if (w == 'else' || this.parser.indentDecrements.indexOf(w) >= 0) {
-      var line = this.caret.line()
-      , indent = this.getNextLineIndent(line-1);
-      this.getIndentAtLine(line-1) == indent && this.caret.setTextBefore(this.tabString(indent-1) + bf.trim());
-    }
-  }
-  
-  return new CodePrinter.Mode({
-    name: 'PHP',
-  	controls: new RegExp('^('+ controls.join('|') +')$', 'i'),
-  	keywords: new RegExp('^('+ keywords.join('|') +')$', 'i'),
-    specials: new RegExp('^('+ specials.join('|') +')$', 'i'),
-    constants: new RegExp('^('+ constants.join('|') +')$', 'i'),
-  	regexp: /\$[\w\d\_]+|\b\d*\.?\d+\b|\b0x[\da-fA-F]+\b|\b\w+\b|\/\*|\/\/|\?>|<\?php|<\?=?|[^\w\s]/,
-    indentIncrements: ['else', ':', '[', '{'],
-    indentDecrements: ['endif', 'endfor', 'endforeach', 'endswitch', 'endwhile', 'enddeclare', ']', '}'],
-    blockCommentStart: '/*',
-    blockCommentEnd: '*/',
-    lineComment: '//',
-    
-    memoryAlloc: function() {
-      return {
-        constants: [],
-        variables: [],
-        classes: []
-      }
-    },
-  	parse: function(stream, memory) {
-  		var sb = stream.stateBefore, found;
-      
-      if (sb) {
-        var e = this.expressions[sb.comment ? '/*' : sb.string];
-        if (e) {
-          stream.eatWhile(e.ending).applyWrap(e.classes);
-          stream.isStillHungry() && stream.continueState();
-        }
-      }
-      
-  		while (found = stream.match(this.regexp)) {
-        if (found[0] === '$') {
-          if (found == '$this') {
-            stream.wrap('special');
-          } else {
-            stream.wrap('variable');
-            memory.variables.put(found.substr(1));
-          }
-        } else if (!isNaN(found)) {
-          if (found.substr(0, 2).toLowerCase() == '0x') {
-            stream.wrap('numeric', 'hex');
-          } else {
-            if ((found+'').indexOf('.') === -1) {
-              stream.wrap('numeric', 'int');
-            } else {
-              stream.wrap('numeric', 'float');
-            }
-          }
-        } else if (/^\w+$/i.test(found)) {
-          if (found == 'define') {
-            var m = stream.after().match(/^\s*\(('(\w+)'|"(\w+)")/);
-            m && m[2] && memory.constants.put(m[2]);
-            stream.wrap('special');
-          } else if (/^(true|false)$/i.test(found)) {
-        		stream.wrap('builtin', 'boolean');
-        	} else if (this.constants.test(found)) {
-            stream.wrap('builtin');
-          } else if (this.controls.test(found)) {
-        		stream.wrap('control');
-  	      } else if (this.specials.test(found)) {
-            stream.wrap('special');
-          } else if (this.keywords.test(found)) {
-  	      	stream.wrap('keyword');
-  	      } else if (stream.isAfter('(')) {
-        		stream.wrap('function');
-        	} else if (stream.isBefore(/\bclass\b/)) {
-            stream.wrap('special');
-            memory.classes.put(found);
-          } else if (stream.isBefore('const') || memory.constants.indexOf(found) >= 0) {
-            stream.wrap('constant');
-            memory.constants.put(found);
-          } else if (stream.isAfter('::') || stream.isBefore(/\bnamespace\b/)) {
-            stream.wrap('namespace');
-          }
-        } else if (found.length == 1) {
-          if (found == '"' || found == "'") {
-            stream.eatGreedily(found, this.expressions[found].ending).applyWrap(this.expressions[found].classes);
-            stream.isStillHungry() && stream.setStateAfter({ string: found });
-          } else if (this.operators[found]) {
-            stream.wrap('operator', this.operators[found]);
-          } else if (this.punctuations[found]) {
-            stream.wrap('punctuation', this.punctuations[found]);
-          } else if (this.brackets[found]) {
-            stream.applyWrap(this.brackets[found]);
-          }
-        } else if (/^(<\?(php|=?)|\?>)$/.test(found)) {
-          stream.wrap('external');
-        } else if (this.expressions[found]) {
-          var e = this.expressions[found];
-          if (found === '//') {
-            stream.eatAll(found).applyWrap(e.classes);
-          } else if (found === '/*') {
-            stream.eatGreedily(found, e.ending).applyWrap(e.classes);
-            stream.isStillHungry() && stream.setStateAfter('comment');
-          }
-        }
-  		}
-  		return stream;
-  	},
-    indentation: function(textBefore, textAfter, line, indent, parser) {
-      var before = (textBefore.match(/(\w+|.)$/) || [])[0]
-      , after = (textAfter.match(/^(\w+|.)/) || [])[0];
-      if (before) {
-        if (parser.indentIncrements.indexOf(before) >= 0) {
-          if (after && parser.indentDecrements.indexOf(after) >= 0) {
-            return [1, 0];
-          }
-          return 1;
-        }
-        if (parser.indentDecrements.indexOf(before) >= 0) {
-          return 0;
-        }
-      }
-      var firstwordbefore = (textBefore.match(/^\w+/) || [])[0];
-      if (firstwordbefore && parser.controls.test(firstwordbefore)) {
-        return 1;
-      }
-      var i = 0, prevline = this.getTextAtLine(line - 1).trim();
-      while (prevline && !/[\{\:]$/.test(prevline) && (word = (prevline.match(/^\w+/) || [])[0]) && parser.controls.test(word)) {
-        i++;
-        prevline = this.getTextAtLine(line - i - 1).trim();
-      }
-      return -i;
-    },
-    codeCompletions: function(bf, af) {
-      if (/\_\w*$/.test(bf)) {
-        return [].concat(constants, this.memory.constants);
-      }
-      if (/\$\w*$/.test(bf)) {
-        return ['this'].concat(this.memory.variables);
-      }
-    },
-    keyMap: keyMap,
-    extension: {
-      expressions: {
-        "'": { ending: "'", classes: ['string', 'single-quote'] }
       }
     }
   });
