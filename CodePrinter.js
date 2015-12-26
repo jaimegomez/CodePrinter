@@ -738,15 +738,13 @@
       return total;
     },
     addClass: function(className) {
-      if (!this.classes) this.classes = [className];
-      else if (this.classes.indexOf(className) === -1)
-        this.classes.push(className);
+      if (!this.classes) this.classes = [];
+      arrayAdd(this.classes, className);
       touch(this);
     },
     removeClass: function(className) {
       if (this.classes) {
-        var j = this.classes.indexOf(className);
-        if (j >= 0) this.classes.splice(j, 1);
+        arrayRemove(this.classes, className);
         if (this.classes.length === 0) this.classes = undefined;
         touch(this);
       }
@@ -4285,6 +4283,15 @@
   function each(arr, func, owner, start) { for (var i = start | 0; i < arr.length; i++) func.call(owner, arr[i], i); }
   function map(arr, func) { var m = []; for (var i = 0; i < arr.length; i++) m[i] = func.call(this, arr[i], i); return m; }
   function lastV(arr) { return arr[arr.length-1]; }
+  function arrayAdd(arr, toAdd) {
+    if (isArray(toAdd)) for (var i = 0; i < toAdd.length; i++) arrayAdd(arr, toAdd[i]);
+    else if (arr.indexOf(toAdd) === -1) arr.push(toAdd);
+  }
+  function arrayRemove(arr, toRemove) {
+    var i;
+    if (isArray(toRemove)) for (i = 0; i < toRemove.length; i++) arrayRemove(arr, toRemove[i]);
+    else if ((i = arr.indexOf(toRemove)) >= 0) arr.splice(i, 1);
+  }
   function on(node, event, listener) { node.addEventListener(event, listener, false); }
   function off(node, event, listener) { node.removeEventListener(event, listener, false); }
   function eventCancel(e, propagate) { e.preventDefault(); propagate || e.stopPropagation(); return e.returnValue = false; }
