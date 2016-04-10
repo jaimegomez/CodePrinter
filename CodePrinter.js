@@ -179,7 +179,7 @@
     CodePrinter.requireCSS('theme/'+style+'.css');
   }
 
-  function attachDoc(editor, doc) {
+  function attachDoc(editor, doc, focus) {
     doc.editor = editor;
     editor.doc = doc;
     doc.propagateTo(editor);
@@ -191,7 +191,7 @@
     doc.fill();
     updateScroll(doc);
     applySizes(doc);
-    if (editor.getOption('autoFocus')) editor.focus();
+    if (focus) doc.focus();
     doc.emit('attached');
   }
   function detachDoc(editor, doc) {
@@ -213,9 +213,9 @@
     setDocument: function(doc) {
       if (doc === null) doc = this.createDocument();
       if (doc instanceof Document && this.doc !== doc) {
-        var old = this.doc;
+        var old = this.doc, wasFocused = old ? old.isFocused : this.getOption('autoFocus');
         if (old) detachDoc(this, old);
-        attachDoc(this, doc);
+        attachDoc(this, doc, wasFocused);
         this.emit('documentChanged', old, doc);
         if (this.dom.mainNode.parentNode) doc.print();
         return old;
