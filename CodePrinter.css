@@ -95,6 +95,7 @@
   -moz-flex: 1;
   -ms-flex: 1;
   flex: 1;
+  width: 0px;
   position: relative;
 }
 .codeprinter .cp-scroll {
