@@ -1443,24 +1443,6 @@
     this.searchResults.length = 0;
     this.search(this.searchResults.request, false);
   }
-  function nextSearchNode(move) {
-    return function() {
-      if (this.length === 0) this.setActive(null);
-      var keys = Object.keys(this.rows);
-      if (this.active) {
-        var i = keys.indexOf(''+this.active.line);
-        if (i < 0) this.setActive(null);
-        else {
-          var row = this.rows[this.active.line], j = row.indexOf(this.active);
-          if (j >= 0 && j + move >= 0 && j + move < row.length) this.setActive(row[j + move]);
-          else if (keys[i + move]) this.setActive(move >= 0 ? this.rows[keys[i + move]][0] : lastV(this.rows[keys[i + move]]));
-          else this.setActive(null);
-        }
-      }
-      if (!this.active) this.setActive(move >= 0 ? this.rows[keys[0]][0] : lastV(this.rows[lastV(keys)]));
-      return this.active;
-    }
-  }
 
   var SearchResults = function(doc) {
     this.overlay = new CodePrinter.Overlay(['cp-search-overlay']);
@@ -1532,8 +1514,24 @@
         this.overlay.node.removeChild(row[i].span);
       }
     },
-    next: nextSearchNode(+1),
-    prev: nextSearchNode(-1),
+    next: function() { return this.move(1); },
+    prev: function() { return this.move(-1); },
+    move: function(move) {
+      if (this.length === 0) this.setActive(null);
+      var keys = Object.keys(this.rows);
+      if (this.active) {
+        var i = keys.indexOf(''+this.active.line);
+        if (i < 0) this.setActive(null);
+        else {
+          var row = this.rows[this.active.line], j = row.indexOf(this.active);
+          if (j >= 0 && j + move >= 0 && j + move < row.length) this.setActive(row[j + move]);
+          else if (keys[i + move]) this.setActive(move >= 0 ? this.rows[keys[i + move]][0] : lastV(this.rows[keys[i + move]]));
+          else this.setActive(null);
+        }
+      }
+      if (!this.active) this.setActive(move >= 0 ? this.rows[keys[0]][0] : lastV(this.rows[lastV(keys)]));
+      return this.active;
+    },
     reset: function(line) {
       var row = this.rows[line];
       if (!row) return;
@@ -1858,6 +1856,18 @@
       off(search.overlay.node, 'mousedown', search.onNodeMousedown);
       search.onNodeMousedown = null;
       this.removeOverlay(search.overlay);
+    },
+    searchNext: function() {
+      if (!this.searchResults) return;
+      var act = this.searchResults.next();
+      if (act) scrollToLine(this, act.line);
+      return act;
+    },
+    searchPrevious: function() {
+      if (!this.searchResults) return;
+      var act = this.searchResults.prev();
+      if (act) scrollToLine(this, act.line);
+      return act;
     },
     replace: function(replaceWith) {
       var active = this.searchResults && this.searchResults.active;
@@ -3074,15 +3084,10 @@
     }),
     'increaseFontSize': function() { this.setOption('fontSize', this.getOption('fontSize') + 1); },
     'decreaseFontSize': function() { this.setOption('fontSize', this.getOption('fontSize') - 1); },
-    'prevSearchResult': function() {
-      if (!this.doc.searchResults) return;
-      var act = this.doc.searchResults.prev();
-      if (act) scrollToLine(this.doc, act.line);
-    },
-    'nextSearchResult': function() {
-      if (!this.doc.searchResults) return;
-      var act = this.doc.searchResults.next();
-      if (act) scrollToLine(this.doc, act.line);
+    'prevSearchResult': function() { this.doc.searchPrevious(); },
+    'nextSearchResult': function() { this.doc.searchNext(); },
+    'searchEnd': function() {
+      this.doc.searchEnd();
     },
     'toNextDefinition': function() {
       var caret = this.doc.resetCarets(), dl = caret.dl().next();
