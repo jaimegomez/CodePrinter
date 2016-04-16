@@ -1,7 +1,7 @@
 /* CodePrinter - JavaScript Mode */
 
 CodePrinter.defineMode('JavaScript', function() {
-  
+
   var FAKE_CONTEXT = 0
   , BLOCK_CONTEXT = 1
   , FUNCTION_CONTEXT = 3
@@ -30,26 +30,28 @@ CodePrinter.defineMode('JavaScript', function() {
     'Reflect','Error','EvalError','InternalError','RangeError','ReferenceError',
     'StopIteration','SyntaxError','TypeError','URIError'
   ]);
-  
-  function string(stream, state, escaped) {
-    var esc = !!escaped, ch;
-    while (ch = stream.next()) {
-      if (ch === state.quote && !esc) break;
-      if (esc = !esc && ch === '\\') {
-        stream.undo(1);
-        push(state, escapedString);
-        return 'string';
+
+  function string(character) {
+    return function(stream, state) {
+      var esc = !!state.escaped, ch;
+      while (ch = stream.next()) {
+        if (ch === character && !esc) break;
+        if (esc = !esc && ch === '\\') {
+          stream.undo(1);
+          push(state, escapedString);
+          return 'string';
+        }
       }
+      state.escaped = esc;
+      if (ch || !esc) pop(state);
+      if (!ch) return 'invalid';
+      return 'string';
     }
-    if (ch || !esc) pop(state);
-    if (!ch) return 'invalid';
-    state.quote = null;
-    return 'string';
   }
   function templateString(stream, state, escaped) {
-    var esc = !!escaped, ch;
+    var esc = !!state.escaped, ch;
     while (ch = stream.next()) {
-      if (ch === state.quote && !esc) break;
+      if (ch === '`' && !esc) break;
       if (ch === '$' && stream.peek() === '{') {
         stream.undo(1);
         push(state, stringInjection);
@@ -61,9 +63,9 @@ CodePrinter.defineMode('JavaScript', function() {
         return 'string';
       }
     }
+    state.escaped = esc;
     if (ch) {
       pop(state);
-      state.quote = undefined;
     }
     return 'string';
   }
@@ -98,7 +100,7 @@ CodePrinter.defineMode('JavaScript', function() {
       stream.undo(1);
     }
     pop(state);
-    return string(stream, state, true);
+    state.escaped = true;
   }
   function comment(stream, state) {
     var star, ch;
@@ -195,13 +197,13 @@ CodePrinter.defineMode('JavaScript', function() {
     }
     if (word === 'true' || word === 'false') return 'builtin boolean';
     if (constants[word]) return 'constant';
-    if (controls[word]) {
+    if (controls[word] && stream.lastValue !== '.') {
       if (stream.lastSymbol !== 'control') state.control = word;
       return 'control';
     }
     if (specials[word]) return 'special';
     if (keywords[word]) return 'keyword';
-    
+
     if (state.context.type === CLASS_CONTEXT) {
       if (stream.isAfter(/^\s*\(/)) {
         state.fn = word;
@@ -229,7 +231,7 @@ CodePrinter.defineMode('JavaScript', function() {
       state.fatArrow = true;
       return parameters(stream, state);
     }
-    
+
     if (state.context && (state.context.type !== OBJECT_CONTEXT || !stream.isAfter(/^\s*:/)) && !stream.isBefore(/\.\s*$/, -word.length)) {
       var isVar = isVariable(word, state);
       if (isVar && 'string' === typeof isVar) return isVar;
@@ -241,7 +243,7 @@ CodePrinter.defineMode('JavaScript', function() {
     }
     return 'word';
   }
-  
+
   function pushcontext(state, type) {
     state.context = { type: type, prev: state.context, indent: state.indent + 1 };
     if (type & FUNCTION_CONTEXT) state.context.params = {};
@@ -273,7 +275,7 @@ CodePrinter.defineMode('JavaScript', function() {
       state.fatArrow = null;
     }
   }
-  
+
   function Definition(name, params) {
     this.name = name;
     this.params = params;
@@ -285,13 +287,11 @@ CodePrinter.defineMode('JavaScript', function() {
       return this.name + '(' + pstr.slice(0, -2) + ')';
     }
   }
-  
+
   rules['"'] = rules["'"] = function(stream, state, ch) {
-    state.quote = ch;
-    return push(state, string)(stream, state);
+    return push(state, string(ch))(stream, state);
   }
   rules['`'] = function(stream, state, ch) {
-    state.quote = '`';
     return push(state, templateString)(stream, state);
   }
   rules['/'] = function(stream, state) {
@@ -409,7 +409,7 @@ CodePrinter.defineMode('JavaScript', function() {
     }
     return 'invalid';
   }
-  
+
   return new CodePrinter.Mode({
     name: 'JavaScript',
     blockCommentStart: '/*',
@@ -419,7 +419,7 @@ CodePrinter.defineMode('JavaScript', function() {
     autoCompleteTriggers: /[\w_]/,
     indentTriggers: /[\}\]\)e]/,
     matching: 'brackets',
-    
+
     initialState: function() {
       return {
         indent: 0,
@@ -428,9 +428,9 @@ CodePrinter.defineMode('JavaScript', function() {
     },
     iterator: function(stream, state) {
       var ch = stream.next(), rule = rules[ch];
-      
+
       if (rule) return rule(stream, state, ch);
-      
+
       if (ch === '0' && stream.eat(/x/i)) {
         stream.take(/^[\da-f]+/i);
         return 'numeric hex';
