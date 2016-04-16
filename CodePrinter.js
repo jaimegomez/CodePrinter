@@ -396,11 +396,16 @@
     var iters = state.iterators;
     return iters && iters.length ? iters[iters.length - 1] : parser.iterator;
   }
+  function getNextSymbol(stream, state, parser) {
+    var token = getIterator(state, parser).call(parser, stream, state);
+    if (token) return 'string' === typeof token ? token : token.join(' ');
+    return null;
+  }
   function readIteration(parser, stream, state, cache) {
     stream.start = stream.pos;
     for (var i = 0; i < 3; i++) {
       var currentParser = state && state.parser || parser
-      , symbol = getIterator(state, currentParser).call(currentParser, stream, state);
+      var symbol = getNextSymbol(stream, state, currentParser);
       if (symbol) stream.lastSymbol = symbol;
       if (stream.pos > stream.start) {
         var v = stream.from(stream.start);
@@ -2881,6 +2886,21 @@
     }
   }
 
+  var tokens = [
+    'bold', 'boolean', 'bracket', 'builtin', 'comment', 'constant', 'control', 'directive',
+    'escaped', 'external', 'function', 'hex', 'invalid', 'italic', 'keyword', 'namespace',
+    'numeric', 'operator', 'parameter', 'property', 'punctuation', 'regexp', 'special',
+    'strike', 'string', 'tab', 'underline', 'variable', 'word',
+  ];
+  CodePrinter.Tokens = {
+    openTag: 'open-tag',
+    closeTag: 'close-tag',
+  };
+  for (var i = 0; i < tokens.length; i++) {
+    CodePrinter.Tokens[tokens[i]] = tokens[i];
+  }
+  if (Object.freeze) Object.freeze(CodePrinter.Tokens);
+
   keyMap = function() {}
   keyMap.prototype = {
     'Backspace': 'delCharLeft',
@@ -3518,16 +3538,16 @@
       if ('number' === typeof offset) {
         if (parserState.stream.at(offset - 1) === '/') {
           return new Match(ctx.name, column + offset, {
-            keySymbol: 'close-tag',
+            keySymbol: CodePrinter.Tokens.closeTag,
             search: ctx.name,
-            searchSymbol: 'open-tag',
+            searchSymbol: CodePrinter.Tokens.openTag,
             direction: 'left'
           });
         } else {
           return new Match(ctx.name, column + offset, {
-            keySymbol: 'open-tag',
+            keySymbol: CodePrinter.Tokens.openTag,
             search: ctx.name,
-            searchSymbol: 'close-tag',
+            searchSymbol: CodePrinter.Tokens.closeTag,
             direction: 'right'
           });
         }
@@ -3540,9 +3560,9 @@
   for (var bracket in brackets) {
     CodePrinter.matching.brackets.addRule({
       key: bracket,
-      keySymbol: 'bracket',
+      keySymbol: CodePrinter.Tokens.bracket,
       search: brackets[bracket],
-      searchSymbol: 'bracket',
+      searchSymbol: CodePrinter.Tokens.bracket,
       direction: /^[\{\(\[]$/.test(bracket) ? 'right' : 'left'
     });
   }

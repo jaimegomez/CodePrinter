@@ -1,9 +1,10 @@
 /* CodePrinter - JSX mode */
 
 CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
-  
+
   var wordRgx = /[\w\-]/i;
-  
+  var Tokens = CodePrinter.Tokens;
+
   function pushcontext(state, type) {
     state.context = { type: type, prev: state.context, indent: state.indent + 1 };
   }
@@ -13,7 +14,7 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
       state.context = state.context.prev;
     }
   }
-  
+
   return new CodePrinter.Mode({
     name: 'JSX',
     blockCommentStart: '/*',
@@ -21,11 +22,11 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
     lineComment: '//',
     indentTriggers: /[\}\]\)\/]/,
     matching: ['brackets', 'tags'],
-    
+
     onExit: JavaScript.onExit,
     completions: JavaScript.completions,
     snippets: JavaScript.snippets,
-    
+
     initialState: function() {
       var state = JavaScript.initialState();
       state.tags = 0;
@@ -33,24 +34,24 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
     },
     iterator: function(stream, state) {
       var ch = stream.next(), ctx = state.context;
-      
+
       if (ch === ' ' || ch === '\t') return;
-      
+
       if (ch === '}' && ctx.type === 'js') {
         popcontext(state);
-        return 'bracket';
+        return Tokens.bracket;
       }
       if (ctx.type === 'tag') {
         if (ch === '{') {
           pushcontext(state, 'js');
-          return 'bracket';
+          return Tokens.bracket;
         }
         if (state.tags) {
           if (ch === '>') {
             if (state.closingTag) popcontext(state);
             state.closingTag = undefined;
             --state.tags;
-            return 'bracket';
+            return Tokens.bracket;
           }
           if (ch === '/' && (stream.isAfter(/^\s*>/) || stream.lastValue === '<')) {
             state.closingTag = true;
@@ -59,14 +60,14 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
           if (/\w/.test(ch)) {
             var word = ch + stream.eatWhile(wordRgx);
             if (state.closingTag !== true) {
-              if (ctx.name) return 'property';
+              if (ctx.name) return Tokens.property;
               ctx.name = word;
-              return 'keyword open-tag';
+              return [Tokens.keyword, Tokens.openTag];
             } else if (word !== ctx.name) {
               popcontext(state);
-              return 'invalid';
+              return Tokens.invalid;
             }
-            return 'keyword close-tag';
+            return [Tokens.keyword, Tokens.closeTag];
           }
         }
       }
@@ -74,9 +75,9 @@ CodePrinter.defineMode('JSX', ['JavaScript'], function(JavaScript) {
         if (stream.eatUntil(/^\s*\//)) state.closingTag = true;
         else pushcontext(state, 'tag');
         ++state.tags;
-        return 'bracket';
+        return Tokens.bracket;
       }
-      
+
       stream.undo(1);
       return JavaScript.iterator(stream, state);
     },
