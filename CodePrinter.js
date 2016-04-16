@@ -26,7 +26,7 @@
   , presto = /Opera\//.test(navigator.userAgent)
   , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : presto ? -0.05 : -1
   , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
-  , modes = {}, addons = {}, instances = [], keyCodes, async, asyncQueue = []
+  , modes = {}, addons = {}, instances = [], keyCodes, asyncEval, asyncQueue = []
   , Flags = {}, modifierKeys = [16, 17, 18, 91, 92, 93, 224];
 
   CodePrinter = function(source, options) {
@@ -2088,7 +2088,7 @@
       this.sizes.paddingTop = parseInt(this.dom.screen.style.paddingTop, 10) || 5;
       this.sizes.paddingLeft = parseInt(this.dom.screen.style.paddingLeft, 10) || 10;
       var cp = this.editor;
-      async(function() { cp && cp.emit('ready'); });
+      asyncEval(function() { cp && cp.emit('ready'); });
     },
     setMode: function(mode) {
       var doc = this;
@@ -2216,14 +2216,14 @@
         }
       }
 
-      async(fn = function() {
+      return asyncEval(fn = function() {
         var j = 0;
         while (dl && j++ < queue) dl = callback.call(that, dl, index++) === false ? false : dl.next();
         if (!dl) {
           onend instanceof Function && onend.call(that, index, dl);
           return false;
         }
-        async(fn);
+        asyncEval(fn);
       });
     }
   }
@@ -2780,7 +2780,7 @@
     , le = doc.getOption('lineEnding') || '\n', fn;
     EventEmitter.call(this);
 
-    async(fn = function() {
+    asyncEval(fn = function() {
       var r = 25 + 50 * Math.random(), i = -1;
 
       while (dl && ++i < r) {
@@ -2790,7 +2790,7 @@
       if (i >= 0) {
         rs.emit('data', stack.join(le));
         stack = [''];
-        async(fn);
+        asyncEval(fn);
       } else {
         rs.emit('end');
       }
@@ -3677,7 +3677,7 @@
       var m = getModes(modeNames), fn;
       if (m.indexOf(null) === -1) {
         var cbapply = function() { cb.apply(CodePrinter, m); }
-        CodePrinter.syncRequire ? cbapply() : async(cbapply);
+        CodePrinter.syncRequire ? cbapply() : asyncEval(cbapply);
       } else {
         CodePrinter.on('modeLoaded', fn = function(modeName, mode) {
           var i = modeNames.indexOf(modeName.toLowerCase());
@@ -4325,17 +4325,21 @@
     if ('string' === typeof a) { var obj = {}; obj[a] = b; return obj; }
     return a;
   }
-  if (window.postMessage) {
-    async = CodePrinter.async = function(callback) {
-      if ('function' === typeof callback) {
-        asyncQueue.push(callback);
-        window.postMessage('CodePrinter', '*');
-      }
-    }
-    on(window, 'message', function async(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); });
-  } else {
-    async = CodePrinter.async = function(callback) { 'function' === typeof callback && setTimeout(callback, 1); }
+  function error(message) {
+    return new Error('CodePrinter: ' + message);
   }
+
+  asyncEval = CodePrinter.async = function(callback) {
+    return new Promise(function(resolve, reject) {
+      if ('function' === typeof callback) {
+        asyncQueue.push(function() { resolve(callback()); });
+        window.postMessage('CodePrinter', '*');
+      } else {
+        reject(error('callback is not a function!'));
+      }
+    });
+  }
+  on(window, 'message', function onMessage(e) { if (e && e.data === 'CodePrinter' && asyncQueue.length) (asyncQueue.shift())(); });
 
   if ('object' === typeof module) module.exports = CodePrinter;
   if ('function' === typeof define) define('CodePrinter', function() { return CodePrinter; });
