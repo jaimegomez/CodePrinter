@@ -1,9 +1,9 @@
 'use strict';
 
 CodePrinter.defineAddon('placeholder', function() {
-  
+
   var emptyModifier = 'cp--empty';
-  
+
   function addPlaceholder(cp) {
     if (cp.dom.placeholder) {
       cp.dom.placeholder.firstChild.nodeValue = cp.getOption('placeholder');
@@ -24,10 +24,10 @@ CodePrinter.defineAddon('placeholder', function() {
       cp.dom.placeholder = undefined;
     }
   }
-  
+
   function onChanged(doc) {
     var mainNode = this.getDOMNode();
-    if (doc.isEmpty() && !doc.isFocused) {
+    if (doc && doc.isEmpty() && !doc.isFocused) {
       mainNode.classList.add(emptyModifier);
       addPlaceholder(this);
     } else {
@@ -36,7 +36,7 @@ CodePrinter.defineAddon('placeholder', function() {
     }
   }
   function onFocus(doc) {
-    if (doc.isEmpty()) removePlaceholder(this);
+    removePlaceholder(this);
   }
   function onBlur(doc) {
     if (doc.isEmpty()) addPlaceholder(this);
@@ -53,9 +53,9 @@ CodePrinter.defineAddon('placeholder', function() {
       this.off('blur', onBlur);
     }
   }
-  
+
   CodePrinter.defineOption('placeholder', '', placeholderSetter);
-  
+
   return function(cp, options) {
     var ph = options || cp.getOption('placeholder');
     if (ph) {
