@@ -27,7 +27,7 @@
   , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : presto ? -0.05 : -1
   , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
   , modes = {}, addons = {}, instances = [], keyCodes, asyncEval, asyncQueue = []
-  , Flags = {}, modifierKeys = [16, 17, 18, 91, 92, 93, 224];
+  , Flags = {}, modifierKeys = [16, 17, 18, 91, 92, 93, 224], historyStateId = 0;
 
   CodePrinter = function(source, options) {
     if (arguments.length === 1 && source == '[object Object]') {
@@ -3369,6 +3369,12 @@
   function historyBack(hist) { return historyMove(hist, hist.done, hist.undone); }
   function historyForward(hist) { return historyMove(hist, hist.undone, hist.done); }
 
+  function copyHistoryState(state) {
+    var newState = copy(state);
+    newState.id = ++historyStateId;
+    return newState;
+  }
+
   History = function() {
     this.lock = false;
     this.done = [];
@@ -3379,9 +3385,10 @@
   History.prototype = {
     push: function(state) {
       if (!this.lock && state && historyActions[state.type]) {
-        if (this.staged) return this.staged.push(copy(state));
+        var copiedState = copyHistoryState(state);
+        if (this.staged) return this.staged.push(copiedState);
         if (this.undone.length) this.undone.length = 0;
-        return this.done.push(copy(state));
+        return this.done.push(copiedState);
       }
     },
     stage: function() {
