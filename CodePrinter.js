@@ -187,6 +187,7 @@
     updateFontSizes(editor, doc);
     dom.measure.appendChild(doc.measure.node);
     doc.view.mount(dom.code, dom.counter);
+    doc.mountOverlays();
     doc.scrollTo(doc.scrollLeft | 0, doc.scrollTop | 0);
     doc.fill();
     updateScroll(doc);
@@ -199,6 +200,7 @@
     doc.scrollTop = dom.scroll.scrollTop;
     doc.scrollLeft = dom.scroll.scrollLeft;
     doc.view.unmount();
+    doc.unmountOverlays();
     dom.measure.removeChild(doc.measure.node);
     doc.blur();
     editor.doc = doc.editor = null;
@@ -1993,6 +1995,19 @@
         }
       }
       return this;
+    },
+    mountOverlays: function() {
+      for (var i = 0; i < this.overlays.length; i++) {
+        this.dom.screen.appendChild(this.overlays[i].node);
+      }
+    },
+    unmountOverlays: function() {
+      for (var i = 0; i < this.overlays.length; i++) {
+        var node = this.overlays[i].node;
+        if (this.dom.screen === node.parentNode) {
+          this.dom.screen.removeChild(this.overlays[i].node);
+        }
+      }
     },
     markText: function(from, to, options) {
       if (!this.markers) this.markers = this.addOverlay(new CodePrinter.MarkersOverlay(this));

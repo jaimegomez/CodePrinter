@@ -1,7 +1,7 @@
 'use strict';
 
-CodePrinter.defineAddon('hints', function() {  
-  
+CodePrinter.defineAddon('hints', function() {
+
   var li_clone = document.createElement('li')
   , hasOwnProperty = Object.prototype.hasOwnProperty
   , defaults = {
@@ -14,7 +14,7 @@ CodePrinter.defineAddon('hints', function() {
     prefix: '<strong>',
     postfix: '</strong>'
   };
-  
+
   function buildOverlay(hints) {
     hints.overlay = new CodePrinter.Overlay('cp-hint-overlay');
     hints.container = document.createElement('div');
@@ -33,12 +33,12 @@ CodePrinter.defineAddon('hints', function() {
     var cmp = CodePrinter.comparePos(head, match.to);
     return cmp > (head.line === match.to.line ? 1 : 0);
   }
-  
+
   var List = function() {
     this.seen = {};
     this.values = [];
   }
-  
+
   List.prototype = {
     check: function(pattern, string, matcher, opt) {
       if (!hasOwnProperty.call(this.seen, string)) {
@@ -63,7 +63,7 @@ CodePrinter.defineAddon('hints', function() {
       }
     }
   }
-  
+
   var matchers = {
     'default': function(pattern, string) {
       return { value: string, score: 1 };
@@ -72,7 +72,7 @@ CodePrinter.defineAddon('hints', function() {
       var i = 0, j = 0, totalScore = 0, currScore = 0, l = string.length
       , compareString = string.toLowerCase(), result = []
       , opts = opt || {}, pre = opts.prefix || '', post = opts.postfix || '';
-      
+
       for (; i < l; i++) {
         var ch = string[i];
         if (compareString[i] === pattern[j]) {
@@ -86,44 +86,44 @@ CodePrinter.defineAddon('hints', function() {
         totalScore += currScore;
       }
       if (currScore > 0) result[result.length] = post;
-      
+
       if (j === pattern.length) {
         return { html: result.join(''), value: string, score: totalScore };
       }
     }
   }
-  
+
   var Hints = CodePrinter.Hints = function(cp, options) {
     var hints = this, active, visible, pattern, lastMatch;
-    
+
     cp.hints = this;
     this.options = options == '[object Object]' ? options : {};
-    
+
     for (var key in defaults) {
       if (!hasOwnProperty.call(this.options, key)) {
         this.options[key] = defaults[key];
       }
     }
-    
+
     buildOverlay(this);
     this.overlay.hide();
     if (cp.doc) cp.doc.addOverlay(this.overlay);
-    
+
     if (this.options.maxWidth !== 300) this.container.style.maxWidth = this.options.maxWidth + 'px';
     if (this.options.maxHeight !== 100) this.container.style.maxHeight = this.options.maxHeight + 'px';
-    
+
     function getWordRgx(caret) {
       var parser = caret.getParserState().parser;
       return parser && parser.autoCompleteWord || hints.options.word || defaults.word;
     }
-    
+
     this.match = function(word) {
       var caret = cp.doc.carets[0], parser = caret.getParserState().parser;
       return parser.autoCompleteTriggers ? parser.autoCompleteTriggers.test(word) : this.options.word.test(word);
     }
     this.search = function(ignores) {
       if (cp.doc.carets.length > 1) return;
-      
+
       var list = new List()
       , range = hints.options.range, limit = hints.options.limit
       , caret = cp.doc.carets[0]
@@ -133,17 +133,17 @@ CodePrinter.defineAddon('hints', function() {
       , curDL = caret.dl()
       , ps = caret.getParserState()
       , matcher, dl, text, m, next, ph;
-      
+
       if (ignores) list.ignore(ignores);
       pattern = find.word.toLowerCase();
       matcher = matchers[pattern && this.options.matcher || 'default'];
-      
+
       function loop(text) {
         while (m = rgx.exec(text)) {
           list.check(pattern, m[0], matcher, hints.options);
         }
       }
-      
+
       if (ps.parser && ps.parser.completions && (ph = ps.parser.completions.call(cp, ps.stream, ps.state))) {
         var v = ph instanceof Array ? ph : ph.values;
         for (var i = 0; i < v.length; i++) {
@@ -155,11 +155,11 @@ CodePrinter.defineAddon('hints', function() {
       }
       if (!ph || ph.search) {
         loop(find.before + ' ' + find.after);
-        
+
         for (var dir = 0; dir <= 1; dir++) {
           next = dir ? curDL.next : curDL.prev;
           dl = next.call(curDL);
-          
+
           for (var i = 1; i < range && dl && list.values.length < limit; i++) {
             loop(dl.text);
             dl = next.call(dl);
@@ -172,12 +172,12 @@ CodePrinter.defineAddon('hints', function() {
     }
     this.show = function() {
       var list = this.search();
-      
+
       if (list && list.length) {
         if (list.length === 1 && cp.doc.carets[0].wordAround() === list[0].value) {
           return this.hide();
         }
-        
+
         var child = this.list.firstElementChild;
         for (var i = 0; i < list.length; i++) {
           var li = list[i], node = child || li_clone.cloneNode();
@@ -187,7 +187,7 @@ CodePrinter.defineAddon('hints', function() {
           else child = node.nextElementSibling;
         }
         while (child) child = rm(this.list, child);
-        
+
         this.overlay.show();
         refreshPosition();
         setActive(this.list.children[0], true);
@@ -213,7 +213,7 @@ CodePrinter.defineAddon('hints', function() {
       , waf = caret.wordAfter(word)
       , currentWord = wbf + waf
       , ps = caret.getParserState();
-      
+
       if (currentWord !== value) {
         var i = 0, head = caret.head();
         while (i < currentWord.length && currentWord[i] === value[i]) i++;
@@ -228,10 +228,9 @@ CodePrinter.defineAddon('hints', function() {
       cp.emit('autocomplete', value);
       return this;
     }
-    
+
     cp.on({
       'documentChanged': function(oldDoc, newDoc) {
-        if (oldDoc) oldDoc.removeOverlay(hints.overlay);
         newDoc.addOverlay(hints.overlay);
       },
       'keypress': function(ch) {
@@ -278,14 +277,14 @@ CodePrinter.defineAddon('hints', function() {
         }
       }
     });
-    
+
     cp.registerKey('Ctrl Space', 'showHints');
-    
+
     var stopprop = function(e) { e.stopPropagation(); };
     this.container.addEventListener('wheel', stopprop, false);
     this.container.addEventListener('mousewheel', stopprop, false);
     this.container.addEventListener('DOMMouseScroll', stopprop, false);
-    
+
     this.container.addEventListener('mousedown', function(e) {
       if (e.target.tagName === 'LI') {
         hints.choose(e.target.getAttribute('data-value'));
@@ -300,13 +299,13 @@ CodePrinter.defineAddon('hints', function() {
     this.container.addEventListener('mouseout', function(e) {
       if (e.target.tagName === 'LI') setActive(null);
     }, false);
-    
+
     function refreshPosition() {
       var caret = cp.doc.carets[0]
       , container = hints.container
       , x = caret.offsetX() - 4
       , y = caret.totalOffsetY() + 2;
-      
+
       if (y + container.offsetHeight > cp.doc.scrollTop + cp.dom.scroll.offsetHeight) {
         y = caret.offsetY() - container.offsetHeight - 2;
       }
@@ -331,7 +330,7 @@ CodePrinter.defineAddon('hints', function() {
     }
     return this;
   }
-  
+
   Hints.prototype = {
     setRange: function(range) {
       this.options.range = range;
@@ -340,13 +339,13 @@ CodePrinter.defineAddon('hints', function() {
       this.options.word = word;
     }
   }
-  
+
   Hints.addMatcher = function(name, func) {
     if ('string' === typeof name && 'function' === typeof func) {
       matchers[name] = func;
     }
   }
-  
+
   CodePrinter.defineOption('hints', false, function(value, oldValue) {
     if (!value && oldValue) {
       //this.hints.clear();
@@ -358,6 +357,6 @@ CodePrinter.defineAddon('hints', function() {
   CodePrinter.registerCommand('showHints', function() {
     this.hints && this.hints.show();
   });
-  
+
   return Hints;
 });
