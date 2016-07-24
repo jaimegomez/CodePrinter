@@ -12,7 +12,8 @@ CodePrinter.defineMode('JavaScript', function() {
   , Tokens = CodePrinter.Tokens
   , push = CodePrinter.helpers.pushIterator
   , pop = CodePrinter.helpers.popIterator
-  , wordRgx = /[\w$\xa1-\uffff]/
+  , wordRgx = /^[\w$\xa1-\uffff]+/
+  , wordCharacterRgx = /[\w$\xa1-\uffff]/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
   , closeBrackets = /^[}\]\)]/
   , controls = CodePrinter.keySet(['if','else','elseif','for','switch','while','do','try','catch','finally'])
@@ -21,8 +22,8 @@ CodePrinter.defineMode('JavaScript', function() {
   , keywords = CodePrinter.keySet([
     'var','let','const','return','new','case','continue','break','instanceof','typeof',
     'class','export','import','extends','yield','super','debugger','default','delete',
-    'in','throw','void','with','of','public','private','package','protected',
-    'interface','implements'
+    'in','throw','void','with','of','public','private','package','protected','static',
+    'interface','implements','await','async','enum'
   ])
   , specials = CodePrinter.keySet([
     'this','$','_','window','document','console','arguments','function','navigator',
@@ -156,8 +157,8 @@ CodePrinter.defineMode('JavaScript', function() {
       if (ch === ',' || ch === ' ') {
         return;
       }
-      if (wordRgx.test(ch)) {
-        var word = ch + stream.take(/^[\w$\xa1-\uffff]+/);
+      if (wordCharacterRgx.test(ch)) {
+        var word = ch + stream.take(wordRgx);
         if (stream.eol()) pop(state);
         state.context.params[word] = true;
         return Tokens.parameter;
@@ -167,7 +168,7 @@ CodePrinter.defineMode('JavaScript', function() {
     pop(state);
   }
   function words(stream, state, ch) {
-    var word = ch + stream.take(/^[\w$\xa1-\uffff]+/);
+    var word = ch + stream.take(wordRgx);
     if (word === 'function') {
       if (!state.fn) state.fn = true;
       return Tokens.special;
@@ -412,6 +413,12 @@ CodePrinter.defineMode('JavaScript', function() {
     return Tokens.invalid;
   }
 
+  rules['@'] = function(stream, state) {
+    if (stream.take(wordRgx)) {
+      return Tokens.directive;
+    }
+  }
+
   return new CodePrinter.Mode({
     name: 'JavaScript',
     blockCommentStart: '/*',
@@ -446,7 +453,7 @@ CodePrinter.defineMode('JavaScript', function() {
         stream.take(/^[+\-*&%=<>!?|~^]+/);
         return Tokens.operator;
       }
-      if (wordRgx.test(ch)) {
+      if (wordCharacterRgx.test(ch)) {
         return words(stream, state, ch);
       }
     },
