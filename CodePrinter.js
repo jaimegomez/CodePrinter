@@ -18,7 +18,7 @@
   , Stream, ReadStream, historyActions, History
   , keyMap, Measure, LineView, View, commands
   , lineendings, optionSetters, div, li, pre, span
-  , BRANCH_OPTIMAL_SIZE = 50, BRANCH_HALF_SIZE = 25
+  , BRANCH_MAX_SIZE = 50, BRANCH_OPTIMAL_SIZE = 20
   , macosx = /Mac/.test(navigator.platform)
   , webkit = /WebKit\//.test(navigator.userAgent)
   , gecko = /gecko\/\d/i.test(navigator.userAgent)
@@ -544,8 +544,8 @@
         this.height += ch.height;
         this.size += ch.size;
         ch.parent = this;
-        this.push(ch);
       }
+      this.push.apply(this, children);
       if (leaf) {
         this.size = children.length;
       }
@@ -591,20 +591,19 @@
       for (var i = 0; i < this.length; i++) {
         var ch = this[i], s = ch.size;
         if (at <= s) {
-          ch.insert(at, lines, height);
-          if (ch.isLeaf && ch.size > BRANCH_OPTIMAL_SIZE) {
-            do {
-              var rm = ch.splice(ch.size - BRANCH_HALF_SIZE, BRANCH_HALF_SIZE)
-              , leaf = new Branch(true, rm);
-              ch.size -= leaf.size;
+          if (ch.isLeaf && ch.size + lines.length > BRANCH_MAX_SIZE) {
+            var space = Math.max(0, BRANCH_OPTIMAL_SIZE - ch.size);
+            ch.insert(at, lines.slice(0, space), height);
+
+            for (var p = space; p < lines.length;) {
+              var leaf = new Branch(true, lines.slice(p, p += BRANCH_OPTIMAL_SIZE));
               ch.height -= leaf.height;
               leaf.parent = this;
-              this.splice(i + 1, 0, leaf);
-            } while (ch.size > BRANCH_OPTIMAL_SIZE);
-
-            if (this.length > BRANCH_OPTIMAL_SIZE) {
-              this.wrapAll();
+              this.splice(++i, 0, leaf);
             }
+            this.split();
+          } else {
+            ch.insert(at, lines, height);
           }
           break;
         }
@@ -649,15 +648,31 @@
         this.isLeaf = child.isLeaf;
       }
     },
-    wrapAll: function() {
-      var parts = Math.ceil(this.length / BRANCH_OPTIMAL_SIZE) * 2;
-      if (parts > 2) {
-        var l = Math.ceil(this.length / parts), branches = Array(parts);
-        for (var i = 0; i < parts; i++) {
-          (branches[i] = new Branch(false, this.splice(0, l))).parent = this;
+    split: function() {
+      if (this.length <= BRANCH_MAX_SIZE) return;
+      var parts = Math.floor(this.length / BRANCH_OPTIMAL_SIZE);
+      var l = Math.ceil(this.length / parts);
+
+      if (this.parent && this.parent.length + parts < BRANCH_MAX_SIZE) {
+        var index = this.parent.indexOf(this);
+        for (var i = 1; i < parts; i++) {
+          var branches = this.splice(BRANCH_OPTIMAL_SIZE, l);
+          var branch = new Branch(false, branches);
+          this.size -= branch.size;
+          this.height -= branch.height;
+          branch.parent = this.parent;
+          this.parent.splice(++index, 0, branch);
         }
-        this.push.apply(this, branches);
+        this.parent.split();
+        return;
       }
+      var branches = Array(parts);
+      for (var i = 0; i < parts; i++) {
+        var branch = new Branch(false, this.splice(0, l));
+        branches[i] = branch;
+        branch.parent = this;
+      }
+      this.push.apply(this, branches);
     },
     getLineWithOffset: function(offset) {
       var h = 0, i = -1;
