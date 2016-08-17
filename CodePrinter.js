@@ -2789,11 +2789,11 @@
       var str = this.value.substring(0, this.pos + (offset || 0));
       return 'string' === typeof match ? startsWith(str, match, str.length - match.length) : match.test ? match.test(str) : match(str);
     },
-    skip: function(ch, eat) {
+    skip: function(ch) {
       if (ch) {
         var i = this.value.indexOf(ch, this.pos);
         if (i === -1) return false;
-        this.pos = i + (eat ? ch.length : 0);
+        this.pos = i + ch.length;
       } else this.pos = this.value.length;
       return true;
     },

@@ -1,7 +1,7 @@
 /* CodePrinter - CSS Mode */
 
 CodePrinter.defineMode('CSS', function() {
-  
+
   var wordRgx = /[\w\-\\]/
   , operators = /[+>~^$|\*=]/
   , controls = /^(charset|document|font-face|import|(-(moz|ms|o|webkit|khtml)-)?keyframes|media|namespace|page|supports)\b/
@@ -94,7 +94,7 @@ CodePrinter.defineMode('CSS', function() {
     'border-image-slice':         null,
     'border-image-source':        null,
     'border-image-repeat':        ['repeat', 'round', 'space', 'stretch'],
-    'border-image-width':         ['auto'],  
+    'border-image-width':         ['auto'],
     'border-left':                null,
     'border-left-color':          colors,
     'border-left-style':          borderStyles,
@@ -271,7 +271,7 @@ CodePrinter.defineMode('CSS', function() {
     '#': 'special',
     '.': 'property'
   }
-  
+
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;
     while (ch = stream.next()) {
@@ -300,7 +300,7 @@ CodePrinter.defineMode('CSS', function() {
     return string(stream, state, true);
   }
   function comment(stream, state) {
-    if (stream.skip('*/', true)) {
+    if (stream.skip('*/')) {
       pop(state);
       return 'comment';
     }
@@ -328,14 +328,14 @@ CodePrinter.defineMode('CSS', function() {
     var m = /^(\-(webkit|moz|ms|o|khtml)\-)?([\w\-]+)$/.exec(prop);
     return m && m[3];
   }
-  
+
   function Definition(name) {
     this.name = name;
   }
   Definition.prototype.toString = function() {
     return this.name;
   }
-  
+
   return new CodePrinter.Mode({
     name: 'CSS',
     blockCommentStart: '/*',
@@ -344,7 +344,7 @@ CodePrinter.defineMode('CSS', function() {
     autoCompleteWord: /@?[\w\-\\]+/,
     autoCompleteTriggers: /[\w:@ \-]/,
     matching: 'brackets',
-    
+
     initialState: function() {
       return { vars: {}, indent: 0 }
     },
@@ -487,7 +487,7 @@ CodePrinter.defineMode('CSS', function() {
       }
       if (stream.isBefore(/(^|\W)\-(we|mo|ms|o)[\w\-]*$/)) {
         var prefix = RegExp.$2, v = [];
-        
+
         if (prefix === 'we') {
           prefix = 'webkit';
         } else if (prefix === 'mo') {

@@ -1,16 +1,16 @@
 /* CodePrinter - Markdown Mode */
 
 CodePrinter.defineMode('Markdown', function() {
-  
+
   var OL_CONTEXT = 1
   , UL_CONTEXT = 2
   , brackets = /^[\[\]\(\)]/
   , listsRegexp = /^\s*([\*\+\-]|\d+\.)(\s|$)/
   , push = CodePrinter.helpers.pushIterator
   , pop = CodePrinter.helpers.popIterator;
-  
+
   function comment(stream, state) {
-    if (stream.skip('```', true)) {
+    if (stream.skip('```')) {
       pop(state);
     } else {
       stream.skip();
@@ -87,7 +87,7 @@ CodePrinter.defineMode('Markdown', function() {
       return 'parameter';
     }
   }
-  
+
   function pushcontext(stream, state, type) {
     if (state.context.indent == stream.indent) {
       popcontext(state);
@@ -104,11 +104,11 @@ CodePrinter.defineMode('Markdown', function() {
       return true;
     }
   }
-  
+
   return new CodePrinter.Mode({
     name: 'Markdown',
     matching: 'brackets',
-    
+
     initialState: function() {
       return {
         context: {
@@ -126,14 +126,14 @@ CodePrinter.defineMode('Markdown', function() {
         if (stream.match(/^``/, true)) {
           return comment(stream, state);
         }
-        if (stream.skip('`', true)) {
+        if (stream.skip('`')) {
           return 'comment';
         }
         return;
       }
       if (stream.pos == 1) {
         if (state.emphasis) state.emphasis = undefined;
-        
+
         if (ch == '#') {
           var h = stream.eatWhile('#').length;
           stream.skip();

@@ -1,7 +1,7 @@
 /* CodePrinter - Perl mode */
 
 CodePrinter.defineMode('Perl', function() {
-  
+
   var vartypes = /[\$\@\&\%\*]/
   , operators = /[+\-*&%=<>!?|~^]/
   , push = CodePrinter.helpers.pushIterator
@@ -9,9 +9,9 @@ CodePrinter.defineMode('Perl', function() {
   , controls = ['do','else','elsif','for','foreach','if','unless','until','while']
   , keywords = ['and','cmp','continue','eq','exp','ge','gt','le','lock','lt','ne','no','or','package','q','qq','qr','qw','qx','s','tr','xor','y']
   , specials = ['__DATA__','__END__','__FILE__','__LINE__','__PACKAGE__','CORE','STDIN','STDOUT','STDERR','print','printf','sprintf','return']
-  
+
   function singleQuote(stream, state) {
-    if (stream.skip("'", true)) {
+    if (stream.skip("'")) {
       pop(state);
     }
     return 'string';
@@ -108,7 +108,7 @@ CodePrinter.defineMode('Perl', function() {
     pop(state);
     return;
   }
-  
+
   function pushcontext(state, name) {
     state.context = { name: name, vars: {}, params: {}, indent: state.indent + 1, prev: state.context };
   }
@@ -118,7 +118,7 @@ CodePrinter.defineMode('Perl', function() {
   function isVariable(varname, state) {
     for (var ctx = state.context; ctx; ctx = ctx.prev) if (ctx.vars[varname] === true) return 'variable';
   }
-  
+
   return new CodePrinter.Mode({
     name: 'Perl',
     lineComment: '#',
@@ -126,7 +126,7 @@ CodePrinter.defineMode('Perl', function() {
     autoCompleteTriggers: /[\$\@\&\%\*a-zA-Z]/,
     indentTriggers: /[\}\]\)]/,
     matching: 'brackets',
-    
+
     initialState: function() {
       return {
         indent: 0,
@@ -135,10 +135,10 @@ CodePrinter.defineMode('Perl', function() {
     },
     iterator: function(stream, state) {
       var ch = stream.next();
-      
+
       if (ch == "'") return push(state, singleQuote)(stream, state);
       if (ch == '"') return push(state, doubleQuote)(stream, state);
-      
+
       if (ch == '#') {
         stream.skip();
         return 'comment';
@@ -198,7 +198,7 @@ CodePrinter.defineMode('Perl', function() {
         if (controls.indexOf(word) >= 0) return 'control';
         if (keywords.indexOf(word) >= 0) return 'keyword';
         if (specials.indexOf(word) >= 0) return 'special';
-        
+
         if (stream.isAfter(/^\s*\(/)) return 'function';
         if (stream.isAfter('::')) return 'namespace';
         if (state.use) return stream.lastStyle == 'namespace' ? 'special' : 'directive';

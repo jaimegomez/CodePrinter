@@ -1,7 +1,7 @@
 /* CodePrinter - CoffeeScript Mode */
 
 CodePrinter.defineMode('CoffeeScript', function() {
-  
+
   var wordRgx = /[\w$\xa1-\uffff]/
   , numericRgx = /^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
@@ -22,7 +22,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
     'Error','EvalError','InternalError','RangeError','ReferenceError',
     'StopIteration','SyntaxError','TypeError','URIError'
   ];
-  
+
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;
     while (ch = stream.next()) {
@@ -58,7 +58,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
   function interpolation(stream, state) {
     var ch = stream.next();
     if (ch == '#' && stream.eat('{')) {
-      if (!stream.skip('}', true)) {
+      if (!stream.skip('}')) {
         stream.undo(1);
       }
     }
@@ -66,7 +66,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
     return 'escaped';
   }
   function comment(stream, state) {
-    if (stream.skip('###', true)) {
+    if (stream.skip('###')) {
       pop(state);
     }
     return 'comment';
@@ -153,7 +153,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
     if (stream.eol()) pop(state);
     return;
   }
-  
+
   function pushcontext(stream, state, name) {
     state.context = { name: name, vars: {}, params: {}, indent: getContextLevel(state) + 1, prev: state.context };
     stream.markDefinition({
@@ -175,7 +175,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
     for (var ctx = state.context.prev; ctx; ctx = ctx.prev) ++i;
     return i;
   }
-  
+
   return new CodePrinter.Mode({
     name: 'CoffeeScript',
     blockCommentStart: '###',
@@ -183,7 +183,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
     lineComment: '#',
     indentTriggers: /[\}\]\)>]/,
     matching: 'brackets',
-    
+
     initialState: function() {
       return {
         context: { vars: {}, params: {}, indent: 0 }
@@ -195,7 +195,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
           state.context = state.context.prev;
         }
       }
-      
+
       var ch = stream.next();
       if (ch == '#') {
         if (stream.eat('#') && stream.eat('#')) {
@@ -241,14 +241,14 @@ CodePrinter.defineMode('CoffeeScript', function() {
       }
       if (wordRgx.test(ch)) {
         var word = ch + stream.take(/^[\w$\xa1-\uffff]+/);
-        
+
         if (booleans.test(word)) return 'builtin boolean';
         if (constants.test(word)) return 'builtin';
         if (operators.test(word)) return 'operator';
         if (controls.indexOf(word) >= 0) return 'control';
         if (keywords.indexOf(word) >= 0) return 'keyword';
         if (specials.indexOf(word) >= 0) return 'special';
-        
+
         if (stream.isAfter(/^\s*[=:]\s*(\([\w\s\,\.]*\))?\s*->/)) {
           if (RegExp.$1) push(state, parameters);
           state.context.vars[word] = 'function';
@@ -261,7 +261,7 @@ CodePrinter.defineMode('CoffeeScript', function() {
         }
         if (stream.isAfter(/^\s*:/)) return 'property';
         if (stream.isAfter(/^\s+[\d\"\'\w]/)) return 'function';
-        
+
         return isVariable(word, state);
       }
       if (/[\[\]{}\(\)]/.test(ch)) {

@@ -1,7 +1,7 @@
 /* CodePrinter - PHP Mode */
 
 CodePrinter.defineMode('PHP', function() {
-  
+
   var wordFirstLetterRgx = /[a-z_\x7f-\xff]/i
   , wordRgx = /[\w\x7f-\xff]/i
   , varnameRgx = /^[a-z_\x7f-\xff][\w\x7f-\xff]*/i
@@ -27,7 +27,7 @@ CodePrinter.defineMode('PHP', function() {
     'define','defined','die','echo','empty','exit','eval','include','include_once',
     'isset','list','require','require_once','print','unset'
   ];
-  
+
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;
     while (ch = stream.next()) {
@@ -72,7 +72,7 @@ CodePrinter.defineMode('PHP', function() {
     pop(state);
     return 'namespace';
   }
-  
+
   function pushcontext(state) {
     state.context = { vars: {}, classes: {}, methods: {}, indent: state.indent + 1, prev: state.context };
   }
@@ -84,7 +84,7 @@ CodePrinter.defineMode('PHP', function() {
   function isInContext(varname, state, prop) {
     for (var ctx = state.context; ctx; ctx = ctx.prev) if (ctx[prop][varname] === true) return ctx[prop][varname];
   }
-  
+
   return new CodePrinter.Mode({
     name: 'PHP',
     blockCommentStart: '/*',
@@ -92,7 +92,7 @@ CodePrinter.defineMode('PHP', function() {
     lineComment: '//',
     indentTriggers: /[})\]efhr]/,
     matching: 'brackets',
-    
+
     initialState: function() {
       return {
         indent: 0,
@@ -119,7 +119,7 @@ CodePrinter.defineMode('PHP', function() {
         return push(state, comment)(stream, state);
       }
       if (ch == '<' && stream.eat('?')) {
-        stream.skip('php', true);
+        stream.skip('php');
         ++state.indent;
         return 'external';
       }
@@ -161,7 +161,7 @@ CodePrinter.defineMode('PHP', function() {
       }
       if (wordFirstLetterRgx.test(ch)) {
         var word = ch + stream.eatWhile(wordRgx);
-        
+
         if (state.funcdef) {
           state.context.methods[word] = true;
           state.funcdef = undefined;
@@ -189,8 +189,8 @@ CodePrinter.defineMode('PHP', function() {
         if (controls.indexOf(word) >= 0) return 'control';
         if (specials.indexOf(word) >= 0) return 'special';
         if (keywords.indexOf(word) >= 0) return 'keyword';
-        if (stream.skip('::', true)) return 'namespace';
-        
+        if (stream.skip('::')) return 'namespace';
+
         if (isInContext(word, state, 'methods')) {
           return 'function';
         }

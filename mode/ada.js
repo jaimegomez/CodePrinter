@@ -1,7 +1,7 @@
 /* CodePrinter - Ada mode */
 
 CodePrinter.defineMode('Ada', function() {
-  
+
   var numericRgx = /^([\d_]+|[\d_]*\.[\d_]+|\d?\#\d+\#)(?:e[+\-]?[\d_]+)?/i
   , operatorRgx = /[+\-*\/%!=<>&|~^]/
   , push = CodePrinter.helpers.pushIterator
@@ -18,14 +18,14 @@ CodePrinter.defineMode('Ada', function() {
     'reverse','select','separate','some','subtype','synchronized','tagged',
     'terminate','then','type','until','use','with','xor'
   ]
-  
+
   function string(stream, state) {
-    if (stream.skip('"', true)) {
+    if (stream.skip('"')) {
       pop(state);
     }
     return 'string';
   }
-  
+
   function pushcontext(state, name) {
     state.context = { name: name, tasks: {}, vars: {}, indent: state.indent + 1, prev: state.context };
   }
@@ -38,13 +38,13 @@ CodePrinter.defineMode('Ada', function() {
       if ('string' == typeof ctx.vars[varName]) return 'variable';
     }
   }
-  
+
   return new CodePrinter.Mode({
     name: 'Ada',
     indentTriggers: /[dn]/i,
     lineComment: '--',
     matching: 'brackets',
-    
+
     initialState: function() {
       return {
         indent: 0,
@@ -86,7 +86,7 @@ CodePrinter.defineMode('Ada', function() {
       if (/[a-z]/i.test(ch)) {
         var word = ch + stream.take(/^\w*/)
         , lc = word.toLowerCase();
-        
+
         if (lc == 'true' || lc == 'false') return 'builtin boolean';
         if (lc == 'null') return 'builtin';
         if (lc == 'procedure') {
