@@ -11,6 +11,7 @@ module.exports = function(config) {
       'tests/document.js',
       'tests/caret.js',
       'tests/commands.js',
+      'tests/data.js',
       'tests/mode/javascript.js',
       'tests/mode/jsx.js',
       'tests/mode/css.js',
