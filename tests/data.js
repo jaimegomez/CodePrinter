@@ -33,7 +33,7 @@ describe('Data', function() {
       min = Math.min(min, lv);
       max = Math.max(max, lv);
     }
-    expect(max - min).toBeLessThan(3);
+    expect(max - min).toBeLessThan(2);
     return max;
   }
 
@@ -77,6 +77,8 @@ describe('Data', function() {
       var line = data.get(r);
       expect(line.getIndex()).toBe(r);
     });
+    expect(data.get(data.size)).toBeNull();
+    expect(data.get(-1)).toBeNull();
   });
 
   it('should allow to find line by its offset', function() {
@@ -89,6 +91,12 @@ describe('Data', function() {
       expect(lineByOffset.text).toBe(lines[r]);
       expect(lineByOffset.getIndex()).toBe(r);
     });
+    var last = data.getLineWithOffset(data.height);
+    var first = data.getLineWithOffset(-1);
+    expect(last).toBeTruthy();
+    expect(first).toBeTruthy();
+    expect(last.text).toBe(data.get(data.size - 1).text);
+    expect(first.text).toBe(data.get(0).text);
   });
 
   it('should allow to insert a bunch of lines', function() {

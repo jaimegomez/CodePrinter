@@ -25,7 +25,7 @@
   , ie = /(MSIE \d|Trident\/)/.test(navigator.userAgent)
   , presto = /Opera\//.test(navigator.userAgent)
   , wheelUnit = webkit ? -1/3 : gecko ? 5 : ie ? -0.53 : presto ? -0.05 : -1
-  , offsetDiff, activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
+  , activeClassName = 'cp-active-line', zws = '\u200b', eol = /\r\n?|\n/
   , modes = {}, addons = {}, instances = [], keyCodes, asyncEval, asyncQueue = []
   , Flags = {}, modifierKeys = [16, 17, 18, 91, 92, 93, 224], historyStateId = 0;
 
@@ -574,7 +574,7 @@
     },
     get: function(line) {
       var i = -1, s, children = this.children;
-      if (this.isLeaf) return children[line];
+      if (this.isLeaf) return children[line] || null;
       while (++i < children.length && line >= (s = children[i].size)) line -= s;
       return children[i] ? children[i].get(line) : null;
     },
@@ -678,11 +678,12 @@
       branch.parent.split();
     },
     getLineWithOffset: function(offset) {
-      var children = this.children, h = 0, i = -1;
-      while (++i < children.length && h + children[i].height <= offset) h += children[i].height;
-      if (i === children.length) --i; offsetDiff = offset - h;
-      var child = children[i];
-      return (this.isLeaf ? child : child && child.getLineWithOffset(offsetDiff)) || null;
+      var children = this.children, child, i = -1;
+      while (++i < children.length && (child = children[i])) {
+        if (child.height > offset) return this.isLeaf ? child : child.getLineWithOffset(offset);
+        offset -= child.height;
+      }
+      return child.get(child.size - 1);
     },
     next: function() {
       var i, siblings = this.parent && this.parent.children;
