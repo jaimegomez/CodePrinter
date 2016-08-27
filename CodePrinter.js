@@ -18,7 +18,7 @@
   , Stream, ReadStream, historyActions, History
   , keyMap, Measure, LineView, View, commands
   , lineendings, optionSetters, div, li, pre, span
-  , BRANCH_MAX_SIZE = 50, BRANCH_OPTIMAL_SIZE = 20
+  , BRANCH_MAX_SIZE = 50, BRANCH_OPTIMAL_SIZE = 25
   , macosx = /Mac/.test(navigator.platform)
   , webkit = /WebKit\//.test(navigator.userAgent)
   , gecko = /gecko\/\d/i.test(navigator.userAgent)
@@ -535,22 +535,20 @@
   }
 
   Branch = function(leaf, children) {
-    this.parent = null;
-    this.isLeaf = leaf = leaf == null ? true : leaf;
+    this.isLeaf = leaf == null || leaf;
+    this.children = children;
     this.size = this.height = 0;
-    if (children) {
-      for (var i = 0; i < children.length; i++) {
-        var ch = children[i];
-        this.height += ch.height;
-        this.size += ch.size;
-        ch.parent = this;
-      }
-      this.push.apply(this, children);
-      if (leaf) {
-        this.size = children.length;
-      }
+    this.parent = null;
+
+    for (var i = 0; i < children.length; i++) {
+      var ch = children[i];
+      this.height += ch.height;
+      this.size += ch.size;
+      ch.parent = this;
     }
-    return this;
+    if (this.isLeaf) {
+      this.size = children.length;
+    }
   }
 
   var splice = Array.prototype.splice
@@ -560,50 +558,47 @@
   , unshift = Array.prototype.unshift;
 
   Branch.prototype = {
-    splice: splice,
-    push: push,
-    pop: pop,
-    shift: shift,
     indexOf: function(node, offset) {
-      for (var i = offset || 0, l = this.length; i < l; i++) {
-        if (this[i] === node) {
+      var children = this.children;
+      for (var i = offset || 0, l = children.length; i < l; i++) {
+        if (children[i] === node) {
           return i;
         }
       }
       return -1;
     },
     get: function(line) {
-      if (this.isLeaf) return this[line];
-      var i = -1, s;
-      while (++i < this.length && line >= (s = this[i].size)) line -= s;
-      return this[i] ? this[i].get(line) : null;
+      var i = -1, s, children = this.children;
+      if (this.isLeaf) return children[line];
+      while (++i < children.length && line >= (s = children[i].size)) line -= s;
+      return children[i] ? children[i].get(line) : null;
     },
-    insert: function(at, lines, height) {
+    insert: function(at, lines) {
+      var children = this.children;
       this.size += lines.length;
-      this.height += height;
+      this.height += lines.reduce(function(height, line) { return height + line.height; }, 0);
       if (this.isLeaf) {
         for (var i = 0; i < lines.length; i++) {
           lines[i].parent = this;
         }
-        splice.apply(this, [at, 0].concat(lines));
+        this.children = children.slice(0, at).concat(lines, children.slice(at));
         return;
       }
-      for (var i = 0; i < this.length; i++) {
-        var ch = this[i], s = ch.size;
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i], s = ch.size;
         if (at <= s) {
-          if (ch.isLeaf && ch.size + lines.length > BRANCH_MAX_SIZE) {
-            var space = Math.max(0, BRANCH_OPTIMAL_SIZE - ch.size);
-            ch.insert(at, lines.slice(0, space), height);
-
-            for (var p = space; p < lines.length;) {
-              var leaf = new Branch(true, lines.slice(p, p += BRANCH_OPTIMAL_SIZE));
-              ch.height -= leaf.height;
+          ch.insert(at, lines);
+          if (ch.isLeaf && ch.size > BRANCH_MAX_SIZE) {
+            var space = ch.size % BRANCH_OPTIMAL_SIZE + BRANCH_OPTIMAL_SIZE;
+            for (var p = space; p < ch.size;) {
+              var leaf = new Branch(true, ch.children.slice(p, p += BRANCH_OPTIMAL_SIZE));
               leaf.parent = this;
-              this.splice(++i, 0, leaf);
+              ch.height -= leaf.height;
+              children.splice(++i, 0, leaf);
             }
+            ch.children = ch.children.slice(0, space);
+            ch.size = space;
             this.split();
-          } else {
-            ch.insert(at, lines, height);
           }
           break;
         }
@@ -611,111 +606,116 @@
       }
     },
     remove: function(at, n) {
+      var children = this.children;
       this.size -= n;
       if (this.isLeaf) {
-        for (var i = at, j = at + n; i < j; i++) {
-          this.height -= this[i].height;
-          this[i].parent = null;
+        var spliced = splice.call(children, at, n);
+        for (var i = 0; i < spliced.length; i++) {
+          var child = spliced[i];
+          this.height -= child.height;
+          child.parent = null;
         }
-        return this.splice(at, n);
+        return spliced;
       }
       var r = [];
-      for (var i = 0; i < this.length; i++) {
-        var ch = this[i], s = ch.size;
+      for (var i = 0; i < children.length; i++) {
+        var ch = children[i], s = ch.size;
         if (at < s) {
           var min = Math.min(n, s - at), oh = ch.height;
           push.apply(r, ch.remove(at, min));
           this.height -= oh - ch.height;
-          if (s === min) { this.splice(i--, 1); ch.parent = null; }
+          if (s === min) {
+            children.splice(i--, 1);
+            ch.parent = null;
+          }
           if ((n -= min) === 0) break;
           at = 0;
         } else {
           at -= s;
         }
       }
-      this.fall();
+      if (this.size - n < BRANCH_OPTIMAL_SIZE && (children.length > 1 || !children[0] || !children[0].isLeaf)) {
+        var leaf = new Branch(true, this.collapse([]));
+        this.children = [leaf];
+        leaf.parent = this;
+      }
       return r;
     },
-    fall: function() {
-      if (this.size < 10 && this.parent && this.length === 1) {
-        var child = this.pop();
-        while (child.length) {
-          var node = child.shift();
-          node.parent = this;
-          this.push(node);
+    collapse: function(children) {
+      if (this.isLeaf) {
+        children.push.apply(children, this.children);
+      } else {
+        for (var i = 0; i < this.children.length; i++) {
+          this.children[i].collapse(children);
         }
-        child.parent = null;
-        this.isLeaf = child.isLeaf;
       }
+      return children;
     },
     split: function() {
-      if (this.length <= BRANCH_MAX_SIZE) return;
-      var parts = Math.floor(this.length / BRANCH_OPTIMAL_SIZE);
-      var l = Math.ceil(this.length / parts);
-
-      if (this.parent && this.parent.length + parts < BRANCH_MAX_SIZE) {
-        var index = this.parent.indexOf(this);
-        for (var i = 1; i < parts; i++) {
-          var branches = this.splice(BRANCH_OPTIMAL_SIZE, l);
-          var branch = new Branch(false, branches);
-          this.size -= branch.size;
-          this.height -= branch.height;
-          branch.parent = this.parent;
-          this.parent.splice(++index, 0, branch);
+      if (this.children.length <= 10) return;
+      var branch = this;
+      do {
+        var spliced = branch.children.splice(branch.children.length - 5, 5);
+        var sibling = new Branch(false, spliced);
+        if (branch.parent) {
+          branch.size -= sibling.size;
+          branch.height -= sibling.height;
+          var index = branch.parent.children.indexOf(branch);
+          branch.parent.children.splice(index + 1, 0, sibling);
+        } else {
+          var clone = new Branch(false, branch.children);
+          clone.parent = branch;
+          branch.children = [clone, sibling];
+          branch = clone;
         }
-        this.parent.split();
-        return;
-      }
-      var branches = Array(parts);
-      for (var i = 0; i < parts; i++) {
-        var branch = new Branch(false, this.splice(0, l));
-        branches[i] = branch;
-        branch.parent = this;
-      }
-      this.push.apply(this, branches);
+        sibling.parent = branch.parent;
+      } while (branch.children.length > 10);
+      branch.parent.split();
     },
     getLineWithOffset: function(offset) {
-      var h = 0, i = -1;
-      while (++i < this.length && h + this[i].height < offset) h += this[i].height;
-      if (i === this.length) --i; offsetDiff = offset - h;
-      return this.isLeaf ? this[i] : this[i] ? this[i].getLineWithOffset(offsetDiff) : null;
+      var children = this.children, h = 0, i = -1;
+      while (++i < children.length && h + children[i].height <= offset) h += children[i].height;
+      if (i === children.length) --i; offsetDiff = offset - h;
+      var child = children[i];
+      return (this.isLeaf ? child : child && child.getLineWithOffset(offsetDiff)) || null;
     },
     next: function() {
-      var i;
-      if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
-        if (i + 1 < this.parent.length) return this.parent[i+1];
+      var i, siblings = this.parent && this.parent.children;
+      if (siblings && (i = siblings.indexOf(this)) >= 0) {
+        if (i + 1 < siblings.length) return siblings[i+1];
         var next = this.parent.next();
-        while (next && !next.isLeaf) next = next[0];
-        return next;
+        while (next && !next.isLeaf) next = next.children[0];
+        if (next) return next;
       }
       return null;
     },
     prev: function() {
-      var i;
-      if (this.parent && (i = this.parent.indexOf(this)) >= 0) {
-        if (i > 0) return this.parent[i-1];
+      var i, siblings = this.parent && this.parent.children;
+      if (siblings && (i = siblings.indexOf(this)) >= 0) {
+        if (i > 0) return siblings[i-1];
         var prev = this.parent.prev();
-        while (prev && !prev.isLeaf) prev = lastV(prev);
-        return prev;
+        while (prev && !prev.isLeaf) prev = lastV(prev.children);
+        if (prev) return prev;
       }
       return null;
     },
     foreach: function(f, tmp) {
+      var children = this.children;
       tmp = tmp || 0;
-      if (this.isLeaf) for (var i = 0; i < this.length; i++) f(this[i], tmp + i);
-      else for (var i = 0; i < this.length; i++) {
-        this[i].foreach(f, tmp);
-        tmp += this[i].size;
+      if (this.isLeaf) for (var i = 0; i < children.length; i++) f(children[i], tmp + i);
+      else for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        child.foreach(f, tmp);
+        tmp += child.size;
       }
       return this;
     }
   }
 
   Data = function() {
-    Branch.call(this, false);
-    var branch = new Branch(true);
+    var branch = new Branch(true, []);
     branch.parent = this;
-    push.call(this, branch);
+    Branch.call(this, false, [branch]);
     return this;
   }
   Data.prototype = Branch.prototype;
@@ -729,6 +729,7 @@
   }
 
   Line.prototype = {
+    constructor: Line,
     setText: function(str) {
       if (this.text !== str) {
         this.text = str;
@@ -740,8 +741,8 @@
       if (!this.parent) return 0;
       var child = this, parent = this.parent, total = 0, i;
       do {
-        i = parent.indexOf(child);
-        while (--i >= 0) total += parent[i].height | 0;
+        i = parent.children.indexOf(child);
+        while (--i >= 0) total += parent.children[i].height | 0;
         child = parent;
         parent = parent.parent;
       } while (parent);
@@ -751,9 +752,9 @@
       if (!this.parent) return -1;
       var child = this, parent = this.parent, total = 0, i;
       do {
-        i = parent.indexOf(child);
+        i = parent.children.indexOf(child);
         if (parent.isLeaf) total += i;
-        while (--i >= 0) total += parent[i].size | 0;
+        while (--i >= 0) total += parent.children[i].size | 0;
         child = parent;
         parent = parent.parent;
       } while (parent);
@@ -774,20 +775,20 @@
     next: function(skipMerged) {
       if (!this.parent) return;
       if (skipMerged && this.merged) return lastV(this.merged).next();
-      var i = this.parent.indexOf(this);
-      if (i + 1 < this.parent.length) return this.parent[i+1];
+      var siblings = this.parent.children, i = siblings.indexOf(this);
+      if (i + 1 < siblings.length) return siblings[i+1];
       else {
         var next = this.parent.next();
-        return next && next[0];
+        return next && next.children[0];
       }
     },
     prev: function(skipMerged) {
       if (!this.parent) return;
-      var i = this.parent.indexOf(this), dl;
-      if (i > 0) dl = this.parent[i-1];
+      var siblings = this.parent.children, i = siblings.indexOf(this), dl;
+      if (i > 0) dl = siblings[i-1];
       else {
         var prev = this.parent.prev();
-        dl = prev && prev.length && lastV(prev);
+        dl = prev && lastV(prev.children);
       }
       return dl && skipMerged && dl.mergedWith || dl;
     }
@@ -1167,6 +1168,7 @@
     var maxLine, maxLineLength = 0, maxLineChanged, data;
 
     this.init = function(source, mode) {
+      if (data) this.scrollTo(0, 0);
       source = source || '';
       data = new Data();
       if (this.view.to !== -1) clearDoc(this);
@@ -1193,7 +1195,7 @@
           }
         }
       }
-      data.insert(at, lines, this.sizes.font.height * lines.length);
+      data.insert(at, lines);
       if (this.editor) {
         var view = this.view, scrollDelta;
         if (at < view.from) {
