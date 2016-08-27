@@ -2142,6 +2142,7 @@
           if (dl) do clearLine(dl); while (dl = dl.next());
           doc.mode = mode;
           doc.parser = parser;
+          doc.emit('modeChanged', parser);
           doc.editor && doc.print();
         }
       });
@@ -2396,6 +2397,7 @@
       lastMeasure = measure;
       parserState = undefined;
       setPixelPosition.call(this, measure.offsetX, measure.offsetY);
+      doc.editor && doc.editor.focus();
       if (b) this.emit('caretMoved');
       this.emit('dispatch');
       return this;
@@ -3969,8 +3971,6 @@
       , x = e.pageX - rect.left
       , y = e.pageY < rect.top ? 0 : e.pageY <= rect.top + oH ? e.pageY - rect.top : scroll.scrollHeight
       , measure = doc.measurePosition(Math.max(0, x), y - sizes.paddingTop);
-
-      cp.focus();
 
       if (e.type === 'mousedown') {
         Flags.isMouseDown = true;
