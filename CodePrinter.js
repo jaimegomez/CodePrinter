@@ -397,20 +397,33 @@
     return state && CodePrinter.helpers.currentIterator(state) || parser.iterator;
   }
   function getNextSymbol(stream, state, parser) {
+    if (parser.skipSpaces && /\s/.test(stream.peek())) {
+      stream.take(/^\s*/);
+      return null;
+    }
     var token = getIterator(state, parser).call(parser, stream, state);
-    if (token) return 'string' === typeof token ? token : token.join(' ');
+    if (token) {
+      var type = typeof token;
+      if (type === 'string') return token;
+      if (type === 'function') {
+        CodePrinter.helpers.pushIterator(state, token);
+        return getNextSymbol(stream, state, parser);
+      }
+      return token.join(' ');
+    }
     return null;
   }
   function readIteration(parser, stream, state, cache) {
     stream.start = stream.pos;
     for (var i = 0; i < 3; i++) {
-      var currentParser = state && state.parser || parser
+      var currentParser = state && state.parser || parser;
       var symbol = getNextSymbol(stream, state, currentParser);
-      if (symbol) stream.lastSymbol = symbol;
       if (stream.pos > stream.start) {
-        var v = stream.from(stream.start);
-        if (v !== ' ' && v !== '\t') stream.lastValue = v;
-        if (symbol) cachePush(cache, stream.start, stream.pos, symbol);
+        if (symbol) {
+          stream.lastSymbol = symbol;
+          stream.lastValue = stream.from(stream.start);
+          cachePush(cache, stream.start, stream.pos, symbol);
+        }
         return symbol;
       }
     }
