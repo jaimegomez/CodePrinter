@@ -394,9 +394,7 @@
     return { indent: ind, spaces: spaces, length: i, stack: stack, indentText: text.substring(0, i), rest: text.substr(i) };
   }
   function getIterator(state, parser) {
-    if (!state) return parser.iterator;
-    var iters = state.iterators;
-    return iters && iters.length ? iters[iters.length - 1] : parser.iterator;
+    return state && CodePrinter.helpers.currentIterator(state) || parser.iterator;
   }
   function getNextSymbol(stream, state, parser) {
     var token = getIterator(state, parser).call(parser, stream, state);
@@ -500,16 +498,10 @@
     node.appendChild(document.createTextNode(content));
     return node;
   }
-  function forcopy(arr) {
-    var i, l = arr.length, copy = new Array(l);
-    for (i = 0; i < l; i++) copy[i] = arr[i];
-    return copy;
-  }
   function copyState(state) {
     var st = {};
     if (state) {
       for (var k in state) if (state[k] != null) st[k] = state[k];
-      if (state.iterators) st.iterators = forcopy(state.iterators);
     }
     return st;
   }
@@ -3707,18 +3699,29 @@
 
   CodePrinter.helpers = {
     pushIterator: function(state, iterator) {
-      if (!state.iterators) state.iterators = [iterator];
-      else state.iterators.push(iterator);
+      state.iterators = { prev: state.iterators, iterator: iterator };
       return iterator;
     },
     popIterator: function(state) {
-      if (state.iterators) return state.iterators.pop();
+      if (state.iterators) {
+        var iterator = state.iterators.iterator;
+        state.iterators = state.iterators.prev;
+        return iterator;
+      }
     },
     replaceIterator: function(state, iterator) {
-      if (state.iterators) state.iterators[state.iterators.length - 1] = iterator;
+      if (state.iterators) state.iterators.iterator = iterator;
     },
     currentIterator: function(state) {
-      if (state.iterators) return state.iterators[state.iterators.length - 1];
+      if (state.iterators) return state.iterators.iterator;
+    },
+    hasIterator: function(state, iterator) {
+      var tmp = state.iterators;
+      while (tmp) {
+        if (tmp.iterator === iterator) return true;
+        tmp = tmp.prev;
+      }
+      return false;
     }
   }
 
