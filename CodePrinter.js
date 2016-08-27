@@ -3773,7 +3773,9 @@
   CodePrinter.defineMode = function(name, req, func) {
     if (arguments.length === 2) { func = req; req = null; }
     var fn = function() {
-      var mode = 'function' === typeof func ? func.apply(CodePrinter, Array.apply(null, arguments)) : func;
+      var result = 'function' === typeof func ? func.apply(CodePrinter, Array.apply(null, arguments)) : func;
+      var mode = result instanceof CodePrinter.Mode ? result : new CodePrinter.Mode(result);
+      mode.displayName = name;
       mode.name = name = name.toLowerCase();
       modes[name] = mode;
       CodePrinter.emit('modeLoaded', name, mode);
