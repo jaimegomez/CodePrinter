@@ -12,6 +12,8 @@ CodePrinter.defineMode('JavaScript', function() {
   , Tokens = CodePrinter.Tokens
   , push = CodePrinter.helpers.pushIterator
   , pop = CodePrinter.helpers.popIterator
+  , currentIterator = CodePrinter.helpers.currentIterator
+  , hasIterator = CodePrinter.helpers.hasIterator
   , wordRgx = /^[\w$\xa1-\uffff]+/
   , wordCharacterRgx = /[\w$\xa1-\uffff]/
   , operatorRgx = /[+\-*&%=<>!?|~^]/
@@ -170,23 +172,22 @@ CodePrinter.defineMode('JavaScript', function() {
   function words(stream, state, ch) {
     var word = ch + stream.take(wordRgx);
     if (word === 'function') {
-      if (!state.fn) state.fn = true;
-      return Tokens.special;
+      if (stream.lastValue !== '.') {
+        if (!state.fn) state.fn = true;
+        return Tokens.special;
+      }
+      return Tokens.word;
     }
-    if (word === 'var') {
-      state.vardef = state.indent;
-      return Tokens.keyword;
-    }
-    if (word === 'let') {
-      state.letdef = state.indent;
+    if (word === 'var' || word === 'let' || word === 'const') {
+      push(state, declaration(state, word));
       return Tokens.keyword;
     }
     if (word === 'class') {
       state.classdef = true;
       return Tokens.keyword;
     }
-    if (word === 'const') {
-      state.constdef = state.indent;
+    if (word === 'import') {
+      push(state, importIterator);
       return Tokens.keyword;
     }
     if (stream.lastValue === 'function') {
@@ -222,7 +223,7 @@ CodePrinter.defineMode('JavaScript', function() {
           saveVariable(state, word, 'function', OBJECT_CONTEXT);
         }
         else if (type & BLOCK_CONTEXT && rgx[0] === '=') {
-          saveVariable(state, word, 'function', state.letdef != null ? BLOCK_CONTEXT : FUNCTION_CONTEXT);
+          saveVariable(state, word, 'function', state.declarationType !== 'var' ? BLOCK_CONTEXT : FUNCTION_CONTEXT);
         }
       }
       return Tokens.function;
@@ -238,12 +239,130 @@ CodePrinter.defineMode('JavaScript', function() {
       var isVar = isVariable(word, state);
       if (isVar && 'string' === typeof isVar) return isVar;
     }
-    if ((!stream.lastValue || (stream.lastSymbol === 'keyword' && stream.lastValue !== 'new') || stream.lastValue === ',') && stream.isAfter(/^\s*([=;,]|$)/)) {
-      if (state.vardef === state.indent) return saveVariable(state, word, 'variable', FUNCTION_CONTEXT);
-      if (state.letdef === state.indent) return saveVariable(state, word, 'variable', BLOCK_CONTEXT);
-      if (state.constdef === state.indent) return saveVariable(state, word, 'constant', FUNCTION_CONTEXT);
-    }
     return Tokens.word;
+  }
+
+  function declaration(state, type) {
+    var initialContext = state.context;
+    var stage = 0;
+
+    return function declarationIterator(stream, state) {
+      var sameContext = state.context === initialContext;
+
+      if (stage > 0 || !sameContext) {
+        state.declarationType = undefined;
+        if (sameContext) {
+          var ch = stream.next();
+          if (ch === ',') {
+            stage = 0;
+            return Tokens.punctuation;
+          }
+          if (ch === ';' || stage === 2 && /\S/.test(ch)) {
+            pop(state);
+            state.declarationName = undefined;
+          }
+          stream.undo(1);
+        } else {
+          stage = 2;
+        }
+        return this.iterator(stream, state);
+      }
+
+      var ch = stream.next();
+      state.declarationType = type;
+
+      if (ch === '{' || ch === '[') {
+        push(state, destructuring(ch));
+        return Tokens.bracket;
+      }
+      if (ch === ',') {
+        state.declarationName = undefined;
+        return Tokens.punctuation;
+      }
+      if (ch === ';') {
+        pop(state);
+        state.declarationType = state.declarationName = undefined;
+        return Tokens.punctuation;
+      }
+      if (ch === '=') {
+        if (state.declarationName) {
+          saveWordAsVariable(state, state.declarationName);
+        }
+        stage = 1;
+        return Tokens.operator;
+      }
+      if (wordCharacterRgx.test(ch)) {
+        var word = ch + stream.take(wordRgx);
+
+        if (state.declarationName && (word === 'in' || word === 'of')) {
+          stage = 1;
+          return Tokens.keyword;
+        }
+        if (controls[word] || keywords[word] || constants[word]) {
+          return Tokens.invalid;
+        }
+
+        state.declarationName = word;
+        return type === 'const' ? Tokens.constant : Tokens.variable;
+      }
+    }
+  }
+
+  function importIterator(stream, state) {
+    var ch = stream.next();
+
+    if (ch === '{') {
+      push(state, destructuring(ch));
+      return Tokens.bracket;
+    }
+    if (ch === '"' || ch === '\'') {
+      return push(state, string(ch))(stream, state);
+    }
+    if (wordCharacterRgx.test(ch)) {
+      var word = ch + stream.take(wordRgx);
+
+      if (word === 'from' || word === 'as' || word === 'default') {
+        return Tokens.keyword;
+      }
+      return saveVariable(state, word, 'constant', BLOCK_CONTEXT);
+    }
+    if (ch === ';') {
+      pop(state);
+      return Tokens.punctuation;
+    }
+  }
+
+  function destructuring(firstChar) {
+    var lastChar = firstChar === '[' ? ']' : '}';
+
+    return function destructuringIterator(stream, state) {
+      var ch = stream.next();
+
+      if (ch === lastChar) {
+        pop(state);
+        return Tokens.bracket;
+      }
+      if (ch === '{' || ch === '[') {
+        push(state, destructuring(ch));
+        return Tokens.bracket;
+      }
+      if (ch === ',') {
+        return Tokens.punctuation;
+      }
+      if (wordCharacterRgx.test(ch)) {
+        var word = ch + stream.take(wordRgx);
+
+        if (firstChar === '{') {
+          if (word === 'as') {
+            return Tokens.keyword;
+          }
+          if (stream.isAfter(/^\s*(:|as\b)/)) {
+            return Tokens.word;
+          }
+        }
+        return saveWordAsVariable(state, word);
+      }
+    }
   }
 
   function pushcontext(state, type, name) {
@@ -277,6 +396,13 @@ CodePrinter.defineMode('JavaScript', function() {
       popcontext(state);
       state.fatArrow = null;
     }
+  }
+
+  function saveWordAsVariable(state, word) {
+    var decl = state.declarationType;
+    if (decl === 'var') return saveVariable(state, word, 'variable', FUNCTION_CONTEXT);
+    if (decl === 'let') return saveVariable(state, word, 'variable', BLOCK_CONTEXT);
+    if (decl === 'const' || hasIterator(state, importIterator)) return saveVariable(state, word, 'constant', BLOCK_CONTEXT);
   }
 
   function Definition(name, params) {
@@ -318,9 +444,6 @@ CodePrinter.defineMode('JavaScript', function() {
   }
   rules[','] = rules[':'] = function() { return Tokens.punctuation; }
   rules[';'] = function(stream, state) {
-    if (state.vardef >= 0) state.vardef = null;
-    if (state.letdef >= 0) state.letdef = null;
-    if (state.constdef >= 0) state.constdef = null;
     closeFatArrow(stream, state);
     if (state.context.type === BLOCK_CONTEXT && state.context.open) {
       if (state.controlParenthesisClosed || state.control === 'else' && state.controlParenthesisClosed === null) {
@@ -368,7 +491,7 @@ CodePrinter.defineMode('JavaScript', function() {
       pushcontext(state, CLASS_CONTEXT);
       state.classdef = null;
     }
-    else if (state.vardef === state.indent || state.letdef === state.indent) {
+    else if (state.declaration) {
       pushcontext(state, OBJECT_CONTEXT);
     }
     else {
@@ -384,8 +507,6 @@ CodePrinter.defineMode('JavaScript', function() {
     closeFatArrow(stream, state);
     if (state.context.type === FAKE_CONTEXT) popcontext(state);
     else if (state.control) {
-      if (state.vardef >= 0) state.vardef = null;
-      if (state.letdef >= 0) state.letdef = null;
       state.controlParenthesisClosed = true;
     }
     else if (!state.fn) return Tokens.invalid;
@@ -419,7 +540,7 @@ CodePrinter.defineMode('JavaScript', function() {
     }
   }
 
-  return new CodePrinter.Mode({
+  return {
     name: 'JavaScript',
     blockCommentStart: '/*',
     blockCommentEnd: '*/',
@@ -428,6 +549,7 @@ CodePrinter.defineMode('JavaScript', function() {
     autoCompleteTriggers: /[\w_]/,
     indentTriggers: /[\}\]\)e]/,
     matching: 'brackets',
+    skipSpaces: true,
 
     initialState: function() {
       return {
@@ -458,6 +580,9 @@ CodePrinter.defineMode('JavaScript', function() {
       }
     },
     onExit: function(stream, state) {
+      if (currentIterator(state) === importIterator) {
+        pop(state);
+      }
       state.indent = state.context.indent;
     },
     indent: function(stream, state, nextIteration) {
@@ -517,5 +642,5 @@ CodePrinter.defineMode('JavaScript', function() {
     OBJECT_CONTEXT: OBJECT_CONTEXT,
     ARRAY_CONTEXT: ARROW_CONTEXT,
     CLASS_CONTEXT: CLASS_CONTEXT
-  });
+  };
 });
