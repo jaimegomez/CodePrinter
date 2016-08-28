@@ -37,6 +37,7 @@
     buildDOM(this);
     EventEmitter.call(this);
     this.keyMap = new keyMap;
+    this.keypressBindings = new keypressBindings;
     setOptions(this, options);
 
     this.setDocument(this.createDocument(source, this.getOption('mode')));
@@ -2967,28 +2968,33 @@
     'Shift Up': 'moveSelUp',
     'Shift Down': 'moveSelDown',
     'Ctrl Shift W': 'selectWord',
-    '"': function(k) {
-      if (this.getOption('insertClosingQuotes')) {
-        return insertClosing(this, k, k);
-      }
-    },
-    '(': function(k) {
-      if (this.getOption('insertClosingBrackets')) {
-        return insertClosing(this, k, brackets[k]);
-      }
-    },
-    ')': function(k) {
-      if (this.getOption('insertClosingBrackets') && this.textAfterCursor(1) === k) this.caret.moveX(1);
-      else this.insertText(k);
-      return false;
-    },
     'Cmd A': 'selectAll',
     'Cmd Z': 'undo',
     'Cmd Shift Z': 'redo'
   }
-  keyMap.prototype['`'] = keyMap.prototype['\''] = keyMap.prototype['"'];
-  keyMap.prototype['['] = keyMap.prototype['{'] = keyMap.prototype['('];
-  keyMap.prototype[']'] = keyMap.prototype['}'] = keyMap.prototype[')'];
+
+  var keypressBindings = function() {};
+  keypressBindings.prototype = {
+    '"': function(parserState, caret, ch) {
+      if (this.getOption('insertClosingQuotes')) {
+        return insertClosing(caret, parserState, ch, ch);
+      }
+    },
+    '(': function(parserState, caret, ch) {
+      if (this.getOption('insertClosingBrackets')) {
+        return insertClosing(caret, parserState, ch, brackets[ch]);
+      }
+    },
+    ')': function(parserState, caret, ch) {
+      if (this.getOption('insertClosingBrackets') && this.textAfterCursor(1) === ch) caret.moveX(1);
+      else caret.insert(ch);
+      return false;
+    }
+  }
+
+  keypressBindings.prototype['`'] = keypressBindings.prototype['\''] = keypressBindings.prototype['"'];
+  keypressBindings.prototype['['] = keypressBindings.prototype['{'] = keypressBindings.prototype['('];
+  keypressBindings.prototype[']'] = keypressBindings.prototype['}'] = keypressBindings.prototype[')'];
 
   function moveCaret(fn, mv) {
     return function() {
@@ -4156,6 +4162,8 @@
             var str = parser.keyMap[ch].call(cp, s.stream, s.state, caret);
             if ('string' === typeof str) caret.insert(str);
             else if (str == null) caret.insert(ch);
+          } else if (cp.keypressBindings[ch]) {
+            cp.keypressBindings[ch].call(cp, s, caret, ch);
           } else {
             caret.insert(ch);
           }
@@ -4292,9 +4300,9 @@
       doc.wheelTarget = wt;
     }
   }
-  function insertClosing(doc, ch, comp) {
-    var s = doc.getState(caret.head()), charAfter = s.stream.at(0);
-    charAfter === ch ? caret.moveX(1) : /\b(string|invalid)\b/.test(s.style) || /[^\s\)\]\}]/.test(charAfter) ? doc.insertText(ch, 0) : doc.insertText(ch + comp, -1);
+  function insertClosing(caret, parserState, ch, comp) {
+    var charAfter = parserState.stream.at(0), style = parserState.style;
+    charAfter === ch ? caret.moveX(1) : /\b(string|invalid)\b/.test(style) || /[^\s\)\]\}]/.test(charAfter) ? caret.insert(ch, 0) : caret.insert(ch + comp, -1);
     return false;
   }
   function scroll(doc, delta) {
