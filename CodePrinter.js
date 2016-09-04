@@ -574,10 +574,13 @@
       return -1;
     },
     get: function(line) {
-      var i = -1, s, children = this.children;
-      if (this.isLeaf) return children[line] || null;
-      while (++i < children.length && line >= (s = children[i].size)) line -= s;
-      return children[i] ? children[i].get(line) : null;
+      if (this.isLeaf) return this.children[line] || null;
+      var children = this.children, child, i = -1;
+      while (++i < children.length && (child = children[i])) {
+        if (child.size > line) return child.get(line);
+        line -= child.size;
+      }
+      return null;
     },
     insert: function(at, lines) {
       var children = this.children;
@@ -2986,7 +2989,7 @@
       }
     },
     ')': function(parserState, caret, ch) {
-      if (this.getOption('insertClosingBrackets') && this.textAfterCursor(1) === ch) caret.moveX(1);
+      if (this.getOption('insertClosingBrackets') && caret.textAfter(1) === ch) caret.moveX(1);
       else caret.insert(ch);
       return false;
     }
