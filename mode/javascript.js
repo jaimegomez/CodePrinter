@@ -237,7 +237,9 @@ CodePrinter.defineMode('JavaScript', function() {
 
     if (state.context && (state.context.type !== OBJECT_CONTEXT || !stream.isAfter(/^\s*:/)) && !stream.isBefore(/\.\s*$/, -word.length)) {
       var isVar = isVariable(word, state);
-      if (isVar && 'string' === typeof isVar) return isVar;
+      if (isVar && 'string' === typeof isVar) {
+        return isVar === 'constant' && word !== word.toUpperCase() ? Tokens.variable : isVar;
+      }
     }
     return Tokens.word;
   }
@@ -303,7 +305,7 @@ CodePrinter.defineMode('JavaScript', function() {
         }
 
         state.declarationName = word;
-        return type === 'const' ? Tokens.constant : Tokens.variable;
+        return word === word.toUpperCase() ? Tokens.constant : Tokens.variable;
       }
     }
   }
