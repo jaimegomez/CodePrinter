@@ -14,11 +14,6 @@
   overflow: hidden;
   position: relative;
   text-align: left;
-  -webkit-animation: cp-insertAnimation 0.001s;
-  -moz-animation: cp-insertAnimation 0.001s;
-  -ms-animation: cp-insertAnimation 0.001s;
-  -o-animation: cp-insertAnimation 0.001s;
-  animation: cp-insertAnimation 0.001s;
 }
 .codeprinter.cp--auto-height .cp-body {
   height: auto;
@@ -294,7 +289,7 @@
   display: inline-block;
   padding: 0 0.5em;
 }
-.codeprinter .cp-overlay {
+.codeprinter .cp-layer {
   background: none !important;
   white-space: pre;
   position: absolute;
@@ -303,22 +298,19 @@
   bottom: 0;
   left: 0;
 }
-.codeprinter .cp-selection {
+.codeprinter .cp-marker-piece {
+  margin: 0;
+  padding: 0;
+  background: rgba(100, 255, 0, 0.4);
+  color: transparent;
+  position: absolute;
+  box-sizing: content-box;
+  z-index: 1;
+}
+.codeprinter .cp-selection-layer .cp-marker-piece {
   background: #c8dcff;
   color: transparent;
   cursor: text;
-}
-.codeprinter .cp-selection,
-.codeprinter .cp-marker {
-  margin: 0;
-  padding: 0;
-  position: absolute;
-  box-sizing: content-box;
-}
-.codeprinter .cp-marker {
-  color: transparent;
-  background: rgba(100, 255, 0, 0.4);
-  z-index: 1;
 }
 .codeprinter .cp-highlight {
   background: #FFFD82;
@@ -618,44 +610,4 @@
   background: #aaeeff;
   color: #444;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
-}
-@-webkit-keyframes cp-insertAnimation {
-  from {
-    opacity: 0.99;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@-moz-keyframes cp-insertAnimation {
-  from {
-    opacity: 0.99;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@-ms-keyframes cp-insertAnimation {
-  from {
-    opacity: 0.99;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@-o-keyframes cp-insertAnimation {
-  from {
-    opacity: 0.99;
-  }
-  to {
-    opacity: 1;
-  }
-}
-@keyframes cp-insertAnimation {
-  from {
-    opacity: 0.99;
-  }
-  to {
-    opacity: 1;
-  }
 }

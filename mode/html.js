@@ -1,13 +1,13 @@
 /* CodePrinter - HTML mode */
 
 CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) {
-  
+
   var wordRgx = /[\w\-]/i
   , selfClosingTagsRgx = /^(area|base|br|c(ol|ommand)|embed|hr|i(mg|nput)|keygen|link|meta|param|source|track|wbr)$/i
   , matchTagNameRgx = /<\s*(\w+)\s*[^>]*>?$/
   , push = CodePrinter.helpers.pushIterator
   , pop = CodePrinter.helpers.popIterator;
-  
+
   function comment(stream, state) {
     if (stream.eatUntil(/\-\-\>/)) {
       pop(state);
@@ -51,14 +51,14 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
     }
     return 'comment cdata';
   }
-  
+
   function pushcontext(state, name) {
     state.context = { type: 'tag', name: name, indent: state.indent + 1, prev: state.context }
   }
   function popcontext(state) {
     if (state.context.prev) state.context = state.context.prev;
   }
-  
+
   return new CodePrinter.Mode({
     name: 'HTML',
     blockCommentStart: '<!--',
@@ -66,7 +66,7 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
     indentTriggers: /\//,
     autoCompleteTriggers: /</,
     matching: 'tags',
-    
+
     initialState: function() {
       return {
         indent: 0,
@@ -75,7 +75,7 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
     },
     iterator: function(stream, state) {
       var ch = stream.next();
-      
+
       if (state.bracketOpen) {
         if (state.tagName) {
           if (ch === '>') return this.closeBracket(stream, state);
@@ -92,7 +92,7 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
         else {
           if (/[a-z\-]/i.test(ch)) return this.tags(stream, state, ch);
           state.bracketOpen = false;
-          stream.undoLastSymbol('bracket');
+          this.undoLastToken('bracket');
         }
       }
       if (ch === '<') return this.openBracket(stream, state);
@@ -125,7 +125,7 @@ CodePrinter.defineMode('HTML', ['JavaScript', 'CSS'], function(JavaScript, CSS) 
       if (state.closingTag && state.tagName === state.context.name) popcontext(state);
       else if (!stream.isAfter('<')) {
         var tagName = state.tagName;
-        
+
         if (tagName === 'style') {
           state.indent = state.context.indent;
           this.passthrough(CSS, state, function(stream, state) {

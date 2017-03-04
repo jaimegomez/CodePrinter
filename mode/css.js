@@ -401,7 +401,7 @@ CodePrinter.defineMode('CSS', function() {
         }
       }
       if (ch === '{') {
-        if (stream.lastSymbol) stream.markDefinition(new Definition(stream.value.substr(0, stream.pos - 1)));
+        if (stream.lastToken) stream.markDefinition(new Definition(stream.value.substr(0, stream.pos - 1)));
         ++state.indent;
         return 'bracket';
       }
@@ -514,7 +514,7 @@ CodePrinter.defineMode('CSS', function() {
     },
     keyMap: {
       ':': function(stream, state, caret) {
-        if (!stream.isBefore(':') && !stream.isAfter(';') && stream.lastSymbol === 'special') {
+        if (!stream.isBefore(':') && !stream.isAfter(';') && stream.lastToken === 'special') {
           caret.insert(':;', -1);
           return false;
         }

@@ -2,8 +2,10 @@
   "name": "codeprinter",
   "version": "0.8.3",
   "description": "Code editor library written in JavaScript",
-  "main": "CodePrinter.js",
+  "main": "src/CodePrinter.js",
   "scripts": {
+    "start": "NODE_ENV=development webpack-dev-server",
+    "build": "NODE_ENV=production webpack -p",
     "test": "karma start"
   },
   "repository": {
@@ -26,11 +28,23 @@
   },
   "homepage": "https://github.com/tsapeta/CodePrinter",
   "devDependencies": {
-    "es6-promise": "^3.1.2",
-    "jasmine-core": "^2.4.1",
-    "karma": "^1.2.0",
-    "karma-jasmine": "^1.0.2",
-    "karma-phantomjs-launcher": "^1.0.1",
-    "phantomjs-prebuilt": "^2.1.12"
+    "autoprefixer": "6.7.5",
+    "babel-core": "6.23.1",
+    "babel-loader": "6.3.2",
+    "babel-plugin-transform-class-properties": "6.23.0",
+    "babel-plugin-transform-object-rest-spread": "6.23.0",
+    "babel-plugin-transform-strict-mode": "6.22.0",
+    "css-loader": "0.26.2",
+    "jasmine-core": "2.5.2",
+    "karma": "1.5.0",
+    "karma-chrome-launcher": "2.0.0",
+    "karma-jasmine": "1.1.0",
+    "karma-sourcemap-loader": "0.3.7",
+    "karma-spec-reporter": "0.0.30",
+    "karma-webpack": "2.0.2",
+    "postcss-loader": "1.3.2",
+    "style-loader": "0.13.2",
+    "webpack": "2.2.1",
+    "webpack-dev-server": "2.4.1"
   }
 }

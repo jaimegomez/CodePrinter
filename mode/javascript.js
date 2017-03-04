@@ -1,22 +1,19 @@
 /* CodePrinter - JavaScript Mode */
 
-CodePrinter.defineMode('JavaScript', function() {
-
-  var FAKE_CONTEXT = 0
+CodePrinter.defineMode('JavaScript', () => {
+  const FAKE_CONTEXT = 0
   , BLOCK_CONTEXT = 1
   , FUNCTION_CONTEXT = 3
   , ARROW_CONTEXT = 7
   , OBJECT_CONTEXT = 8
   , ARRAY_CONTEXT = 16
   , CLASS_CONTEXT = 32
-  , Tokens = CodePrinter.Tokens
-  , push = CodePrinter.helpers.pushIterator
-  , pop = CodePrinter.helpers.popIterator
-  , currentIterator = CodePrinter.helpers.currentIterator
-  , hasIterator = CodePrinter.helpers.hasIterator
+  , tokens = CodePrinter.tokens
   , wordRgx = /^[\w$\xa1-\uffff]+/
   , wordCharacterRgx = /[\w$\xa1-\uffff]/
-  , operatorRgx = /[+\-*&%=<>!?|~^]/
+  , operatorRgx = /^[+\-*&%=<>!?|~^]/
+  , unaryOperators = /[\-\+!~]/
+  , binaryOperators = /^[\-\+\*\/&|%<>^=]+/
   , closeBrackets = /^[}\]\)]/
   , controls = CodePrinter.keySet(['if','else','elseif','for','switch','while','do','try','catch','finally'])
   , constants = CodePrinter.keySet(['null','undefined','NaN','Infinity'])
@@ -35,278 +32,405 @@ CodePrinter.defineMode('JavaScript', function() {
     'StopIteration','SyntaxError','TypeError','URIError'
   ]);
 
-  function string(character) {
-    return function(stream, state) {
-      var esc = !!state.escaped, ch;
-      while (ch = stream.next()) {
-        if (ch === character && !esc) break;
-        if (esc = !esc && ch === '\\') {
-          stream.undo(1);
-          push(state, escapedString);
-          return Tokens.string;
-        }
+  function stringExpression(stream, state) {
+    let esc = !!state.stringEscaped, ch;
+    while (ch = stream.next()) {
+      if (ch === state.stringType && !esc) break;
+      if (esc = !esc && ch === '\\') {
+        stream.undo(1);
+        return this.next(tokens.string, escapedStringExpression, stringExpression);
       }
-      state.escaped = esc;
-      if (ch || !esc) pop(state);
-      if (!ch) return Tokens.invalid;
-      return Tokens.string;
     }
+    state.stringEscaped = esc;
+    if (ch || !esc) {
+      state.stringEscaped = state.stringType = null;
+      this.push(afterExpression);
+    }
+    return ch ? tokens.string : tokens.invalid;
   }
-  function templateString(stream, state, escaped) {
-    var esc = !!state.escaped, ch;
+
+  function templateStringExpression(stream, state) {
+    let esc = !!state.stringEscaped, ch;
     while (ch = stream.next()) {
       if (ch === '`' && !esc) break;
       if (ch === '$' && stream.peek() === '{') {
         stream.undo(1);
-        push(state, stringInjection);
-        return Tokens.string;
+        return this.next(tokens.string, stringInjection, templateStringExpression);
       }
       if (esc = !esc && ch === '\\') {
         stream.undo(1);
-        push(state, escapedString);
-        return Tokens.string;
+        return this.next(tokens.string, escapedStringExpression, templateStringExpression);
       }
     }
-    state.escaped = esc;
+    state.stringEscaped = esc;
     if (ch) {
-      pop(state);
+      this.push(afterExpression);
     }
-    return Tokens.string;
+    return tokens.string;
   }
-  function stringInjection(stream, state) {
+
+  function stringInjection(stream) {
     if (stream.eatChain('${')) {
-      push(state, function(stream, state) {
-        var peek = stream.peek();
-        if (peek === '}') {
-          stream.next();
-          pop(state);
-          return Tokens.escaped;
-        }
-        if (peek === '`') {
-          pop(state);
-          pop(state);
-          return;
-        }
-        return this.iterator(stream, state);
-      });
-      return Tokens.escaped;
+      return this.next(tokens.escaped, expression, closeStringInjection);
     }
-    pop(state);
-    return stream.eatChain('}') ? Tokens.escaped : Tokens.string;
+    return stream.eatChain('}') ? tokens.escaped : tokens.string;
   }
-  function escapedString(stream, state) {
+
+  function closeStringInjection(stream) {
+    if (stream.eat('}')) {
+      return tokens.escaped;
+    }
+  }
+
+  function escapedStringExpression(stream, state) {
     if (stream.eat('\\')) {
-      var ch = stream.next();
+      const ch = stream.next();
       if (ch) {
-        pop(state);
-        return Tokens.escaped;
+        return tokens.escaped;
       }
       stream.undo(1);
     }
-    pop(state);
-    state.escaped = true;
+    state.stringEscaped = true;
   }
-  function comment(stream, state) {
-    var star, ch;
-    while (ch = stream.next()) {
-      if (star && ch === '/') {
-        break;
-      }
-      star = ch === '*';
+
+  function comment(stream) {
+    if (stream.skipTo('*/')) {
+      return tokens.comment;
     }
-    if (ch && star) pop(state);
-    return Tokens.comment;
+    return this.yield(tokens.comment);
   }
-  function regexp(stream, state, escaped) {
-    var esc = !!escaped, ch;
+
+  function regexpExpression(stream, state) {
+    let ch;
     while (ch = stream.next()) {
       if (ch === '\\' && !stream.eol()) {
         stream.undo(1);
-        push(state, escapedRegexp);
-        return Tokens.regexp;
+        return this.next(tokens.regexp, escapedRegexpExpression);
       }
       if (ch === '/') {
         stream.take(/^[gimy]+/);
-        pop(state);
-        return Tokens.regexp;
+        return this.next(tokens.regexp, afterExpression);
       }
     }
-    pop(state);
-    return Tokens.regexp;
+    return this.next(tokens.regexp, afterExpression);
   }
-  function escapedRegexp(stream, state) {
+
+  function escapedRegexpExpression(stream, state) {
     if (stream.eat('\\')) {
-      var ch = stream.next();
+      const ch = stream.next();
       if (ch) {
-        pop(state);
-        return Tokens.escaped;
+        return this.next(tokens.escaped, regexpExpression);
       }
-      stream.undo(1);
     }
-    pop(state);
-    return regexp(stream, state, true);
+    return this.next(null, regexpExpression);
   }
+
   function parameters(stream, state) {
     var ch = stream.next();
     if (ch) {
       if (ch === ')') {
-        pop(state);
-        return Tokens.bracket;
+        this.pop();
+        return tokens.bracket;
       }
       if (ch === '.' && stream.eat('.') && stream.eat('.')) {
-        return Tokens.operator;
+        return tokens.operator;
       }
       if (ch === ',' || ch === ' ') {
         return;
       }
       if (wordCharacterRgx.test(ch)) {
         var word = ch + stream.take(wordRgx);
-        if (stream.eol()) pop(state);
+        if (stream.eol()) this.pop();
         state.context.params[word] = true;
-        return Tokens.parameter;
+        return tokens.parameter;
       }
       stream.undo(1);
     }
-    pop(state);
+    this.pop();
   }
-  function words(stream, state, ch) {
-    var word = ch + stream.take(wordRgx);
+
+  function variableDeclaration(stream, state) {
+    const word = stream.take(wordRgx);
+
+    this.push(maybeAssignment, variableDeclarationSeparator);
+
+    if (controls[word] || keywords[word] || constants[word]) {
+      return tokens.invalid;
+    }
+    saveWordAsVariable(this, word, state.context.declarationType);
+    return state.context.declarationType === 'const' ? tokens.constant : tokens.variable;
+  }
+
+  function maybeAssignment(stream, state) {
+    if (stream.eatChain('=')) {
+      return this.next(tokens.operator, expression);
+    }
+    if (stream.eatChain('in') || stream.eatChain('of')) {
+      return this.next(tokens.keyword, expression);
+    }
+  }
+
+  function variableDeclarationSeparator(stream, state) {
+    if (stream.eat(',')) {
+      return this.next(tokens.punctuation, variableDeclaration);
+    }
+    state.context.declarationType = null;
+    if (stream.eat(';')) {
+      return tokens.punctuation;
+    }
+    return tokens.invalid;
+  }
+
+  function punctuation(char) {
+    return function(stream) {
+      if (stream.eat(char)) {
+        return tokens.punctuation;
+      }
+    };
+  }
+
+  function identifier(stream) {
+    /* TODO: destructuring
+    if (stream.eat('{')) {
+
+    }
+    if (stream.eat('[')) {
+
+    }
+    */
+    const word = stream.take(wordRgx);
+    return tokens.word;
+  }
+
+  function wordExpression(stream, state) {
+    const word = stream.current();
+
+    if (word === 'true' || word === 'false') {
+      return [tokens.builtin, tokens.boolean];
+    }
     if (word === 'function') {
-      if (stream.lastValue !== '.') {
-        if (!state.fn) state.fn = true;
-        return Tokens.special;
-      }
-      return Tokens.word;
+      this.pushContext(FUNCTION_CONTEXT);
+      return this.next(tokens.special, functionDeclaration);
     }
-    if (word === 'var' || word === 'let' || word === 'const') {
-      push(state, declaration(state, word));
-      return Tokens.keyword;
+    if (constants[word]) {
+      return this.next(tokens.constant, afterExpression);
     }
-    if (word === 'class') {
-      state.classdef = true;
-      return Tokens.keyword;
+    if (specials[word]) {
+      return this.next(tokens.special, afterExpression);
     }
-    if (word === 'import') {
-      push(state, importIterator);
-      return Tokens.keyword;
+    if (keywords[word]) {
+      return tokens.keyword;
     }
-    if (stream.lastValue === 'function') {
-      state.fn = word;
-      return saveVariable(state, word, 'function', 47);
+    if (stream.isAfter(/^\s*\(/)) {
+      return this.next(tokens.function, afterExpression);
     }
-    if (stream.lastValue === 'class') {
-      state.classdef = word;
-      return saveVariable(state, word, 'variable', 47);
-    }
-    if (word === 'true' || word === 'false') return [Tokens.builtin, Tokens.boolean];
-    if (constants[word]) return Tokens.constant;
-    if (controls[word] && stream.lastValue !== '.') {
-      if (stream.lastSymbol !== 'control') state.control = word;
-      return Tokens.control;
-    }
-    if (specials[word]) return Tokens.special;
-    if (keywords[word]) return Tokens.keyword;
-
-    if (state.context.type === CLASS_CONTEXT) {
-      if (stream.isAfter(/^\s*\(/)) {
-        state.fn = word;
-        return saveVariable(state, word, 'function', CLASS_CONTEXT);
-      } else if (word === 'get' || word === 'set') {
-        return Tokens.keyword;
+    if (state.context && state.context.type !== OBJECT_CONTEXT) {
+      const varType = this.getVariableType(word);
+      if (varType) {
+        const token = varType === 'constant' && word !== word.toUpperCase() ? tokens.variable : varType;
+        return this.next(token, afterExpression);
       }
     }
-    if (stream.isAfter(/^\s*([:=]\s*function)?\s*\(/)) {
-      var rgx = RegExp.$1, type = state.context.type;
-      if (rgx) {
-        state.fn = word;
-        if (type === OBJECT_CONTEXT && rgx[0] === ':') {
-          saveVariable(state, word, 'function', OBJECT_CONTEXT);
-        }
-        else if (type & BLOCK_CONTEXT && rgx[0] === '=') {
-          saveVariable(state, word, 'function', state.declarationType !== 'var' ? BLOCK_CONTEXT : FUNCTION_CONTEXT);
-        }
-      }
-      return Tokens.function;
-    }
-    if (stream.isAfter(/^\s*=>/)) {
-      push(state, parameters);
-      pushcontext(state, ARROW_CONTEXT);
-      state.fatArrow = true;
-      return parameters(stream, state);
-    }
-
-    if (state.context && (state.context.type !== OBJECT_CONTEXT || !stream.isAfter(/^\s*:/)) && !stream.isBefore(/\.\s*$/, -word.length)) {
-      var isVar = isVariable(word, state);
-      if (isVar && 'string' === typeof isVar) {
-        return isVar === 'constant' && word !== word.toUpperCase() ? Tokens.variable : isVar;
-      }
-    }
-    return Tokens.word;
+    return this.next(tokens.word, afterExpression);
   }
 
-  function declaration(state, type) {
-    var initialContext = state.context;
-    var stage = 0;
+  function expression(stream, state) {
+    const ch = stream.next();
+    const rule = rules[ch];
+    const ruleResult = rule && this.fallback(rule);
 
-    return function declarationIterator(stream, state) {
-      var sameContext = state.context === initialContext;
+    if (ruleResult !== undefined) {
+      return ruleResult;
+    }
+    if (/\d/.test(ch)) {
+      stream.match(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/, true);
+      return this.next(tokens.numeric, afterExpression);
+    }
+    if (operatorRgx.test(ch)) {
+      stream.take(operatorRgx);
+      return this.yield(tokens.operator);
+    }
+    if (stream.take(wordRgx)) {
+      return this.fallback(wordExpression);
+    }
+  }
 
-      if (stage > 0 || !sameContext) {
-        state.declarationType = undefined;
-        if (sameContext) {
-          var ch = stream.next();
-          if (ch === ',') {
-            stage = 0;
-            return Tokens.punctuation;
-          }
-          if (ch === ';' || stage === 2 && /\S/.test(ch)) {
-            pop(state);
-            state.declarationName = undefined;
-          }
-          stream.undo(1);
-        } else {
-          stage = 2;
-        }
-        return this.iterator(stream, state);
-      }
+  function afterExpression(stream) {
+    if (stream.eatChain('.')) {
+      return this.next(tokens.punctuation, propertyExpression);
+    }
+    if (stream.eatChain('(')) {
+      this.pushContext(FAKE_CONTEXT);
+      return this.next(tokens.bracket, functionCallParams);
+    }
+    if (stream.eatChain('?')) {
+      return this.next(tokens.punctuation, expression, punctuation(':'), expression);
+    }
+    if (stream.eatChain('[')) {
+      this.pushContext(ARRAY_CONTEXT); // should it be fake context?
+      return this.next(tokens.bracket, expression, closePropertyBracket, afterExpression);
+    }
+    if (stream.take(binaryOperators)) {
+      return this.next(tokens.operator, expression);
+    }
+    if (stream.eatChain('instanceof')) {
+      return this.next(tokens.keyword, expression);
+    }
+  }
 
-      var ch = stream.next();
-      state.declarationType = type;
+  function closePropertyBracket(stream) {
+    if (stream.eatChain(']')) {
+      this.popContext();
+      return tokens.bracket;
+    }
+  }
 
-      if (ch === '{' || ch === '[') {
-        push(state, destructuring(ch));
-        return Tokens.bracket;
-      }
-      if (ch === ',') {
-        state.declarationName = undefined;
-        return Tokens.punctuation;
-      }
-      if (ch === ';') {
-        pop(state);
-        state.declarationType = state.declarationName = undefined;
-        return Tokens.punctuation;
-      }
-      if (ch === '=') {
-        if (state.declarationName) {
-          saveWordAsVariable(state, state.declarationName);
-        }
-        stage = 1;
-        return Tokens.operator;
-      }
-      if (wordCharacterRgx.test(ch)) {
-        var word = ch + stream.take(wordRgx);
+  function propertyExpression(stream, state) {
+    const word = stream.take(wordRgx);
+    if (word) {
+      const token = stream.isAfter(/^\s*\(/) ? tokens.function : tokens.property;
+      return this.next(tokens.property, afterExpression);
+    }
+  }
 
-        if (state.declarationName && (word === 'in' || word === 'of')) {
-          stage = 1;
-          return Tokens.keyword;
-        }
-        if (controls[word] || keywords[word] || constants[word]) {
-          return Tokens.invalid;
-        }
+  function closeBlock() {
+    this.popContext();
+    return this.fallback(statement);
+  }
 
-        state.declarationName = word;
-        return word === word.toUpperCase() ? Tokens.constant : Tokens.variable;
+  function maybeElseIfControl(stream) {
+    if (stream.eatChain('if')) {
+      return this.next(tokens.control, controlStatement);
+    }
+    return this.use(controlStatement);
+  }
+
+  function mainIterator(stream, state) {
+    if (state.context.type & BLOCK_CONTEXT && stream.eat('}')) {
+      this.popContext();
+      return tokens.bracket;
+    }
+    if (this.iterator === mainIterator) {
+      return this.use(statement, mainIterator);
+    } else {
+      return this.use(statement);
+    }
+  }
+
+  function statement(stream, state) {
+    if (stream.eat(';')) {
+      return tokens.punctuation;
+    }
+
+    const word = stream.take(wordRgx);
+
+    if (word) {
+      if (word === 'const' || word === 'let' || word === 'var') {
+        state.context.declarationType = word;
+        return this.next(tokens.keyword, variableDeclaration);
       }
+      if (word === 'else') {
+        return this.next(tokens.control, maybeElseIfControl);
+      }
+      if (word === 'for') {
+        return this.next(tokens.control, forStatement);
+      }
+      if (word === 'return') {
+        return this.next(tokens.keyword, expression);
+      }
+      if (controls[word]) {
+        return this.next(tokens.control, controlStatement);
+      }
+      return this.fallback(wordExpression);
+    }
+    return this.fallback(expression);
+  }
+
+  function functionDeclaration(stream) {
+    const word = stream.take(wordRgx);
+    word && saveWordAsVariable(this, word, 'var');
+    return this.next(word ? tokens.function : null, functionDeclarator);
+  }
+
+  function functionDeclarator(stream) {
+    if (stream.eat('(')) {
+      this.pushContext(FAKE_CONTEXT);
+      return this.next(tokens.bracket, functionParams);
+    }
+    if (stream.eat('*')) {
+      return tokens.punctuation;
+    }
+    this.popContext();
+  }
+
+  function functionParameter(stream, state) {
+    const word = stream.take(wordRgx);
+    saveWordAsVariable(this, word, 'var');
+    return tokens.parameter;
+  }
+
+  function functionParams(stream, state) {
+    if (stream.eat(')')) {
+      this.popContext();
+      return this.next(tokens.bracket, openBlock);
+    }
+    if (stream.eatChain('...')) {
+      return this.next([tokens.operator, 'spread'], functionParameter, functionParams);
+    }
+    if (stream.eat(',')) {
+      return this.yield(tokens.punctuation);
+    }
+    return this.use(functionParameter, functionParams);
+  }
+
+  function functionCallParams(stream) {
+    if (stream.eat(')')) {
+      this.popContext();
+      return this.next(tokens.bracket, afterExpression);
+    }
+    if (stream.eatChain('...')) {
+      return this.next([tokens.operator, 'spread'], expression, functionCallParams);
+    }
+    if (stream.eat(',')) {
+      return this.yield(tokens.punctuation);
+    }
+    return this.use(expression, functionCallParams);
+  }
+
+  function openBlock(stream) {
+    if (stream.eat('{')) {
+      return this.next(tokens.bracket, mainIterator);
+    }
+    return this.use(statement, closeBlock);
+  }
+
+  function arrayExpression(stream, state) {
+    if (stream.eat(']')) {
+      this.popContext();
+      return this.next(tokens.bracket, afterExpression);
+    }
+    if (stream.eat(',')) {
+      return this.yield(tokens.punctuation);
+    }
+    return this.use(expression, arrayExpression);
+  }
+
+  function objectExpression(stream, state) {
+    if (stream.eat('}')) {
+      this.popContext();
+      return tokens.bracket;
+    }
+    if (stream.eat(',')) {
+      return this.yield(tokens.punctuation);
+    }
+    return this.use(objectKey);
+  }
+
+  function objectKey(stream) {
+    // TODO: handle dynamic keys and strings
+    const word = stream.take(wordRgx);
+    if (word) {
+      return this.next(tokens.property, punctuation(':'), expression, objectExpression);
     }
   }
 
@@ -314,23 +438,23 @@ CodePrinter.defineMode('JavaScript', function() {
     var ch = stream.next();
 
     if (ch === '{') {
-      push(state, destructuring(ch));
-      return Tokens.bracket;
+      this.push(destructuring(ch));
+      return tokens.bracket;
     }
     if (ch === '"' || ch === '\'') {
-      return push(state, string(ch))(stream, state);
+      return this.push(stringExpression(ch))(stream, state);
     }
     if (wordCharacterRgx.test(ch)) {
       var word = ch + stream.take(wordRgx);
 
       if (word === 'from' || word === 'as' || word === 'default') {
-        return Tokens.keyword;
+        return tokens.keyword;
       }
-      return saveVariable(state, word, 'constant', BLOCK_CONTEXT);
+      return this.saveVariable(state, word, 'constant', BLOCK_CONTEXT);
     }
     if (ch === ';') {
-      pop(state);
-      return Tokens.punctuation;
+      this.pop();
+      return tokens.punctuation;
     }
   }
 
@@ -341,25 +465,25 @@ CodePrinter.defineMode('JavaScript', function() {
       var ch = stream.next();
 
       if (ch === lastChar) {
-        pop(state);
-        return Tokens.bracket;
+        this.pop();
+        return tokens.bracket;
       }
       if (ch === '{' || ch === '[') {
-        push(state, destructuring(ch));
-        return Tokens.bracket;
+        this.push(destructuring(ch));
+        return tokens.bracket;
       }
       if (ch === ',') {
-        return Tokens.punctuation;
+        return tokens.punctuation;
       }
       if (wordCharacterRgx.test(ch)) {
         var word = ch + stream.take(wordRgx);
 
         if (firstChar === '{') {
           if (word === 'as') {
-            return Tokens.keyword;
+            return tokens.keyword;
           }
           if (stream.isAfter(/^\s*(:|as\b)/)) {
-            return Tokens.word;
+            return tokens.word;
           }
         }
         return saveWordAsVariable(state, word);
@@ -367,44 +491,53 @@ CodePrinter.defineMode('JavaScript', function() {
     }
   }
 
-  function pushcontext(state, type, name) {
-    state.context = { type: type, prev: state.context, indent: state.indent + 1 };
-    if (name) state.context.name = name;
-    if (type & FUNCTION_CONTEXT) state.context.params = {};
-  }
-  function popcontext(state) {
-    if (state.context.prev) {
-      state.indent = state.context.indent - 1;
-      state.context = state.context.prev;
+  function controlStatement(stream) {
+    this.pushContext(BLOCK_CONTEXT);
+    if (stream.eat('(')) {
+      this.pushContext(FAKE_CONTEXT);
+      return this.next(tokens.bracket, expression, controlStatement);
+    }
+    if (stream.eat(')')) {
+      this.popContext();
+      return this.next(tokens.bracket, openBlock);
     }
   }
-  function isVariable(varname, state) {
-    for (var ctx = state.context; ctx; ctx = ctx.prev) {
-      if (ctx.vars && ctx.vars[varname]) return ctx.vars[varname];
-      if (ctx.params && ctx.params[varname]) return Tokens.variable;
+
+  function forStatement(stream) {
+    if (stream.eat('(')) {
+      this.pushContext(BLOCK_CONTEXT);
+      return this.next(tokens.bracket, forStatementInner);
     }
   }
-  function saveVariable(state, varname, vartype, type) {
-    var ctx = state.context;
-    while (ctx && ctx.prev && (ctx.type > type || !(ctx.type & type))) ctx = ctx.prev;
-    if (ctx) {
-      if (!ctx.vars) ctx.vars = {};
-      ctx.vars[varname] = vartype;
+
+  function forStatementInner(stream) {
+    if (stream.eat(')')) {
+      this.popContext();
+      return this.next(tokens.bracket, openBlock);
     }
-    return vartype;
+    if (stream.eat(';')) {
+      return this.yield(tokens.punctuation);
+    }
+    return this.use(statement, forStatementInner);
   }
+
   function closeFatArrow(stream, state) {
     if (state.fatArrow && state.context.type === ARROW_CONTEXT) {
-      popcontext(state);
+      this.popContext();
       state.fatArrow = null;
     }
   }
 
-  function saveWordAsVariable(state, word) {
-    var decl = state.declarationType;
-    if (decl === 'var') return saveVariable(state, word, 'variable', FUNCTION_CONTEXT);
-    if (decl === 'let') return saveVariable(state, word, 'variable', BLOCK_CONTEXT);
-    if (decl === 'const' || hasIterator(state, importIterator)) return saveVariable(state, word, 'constant', BLOCK_CONTEXT);
+  function saveWordAsVariable(task, word, type) {
+    if (type === 'var') {
+      return task.saveVariable(word, 'variable', FUNCTION_CONTEXT);
+    }
+    if (type === 'let') {
+      return task.saveVariable(word, 'variable', BLOCK_CONTEXT);
+    }
+    if (type === 'const') {
+      return task.saveVariable(word, 'constant', BLOCK_CONTEXT);
+    }
   }
 
   function Definition(name, params) {
@@ -419,188 +552,119 @@ CodePrinter.defineMode('JavaScript', function() {
     }
   }
 
-  rules['"'] = rules["'"] = function(stream, state, ch) {
-    return push(state, string(ch))(stream, state);
+  function stringRule(ch) {
+    return function(stream, state) {
+      state.stringType = ch;
+      return this.use(stringExpression);
+    };
   }
-  rules['`'] = function(stream, state, ch) {
-    return push(state, templateString)(stream, state);
-  }
+
+  rules['"'] = stringRule('"');
+  rules["'"] = stringRule("'");
+
   rules['/'] = function(stream, state) {
     if (stream.eat('/')) {
       stream.skip();
-      return Tokens.comment;
+      return tokens.comment;
     }
-    if (stream.eat('*')) {
-      return push(state, comment)(stream, state);
+    if (this.lastTokenIncludes('word', 'parameter', 'variable', 'numeric', 'constant') || stream.lastValue === ')') {
+      return tokens.operator;
     }
-    if (stream.lastSymbol === 'word' || stream.lastSymbol === 'parameter' || stream.lastSymbol === 'variable'
-      || stream.lastSymbol === 'numeric' || stream.lastSymbol === 'constant' || stream.lastValue === ')') {
-      return Tokens.operator;
-    }
-    return push(state, regexp)(stream, state);
-  }
-  rules['.'] = function(stream, state) {
-    if (stream.match(/^\d+(?:[eE][+\-]?\d+)?/, true)) return Tokens.numeric;
-    else if (stream.eat('.') && stream.eat('.')) return Tokens.operator;
-    return Tokens.punctuation;
-  }
-  rules[','] = rules[':'] = function() { return Tokens.punctuation; }
-  rules[';'] = function(stream, state) {
-    closeFatArrow(stream, state);
-    if (state.context.type === BLOCK_CONTEXT && state.context.open) {
-      if (state.controlParenthesisClosed || state.control === 'else' && state.controlParenthesisClosed === null) {
-        do popcontext(state); while (state.context.open);
-        state.control = null;
-      }
-    }
-    return Tokens.punctuation;
-  }
-  rules['('] = function(stream, state) {
-    if (state.control && stream.lastSymbol === 'control') {
-      if (state.controlParenthesisClosed) state.controlParenthesisClosed = false;
-      pushcontext(state, BLOCK_CONTEXT);
-      state.context.open = true;
-    }
-    else if (state.fn && (stream.lastValue === 'function' || stream.lastSymbol === 'function')) {
-      push(state, parameters);
-      pushcontext(state, FUNCTION_CONTEXT, state.fn);
-      if ('string' === typeof state.fn) stream.markDefinition(new Definition(state.fn, state.context.params));
-    }
-    else if (!state.fn && stream.lastSymbol !== 'function' && stream.isAfter(/^[^\(\)]*\)\s*=>/)) {
-      push(state, parameters);
-      pushcontext(state, ARROW_CONTEXT);
-      state.fatArrow = true;
-    }
-    else {
-      pushcontext(state, FAKE_CONTEXT);
-    }
-    return Tokens.bracket;
-  }
-  rules['{'] = function(stream, state) {
-    var ctxType = state.context.type;
-    if (state.control && ctxType === BLOCK_CONTEXT && state.context.open && stream.lastValue === ')') {
-      if (state.controlParenthesisClosed) state.controlParenthesisClosed = null;
-      state.control = null;
-      state.context.open = false;
-    }
-    else if (state.fn && ctxType === FUNCTION_CONTEXT) {
-      state.fn = null;
-    }
-    else if (state.fatArrow && ctxType === ARROW_CONTEXT && stream.lastValue === '=>') {
-      state.fatArrow = false;
-    }
-    else if (state.classdef) {
-      pushcontext(state, CLASS_CONTEXT);
-      state.classdef = null;
-    }
-    else if (state.declaration) {
-      pushcontext(state, OBJECT_CONTEXT);
-    }
-    else {
-      pushcontext(state, BLOCK_CONTEXT);
-    }
-    return Tokens.bracket;
-  }
-  rules['['] = function(stream, state) {
-    pushcontext(state, ARRAY_CONTEXT);
-    return Tokens.bracket;
-  }
-  rules[')'] = function(stream, state) {
-    closeFatArrow(stream, state);
-    if (state.context.type === FAKE_CONTEXT) popcontext(state);
-    else if (state.control) {
-      state.controlParenthesisClosed = true;
-    }
-    else if (!state.fn) return Tokens.invalid;
-    return Tokens.bracket;
-  }
-  rules['}'] = function(stream, state) {
-    closeFatArrow(stream, state);
-    if (state.context.type === BLOCK_CONTEXT && !state.context.open || state.context.type & 47) {
-      if (state.control) state.control = undefined;
-      popcontext(state);
-    } else return Tokens.invalid;
-    return Tokens.bracket;
-  }
-  rules[']'] = function(stream, state) {
-    closeFatArrow(stream, state);
-    if (state.context.type & ARRAY_CONTEXT) popcontext(state);
-    else return Tokens.invalid;
-    return Tokens.bracket;
-  }
-  rules['#'] = function(stream) {
-    if (stream.peek() === '!' && stream.pos === 1) {
-      stream.skip();
-      return Tokens.directive;
-    }
-    return Tokens.invalid;
-  }
+    return this.use(regexpExpression);
+  };
 
-  rules['@'] = function(stream, state) {
-    if (stream.take(wordRgx)) {
-      return Tokens.directive;
+  rules['['] = function() {
+    this.pushContext(ARRAY_CONTEXT);
+    return this.next(tokens.bracket, arrayExpression);
+  };
+
+  rules['{'] = function() {
+    this.pushContext(OBJECT_CONTEXT);
+    return this.next(tokens.bracket, objectExpression);
+  };
+
+  rules['('] = function() {
+    this.pushContext(FAKE_CONTEXT);
+    return this.next(tokens.bracket, expression);
+  };
+
+  rules[')'] = function() {
+    this.popContext();
+    return this.next(tokens.bracket, afterExpression);
+  };
+
+  rules['`'] = function() {
+    return this.use(templateStringExpression);
+  };
+
+  rules['0'] = function(stream) {
+    if (stream.eat(/x/i)) {
+      stream.take(/^[\da-f]+/i);
+      return this.next([tokens.numeric, tokens.hex], afterExpression);
     }
+    if (stream.eat(/o/i)) {
+      stream.take(/^[0-7]+/);
+      return this.next([tokens.numeric, tokens.octal], afterExpression);
+    }
+    if (stream.eat(/b/i)) {
+      stream.take(/^[01]+/);
+      return this.next([tokens.numeric, tokens.binary], afterExpression);
+    }
+  };
+
+  function isMultilineIterator(iterator) {
+    return iterator && [comment, stringExpression, templateStringExpression].indexOf(iterator) >= 0;
   }
 
   return {
     name: 'JavaScript',
-    blockCommentStart: '/*',
-    blockCommentEnd: '*/',
-    lineComment: '//',
     autoCompleteWord: /[\w_]+/,
     autoCompleteTriggers: /[\w_]/,
     indentTriggers: /[\}\]\)e]/,
     matching: 'brackets',
     skipSpaces: true,
+    lineComment: '//',
+    blockComment: {
+      start: '/*',
+      end: '*/',
+    },
 
-    initialState: function() {
+    initialState() {
       return {
         indent: 0,
         context: { type: BLOCK_CONTEXT, vars: {}, indent: 0 }
+      };
+    },
+
+    beforeIterator(stream, state) {
+      if (!isMultilineIterator(this.iterator) && stream.eatChain('/*')) {
+        return this.use(comment);
       }
     },
-    iterator: function(stream, state) {
-      var ch = stream.next(), rule = rules[ch];
 
-      if (rule) return rule(stream, state, ch);
+    iterator: mainIterator,
 
-      if (ch === '0' && stream.eat(/x/i)) {
-        stream.take(/^[\da-f]+/i);
-        return [Tokens.numeric, Tokens.hex];
-      }
-      if (/\d/.test(ch)) {
-        stream.match(/^\d*(?:\.\d*)?(?:[eE][+\-]?\d+)?/, true);
-        return Tokens.numeric;
-      }
-      if (operatorRgx.test(ch)) {
-        if (ch === '*' && stream.lastValue === 'function') return;
-        stream.take(/^[+\-*&%=<>!?|~^]+/);
-        return Tokens.operator;
-      }
-      if (wordCharacterRgx.test(ch)) {
-        return words(stream, state, ch);
-      }
-    },
-    onExit: function(stream, state) {
-      if (currentIterator(state) === importIterator) {
-        pop(state);
-      }
+    onExit(stream, state) {
       state.indent = state.context.indent;
     },
-    indent: function(stream, state, nextIteration) {
+
+    indent(stream, state, nextIteration) {
       var i = state.indent, peek = stream.peek();
-      if (stream.lastSymbol === 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
+      if (this.lastTokenIncludes('bracket') && stream.isAfter(closeBrackets)) return [i, -1];
       if (closeBrackets.test(peek)) {
         if (peek === ')') return state.context.type === FAKE_CONTEXT ? i - 1 : null;
         if (peek === ']') return state.context.type === ARRAY_CONTEXT ? i - 1 : null;
         if (peek === '}') return state.context.type & 47 ? i - 1 : null;
         if (!/\bbracket\b/.test(nextIteration()) || stream.lastValue !== peek) return null;
       }
-      if (peek === 'e') return stream.isBefore('els') && stream.lastSymbol === 'control' ? i : null;
+      if (peek === 'e') {
+        return stream.isBefore('els') && this.lastTokenIncludes(tokens.control) ? i : null;
+      }
       if (state.parser && stream.isAfter(/^\s*<\s*\/\s*script/i)) return i - 1;
       return i;
     },
-    completions: function(stream, state) {
+
+    completions(stream, state) {
       var vars = [];
       for (var ctx = state.context; ctx; ctx = ctx.prev) {
         if (ctx.vars) vars.push.apply(vars, Object.keys(ctx.vars));
@@ -611,6 +675,7 @@ CodePrinter.defineMode('JavaScript', function() {
         search: 200
       }
     },
+
     snippets: {
       'fun': {
         content: 'function() {}',

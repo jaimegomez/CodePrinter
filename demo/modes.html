@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+  <head>
+    <link type="text/css" rel="stylesheet" href="../CodePrinter.css" />
+    <script type="text/javascript" src="../CodePrinter.js"></script>
+    <style type="text/css">
+      textarea {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <textarea id="JavaScript"></textarea>
+    <textarea id="CSS">/* CSS example */
+
+html, body {
+  background: white;
+  font-size: 62.5%;
+}
+
+.container {
+  background: #ddd;
+  margin: 15px auto;
+  text-align: center;
+  
+  /* also supports some features from LESS/SASS
+   * such as variables or nested selectors
+   */
+  
+  @inputColor: #334455;
+  
+  input[type="text"] {
+    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+    color: @inputColor;
+    
+    &::after {
+      content: ".";
+    }
+  }
+}
+</textarea>
+    
+    <script type="text/javascript">
+      var cp = new CodePrinter({
+        placeholder: 'Code goes here...',
+        rulers: [70],
+      });
+      
+      function reinit() {
+        var id = location.hash || '#JavaScript';
+        var textarea = document.querySelector(id);
+        var value = textarea ? textarea.value : '';
+        cp.doc.init(value, id.substr(1));
+      }
+      reinit();
+      window.addEventListener('hashchange', reinit);
+      document.body.appendChild(cp.getDOMNode());
+    </script>
+  </body>
+</html>

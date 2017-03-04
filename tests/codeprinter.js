@@ -1,45 +1,32 @@
+import { lines, reset } from 'helpers/tests';
 
-var lines = [
-  "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod",
-  "tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam,",
-  "quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-  "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu",
-  "fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa",
-  "qui officia deserunt mollit anim id est laborum."
-];
-var content = lines.join('\n');
-var cp = new CodePrinter(content, { shortcuts: false, height: 1000, mode: 'plaintext', hints: true });
-var doc = cp.doc;
+describe('CodePrinter', () => {
+  beforeAll(reset);
 
-document.body.appendChild(cp.dom.mainNode);
-
-function generatePosition() {
-  var pos = {};
-  pos.line = Math.floor(Math.random() * (lines.length - 1));
-  pos.column = Math.floor(Math.random() * (lines[pos.line].length - 1));
-  return pos;
-}
-
-function checkSymbols(positions, symbols) {
-  for (var i = 0; i < positions.length; i++) {
-    expect(cp.doc.hasSymbolAt(symbols, positions[i])).toBeTruthy();
-  }
-}
-
-describe('CodePrinter', function() {
-  beforeAll(function(done) {
-    cp.setDocument(doc);
-    if (cp.dom.mainNode.parentNode) done();
-    else cp.on('inserted', function() {
-      done();
-    });
+  it('should be initialized', () => {
+    expect(cp.doc.getValue()).toBe(lines.join('\n'));
   });
-  
-  it('should be initialized', function() {
-    expect(cp.doc.getValue()).toBe(content);
+
+  it('should have custom options', () => {
+    expect(cp.hasOwnOption('height')).toBe(true);
+    expect(cp.hasOwnOption('shortcuts')).toBe(true);
+    expect(cp.hasOwnOption('autoFocus')).toBe(false);
+
+    expect(cp.getOption('height')).toBe(1000);
+    expect(cp.getOption('shortcuts')).toBe(false);
   });
-  
-  it('should get focus', function() {
+
+  it('can change options', () => {
+    expect(cp.getOption('autoIndent')).toBe(true);
+    cp.setOption('autoIndent', false);
+    expect(cp.getOption('autoIndent')).toBe(false);
+  });
+
+  it('has correct tab string', () => {
+    expect(cp.getTabString()).toBe('  ');
+  });
+
+  it('should get focus', () => {
     cp.focus();
     expect(cp.dom.input).toBe(document.activeElement);
   });

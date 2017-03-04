@@ -1,79 +1,85 @@
+import { pos, onewayRange } from 'statics';
+import { doc, generatePosition, lines, reset } from 'helpers/tests';
 
-describe('Caret', function() {
-  
-  var caret = doc.resetCarets();
-  
-  beforeEach(function() {
-    cp.setDocument(doc);
+describe('Caret', () => {
+  const toInsert = '...';
+  let caret;
+
+  beforeAll(() => {
+    reset();
+    caret = cp.doc.resetCarets();
   });
-  
-  var toInsert = '...';
-  
-  it('should change the position', function() {
-    var pos = generatePosition();
+
+  it('should change the position', () => {
+    const pos = generatePosition();
     caret.position(pos);
-    
-    expect(caret.line()).toBe(pos.line);
+
+    expect(caret.lineNumber()).toBe(pos.line);
     expect(caret.column()).toBe(pos.column);
   });
-  
-  it('should select text', function() {
-    var anchor = generatePosition(), head = generatePosition();
+
+  it('should select text', () => {
+    const anchor = generatePosition();
+    const head = generatePosition();
     caret.setSelection(anchor, head);
-    
-    expect(caret.hasSelection()).toBeTruthy();
-    expect(caret.getSelectionRange()).toBeTruthy();
-    expect(caret.anchor().line).toBe(anchor.line);
-    expect(caret.head().line).toBe(head.line);
+
+    expect(caret.hasSelection()).toBe(true);
+    expect(caret.getSelectionRange()).toEqual(onewayRange(anchor, head));
+    expect(caret.anchor()).toEqual(anchor);
+    expect(caret.head()).toEqual(head);
   });
-  
-  it('should clear the selection', function() {
-    caret.clearSelection();
-    
-    expect(caret.hasSelection()).toBeFalsy();
-    expect(caret.anchor()).toBeFalsy();
-  });
-  
-  it('should insert text', function() {
+
+  it('should insert text', () => {
     caret.position(generatePosition());
     caret.insert(toInsert);
-    
+
     expect(caret.textBefore().slice(-toInsert.length)).toBe(toInsert);
   });
-  
-  it('should remove inserted text', function() {
-    var removed = caret.removeBefore(toInsert.length);
-    
+
+  it('should remove inserted text', () => {
+    const removed = caret.removeBefore(toInsert.length);
+
     expect(removed[0]).toBe(toInsert);
-    expect(caret.textAtCurrentLine()).toBe(lines[caret.line()]);
+    expect(caret.textAtCurrentLine()).toBe(lines[caret.lineNumber()]);
   });
-  
-  it('should wrap selection', function() {
+
+  it('should wrap selection', () => {
     caret.setSelection(generatePosition(), generatePosition());
+    const selection = caret.getSelection();
+
     caret.wrapSelection('{', '}');
-    var range = caret.getRange();
-    
-    expect(doc.textAt(range.from.line).charAt(range.from.column - 1)).toBe('{');
-    expect(doc.textAt(range.to.line).charAt(range.to.column)).toBe('}');
+    const { from, to } = caret.getRange();
+
+    expect(caret.getSelection()).toBe(selection);
+    expect(doc.textAt(pos(from.line, from.column - 1))).toBe('{');
+    expect(doc.textAt(to)).toBe('}');
   });
-  
-  it('should unwrap selection', function() {
+
+  it('should unwrap selection', () => {
     caret.unwrapSelection('{', '}');
-    caret.clearSelection();
-    expect(doc.getValue('\n')).toBe(content);
+    expect(doc.getValue()).toBe(lines.join('\n'));
   });
-  
-  it('should move selection', function() {
-    var ps = [generatePosition(), generatePosition(), generatePosition()].sort(function(a, b) { return a.line - b.line || a.column - b.column; });
-    
+
+  it('should clear the selection', () => {
+    caret.clearSelection();
+
+    expect(caret.hasSelection()).toBe(false);
+    expect(caret.anchor()).toBeNull();
+  });
+
+  it('should move selection', () => {
+    const ps = [generatePosition(), generatePosition(), generatePosition()].sort((a, b) => {
+      return a.line - b.line || a.column - b.column;
+    });
+
     caret.setSelection(ps[0], ps[1]);
-    var sel = doc.getSelection();
+    const sel = doc.getSelection();
     caret.moveSelectionTo(ps[2]);
-    
+
     expect(doc.getSelection()).toBe(sel);
     doc.undo();
     expect(doc.getSelection()).toBe(sel);
-    expect(doc.getValue()).toBe(content);
+    expect(doc.getValue()).toBe(lines.join('\n'));
     caret.clearSelection();
   });
 });

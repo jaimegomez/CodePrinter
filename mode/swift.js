@@ -1,7 +1,7 @@
 /* CodePrinter - Swift mode */
 
 CodePrinter.defineMode('Swift', function() {
-  
+
   var wordRgx = /[\w$\xa1-\uffff]/
   , takeWordRgx = /^[\w$\xa1-\uffff]+/
   , operators = /[\/=\-+!*%<>&|^?~]/
@@ -36,9 +36,9 @@ CodePrinter.defineMode('Swift', function() {
   , escapedChars = CodePrinter.keySet([
     '0', '\\', 't', 'n', 'r', '"', "'"
   ]);
-  
+
   var BLOCK = 1, FUNCTION = 2, FUNCTION_CALL = 4;
-  
+
   function string(stream, state, escaped) {
     var esc = !!escaped, ch;
     while (ch = stream.next()) {
@@ -95,7 +95,7 @@ CodePrinter.defineMode('Swift', function() {
     if (ch && star) pop(state);
     return 'comment';
   }
-  
+
   function pushcontext(state, type) {
     state.context = { type: type, prev: state.context, indent: state.indent + 1 };
   }
@@ -123,7 +123,7 @@ CodePrinter.defineMode('Swift', function() {
       if (arguments[i]) vars.push.apply(vars, Object.keys(arguments[i]));
     }
   }
-  
+
   rules['"'] = function(stream, state) {
     return push(state, string)(stream, state);
   }
@@ -170,16 +170,16 @@ CodePrinter.defineMode('Swift', function() {
     }
     return 'bracket';
   }
-  
+
   function words(stream, state, ch) {
     var word = ch + stream.take(takeWordRgx);
-    
+
     if (word === 'true' || word === 'false') return 'builtin boolean';
     if (word === 'nil') return 'constant';
     if (controls[word]) return 'control';
     if (keywords[word]) return 'keyword';
     if (builtins[word]) return 'builtin';
-    
+
     if (stream.isAfter(':')) {
       if (state.context.type === FUNCTION_CALL) {
         return 'property';
@@ -189,9 +189,9 @@ CodePrinter.defineMode('Swift', function() {
         return 'parameter';
       }
     }
-    
+
     var lastValue = stream.lastValue;
-    
+
     if (lastValue === 'class' || lastValue === 'protocol' || lastValue === 'extension') {
       saveVariable(state.context, word, 'class');
       return 'special';
@@ -210,13 +210,13 @@ CodePrinter.defineMode('Swift', function() {
     }
     return isVariable(state, word);
   }
-  
+
   return new CodePrinter.Mode({
     lineComment: '//',
     blockCommentStart: '/*',
     blockCommentEnd: '*/',
     matching: 'brackets',
-    
+
     initialState: function() {
       return {
         type: BLOCK,
@@ -228,14 +228,14 @@ CodePrinter.defineMode('Swift', function() {
     },
     iterator: function(stream, state) {
       var ch = stream.next(), rule = rules[ch];
-      
+
       if (rule) {
         var token = rule(stream, state, ch);
         if (token) {
           return token;
         }
       }
-      
+
       if (ch === '-' && stream.take(/^\d/) || /\d/.test(ch)) {
         if (ch === '0') {
           if (stream.eat('x')) {
@@ -266,7 +266,7 @@ CodePrinter.defineMode('Swift', function() {
     },
     indent: function(stream, state) {
       var i = state.indent, peek = stream.peek();
-      if (stream.lastSymbol === 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
+      if (stream.lastToken === 'bracket' && stream.isAfter(closeBrackets)) return [i, -1];
       if (closeBrackets.test(peek)) {
         return i - 1;
       }

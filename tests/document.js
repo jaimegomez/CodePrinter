@@ -1,98 +1,88 @@
+import { lines, generatePosition, reset } from 'helpers/tests';
 
-describe('Document', function() {
-  
-  beforeAll(function() {
-    cp.setDocument(doc);
-  });
-  
-  it('should be attached', function() {
+describe('Document', () => {
+  const text = lines.slice(0, 2 + Math.floor(Math.random() * 3));
+  const doc = cp.doc;
+  let documentValue;
+
+  beforeAll(reset);
+
+  it('should be initialized', () => {
     expect(cp.doc).toBe(doc);
+    expect(doc.getValue()).toBe(lines.join('\n'));
   });
-  
-  var ins = 'insert some text ';
-  var pos1 = generatePosition();
-  
-  it('should insert one-line text', function() {
-    var line = lines[pos1.line];
-    doc.replaceRange(ins, pos1);
-    expect(doc.get(pos1.line).text).toBe(line.substring(0, pos1.column) + ins + line.substr(pos1.column));
+
+  it('should insert & remove one-line text', () => {
+    const pos = generatePosition();
+    const insertText = 'insert some text ';
+    const line = doc.get(pos.line);
+    const previousText = line.text;
+
+    doc.replaceRange(insertText, pos);
+    expect(line.text).toBe(previousText.substring(0, pos.column) + insertText + previousText.substr(pos.column));
+
+    doc.removeRange(pos, { line: pos.line, column: pos.column + insertText.length });
+    expect(line.text).toBe(previousText);
   });
-  
-  it('should remove one-line text', function() {
-    doc.removeRange(pos1, { line: pos1.line, column: pos1.column + ins.length });
-    expect(doc.get(pos1.line).text).toBe(lines[pos1.line]);
-  });
-  
-  var multiLineText = [
-    "Cupcake ipsum dolor sit amet gingerbread. Cupcake ice cream gummies.",
-    "Soufflé lemon drops powder.",
-    "Bonbon marshmallow marshmallow dragée dessert macaroon marzipan dessert jujubes.",
-    "Ice cream soufflé dragée halvah pastry carrot cake. Carrot cake biscuit croissant",
-    "liquorice. Dragée biscuit ice cream marshmallow jelly beans."
-  ].slice(0, 2 + Math.floor(Math.random() * 3));
-  
-  var pos2 = generatePosition();
-  
-  it('should insert multi-line text', function() {
-    doc.replaceRange(multiLineText, pos2);
-    expect(doc.get(pos2.line).text).toBe(lines[pos2.line].substring(0, pos2.column) + multiLineText[0]);
-    for (var i = 1; i < multiLineText.length - 1; i++) {
-      expect(doc.get(pos2.line + i).text).toBe(multiLineText[i]);
+
+  it('should insert & remove multi-line text', () => {
+    const pos = generatePosition();
+
+    doc.replaceRange(text, pos);
+    expect(doc.textAt(pos.line)).toBe(lines[pos.line].substring(0, pos.column) + text[0]);
+
+    for (let i = 1; i < text.length; i++) {
+      const right = i === text.length - 1 ? lines[pos.line].substr(pos.column) : '';
+      expect(doc.textAt(pos.line + i)).toBe(text[i] + right);
     }
-    expect(doc.get(pos2.line + i).text).toBe(multiLineText[i] + lines[pos2.line].substr(pos2.column));
-  });
-  
-  it('should remove multi-line text', function() {
-    doc.removeRange(pos2, { line: pos2.line + multiLineText.length - 1, column: multiLineText[multiLineText.length-1].length });
-    for (var i = 0; i < lines.length; i++) {
-      expect(doc.get(i).text).toBe(lines[i]);
+
+    doc.removeRange(pos, { line: pos.line + text.length - 1, column: text[text.length - 1].length });
+    for (let i = 0; i < lines.length; i++) {
+      expect(doc.textAt(i)).toBe(lines[i]);
     }
   });
-  
-  var pos3 = pos2;
-  var pos4 = generatePosition();
-  var removedText;
-  
-  if ((pos3.line - pos4.line || pos3.column - pos4.column) > 0) {
-    var tmp = pos3;
-    pos3 = pos4;
-    pos4 = tmp;
-  }
-  
-  function replaceLinesTest() {
-    var delta = pos4.line - pos3.line;
-    var after = delta ? '' : lines[pos4.line].substr(pos4.column);
-    expect(doc.get(pos3.line).text).toBe(lines[pos3.line].substring(0, pos3.column) + multiLineText[0]);
-    for (var i = 1; i < multiLineText.length - 1; i++) {
-      expect(doc.get(pos3.line + i).text).toBe(multiLineText[i]);
+
+  it('should replace multi-line text', () => {
+    let pos1 = generatePosition();
+    let pos2 = generatePosition();
+
+    if ((pos1.line - pos2.line || pos1.column - pos2.column) > 0) {
+      [pos1, pos2] = [pos2, pos1];
     }
-    expect(doc.get(pos3.line + i).text).toBe(multiLineText[i] + lines[pos4.line].substr(pos4.column));
-  }
-  
-  it('should replace multi-line text', function() {
-    doc.replaceRange(multiLineText, pos3, pos4);
-    replaceLinesTest();
+
+    doc.replaceRange(text, pos1, pos2);
+
+    const delta = pos2.line - pos1.line;
+    const after = delta ? '' : lines[pos2.line].substr(pos2.column);
+
+    expect(doc.textAt(pos1.line)).toBe(lines[pos1.line].substring(0, pos1.column) + text[0]);
+
+    for (let i = 1; i < text.length; i++) {
+      const right = i === text.length - 1 ? lines[pos2.line].substr(pos2.column) : '';
+      expect(doc.textAt(pos1.line + i)).toBe(text[i] + right);
+    }
   });
-  
-  it('should undo', function() {
+
+  it('should undo', () => {
+    documentValue = doc.getValue();
     doc.undo();
-    for (var i = 0; i < lines.length; i++) {
-      expect(doc.get(i).text).toBe(lines[i]);
+    for (let i = 0; i < lines.length; i++) {
+      expect(doc.textAt(i)).toBe(lines[i]);
     }
     expect(doc.size()).toBe(lines.length);
   });
-  
-  it('should redo', function() {
+
+  it('should redo', () => {
     doc.redo();
-    replaceLinesTest();
+    expect(doc.getValue()).toBe(documentValue);
   });
-  
-  it('should undo all', function() {
+
+  it('should undo all', () => {
     doc.undoAll();
     expect(doc.getValue()).toBe(lines.join('\n'));
   });
-  
-  it('could search by pattern', function(done) {
+
+  xit('could search by pattern', function(done) {
     doc.search(/\b\w\w\b/, function(results) {
       expect(results.length).toBe(13);
       results.each(function(searchNode) {
@@ -101,15 +91,15 @@ describe('Document', function() {
       done();
     });
   });
-  
-  it('could search by string', function(done) {
+
+  xit('could search by string', function(done) {
     var dolorPos = [
       [0, 12],
       [1, 31],
       [3, 16],
       [3, 70]
     ];
-    
+
     doc.search('dolor', function(results) {
       expect(results.length).toBe(4);
       results.each(function(searchNode, index, line) {
@@ -120,11 +110,11 @@ describe('Document', function() {
       done();
     });
   });
-  
-  it('could replace found strings', function(done) {
+
+  xit('could replace found strings', function(done) {
     doc.replace('lorem'); // replace only active search node
     expect(doc.textAt(0)).toBe(lines[0].replace('dolor', 'lorem'));
-    
+
     // changes in the document should trigger a new search
     doc.once('searchCompleted', function(results, request) {
       expect(results.length).toBe(3);

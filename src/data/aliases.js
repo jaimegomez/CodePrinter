@@ -1,0 +1,16 @@
+export default {
+  'adb': 'ada',
+  'c++': 'cpp',
+  'coffee': 'coffeescript',
+  'h': 'cpp',
+  'htm': 'html',
+  'js': 'javascript',
+  'less': 'css',
+  'md': 'markdown',
+  'pl': 'perl',
+  'plist': 'xml',
+  'rb': 'ruby',
+  'sh': 'bash',
+  'svg': 'xml',
+  'yml': 'yaml',
+};

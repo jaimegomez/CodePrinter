@@ -1,25 +1,25 @@
 // karma.conf.js
-module.exports = function(config) {
+const webpackConfig = require('./webpack.config.js');
+
+module.exports = config => {
   config.set({
     files: [
-      'node_modules/es6-promise/dist/es6-promise.min.js',
-      'CodePrinter.js',
-      'CodePrinter.css',
-      'addons/*.js',
-      'mode/*.js',
-      'tests/codeprinter.js',
-      'tests/document.js',
-      'tests/caret.js',
-      'tests/commands.js',
-      'tests/data.js',
-      'tests/mode/javascript.js',
-      'tests/mode/jsx.js',
-      'tests/mode/css.js',
-      //'tests/mode/*.js'
+      'tests.js',
     ],
     frameworks: ['jasmine'],
-    reporters: ['progress'],
-    browsers: ['PhantomJS'],
+    reporters: ['spec'],
+    browsers: ['Chrome'],
+    preprocessors: {
+      'tests.js': ['webpack', 'sourcemap'],
+    },
+    webpack: {
+      devtool: 'inline-source-map',
+      module: webpackConfig.module,
+      resolve: webpackConfig.resolve,
+    },
+    webpackMiddleware: {
+      stats: 'errors-only'
+    },
     logLevel: config.LOG_INFO,
     port: 9876,
     colors: true,
